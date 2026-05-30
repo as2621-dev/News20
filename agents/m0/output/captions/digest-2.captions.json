@@ -1,0 +1,918 @@
+{
+  "digest_id": "digest-2",
+  "audio_duration_s": 46.0,
+  "speech_end_s": 44.93,
+  "sentence_count": 10,
+  "words": [
+    {
+      "word": "Travis",
+      "start_s": 0.0,
+      "end_s": 0.454,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "Kelce",
+      "start_s": 0.454,
+      "end_s": 0.843,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 0.843,
+      "end_s": 1.037,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "now",
+      "start_s": 1.037,
+      "end_s": 1.297,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "part-owner",
+      "start_s": 1.297,
+      "end_s": 1.945,
+      "sentence_index": 0,
+      "is_highlight": true
+    },
+    {
+      "word": "of",
+      "start_s": 1.945,
+      "end_s": 2.14,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 2.14,
+      "end_s": 2.269,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "baseball",
+      "start_s": 2.269,
+      "end_s": 2.853,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "team.",
+      "start_s": 2.853,
+      "end_s": 3.177,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "The",
+      "start_s": 3.177,
+      "end_s": 3.436,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "Chiefs",
+      "start_s": 3.436,
+      "end_s": 3.89,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "tight",
+      "start_s": 3.89,
+      "end_s": 4.279,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "end",
+      "start_s": 4.279,
+      "end_s": 4.538,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "just",
+      "start_s": 4.538,
+      "end_s": 4.863,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "bought",
+      "start_s": 4.863,
+      "end_s": 5.316,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 5.316,
+      "end_s": 5.446,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "minority",
+      "start_s": 5.446,
+      "end_s": 6.03,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "stake",
+      "start_s": 6.03,
+      "end_s": 6.419,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "in",
+      "start_s": 6.419,
+      "end_s": 6.613,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 6.613,
+      "end_s": 6.872,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "Cleveland",
+      "start_s": 6.872,
+      "end_s": 7.521,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "Guardians",
+      "start_s": 7.521,
+      "end_s": 8.169,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 8.169,
+      "end_s": 8.234,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 8.234,
+      "end_s": 8.493,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "team",
+      "start_s": 8.493,
+      "end_s": 8.817,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "he",
+      "start_s": 8.817,
+      "end_s": 9.012,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "grew",
+      "start_s": 9.012,
+      "end_s": 9.336,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "up",
+      "start_s": 9.336,
+      "end_s": 9.531,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "watching.",
+      "start_s": 9.531,
+      "end_s": 10.114,
+      "sentence_index": 1,
+      "is_highlight": true
+    },
+    {
+      "word": "And",
+      "start_s": 10.114,
+      "end_s": 10.373,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "this",
+      "start_s": 10.373,
+      "end_s": 10.698,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 10.698,
+      "end_s": 10.892,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 10.892,
+      "end_s": 11.022,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "hometown",
+      "start_s": 11.022,
+      "end_s": 11.605,
+      "sentence_index": 2,
+      "is_highlight": true
+    },
+    {
+      "word": "story.",
+      "start_s": 11.605,
+      "end_s": 11.994,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "Kelce's",
+      "start_s": 11.994,
+      "end_s": 12.448,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "from",
+      "start_s": 12.448,
+      "end_s": 12.772,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "Cleveland",
+      "start_s": 12.772,
+      "end_s": 13.421,
+      "sentence_index": 3,
+      "is_highlight": true
+    },
+    {
+      "word": "Heights",
+      "start_s": 13.421,
+      "end_s": 13.939,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 13.939,
+      "end_s": 14.004,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "as",
+      "start_s": 14.004,
+      "end_s": 14.199,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 14.199,
+      "end_s": 14.328,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "kid",
+      "start_s": 14.328,
+      "end_s": 14.588,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "he'd",
+      "start_s": 14.588,
+      "end_s": 14.847,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "ride",
+      "start_s": 14.847,
+      "end_s": 15.171,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 15.171,
+      "end_s": 15.43,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "light",
+      "start_s": 15.43,
+      "end_s": 15.819,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "rail",
+      "start_s": 15.819,
+      "end_s": 16.144,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "downtown",
+      "start_s": 16.144,
+      "end_s": 16.727,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "with",
+      "start_s": 16.727,
+      "end_s": 17.051,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "his",
+      "start_s": 17.051,
+      "end_s": 17.311,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "dad",
+      "start_s": 17.311,
+      "end_s": 17.57,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 17.57,
+      "end_s": 17.764,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "catch",
+      "start_s": 17.764,
+      "end_s": 18.153,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "games.",
+      "start_s": 18.153,
+      "end_s": 18.542,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "Before",
+      "start_s": 18.542,
+      "end_s": 18.996,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "football,",
+      "start_s": 18.996,
+      "end_s": 19.58,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "he",
+      "start_s": 19.58,
+      "end_s": 19.774,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "was",
+      "start_s": 19.774,
+      "end_s": 20.034,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "actually",
+      "start_s": 20.034,
+      "end_s": 20.617,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "one",
+      "start_s": 20.617,
+      "end_s": 20.876,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 20.876,
+      "end_s": 21.071,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 21.071,
+      "end_s": 21.33,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "best",
+      "start_s": 21.33,
+      "end_s": 21.654,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "baseball",
+      "start_s": 21.654,
+      "end_s": 22.238,
+      "sentence_index": 4,
+      "is_highlight": true
+    },
+    {
+      "word": "players",
+      "start_s": 22.238,
+      "end_s": 22.757,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "in",
+      "start_s": 22.757,
+      "end_s": 22.951,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 22.951,
+      "end_s": 23.21,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "whole",
+      "start_s": 23.21,
+      "end_s": 23.599,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "Cleveland",
+      "start_s": 23.599,
+      "end_s": 24.248,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "area.",
+      "start_s": 24.248,
+      "end_s": 24.572,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "He",
+      "start_s": 24.572,
+      "end_s": 24.766,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "joins",
+      "start_s": 24.766,
+      "end_s": 25.155,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 25.155,
+      "end_s": 25.285,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "growing",
+      "start_s": 25.285,
+      "end_s": 25.804,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "club",
+      "start_s": 25.804,
+      "end_s": 26.128,
+      "sentence_index": 5,
+      "is_highlight": true
+    },
+    {
+      "word": "of",
+      "start_s": 26.128,
+      "end_s": 26.322,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "active",
+      "start_s": 26.322,
+      "end_s": 26.776,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "stars",
+      "start_s": 26.776,
+      "end_s": 27.165,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "buying",
+      "start_s": 27.165,
+      "end_s": 27.619,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "into",
+      "start_s": 27.619,
+      "end_s": 27.943,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 27.943,
+      "end_s": 28.203,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "MLB",
+      "start_s": 28.203,
+      "end_s": 28.462,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 28.462,
+      "end_s": 28.527,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "LeBron",
+      "start_s": 28.527,
+      "end_s": 28.981,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "with",
+      "start_s": 28.981,
+      "end_s": 29.305,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 29.305,
+      "end_s": 29.564,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Red",
+      "start_s": 29.564,
+      "end_s": 29.823,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Sox,",
+      "start_s": 29.823,
+      "end_s": 30.083,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Giannis",
+      "start_s": 30.083,
+      "end_s": 30.601,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "with",
+      "start_s": 30.601,
+      "end_s": 30.926,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 30.926,
+      "end_s": 31.185,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Brewers...",
+      "start_s": 31.185,
+      "end_s": 31.704,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "...and",
+      "start_s": 31.704,
+      "end_s": 31.963,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "his",
+      "start_s": 31.963,
+      "end_s": 32.222,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "own",
+      "start_s": 32.222,
+      "end_s": 32.482,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "teammate",
+      "start_s": 32.482,
+      "end_s": 33.065,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Patrick",
+      "start_s": 33.065,
+      "end_s": 33.584,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Mahomes,",
+      "start_s": 33.584,
+      "end_s": 34.102,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "who's",
+      "start_s": 34.102,
+      "end_s": 34.427,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "already",
+      "start_s": 34.427,
+      "end_s": 34.945,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "part",
+      "start_s": 34.945,
+      "end_s": 35.269,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 35.269,
+      "end_s": 35.464,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 35.464,
+      "end_s": 35.723,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Royals.",
+      "start_s": 35.723,
+      "end_s": 36.177,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "The",
+      "start_s": 36.177,
+      "end_s": 36.436,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "size",
+      "start_s": 36.436,
+      "end_s": 36.761,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 36.761,
+      "end_s": 36.955,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "Kelce's",
+      "start_s": 36.955,
+      "end_s": 37.409,
+      "sentence_index": 6,
+      "is_highlight": true
+    },
+    {
+      "word": "stake?",
+      "start_s": 37.409,
+      "end_s": 37.798,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "Still",
+      "start_s": 37.798,
+      "end_s": 38.187,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "under",
+      "start_s": 38.187,
+      "end_s": 38.576,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "wraps.",
+      "start_s": 38.576,
+      "end_s": 38.965,
+      "sentence_index": 7,
+      "is_highlight": true
+    },
+    {
+      "word": "But",
+      "start_s": 38.965,
+      "end_s": 39.224,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 39.224,
+      "end_s": 39.484,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "message",
+      "start_s": 39.484,
+      "end_s": 40.002,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 40.002,
+      "end_s": 40.197,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "clear",
+      "start_s": 40.197,
+      "end_s": 40.586,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 40.586,
+      "end_s": 40.651,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "top",
+      "start_s": 40.651,
+      "end_s": 40.91,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "athletes",
+      "start_s": 40.91,
+      "end_s": 41.493,
+      "sentence_index": 8,
+      "is_highlight": true
+    },
+    {
+      "word": "aren't",
+      "start_s": 41.493,
+      "end_s": 41.882,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "just",
+      "start_s": 41.882,
+      "end_s": 42.207,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "playing",
+      "start_s": 42.207,
+      "end_s": 42.725,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 42.725,
+      "end_s": 42.985,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "game",
+      "start_s": 42.985,
+      "end_s": 43.309,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "anymore.",
+      "start_s": 43.309,
+      "end_s": 43.827,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "They're",
+      "start_s": 43.827,
+      "end_s": 44.281,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "buying",
+      "start_s": 44.281,
+      "end_s": 44.735,
+      "sentence_index": 9,
+      "is_highlight": true
+    },
+    {
+      "word": "it.",
+      "start_s": 44.735,
+      "end_s": 44.93,
+      "sentence_index": 9,
+      "is_highlight": false
+    }
+  ]
+}

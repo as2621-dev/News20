@@ -1,0 +1,855 @@
+{
+  "digest_id": "digest-5",
+  "audio_duration_s": 47.371,
+  "speech_end_s": 47.371,
+  "sentence_count": 10,
+  "words": [
+    {
+      "word": "The",
+      "start_s": 0.0,
+      "end_s": 0.268,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "Pope",
+      "start_s": 0.268,
+      "end_s": 0.603,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "just",
+      "start_s": 0.603,
+      "end_s": 0.938,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "issued",
+      "start_s": 0.938,
+      "end_s": 1.407,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "one",
+      "start_s": 1.407,
+      "end_s": 1.675,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 1.675,
+      "end_s": 1.876,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "his",
+      "start_s": 1.876,
+      "end_s": 2.144,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "strongest",
+      "start_s": 2.144,
+      "end_s": 2.814,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "warnings",
+      "start_s": 2.814,
+      "end_s": 3.417,
+      "sentence_index": 0,
+      "is_highlight": true
+    },
+    {
+      "word": "yet",
+      "start_s": 3.417,
+      "end_s": 3.685,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 3.685,
+      "end_s": 3.752,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "about",
+      "start_s": 3.752,
+      "end_s": 4.154,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "artificial",
+      "start_s": 4.154,
+      "end_s": 4.891,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "intelligence.",
+      "start_s": 4.891,
+      "end_s": 5.762,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "Pope",
+      "start_s": 5.762,
+      "end_s": 6.097,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "Leo",
+      "start_s": 6.097,
+      "end_s": 6.365,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 6.365,
+      "end_s": 6.633,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "Fourteenth",
+      "start_s": 6.633,
+      "end_s": 7.37,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "urged",
+      "start_s": 7.37,
+      "end_s": 7.772,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "world",
+      "start_s": 7.772,
+      "end_s": 8.174,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "leaders",
+      "start_s": 8.174,
+      "end_s": 8.71,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 8.71,
+      "end_s": 8.911,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "slow",
+      "start_s": 8.911,
+      "end_s": 9.246,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "down",
+      "start_s": 9.246,
+      "end_s": 9.581,
+      "sentence_index": 1,
+      "is_highlight": true
+    },
+    {
+      "word": "the",
+      "start_s": 9.581,
+      "end_s": 9.849,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "race",
+      "start_s": 9.849,
+      "end_s": 10.184,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 10.184,
+      "end_s": 10.385,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "deploy",
+      "start_s": 10.385,
+      "end_s": 10.854,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "AI,",
+      "start_s": 10.854,
+      "end_s": 11.055,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "and",
+      "start_s": 11.055,
+      "end_s": 11.323,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 11.323,
+      "end_s": 11.524,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "agree",
+      "start_s": 11.524,
+      "end_s": 11.926,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "on",
+      "start_s": 11.926,
+      "end_s": 12.128,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "international",
+      "start_s": 12.128,
+      "end_s": 13.066,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "safeguards.",
+      "start_s": 13.066,
+      "end_s": 13.803,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "His",
+      "start_s": 13.803,
+      "end_s": 14.071,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "concern?",
+      "start_s": 14.071,
+      "end_s": 14.607,
+      "sentence_index": 2,
+      "is_highlight": true
+    },
+    {
+      "word": "That",
+      "start_s": 14.607,
+      "end_s": 14.942,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "unchecked",
+      "start_s": 14.942,
+      "end_s": 15.612,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "AI",
+      "start_s": 15.612,
+      "end_s": 15.813,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "could",
+      "start_s": 15.813,
+      "end_s": 16.215,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "deepen",
+      "start_s": 16.215,
+      "end_s": 16.684,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "misinformation,",
+      "start_s": 16.684,
+      "end_s": 17.689,
+      "sentence_index": 3,
+      "is_highlight": true
+    },
+    {
+      "word": "destabilize",
+      "start_s": 17.689,
+      "end_s": 18.493,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "societies...",
+      "start_s": 18.493,
+      "end_s": 19.163,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "...and",
+      "start_s": 19.163,
+      "end_s": 19.431,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "push",
+      "start_s": 19.431,
+      "end_s": 19.766,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "autonomous",
+      "start_s": 19.766,
+      "end_s": 20.503,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "weapons",
+      "start_s": 20.503,
+      "end_s": 21.039,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "past",
+      "start_s": 21.039,
+      "end_s": 21.374,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "meaningful",
+      "start_s": 21.374,
+      "end_s": 22.111,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "human",
+      "start_s": 22.111,
+      "end_s": 22.513,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "control.",
+      "start_s": 22.513,
+      "end_s": 23.049,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "That",
+      "start_s": 23.049,
+      "end_s": 23.384,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "last",
+      "start_s": 23.384,
+      "end_s": 23.719,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "one",
+      "start_s": 23.719,
+      "end_s": 23.987,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 23.987,
+      "end_s": 24.188,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 24.188,
+      "end_s": 24.456,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "line",
+      "start_s": 24.456,
+      "end_s": 24.791,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 24.791,
+      "end_s": 24.925,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "lot",
+      "start_s": 24.925,
+      "end_s": 25.193,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 25.193,
+      "end_s": 25.394,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "people",
+      "start_s": 25.394,
+      "end_s": 25.863,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "quietly",
+      "start_s": 25.863,
+      "end_s": 26.399,
+      "sentence_index": 4,
+      "is_highlight": true
+    },
+    {
+      "word": "fear.",
+      "start_s": 26.399,
+      "end_s": 26.734,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "It's",
+      "start_s": 26.734,
+      "end_s": 27.002,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 27.002,
+      "end_s": 27.136,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "striking",
+      "start_s": 27.136,
+      "end_s": 27.739,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "moment",
+      "start_s": 27.739,
+      "end_s": 28.208,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 28.208,
+      "end_s": 28.275,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 28.275,
+      "end_s": 28.409,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "moral",
+      "start_s": 28.409,
+      "end_s": 28.811,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "authority",
+      "start_s": 28.811,
+      "end_s": 29.481,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "stepping",
+      "start_s": 29.481,
+      "end_s": 30.084,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "into",
+      "start_s": 30.084,
+      "end_s": 30.419,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 30.419,
+      "end_s": 30.553,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "debate",
+      "start_s": 30.553,
+      "end_s": 31.022,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "usually",
+      "start_s": 31.022,
+      "end_s": 31.558,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "led",
+      "start_s": 31.558,
+      "end_s": 31.826,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "by",
+      "start_s": 31.826,
+      "end_s": 32.027,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "engineers",
+      "start_s": 32.027,
+      "end_s": 32.697,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "and",
+      "start_s": 32.697,
+      "end_s": 32.965,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "CEOs.",
+      "start_s": 32.965,
+      "end_s": 33.3,
+      "sentence_index": 5,
+      "is_highlight": true
+    },
+    {
+      "word": "And",
+      "start_s": 33.3,
+      "end_s": 33.568,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "it",
+      "start_s": 33.568,
+      "end_s": 33.769,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "lands",
+      "start_s": 33.769,
+      "end_s": 34.171,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 34.171,
+      "end_s": 34.439,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "same",
+      "start_s": 34.439,
+      "end_s": 34.774,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "week",
+      "start_s": 34.774,
+      "end_s": 35.109,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 35.109,
+      "end_s": 35.243,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "major",
+      "start_s": 35.243,
+      "end_s": 35.645,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "report",
+      "start_s": 35.645,
+      "end_s": 36.115,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "said",
+      "start_s": 36.115,
+      "end_s": 36.45,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "AI",
+      "start_s": 36.45,
+      "end_s": 36.651,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "will",
+      "start_s": 36.651,
+      "end_s": 36.986,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "soon",
+      "start_s": 36.986,
+      "end_s": 37.321,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "be",
+      "start_s": 37.321,
+      "end_s": 37.522,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 37.522,
+      "end_s": 37.79,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "single",
+      "start_s": 37.79,
+      "end_s": 38.259,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "biggest",
+      "start_s": 38.259,
+      "end_s": 38.795,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "force",
+      "start_s": 38.795,
+      "end_s": 39.197,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "shaping",
+      "start_s": 39.197,
+      "end_s": 39.733,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "global",
+      "start_s": 39.733,
+      "end_s": 40.202,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "cybersecurity.",
+      "start_s": 40.202,
+      "end_s": 41.14,
+      "sentence_index": 6,
+      "is_highlight": true
+    },
+    {
+      "word": "Two",
+      "start_s": 41.14,
+      "end_s": 41.408,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "very",
+      "start_s": 41.408,
+      "end_s": 41.743,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "different",
+      "start_s": 41.743,
+      "end_s": 42.413,
+      "sentence_index": 7,
+      "is_highlight": true
+    },
+    {
+      "word": "voices.",
+      "start_s": 42.413,
+      "end_s": 42.882,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "The",
+      "start_s": 42.882,
+      "end_s": 43.15,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "same",
+      "start_s": 43.15,
+      "end_s": 43.485,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "message.",
+      "start_s": 43.485,
+      "end_s": 44.021,
+      "sentence_index": 8,
+      "is_highlight": true
+    },
+    {
+      "word": "Slow",
+      "start_s": 44.021,
+      "end_s": 44.356,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "down",
+      "start_s": 44.356,
+      "end_s": 44.691,
+      "sentence_index": 9,
+      "is_highlight": true
+    },
+    {
+      "word": "\u2014",
+      "start_s": 44.691,
+      "end_s": 44.758,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "before",
+      "start_s": 44.758,
+      "end_s": 45.227,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 45.227,
+      "end_s": 45.495,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "technology",
+      "start_s": 45.495,
+      "end_s": 46.232,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "gets",
+      "start_s": 46.232,
+      "end_s": 46.567,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "ahead",
+      "start_s": 46.567,
+      "end_s": 46.969,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 46.969,
+      "end_s": 47.17,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "us.",
+      "start_s": 47.17,
+      "end_s": 47.371,
+      "sentence_index": 9,
+      "is_highlight": false
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+# News20 Python agent dependencies.
+# Ported from TLDW (voice-agent-dashboard/requirements.txt) and trimmed to the
+# M0 quality-spike surface: news-only, so yt-dlp / youtube-transcript-api are
+# dropped, and the OpenAI / Pinecone / FastAPI deps the spike doesn't exercise
+# are deferred to later phases (Rule 2 — minimum code).
+
+# ──── Core ────
+pydantic>=2.0
+pydantic-settings>=2.0
+
+# ──── Gemini multi-speaker TTS + image generation ────
+google-genai>=1.0
+
+# ──── SERP image search + image grading (poster-seed pipeline) ────
+httpx>=0.27
+Pillow>=10.0
+
+# ──── Audio Processing (needs ffmpeg/ffprobe on PATH) ────
+pydub>=0.25
+
+# ──── Logging ────
+structlog>=24.0
+
+# ──── Testing ────
+pytest>=8.0
+pytest-asyncio>=0.24
+
+# ──── Linting (dev) ────
+ruff>=0.8.0

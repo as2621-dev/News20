@@ -1,0 +1,439 @@
+{
+  "digest_id": "digest-fixture",
+  "audioSrc": "fixtures/assets/placeholder-audio.mp3",
+  "posterSrc": "fixtures/assets/cut-1.png",
+  "headlineText": "U.S. strikes another boat in the Caribbean",
+  "durationInFrames": 1518,
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "kenBurns": {
+    "startScale": 1.0,
+    "endScale": 1.04,
+    "startTranslateX": 0,
+    "endTranslateX": 0,
+    "startTranslateY": 0,
+    "endTranslateY": 0
+  },
+  "captionTrack": {
+    "digest_id": "digest-fixture",
+    "audio_duration_s": 55.0,
+    "speech_end_s": 50.6,
+    "sentence_count": 11,
+    "words": [
+      {
+        "word": "The",
+        "start_s": 0.0,
+        "end_s": 0.858,
+        "sentence_index": 0,
+        "is_highlight": false
+      },
+      {
+        "word": "U.S.",
+        "start_s": 0.858,
+        "end_s": 1.716,
+        "sentence_index": 0,
+        "is_highlight": false
+      },
+      {
+        "word": "military",
+        "start_s": 1.716,
+        "end_s": 2.574,
+        "sentence_index": 0,
+        "is_highlight": false
+      },
+      {
+        "word": "hit",
+        "start_s": 2.574,
+        "end_s": 3.432,
+        "sentence_index": 0,
+        "is_highlight": false
+      },
+      {
+        "word": "another",
+        "start_s": 3.432,
+        "end_s": 4.29,
+        "sentence_index": 0,
+        "is_highlight": true
+      },
+      {
+        "word": "boat.",
+        "start_s": 4.29,
+        "end_s": 5.148,
+        "sentence_index": 0,
+        "is_highlight": false
+      },
+      {
+        "word": "Officials",
+        "start_s": 5.148,
+        "end_s": 6.006,
+        "sentence_index": 1,
+        "is_highlight": false
+      },
+      {
+        "word": "called",
+        "start_s": 6.006,
+        "end_s": 6.864,
+        "sentence_index": 1,
+        "is_highlight": false
+      },
+      {
+        "word": "it",
+        "start_s": 6.864,
+        "end_s": 7.722,
+        "sentence_index": 1,
+        "is_highlight": false
+      },
+      {
+        "word": "a",
+        "start_s": 7.722,
+        "end_s": 8.58,
+        "sentence_index": 1,
+        "is_highlight": false
+      },
+      {
+        "word": "narcotics",
+        "start_s": 8.58,
+        "end_s": 9.438,
+        "sentence_index": 1,
+        "is_highlight": true
+      },
+      {
+        "word": "strike.",
+        "start_s": 9.438,
+        "end_s": 10.296,
+        "sentence_index": 1,
+        "is_highlight": false
+      },
+      {
+        "word": "Critics",
+        "start_s": 10.296,
+        "end_s": 11.154,
+        "sentence_index": 2,
+        "is_highlight": false
+      },
+      {
+        "word": "question",
+        "start_s": 11.154,
+        "end_s": 12.012,
+        "sentence_index": 2,
+        "is_highlight": false
+      },
+      {
+        "word": "the",
+        "start_s": 12.012,
+        "end_s": 12.87,
+        "sentence_index": 2,
+        "is_highlight": false
+      },
+      {
+        "word": "legal",
+        "start_s": 12.87,
+        "end_s": 13.728,
+        "sentence_index": 2,
+        "is_highlight": true
+      },
+      {
+        "word": "basis.",
+        "start_s": 13.728,
+        "end_s": 14.586,
+        "sentence_index": 2,
+        "is_highlight": false
+      },
+      {
+        "word": "Three",
+        "start_s": 14.586,
+        "end_s": 15.444,
+        "sentence_index": 3,
+        "is_highlight": false
+      },
+      {
+        "word": "people",
+        "start_s": 15.444,
+        "end_s": 16.302,
+        "sentence_index": 3,
+        "is_highlight": false
+      },
+      {
+        "word": "were",
+        "start_s": 16.302,
+        "end_s": 17.16,
+        "sentence_index": 3,
+        "is_highlight": false
+      },
+      {
+        "word": "killed",
+        "start_s": 17.16,
+        "end_s": 18.018,
+        "sentence_index": 3,
+        "is_highlight": true
+      },
+      {
+        "word": "in",
+        "start_s": 18.018,
+        "end_s": 18.876,
+        "sentence_index": 3,
+        "is_highlight": false
+      },
+      {
+        "word": "the",
+        "start_s": 18.876,
+        "end_s": 19.734,
+        "sentence_index": 3,
+        "is_highlight": false
+      },
+      {
+        "word": "blast.",
+        "start_s": 19.734,
+        "end_s": 20.592,
+        "sentence_index": 3,
+        "is_highlight": false
+      },
+      {
+        "word": "The",
+        "start_s": 20.592,
+        "end_s": 21.45,
+        "sentence_index": 4,
+        "is_highlight": false
+      },
+      {
+        "word": "Pentagon",
+        "start_s": 21.45,
+        "end_s": 22.308,
+        "sentence_index": 4,
+        "is_highlight": true
+      },
+      {
+        "word": "released",
+        "start_s": 22.308,
+        "end_s": 23.166,
+        "sentence_index": 4,
+        "is_highlight": false
+      },
+      {
+        "word": "limited",
+        "start_s": 23.166,
+        "end_s": 24.024,
+        "sentence_index": 4,
+        "is_highlight": false
+      },
+      {
+        "word": "details.",
+        "start_s": 24.024,
+        "end_s": 24.882,
+        "sentence_index": 4,
+        "is_highlight": false
+      },
+      {
+        "word": "Lawmakers",
+        "start_s": 24.882,
+        "end_s": 25.74,
+        "sentence_index": 5,
+        "is_highlight": false
+      },
+      {
+        "word": "demanded",
+        "start_s": 25.74,
+        "end_s": 26.598,
+        "sentence_index": 5,
+        "is_highlight": true
+      },
+      {
+        "word": "a",
+        "start_s": 26.598,
+        "end_s": 27.456,
+        "sentence_index": 5,
+        "is_highlight": false
+      },
+      {
+        "word": "full",
+        "start_s": 27.456,
+        "end_s": 28.314,
+        "sentence_index": 5,
+        "is_highlight": false
+      },
+      {
+        "word": "briefing.",
+        "start_s": 28.314,
+        "end_s": 29.172,
+        "sentence_index": 5,
+        "is_highlight": false
+      },
+      {
+        "word": "Allies",
+        "start_s": 29.172,
+        "end_s": 30.03,
+        "sentence_index": 6,
+        "is_highlight": false
+      },
+      {
+        "word": "watched",
+        "start_s": 30.03,
+        "end_s": 30.888,
+        "sentence_index": 6,
+        "is_highlight": false
+      },
+      {
+        "word": "the",
+        "start_s": 30.888,
+        "end_s": 31.746,
+        "sentence_index": 6,
+        "is_highlight": false
+      },
+      {
+        "word": "escalation",
+        "start_s": 31.746,
+        "end_s": 32.604,
+        "sentence_index": 6,
+        "is_highlight": true
+      },
+      {
+        "word": "closely.",
+        "start_s": 32.604,
+        "end_s": 33.462,
+        "sentence_index": 6,
+        "is_highlight": false
+      },
+      {
+        "word": "The",
+        "start_s": 33.462,
+        "end_s": 34.32,
+        "sentence_index": 7,
+        "is_highlight": false
+      },
+      {
+        "word": "pattern",
+        "start_s": 34.32,
+        "end_s": 35.178,
+        "sentence_index": 7,
+        "is_highlight": false
+      },
+      {
+        "word": "is",
+        "start_s": 35.178,
+        "end_s": 36.036,
+        "sentence_index": 7,
+        "is_highlight": false
+      },
+      {
+        "word": "now",
+        "start_s": 36.036,
+        "end_s": 36.894,
+        "sentence_index": 7,
+        "is_highlight": false
+      },
+      {
+        "word": "unmistakable.",
+        "start_s": 36.894,
+        "end_s": 37.752,
+        "sentence_index": 7,
+        "is_highlight": true
+      },
+      {
+        "word": "What",
+        "start_s": 37.752,
+        "end_s": 38.61,
+        "sentence_index": 8,
+        "is_highlight": false
+      },
+      {
+        "word": "happens",
+        "start_s": 38.61,
+        "end_s": 39.468,
+        "sentence_index": 8,
+        "is_highlight": false
+      },
+      {
+        "word": "next",
+        "start_s": 39.468,
+        "end_s": 40.326,
+        "sentence_index": 8,
+        "is_highlight": false
+      },
+      {
+        "word": "remains",
+        "start_s": 40.326,
+        "end_s": 41.184,
+        "sentence_index": 8,
+        "is_highlight": false
+      },
+      {
+        "word": "unclear.",
+        "start_s": 41.184,
+        "end_s": 42.042,
+        "sentence_index": 8,
+        "is_highlight": true
+      },
+      {
+        "word": "This",
+        "start_s": 42.042,
+        "end_s": 42.9,
+        "sentence_index": 9,
+        "is_highlight": false
+      },
+      {
+        "word": "story",
+        "start_s": 42.9,
+        "end_s": 43.758,
+        "sentence_index": 9,
+        "is_highlight": false
+      },
+      {
+        "word": "is",
+        "start_s": 43.758,
+        "end_s": 44.616,
+        "sentence_index": 9,
+        "is_highlight": false
+      },
+      {
+        "word": "still",
+        "start_s": 44.616,
+        "end_s": 45.474,
+        "sentence_index": 9,
+        "is_highlight": false
+      },
+      {
+        "word": "developing.",
+        "start_s": 45.474,
+        "end_s": 46.332,
+        "sentence_index": 9,
+        "is_highlight": true
+      },
+      {
+        "word": "Stay",
+        "start_s": 46.332,
+        "end_s": 47.19,
+        "sentence_index": 10,
+        "is_highlight": false
+      },
+      {
+        "word": "with",
+        "start_s": 47.19,
+        "end_s": 48.048,
+        "sentence_index": 10,
+        "is_highlight": false
+      },
+      {
+        "word": "News20",
+        "start_s": 48.048,
+        "end_s": 48.906,
+        "sentence_index": 10,
+        "is_highlight": true
+      },
+      {
+        "word": "for",
+        "start_s": 48.906,
+        "end_s": 49.764,
+        "sentence_index": 10,
+        "is_highlight": false
+      },
+      {
+        "word": "more.",
+        "start_s": 49.764,
+        "end_s": 50.6,
+        "sentence_index": 10,
+        "is_highlight": false
+      }
+    ]
+  }
+}

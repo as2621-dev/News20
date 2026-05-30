@@ -1,0 +1,946 @@
+{
+  "digest_id": "digest-3",
+  "audio_duration_s": 55.891,
+  "speech_end_s": 55.891,
+  "sentence_count": 10,
+  "words": [
+    {
+      "word": "Physicists",
+      "start_s": 0.0,
+      "end_s": 0.782,
+      "sentence_index": 0,
+      "is_highlight": true
+    },
+    {
+      "word": "in",
+      "start_s": 0.782,
+      "end_s": 0.996,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "Houston",
+      "start_s": 0.996,
+      "end_s": 1.564,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "just",
+      "start_s": 1.564,
+      "end_s": 1.92,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "broke",
+      "start_s": 1.92,
+      "end_s": 2.347,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 2.347,
+      "end_s": 2.489,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "record",
+      "start_s": 2.489,
+      "end_s": 2.987,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "that",
+      "start_s": 2.987,
+      "end_s": 3.342,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "stood",
+      "start_s": 3.342,
+      "end_s": 3.769,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "for",
+      "start_s": 3.769,
+      "end_s": 4.053,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "more",
+      "start_s": 4.053,
+      "end_s": 4.409,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "than",
+      "start_s": 4.409,
+      "end_s": 4.764,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "thirty",
+      "start_s": 4.764,
+      "end_s": 5.262,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "years.",
+      "start_s": 5.262,
+      "end_s": 5.689,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "We're",
+      "start_s": 5.689,
+      "end_s": 6.044,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "talking",
+      "start_s": 6.044,
+      "end_s": 6.613,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "superconductivity",
+      "start_s": 6.613,
+      "end_s": 7.893,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 7.893,
+      "end_s": 7.964,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "materials",
+      "start_s": 7.964,
+      "end_s": 8.675,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "that",
+      "start_s": 8.675,
+      "end_s": 9.031,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "carry",
+      "start_s": 9.031,
+      "end_s": 9.457,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "electricity",
+      "start_s": 9.457,
+      "end_s": 10.311,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "with",
+      "start_s": 10.311,
+      "end_s": 10.666,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "zero",
+      "start_s": 10.666,
+      "end_s": 11.022,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "resistance,",
+      "start_s": 11.022,
+      "end_s": 11.804,
+      "sentence_index": 1,
+      "is_highlight": true
+    },
+    {
+      "word": "no",
+      "start_s": 11.804,
+      "end_s": 12.017,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "energy",
+      "start_s": 12.017,
+      "end_s": 12.515,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "lost",
+      "start_s": 12.515,
+      "end_s": 12.871,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "at",
+      "start_s": 12.871,
+      "end_s": 13.084,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "all.",
+      "start_s": 13.084,
+      "end_s": 13.368,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "The",
+      "start_s": 13.368,
+      "end_s": 13.653,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "catch",
+      "start_s": 13.653,
+      "end_s": 14.079,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "has",
+      "start_s": 14.079,
+      "end_s": 14.364,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "always",
+      "start_s": 14.364,
+      "end_s": 14.862,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "been",
+      "start_s": 14.862,
+      "end_s": 15.217,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 15.217,
+      "end_s": 15.502,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "cold.",
+      "start_s": 15.502,
+      "end_s": 15.857,
+      "sentence_index": 2,
+      "is_highlight": true
+    },
+    {
+      "word": "You",
+      "start_s": 15.857,
+      "end_s": 16.142,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "needed",
+      "start_s": 16.142,
+      "end_s": 16.639,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "extreme",
+      "start_s": 16.639,
+      "end_s": 17.208,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "temperatures",
+      "start_s": 17.208,
+      "end_s": 18.133,
+      "sentence_index": 3,
+      "is_highlight": true
+    },
+    {
+      "word": "to",
+      "start_s": 18.133,
+      "end_s": 18.346,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "make",
+      "start_s": 18.346,
+      "end_s": 18.701,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "it",
+      "start_s": 18.701,
+      "end_s": 18.915,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "work.",
+      "start_s": 18.915,
+      "end_s": 19.27,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "The",
+      "start_s": 19.27,
+      "end_s": 19.555,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "old",
+      "start_s": 19.555,
+      "end_s": 19.839,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "record,",
+      "start_s": 19.839,
+      "end_s": 20.337,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "set",
+      "start_s": 20.337,
+      "end_s": 20.621,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "back",
+      "start_s": 20.621,
+      "end_s": 20.977,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "in",
+      "start_s": 20.977,
+      "end_s": 21.19,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "1993,",
+      "start_s": 21.19,
+      "end_s": 21.546,
+      "sentence_index": 4,
+      "is_highlight": true
+    },
+    {
+      "word": "was",
+      "start_s": 21.546,
+      "end_s": 21.83,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "133",
+      "start_s": 21.83,
+      "end_s": 22.115,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "Kelvin.",
+      "start_s": 22.115,
+      "end_s": 22.612,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "The",
+      "start_s": 22.612,
+      "end_s": 22.897,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "University",
+      "start_s": 22.897,
+      "end_s": 23.679,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 23.679,
+      "end_s": 23.892,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Houston",
+      "start_s": 23.892,
+      "end_s": 24.461,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "team",
+      "start_s": 24.461,
+      "end_s": 24.817,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "just",
+      "start_s": 24.817,
+      "end_s": 25.172,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "pushed",
+      "start_s": 25.172,
+      "end_s": 25.67,
+      "sentence_index": 5,
+      "is_highlight": true
+    },
+    {
+      "word": "that",
+      "start_s": 25.67,
+      "end_s": 26.026,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 26.026,
+      "end_s": 26.239,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "151",
+      "start_s": 26.239,
+      "end_s": 26.523,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "Kelvin",
+      "start_s": 26.523,
+      "end_s": 27.021,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 27.021,
+      "end_s": 27.092,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 27.092,
+      "end_s": 27.377,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "highest",
+      "start_s": 27.377,
+      "end_s": 27.945,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "ever",
+      "start_s": 27.945,
+      "end_s": 28.301,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "at",
+      "start_s": 28.301,
+      "end_s": 28.514,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "normal,",
+      "start_s": 28.514,
+      "end_s": 29.012,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "everyday",
+      "start_s": 29.012,
+      "end_s": 29.652,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "pressure.",
+      "start_s": 29.652,
+      "end_s": 30.292,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "They",
+      "start_s": 30.292,
+      "end_s": 30.648,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "used",
+      "start_s": 30.648,
+      "end_s": 31.003,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 31.003,
+      "end_s": 31.145,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "trick",
+      "start_s": 31.145,
+      "end_s": 31.572,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "called",
+      "start_s": 31.572,
+      "end_s": 32.07,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "\"pressure",
+      "start_s": 32.07,
+      "end_s": 32.71,
+      "sentence_index": 6,
+      "is_highlight": true
+    },
+    {
+      "word": "quenching\"",
+      "start_s": 32.71,
+      "end_s": 33.421,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 33.421,
+      "end_s": 33.492,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "squeeze",
+      "start_s": 33.492,
+      "end_s": 34.061,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 34.061,
+      "end_s": 34.345,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "material,",
+      "start_s": 34.345,
+      "end_s": 34.985,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "then",
+      "start_s": 34.985,
+      "end_s": 35.341,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "lock",
+      "start_s": 35.341,
+      "end_s": 35.696,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "in",
+      "start_s": 35.696,
+      "end_s": 35.91,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 35.91,
+      "end_s": 36.194,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "new",
+      "start_s": 36.194,
+      "end_s": 36.478,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "properties",
+      "start_s": 36.478,
+      "end_s": 37.261,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "after",
+      "start_s": 37.261,
+      "end_s": 37.687,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 37.687,
+      "end_s": 37.972,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "pressure",
+      "start_s": 37.972,
+      "end_s": 38.612,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 38.612,
+      "end_s": 38.825,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "gone.",
+      "start_s": 38.825,
+      "end_s": 39.181,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "It's",
+      "start_s": 39.181,
+      "end_s": 39.465,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "still",
+      "start_s": 39.465,
+      "end_s": 39.892,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "really",
+      "start_s": 39.892,
+      "end_s": 40.389,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "cold,",
+      "start_s": 40.389,
+      "end_s": 40.745,
+      "sentence_index": 7,
+      "is_highlight": true
+    },
+    {
+      "word": "about",
+      "start_s": 40.745,
+      "end_s": 41.172,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "minus",
+      "start_s": 41.172,
+      "end_s": 41.598,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "122",
+      "start_s": 41.598,
+      "end_s": 41.883,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "Celsius",
+      "start_s": 41.883,
+      "end_s": 42.452,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 42.452,
+      "end_s": 42.523,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "but",
+      "start_s": 42.523,
+      "end_s": 42.807,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "every",
+      "start_s": 42.807,
+      "end_s": 43.234,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "degree",
+      "start_s": 43.234,
+      "end_s": 43.731,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "closer",
+      "start_s": 43.731,
+      "end_s": 44.229,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 44.229,
+      "end_s": 44.443,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "room",
+      "start_s": 44.443,
+      "end_s": 44.798,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "temperature",
+      "start_s": 44.798,
+      "end_s": 45.651,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "matters.",
+      "start_s": 45.651,
+      "end_s": 46.22,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "Because",
+      "start_s": 46.22,
+      "end_s": 46.789,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "if",
+      "start_s": 46.789,
+      "end_s": 47.002,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "we",
+      "start_s": 47.002,
+      "end_s": 47.216,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "ever",
+      "start_s": 47.216,
+      "end_s": 47.571,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "get",
+      "start_s": 47.571,
+      "end_s": 47.856,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "there:",
+      "start_s": 47.856,
+      "end_s": 48.282,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "lossless",
+      "start_s": 48.282,
+      "end_s": 48.922,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "power",
+      "start_s": 48.922,
+      "end_s": 49.349,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "grids,",
+      "start_s": 49.349,
+      "end_s": 49.776,
+      "sentence_index": 8,
+      "is_highlight": true
+    },
+    {
+      "word": "faster",
+      "start_s": 49.776,
+      "end_s": 50.273,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "electronics,",
+      "start_s": 50.273,
+      "end_s": 51.127,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "better",
+      "start_s": 51.127,
+      "end_s": 51.624,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "fusion",
+      "start_s": 51.624,
+      "end_s": 52.122,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "and",
+      "start_s": 52.122,
+      "end_s": 52.407,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "medical",
+      "start_s": 52.407,
+      "end_s": 52.976,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "scanners.",
+      "start_s": 52.976,
+      "end_s": 53.616,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "A",
+      "start_s": 53.616,
+      "end_s": 53.758,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "thirty-year",
+      "start_s": 53.758,
+      "end_s": 54.54,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "wall,",
+      "start_s": 54.54,
+      "end_s": 54.895,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "finally",
+      "start_s": 54.895,
+      "end_s": 55.464,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "moved.",
+      "start_s": 55.464,
+      "end_s": 55.891,
+      "sentence_index": 9,
+      "is_highlight": true
+    }
+  ]
+}

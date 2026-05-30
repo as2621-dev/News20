@@ -1,0 +1,251 @@
+{
+  "digest_id": "digest-5",
+  "headline": "Pope Leo XIV's strongest-yet moral warning on AI",
+  "accent_hex": "#22D3EE",
+  "refined_query": "Pope Leo XIV warning artificial intelligence",
+  "candidate_count": 5,
+  "story_concept": {
+    "image_search_query": "Pope Leo XIV warning artificial intelligence",
+    "key_subject": "Pope Leo XIV",
+    "defining_object_or_action": "gesturing caution",
+    "emotional_valence": "concerned and cautionary",
+    "gist": "Pope Leo XIV warns humanity about the potential dangers of artificial intelligence.",
+    "is_person_driven": true
+  },
+  "scored": [
+    {
+      "candidate": {
+        "candidate_id": "digest-5-cand-1",
+        "title": "Pope Leo XIV on Monday set out a sweeping vision for corporate executives,  politicians and individuals who will shape and be shaped by the future of  artificial intelligence, warning leaders to ...",
+        "source_page_url": "https://www.instagram.com/reel/DYxMFBokftw/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaDTKTZ-0xosyWkFXNrWWRwatUYKyOkc88oQ&s",
+        "full_image_url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3905609087971056138",
+        "width_px": 640,
+        "height_px": 1136,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-5/refs/digest-5-cand-1.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 3.0,
+          "rationale": "While depicting a Pope as the key subject and suitable for vertical cropping, the image lacks a clear gesture of caution or a strong visual metaphor for warning about AI, making its emotional tone only moderately aligned with the target."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 5.0,
+          "rationale": "While depicting a Pope as the key subject and suitable for vertical cropping, the image lacks a clear gesture of caution or a strong visual metaphor for warning about AI, making its emotional tone only moderately aligned with the target."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "While depicting a Pope as the key subject and suitable for vertical cropping, the image lacks a clear gesture of caution or a strong visual metaphor for warning about AI, making its emotional tone only moderately aligned with the target."
+        },
+        {
+          "key": "single_subject",
+          "score": 8.0,
+          "rationale": "While depicting a Pope as the key subject and suitable for vertical cropping, the image lacks a clear gesture of caution or a strong visual metaphor for warning about AI, making its emotional tone only moderately aligned with the target."
+        },
+        {
+          "key": "iconic",
+          "score": 4.0,
+          "rationale": "While depicting a Pope as the key subject and suitable for vertical cropping, the image lacks a clear gesture of caution or a strong visual metaphor for warning about AI, making its emotional tone only moderately aligned with the target."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 6.0,
+          "rationale": "While depicting a Pope as the key subject and suitable for vertical cropping, the image lacks a clear gesture of caution or a strong visual metaphor for warning about AI, making its emotional tone only moderately aligned with the target."
+        }
+      ],
+      "weighted_total": 52.5,
+      "disqualified": true
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-5-cand-2",
+        "title": "Pope Leo XIV escalated his warnings about artificial intelligence Tuesday,  posting on X that powerful private actors cannot be allowed to control data  and algorithms. Read more at the link in the",
+        "source_page_url": "https://www.instagram.com/p/DYz3APyEgs0/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSvKJ-1TV4GjUdjX5x24deFdu2Blowd0sJarQ&s",
+        "full_image_url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3905707211364633396",
+        "width_px": 1080,
+        "height_px": 1350,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-5/refs/digest-5-cand-2.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 2.0,
+          "rationale": "The image clearly presents the key subject, but its neutral pose and expression do not convey the defining action of caution or the target emotional tone, hindering immediate story legibility."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 6.0,
+          "rationale": "The image clearly presents the key subject, but its neutral pose and expression do not convey the defining action of caution or the target emotional tone, hindering immediate story legibility."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "The image clearly presents the key subject, but its neutral pose and expression do not convey the defining action of caution or the target emotional tone, hindering immediate story legibility."
+        },
+        {
+          "key": "single_subject",
+          "score": 10.0,
+          "rationale": "The image clearly presents the key subject, but its neutral pose and expression do not convey the defining action of caution or the target emotional tone, hindering immediate story legibility."
+        },
+        {
+          "key": "iconic",
+          "score": 4.0,
+          "rationale": "The image clearly presents the key subject, but its neutral pose and expression do not convey the defining action of caution or the target emotional tone, hindering immediate story legibility."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 5.0,
+          "rationale": "The image clearly presents the key subject, but its neutral pose and expression do not convey the defining action of caution or the target emotional tone, hindering immediate story legibility."
+        }
+      ],
+      "weighted_total": 51.0,
+      "disqualified": true
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-5-cand-3",
+        "title": "pope leo had a lot to say about ai \ud83d\udc40 \u3164 Pope Leo XIV has warned about the  risks of artificial intelligence, calling for stronger rules to protect  workers, children, and human",
+        "source_page_url": "https://www.instagram.com/p/DYw_7jJj_YA/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQlFjTWgPgoYNv_5b8-Pb_tkLSTz91LIKSLRw&s",
+        "full_image_url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3904901630060075511",
+        "width_px": 1080,
+        "height_px": 1350,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-5/refs/digest-5-cand-3.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 9.0,
+          "rationale": "The image clearly presents the subject and the explicit warning through text, and his serious expression aligns with a cautionary tone, though the pose itself lacks a distinct cautionary gesture."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 6.0,
+          "rationale": "The image clearly presents the subject and the explicit warning through text, and his serious expression aligns with a cautionary tone, though the pose itself lacks a distinct cautionary gesture."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "The image clearly presents the subject and the explicit warning through text, and his serious expression aligns with a cautionary tone, though the pose itself lacks a distinct cautionary gesture."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "The image clearly presents the subject and the explicit warning through text, and his serious expression aligns with a cautionary tone, though the pose itself lacks a distinct cautionary gesture."
+        },
+        {
+          "key": "iconic",
+          "score": 8.0,
+          "rationale": "The image clearly presents the subject and the explicit warning through text, and his serious expression aligns with a cautionary tone, though the pose itself lacks a distinct cautionary gesture."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 8.0,
+          "rationale": "The image clearly presents the subject and the explicit warning through text, and his serious expression aligns with a cautionary tone, though the pose itself lacks a distinct cautionary gesture."
+        }
+      ],
+      "weighted_total": 77.0,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-5-cand-4",
+        "title": "In a sweeping manifesto on safeguarding humankind as the technology impacts  everything from work to war, Pope Leo XIV called Monday for robust  regulation of artificial intelligence. How much of a threat",
+        "source_page_url": "https://www.facebook.com/WCPO9/posts/in-a-sweeping-manifesto-on-safeguarding-humankind-as-the-technology-impacts-ever/1440999838057969/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS66lVPgNlg335GJlFCKQVYf9g3G2aVQl8dvA&s",
+        "full_image_url": "https://lookaside.fbsbx.com/lookaside/crawler/media/?media_id=1440999821391304",
+        "width_px": 1080,
+        "height_px": 1350,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-5/refs/digest-5-cand-4.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 2.0,
+          "rationale": "While the Pope is clearly visible and the vertical fit is good, his smiling expression directly contradicts the desired cautionary and concerned emotional tone, making the image unsuitable for conveying a warning about AI without significant alteration."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 4.0,
+          "rationale": "While the Pope is clearly visible and the vertical fit is good, his smiling expression directly contradicts the desired cautionary and concerned emotional tone, making the image unsuitable for conveying a warning about AI without significant alteration."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 8.0,
+          "rationale": "While the Pope is clearly visible and the vertical fit is good, his smiling expression directly contradicts the desired cautionary and concerned emotional tone, making the image unsuitable for conveying a warning about AI without significant alteration."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "While the Pope is clearly visible and the vertical fit is good, his smiling expression directly contradicts the desired cautionary and concerned emotional tone, making the image unsuitable for conveying a warning about AI without significant alteration."
+        },
+        {
+          "key": "iconic",
+          "score": 3.0,
+          "rationale": "While the Pope is clearly visible and the vertical fit is good, his smiling expression directly contradicts the desired cautionary and concerned emotional tone, making the image unsuitable for conveying a warning about AI without significant alteration."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 1.0,
+          "rationale": "While the Pope is clearly visible and the vertical fit is good, his smiling expression directly contradicts the desired cautionary and concerned emotional tone, making the image unsuitable for conveying a warning about AI without significant alteration."
+        }
+      ],
+      "weighted_total": 33.0,
+      "disqualified": true
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-5-cand-5",
+        "title": "In a strong statement, Pope Leo XIV warned about the rapid expansion of AI,  saying it must be \u201cdisarmed\u201d before it becomes uncontrollable. He noted the  phrase was deliberately chosen to draw",
+        "source_page_url": "https://www.facebook.com/musiccrowns/posts/in-a-strong-statement-pope-leo-xiv-warned-about-the-rapid-expansion-of-ai-saying/1393972032752725/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSkAdqXiwFDkn1BXC3pOIUMmRWxcpH5AQsFrw&s",
+        "full_image_url": "https://lookaside.fbsbx.com/lookaside/crawler/media/?media_id=1393972012752727",
+        "width_px": 912,
+        "height_px": 1136,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-5/refs/digest-5-cand-5.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 2.0,
+          "rationale": "The image clearly features the subject but lacks any visual cues for 'gesturing caution' or 'AI,' making the story illegible from the image alone, and the emotional tone is not strongly cautionary."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 3.0,
+          "rationale": "The image clearly features the subject but lacks any visual cues for 'gesturing caution' or 'AI,' making the story illegible from the image alone, and the emotional tone is not strongly cautionary."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 7.0,
+          "rationale": "The image clearly features the subject but lacks any visual cues for 'gesturing caution' or 'AI,' making the story illegible from the image alone, and the emotional tone is not strongly cautionary."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "The image clearly features the subject but lacks any visual cues for 'gesturing caution' or 'AI,' making the story illegible from the image alone, and the emotional tone is not strongly cautionary."
+        },
+        {
+          "key": "iconic",
+          "score": 2.0,
+          "rationale": "The image clearly features the subject but lacks any visual cues for 'gesturing caution' or 'AI,' making the story illegible from the image alone, and the emotional tone is not strongly cautionary."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 3.0,
+          "rationale": "The image clearly features the subject but lacks any visual cues for 'gesturing caution' or 'AI,' making the story illegible from the image alone, and the emotional tone is not strongly cautionary."
+        }
+      ],
+      "weighted_total": 35.5,
+      "disqualified": true
+    }
+  ],
+  "winner_candidate_id": "digest-5-cand-3",
+  "synthesized_prompt": "A powerful 9:16 photorealistic poster key art featuring an elderly Pope, resembling Pope Francis, with a deeply concerned and cautionary expression, one hand gently raised in a warning gesture. Dramatic cinematic lighting casts long shadows and highlights, rendering the scene in a strong, desaturated duotone grade to evoke a solemn, almost foreboding atmosphere. Subtle, ethereal abstract digital code or a faint neural network pattern, subtly highlighted with the accent color #22D3EE, delicately overlays the dark background, serving as a restrained visual metaphor for the unseen dangers of artificial intelligence. The Pope is anchored in the upper-center third of the composition, allowing the lower 40% to remain quiet and dark, completing the sophisticated, graphic movie poster aesthetic. Near-black background #020617, single accent hue only, duotone grade toward #020617 plus the accent, cinematic single-source rim light, deep shadow falloff into black, fine film grain, soft radial vignette toward the focal point. High contrast, one clear idea, legible at 120px thumbnail. Reserve the lower 40% of the frame as quiet dark low-detail negative space for a caption overlay; 9:16 vertical. --no text, no logos, no watermark, no border, no UI, no words.",
+  "poster_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-5/poster.png",
+  "notes": ""
+}

@@ -1,0 +1,113 @@
+{
+  "digest_id": "digest-1",
+  "headline": "US strikes Iran again; Trump won't rush a deal",
+  "accent_hex": "#EF4444",
+  "refined_query": "Donald Trump Strait Hormuz map military tension",
+  "candidate_count": 5,
+  "story_concept": {
+    "image_search_query": "Donald Trump Strait Hormuz map military tension",
+    "key_subject": "Donald Trump",
+    "defining_object_or_action": "map of Strait of Hormuz",
+    "emotional_valence": "Tense and volatile",
+    "gist": "Diplomatic efforts are stalled as US-Iran tensions escalate over control of the vital Strait of Hormuz.",
+    "is_person_driven": true
+  },
+  "scored": [
+    {
+      "candidate": {
+        "candidate_id": "digest-1-cand-5",
+        "title": "Trump says U.S. will no longer guide ships through the Strait of Hormuz :  NPR",
+        "source_page_url": "https://www.npr.org/2026/05/05/nx-s1-5811770/iran-war-updates",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNJ66rl10n4Lg793A0Ct-AU9j4HsjYSV8N7g&s",
+        "full_image_url": "https://npr.brightspotcdn.com/dims3/default/strip/false/crop/1472x1246+0+0/resize/1100/quality/50/format/jpeg/?url=http%3A%2F%2Fnpr-brightspot.s3.amazonaws.com%2F3f%2F50%2F04f89c4c4bb687f7cd35b7e0ffe8%2Fap26124740153379.jpg",
+        "width_px": 1100,
+        "height_px": 931,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-1/refs/digest-1-cand-5.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 3.0,
+          "rationale": "The image clearly depicts the Strait of Hormuz and routes relevant to US-Iran tensions, lending a tense mood, but it lacks the key subject of Donald Trump and its informational graphic style is not inherently iconic or well-suited for a vertical recompose."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 6.0,
+          "rationale": "The image clearly depicts the Strait of Hormuz and routes relevant to US-Iran tensions, lending a tense mood, but it lacks the key subject of Donald Trump and its informational graphic style is not inherently iconic or well-suited for a vertical recompose."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 4.0,
+          "rationale": "The image clearly depicts the Strait of Hormuz and routes relevant to US-Iran tensions, lending a tense mood, but it lacks the key subject of Donald Trump and its informational graphic style is not inherently iconic or well-suited for a vertical recompose."
+        },
+        {
+          "key": "single_subject",
+          "score": 2.0,
+          "rationale": "The image clearly depicts the Strait of Hormuz and routes relevant to US-Iran tensions, lending a tense mood, but it lacks the key subject of Donald Trump and its informational graphic style is not inherently iconic or well-suited for a vertical recompose."
+        },
+        {
+          "key": "iconic",
+          "score": 3.0,
+          "rationale": "The image clearly depicts the Strait of Hormuz and routes relevant to US-Iran tensions, lending a tense mood, but it lacks the key subject of Donald Trump and its informational graphic style is not inherently iconic or well-suited for a vertical recompose."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 7.0,
+          "rationale": "The image clearly depicts the Strait of Hormuz and routes relevant to US-Iran tensions, lending a tense mood, but it lacks the key subject of Donald Trump and its informational graphic style is not inherently iconic or well-suited for a vertical recompose."
+        }
+      ],
+      "weighted_total": 45.0,
+      "disqualified": true
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-1-cand-3",
+        "title": "IRGC Reveals Hormuz Map Amid US Naval Blockade, Sends Out Stern Warning To  Donald Trump",
+        "source_page_url": "https://www.youtube.com/watch?v=FmPpyNPwmfQ",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTt3JilNGPdo1v6SJlz5ymcbNOrwMyalaYWeA&s",
+        "full_image_url": "https://i.ytimg.com/vi/FmPpyNPwmfQ/maxresdefault.jpg",
+        "width_px": 1280,
+        "height_px": 720,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-1/refs/digest-1-cand-3.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 4.0,
+          "rationale": "The image clearly shows the Strait of Hormuz and conveys tension through its headline about a blockade, but completely lacks the key subject of Donald Trump, making the full story not legible from the image alone."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 3.0,
+          "rationale": "The image clearly shows the Strait of Hormuz and conveys tension through its headline about a blockade, but completely lacks the key subject of Donald Trump, making the full story not legible from the image alone."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 2.0,
+          "rationale": "The image clearly shows the Strait of Hormuz and conveys tension through its headline about a blockade, but completely lacks the key subject of Donald Trump, making the full story not legible from the image alone."
+        },
+        {
+          "key": "single_subject",
+          "score": 3.0,
+          "rationale": "The image clearly shows the Strait of Hormuz and conveys tension through its headline about a blockade, but completely lacks the key subject of Donald Trump, making the full story not legible from the image alone."
+        },
+        {
+          "key": "iconic",
+          "score": 2.0,
+          "rationale": "The image clearly shows the Strait of Hormuz and conveys tension through its headline about a blockade, but completely lacks the key subject of Donald Trump, making the full story not legible from the image alone."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 7.0,
+          "rationale": "The image clearly shows the Strait of Hormuz and conveys tension through its headline about a blockade, but completely lacks the key subject of Donald Trump, making the full story not legible from the image alone."
+        }
+      ],
+      "weighted_total": 40.5,
+      "disqualified": true
+    }
+  ],
+  "winner_candidate_id": "digest-1-cand-5",
+  "synthesized_prompt": "A dramatic, photorealistic movie-poster key art of Donald Trump, centered in the upper third of a 9:16 vertical poster, his expression tense and determined, reflecting the volatile geopolitical situation. His face is dramatically lit with cinematic chiaroscuro, accented by subtle #EF4444 highlights. Seamlessly integrated into the background and extending into the middle third is a photorealistic, stylized map of the Strait of Hormuz, where the critical shipping lanes are subtly highlighted with an internal, contained glow of #EF4444, hinting at simmering tensions. The overall image features a strong duotone grade with deep shadows and high contrast, enhancing the feeling of suspense. The lower 40% of the poster is quiet, dark, and textured, creating a sense of foreboding depth. Near-black background #020617, single accent hue only, duotone grade toward #020617 plus the accent, cinematic single-source rim light, deep shadow falloff into black, fine film grain, soft radial vignette toward the focal point. High contrast, one clear idea, legible at 120px thumbnail. Reserve the lower 40% of the frame as quiet dark low-detail negative space for a caption overlay; 9:16 vertical. --no text, no logos, no watermark, no border, no UI, no words.",
+  "poster_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-1/poster.png",
+  "notes": ""
+}

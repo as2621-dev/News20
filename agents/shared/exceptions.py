@@ -1,0 +1,100 @@
+"""Custom exception classes for the News20 agent code.
+
+Ported from TLDW (`agents/shared/exceptions.py`) and trimmed to the subset the
+M0 quality-spike TTS spine raises (Rule 2 — minimum code): the base error, the
+pipeline-stage base, and the TTS render error. The RAG / ingestion / clustering
+/ quality-gate exceptions TLDW defines are out of scope for this spike and are
+omitted; reintroduce them when those stages are ported.
+
+Exception hierarchy:
+    VoiceAgentError (base)
+    +-- PipelineStageError      -- Base pipeline-stage failure
+        +-- TTSRenderError          -- TTS rendering / audio assembly failure
+
+Example:
+    >>> from agents.shared.exceptions import TTSRenderError
+    >>> raise TTSRenderError(
+    ...     message="Gemini multi-speaker TTS returned no audio bytes",
+    ...     audio_step="gemini_multispeaker_tts",
+    ...     fix_suggestion="Check Gemini TTS quota and GEMINI_API_KEY validity",
+    ... )
+"""
+
+
+class VoiceAgentError(Exception):
+    """Base exception for all News20 agent errors.
+
+    Attributes:
+        message: Human-readable error description.
+        fix_suggestion: Actionable suggestion for resolving the error.
+    """
+
+    def __init__(self, message: str, fix_suggestion: str = "") -> None:
+        self.message = message
+        self.fix_suggestion = fix_suggestion
+        super().__init__(message)
+
+    def __str__(self) -> str:
+        if self.fix_suggestion:
+            return f"{self.message} | fix_suggestion: {self.fix_suggestion}"
+        return self.message
+
+
+class PipelineStageError(VoiceAgentError):
+    """Base exception for pipeline-stage errors.
+
+    Subclassed by stage-specific exceptions. Includes the stage name for
+    structured logging and debugging.
+
+    Attributes:
+        stage: Name or number of the pipeline stage that failed.
+
+    Example:
+        >>> raise PipelineStageError(
+        ...     stage="tts_handoff",
+        ...     message="No dialogue turns provided",
+        ...     fix_suggestion="Verify the digest script is non-empty",
+        ... )
+    """
+
+    def __init__(
+        self,
+        stage: str,
+        message: str,
+        fix_suggestion: str = "Check pipeline logs for the specific stage failure",
+    ) -> None:
+        self.stage = stage
+        super().__init__(
+            message=f"[Stage: {stage}] {message}", fix_suggestion=fix_suggestion
+        )
+
+
+class TTSRenderError(PipelineStageError):
+    """Raised when TTS rendering or audio assembly fails.
+
+    Common causes: Gemini TTS API error, empty audio response, FFmpeg failure,
+    or an invalid / oversized chunk.
+
+    Attributes:
+        audio_step: The specific TTS/audio step that failed
+            (e.g., "gemini_multispeaker_tts", "render_chunk", "assembly").
+
+    Example:
+        >>> raise TTSRenderError(
+        ...     message="Gemini multi-speaker TTS returned no audio bytes",
+        ...     audio_step="gemini_multispeaker_tts",
+        ... )
+    """
+
+    def __init__(
+        self,
+        message: str,
+        audio_step: str = "",
+        fix_suggestion: str = "Check Gemini TTS key, service status, and FFmpeg installation",
+    ) -> None:
+        self.audio_step = audio_step
+        super().__init__(
+            stage="tts_handoff",
+            message=f"[{audio_step}] {message}" if audio_step else message,
+            fix_suggestion=fix_suggestion,
+        )

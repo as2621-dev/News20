@@ -1,0 +1,25 @@
+{
+  "name": "news20-remotion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "News20 M0 — Remotion 9:16 digest compositor (Digest composition)",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "preview": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Digest",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.290",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.290"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "typescript": "5.7.3",
+    "vitest": "2.1.8"
+  }
+}

@@ -1,0 +1,253 @@
+{
+  "digest_id": "digest-4",
+  "headline": "Nvidia's blowout quarter \u2014 but the stock slips",
+  "accent_hex": "#22C55E",
+  "refined_query": "Nvidia CEO Jensen Huang holding AI chip",
+  "candidate_count": 5,
+  "story_concept": {
+    "image_search_query": "Nvidia CEO Jensen Huang holding AI chip",
+    "key_subject": "Nvidia CEO Jensen Huang",
+    "defining_object_or_action": "holding an AI chip",
+    "emotional_valence": "subdued despite record success",
+    "gist": "Nvidia achieved record financial results, yet its stock price declined.",
+    "is_person_driven": true,
+    "central_subject_count": 1,
+    "directional_sentiment": "down_loss"
+  },
+  "scored": [
+    {
+      "candidate": {
+        "candidate_id": "digest-4-cand-1",
+        "title": "Nvidia Unveils Faster AI Chips Sooner Than Expected - WSJ",
+        "source_page_url": "https://www.wsj.com/tech/ai/nvidia-unveils-faster-ai-chips-sooner-than-expected-626154a5",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSYycj5ZLZVJdaDnFJu_BJ3rMSpOGtfOXQIJw&s",
+        "full_image_url": "https://images.wsj.net/im-62495369?width=1280&size=1.501",
+        "width_px": 1280,
+        "height_px": 853,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-4/refs/digest-4-cand-1.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 9.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding AI chips, making the core story immediately legible, and his serious expression against a dark background aligns with a subdued emotional tone, offering good potential for a conceptual poster despite the literal depiction of the product."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 7.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding AI chips, making the core story immediately legible, and his serious expression against a dark background aligns with a subdued emotional tone, offering good potential for a conceptual poster despite the literal depiction of the product."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding AI chips, making the core story immediately legible, and his serious expression against a dark background aligns with a subdued emotional tone, offering good potential for a conceptual poster despite the literal depiction of the product."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding AI chips, making the core story immediately legible, and his serious expression against a dark background aligns with a subdued emotional tone, offering good potential for a conceptual poster despite the literal depiction of the product."
+        },
+        {
+          "key": "iconic",
+          "score": 8.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding AI chips, making the core story immediately legible, and his serious expression against a dark background aligns with a subdued emotional tone, offering good potential for a conceptual poster despite the literal depiction of the product."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 8.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding AI chips, making the core story immediately legible, and his serious expression against a dark background aligns with a subdued emotional tone, offering good potential for a conceptual poster despite the literal depiction of the product."
+        }
+      ],
+      "weighted_total": 78.5,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-4-cand-2",
+        "title": "Nvidia CEO Jensen Huang Says AGI Will Be Achieved in 5 Years - Business  Insider",
+        "source_page_url": "https://www.businessinsider.com/nvidia-ceo-jensen-huang-agi-ai-five-years-2023-11",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1YiH6086yKeuJeBzcYECwaUt6ReZy5RpCpQ&s",
+        "full_image_url": "https://i.insider.com/64e67ca84a32f30019748e72?width=700",
+        "width_px": 700,
+        "height_px": 467,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-4/refs/digest-4-cand-2.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 9.0,
+          "rationale": "The image clearly depicts Jensen Huang holding an AI chip, providing strong headline aptness and iconic potential, while his serious expression aligns well with a subdued emotional tone despite success."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 8.0,
+          "rationale": "The image clearly depicts Jensen Huang holding an AI chip, providing strong headline aptness and iconic potential, while his serious expression aligns well with a subdued emotional tone despite success."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 8.0,
+          "rationale": "The image clearly depicts Jensen Huang holding an AI chip, providing strong headline aptness and iconic potential, while his serious expression aligns well with a subdued emotional tone despite success."
+        },
+        {
+          "key": "single_subject",
+          "score": 10.0,
+          "rationale": "The image clearly depicts Jensen Huang holding an AI chip, providing strong headline aptness and iconic potential, while his serious expression aligns well with a subdued emotional tone despite success."
+        },
+        {
+          "key": "iconic",
+          "score": 9.0,
+          "rationale": "The image clearly depicts Jensen Huang holding an AI chip, providing strong headline aptness and iconic potential, while his serious expression aligns well with a subdued emotional tone despite success."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 7.0,
+          "rationale": "The image clearly depicts Jensen Huang holding an AI chip, providing strong headline aptness and iconic potential, while his serious expression aligns well with a subdued emotional tone despite success."
+        }
+      ],
+      "weighted_total": 78.0,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-4-cand-3",
+        "title": "Nvidia, the chip giant caught between the US and China",
+        "source_page_url": "https://www.bbc.com/news/articles/cedy6gl99eno",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSKbqs45MTlDPg6oLQpdiPv-472za7AJWpiOQ&s",
+        "full_image_url": "https://c.files.bbci.co.uk/f36d/live/fc723a70-1c19-11f0-ad6b-9b308fd76963.jpg",
+        "width_px": 1024,
+        "height_px": 576,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-4/refs/digest-4-cand-3.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 9.0,
+          "rationale": "The image clearly shows Jensen Huang with an AI chip, making the subject and defining action legible, and his composed demeanor subtly conveys confidence rather than outright exuberance, fitting the subdued tone."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 8.0,
+          "rationale": "The image clearly shows Jensen Huang with an AI chip, making the subject and defining action legible, and his composed demeanor subtly conveys confidence rather than outright exuberance, fitting the subdued tone."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 8.0,
+          "rationale": "The image clearly shows Jensen Huang with an AI chip, making the subject and defining action legible, and his composed demeanor subtly conveys confidence rather than outright exuberance, fitting the subdued tone."
+        },
+        {
+          "key": "single_subject",
+          "score": 10.0,
+          "rationale": "The image clearly shows Jensen Huang with an AI chip, making the subject and defining action legible, and his composed demeanor subtly conveys confidence rather than outright exuberance, fitting the subdued tone."
+        },
+        {
+          "key": "iconic",
+          "score": 9.0,
+          "rationale": "The image clearly shows Jensen Huang with an AI chip, making the subject and defining action legible, and his composed demeanor subtly conveys confidence rather than outright exuberance, fitting the subdued tone."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 7.0,
+          "rationale": "The image clearly shows Jensen Huang with an AI chip, making the subject and defining action legible, and his composed demeanor subtly conveys confidence rather than outright exuberance, fitting the subdued tone."
+        }
+      ],
+      "weighted_total": 78.0,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-4-cand-4",
+        "title": "Tech war: Nvidia founder calls China a 'very important' market as AI frenzy  fuels huge demand for its chips | South China Morning Post",
+        "source_page_url": "https://www.scmp.com/tech/tech-war/article/3221807/tech-war-nvidia-founder-calls-china-very-important-market-ai-frenzy-fuels-huge-demand-its-chips",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRFoFwFM-jPZLm1mum5TMasz58S9B8hijrm3A&s",
+        "full_image_url": "https://cdn.i-scmp.com/sites/default/files/styles/1020x680/public/d8/images/canvas/2023/05/25/f0041c4e-7c17-4502-88e7-2c4b328b94aa_a844a6c3.jpg?itok=SwSvA8YC&v=1685007884",
+        "width_px": 1020,
+        "height_px": 680,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-4/refs/digest-4-cand-4.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 6.0,
+          "rationale": "The image clearly presents the key subject and defining object in a clean, iconic composition with good vertical fit, and a calm tone that can be adapted to 'subdued despite record success'."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 8.0,
+          "rationale": "The image clearly presents the key subject and defining object in a clean, iconic composition with good vertical fit, and a calm tone that can be adapted to 'subdued despite record success'."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "The image clearly presents the key subject and defining object in a clean, iconic composition with good vertical fit, and a calm tone that can be adapted to 'subdued despite record success'."
+        },
+        {
+          "key": "single_subject",
+          "score": 10.0,
+          "rationale": "The image clearly presents the key subject and defining object in a clean, iconic composition with good vertical fit, and a calm tone that can be adapted to 'subdued despite record success'."
+        },
+        {
+          "key": "iconic",
+          "score": 8.0,
+          "rationale": "The image clearly presents the key subject and defining object in a clean, iconic composition with good vertical fit, and a calm tone that can be adapted to 'subdued despite record success'."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 7.0,
+          "rationale": "The image clearly presents the key subject and defining object in a clean, iconic composition with good vertical fit, and a calm tone that can be adapted to 'subdued despite record success'."
+        }
+      ],
+      "weighted_total": 72.0,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-4-cand-5",
+        "title": "Nvidia says next-gen Rubin AI chips in full production",
+        "source_page_url": "https://virginiabusiness.com/nvidia-says-next-gen-rubin-ai-chips-in-full-production/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTu-rYndaZShB905QIl3-k50qR40-8O_LezyQ&s",
+        "full_image_url": "https://virginiabusiness.com/files/1/2026/01/2026-01-05T220947Z_1_LYNXMPEM0416L_RTROPTP_4_TECH-CES-NVIDIA-875x548.jpg",
+        "width_px": 875,
+        "height_px": 548,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-4/refs/digest-4-cand-5.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 8.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding an Nvidia graphics card, and his serious expression against a dark background aligns well with a subdued emotional tone for the story."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 9.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding an Nvidia graphics card, and his serious expression against a dark background aligns well with a subdued emotional tone for the story."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 7.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding an Nvidia graphics card, and his serious expression against a dark background aligns well with a subdued emotional tone for the story."
+        },
+        {
+          "key": "single_subject",
+          "score": 10.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding an Nvidia graphics card, and his serious expression against a dark background aligns well with a subdued emotional tone for the story."
+        },
+        {
+          "key": "iconic",
+          "score": 9.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding an Nvidia graphics card, and his serious expression against a dark background aligns well with a subdued emotional tone for the story."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 8.0,
+          "rationale": "The image clearly features CEO Jensen Huang holding an Nvidia graphics card, and his serious expression against a dark background aligns well with a subdued emotional tone for the story."
+        }
+      ],
+      "weighted_total": 79.5,
+      "disqualified": false
+    }
+  ],
+  "winner_candidate_id": "digest-4-cand-5",
+  "synthesized_prompt": "A photorealistic portrait of Jensen Huang, Nvidia CEO, positioned in the upper-center third of a 9:16 frame, holding an advanced AI chip in one hand, rendered in a key art style with cinematic lighting and a strong duotone grade. His expression is subdued, thoughtful, and slightly melancholic, reflecting irony despite success, with a dominant #22C55E accent coloring the subject and overall grade. Above and around him, subtle graphic shapes depicting a rising trend line in #22C55E are prominently intersected by a sharp, falling trend line in #EF4444, symbolizing record achievements juxtaposed with stock decline. The background is dark and minimalist, ensuring no other figures are present, with the lower 40% of the poster remaining quiet and dark for impactful negative space. Near-black background #020617, restrained palette built around the segment accent (with semantic red/green only on any up/down element), duotone grade toward #020617 plus the accent, cinematic single-source rim light, deep shadow falloff into black, fine film grain, soft radial vignette toward the focal point. High contrast, one clear idea, one main subject, legible at 120px thumbnail. Reserve the lower 40% of the frame as quiet dark low-detail negative space for a caption overlay; 9:16 vertical. --no text, no logos, no watermark, no border, no UI, no words, no background people, no bystanders, no crowd.",
+  "poster_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-4/poster.png",
+  "notes": ""
+}

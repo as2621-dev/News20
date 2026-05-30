@@ -1,0 +1,159 @@
+{
+  "digest_id": "digest-2",
+  "headline": "Travis Kelce buys a minority stake in the Cleveland Guardians",
+  "accent_hex": "#F59E0B",
+  "refined_query": "Travis Kelce Cleveland Guardians baseball stadium",
+  "candidate_count": 5,
+  "story_concept": {
+    "image_search_query": "Travis Kelce Cleveland Guardians baseball stadium",
+    "key_subject": "Travis Kelce",
+    "defining_object_or_action": "wearing a Cleveland Guardians cap or jersey",
+    "emotional_valence": "Triumphant and proud (hometown hero)",
+    "gist": "Travis Kelce has purchased an ownership stake in his hometown baseball team, the Cleveland Guardians.",
+    "is_person_driven": true
+  },
+  "scored": [
+    {
+      "candidate": {
+        "candidate_id": "digest-2-cand-1",
+        "title": "Travis Kelce Joins Cleveland Guardians Ownership Group - Ministry of Sport",
+        "source_page_url": "https://ministryofsport.com/travis-kelce-joins-cleveland-guardians-ownership-group/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQs5rhkUfiyxODPFYKUG-0RXhII0CV2CYo1fg&s",
+        "full_image_url": "https://ministryofsport.com/wp-content/uploads/2026/05/1779885956442.jpg",
+        "width_px": 1079,
+        "height_px": 940,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-2/refs/digest-2-cand-1.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 10.0,
+          "rationale": "The image perfectly depicts Travis Kelce proudly showing his Cleveland allegiance at the Guardians' stadium, strongly conveying the hometown hero narrative and triumphant tone."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 9.0,
+          "rationale": "The image perfectly depicts Travis Kelce proudly showing his Cleveland allegiance at the Guardians' stadium, strongly conveying the hometown hero narrative and triumphant tone."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "The image perfectly depicts Travis Kelce proudly showing his Cleveland allegiance at the Guardians' stadium, strongly conveying the hometown hero narrative and triumphant tone."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "The image perfectly depicts Travis Kelce proudly showing his Cleveland allegiance at the Guardians' stadium, strongly conveying the hometown hero narrative and triumphant tone."
+        },
+        {
+          "key": "iconic",
+          "score": 9.0,
+          "rationale": "The image perfectly depicts Travis Kelce proudly showing his Cleveland allegiance at the Guardians' stadium, strongly conveying the hometown hero narrative and triumphant tone."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 9.0,
+          "rationale": "The image perfectly depicts Travis Kelce proudly showing his Cleveland allegiance at the Guardians' stadium, strongly conveying the hometown hero narrative and triumphant tone."
+        }
+      ],
+      "weighted_total": 87.5,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-2-cand-4",
+        "title": "Travis Kelce joins Cleveland Guardians ownership group as mi...",
+        "source_page_url": "https://www.semissourian.com/world/travis-kelce-joins-cleveland-guardians-ownership-group-as-a-minority-investor-59cd4d1b",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQztJWnFbn1mWvcOJWw5HZ6tOdMs04XnHyvpA&s",
+        "full_image_url": "https://public-assets-prod.pubgen.ai/brand_a7b06a8b-02b9-4920-9426-9b9be1d4e410/asset_faa9aa40-cb97-54b5-b85b-07e6a43d19eb.jpg",
+        "width_px": 3840,
+        "height_px": 2560,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-2/refs/digest-2-cand-4.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 1.0,
+          "rationale": "The image features Travis Kelce with a positive, engaged expression fitting the 'hometown hero' tone, but it lacks any visual connection to the Cleveland Guardians or baseball, failing to tell the specific story at a glance."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 4.0,
+          "rationale": "The image features Travis Kelce with a positive, engaged expression fitting the 'hometown hero' tone, but it lacks any visual connection to the Cleveland Guardians or baseball, failing to tell the specific story at a glance."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "The image features Travis Kelce with a positive, engaged expression fitting the 'hometown hero' tone, but it lacks any visual connection to the Cleveland Guardians or baseball, failing to tell the specific story at a glance."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "The image features Travis Kelce with a positive, engaged expression fitting the 'hometown hero' tone, but it lacks any visual connection to the Cleveland Guardians or baseball, failing to tell the specific story at a glance."
+        },
+        {
+          "key": "iconic",
+          "score": 6.0,
+          "rationale": "The image features Travis Kelce with a positive, engaged expression fitting the 'hometown hero' tone, but it lacks any visual connection to the Cleveland Guardians or baseball, failing to tell the specific story at a glance."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 9.0,
+          "rationale": "The image features Travis Kelce with a positive, engaged expression fitting the 'hometown hero' tone, but it lacks any visual connection to the Cleveland Guardians or baseball, failing to tell the specific story at a glance."
+        }
+      ],
+      "weighted_total": 59.0,
+      "disqualified": true
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-2-cand-5",
+        "title": "Cleveland Heights native & Super Bowl champ Travis Kelce joins Guardians  ownership group - Local News",
+        "source_page_url": "https://wfin.com/guardians/cleveland-heights-native-super-bowl-champ-travis-kelce-joins-guardians-ownership-group/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_Syp19dEZpIl4iVghJ5XdlGRh2737CZxhZQ&s",
+        "full_image_url": "https://wfin.com/wp-content/uploads/2026/05/sswoeouizff6yukwzcda-L5Qp93-800x445.jpg",
+        "width_px": 800,
+        "height_px": 445,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-2/refs/digest-2-cand-5.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 9.0,
+          "rationale": "The image clearly shows Travis Kelce in a Cleveland Guardians jersey with a triumphant pose, perfectly conveying the pride of a hometown hero and making the story immediately legible."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 8.0,
+          "rationale": "The image clearly shows Travis Kelce in a Cleveland Guardians jersey with a triumphant pose, perfectly conveying the pride of a hometown hero and making the story immediately legible."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 7.0,
+          "rationale": "The image clearly shows Travis Kelce in a Cleveland Guardians jersey with a triumphant pose, perfectly conveying the pride of a hometown hero and making the story immediately legible."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "The image clearly shows Travis Kelce in a Cleveland Guardians jersey with a triumphant pose, perfectly conveying the pride of a hometown hero and making the story immediately legible."
+        },
+        {
+          "key": "iconic",
+          "score": 8.0,
+          "rationale": "The image clearly shows Travis Kelce in a Cleveland Guardians jersey with a triumphant pose, perfectly conveying the pride of a hometown hero and making the story immediately legible."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 10.0,
+          "rationale": "The image clearly shows Travis Kelce in a Cleveland Guardians jersey with a triumphant pose, perfectly conveying the pride of a hometown hero and making the story immediately legible."
+        }
+      ],
+      "weighted_total": 84.0,
+      "disqualified": false
+    }
+  ],
+  "winner_candidate_id": "digest-2-cand-1",
+  "synthesized_prompt": "A 9:16 photorealistic poster key art of Travis Kelce, mid-shot, anchored in the upper-center third. He wears a Cleveland Guardians baseball cap and a stylized jersey, his expression triumphant and radiating hometown pride. Cinematic lighting casts dramatic shadows, creating a strong duotone grade across the scene with rich, deep blues and grays, highlighted by a bold #F59E0B accent color. Subtle graphic textures overlay the background, which features a blurred, abstracted stadium backdrop with the lower 40% intentionally dark and quiet, while a restrained, glowing graphic element in #F59E0B subtly evokes a baseball diamond or the team's 'G' logo behind him, signifying his new ownership. Near-black background #020617, single accent hue only, duotone grade toward #020617 plus the accent, cinematic single-source rim light, deep shadow falloff into black, fine film grain, soft radial vignette toward the focal point. High contrast, one clear idea, legible at 120px thumbnail. Reserve the lower 40% of the frame as quiet dark low-detail negative space for a caption overlay; 9:16 vertical. --no text, no logos, no watermark, no border, no UI, no words.",
+  "poster_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-2/poster.png",
+  "notes": ""
+}

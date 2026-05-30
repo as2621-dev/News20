@@ -1,0 +1,253 @@
+{
+  "digest_id": "digest-3",
+  "headline": "University of Houston breaks a 30-year superconductivity record",
+  "accent_hex": "#22D3EE",
+  "refined_query": "University of Houston physicists superconductor record",
+  "candidate_count": 5,
+  "story_concept": {
+    "image_search_query": "University of Houston physicists superconductor record",
+    "key_subject": "University of Houston physicist",
+    "defining_object_or_action": "holding a superconductor sample",
+    "emotional_valence": "triumphant breakthrough",
+    "gist": "Scientists at the University of Houston have set a new record in superconductivity.",
+    "is_person_driven": true,
+    "central_subject_count": 1,
+    "directional_sentiment": "up_gain"
+  },
+  "scored": [
+    {
+      "candidate": {
+        "candidate_id": "digest-3-cand-1",
+        "title": "University of Houston Physicists Break Superconductivity Temperature Record",
+        "source_page_url": "https://www.uh.edu/nsm/news-events/stories/2026/0310-superconductivity-record.php",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRChaHDzAdAYd7A2CAlqJq5r-SauMudoOyzZQ&s",
+        "full_image_url": "https://www.uh.edu/nsm/_images/nsm/news-events/2026/20260310-superconductivity-record.jpg",
+        "width_px": 1200,
+        "height_px": 498,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-3/refs/digest-3-cand-1.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 9.0,
+          "rationale": "The image clearly depicts the key subject holding the defining object, making the story legible and offering good potential for a focused poster, though the emotional tone is more contemplative than overtly triumphant."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 8.0,
+          "rationale": "The image clearly depicts the key subject holding the defining object, making the story legible and offering good potential for a focused poster, though the emotional tone is more contemplative than overtly triumphant."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 8.0,
+          "rationale": "The image clearly depicts the key subject holding the defining object, making the story legible and offering good potential for a focused poster, though the emotional tone is more contemplative than overtly triumphant."
+        },
+        {
+          "key": "single_subject",
+          "score": 9.0,
+          "rationale": "The image clearly depicts the key subject holding the defining object, making the story legible and offering good potential for a focused poster, though the emotional tone is more contemplative than overtly triumphant."
+        },
+        {
+          "key": "iconic",
+          "score": 6.0,
+          "rationale": "The image clearly depicts the key subject holding the defining object, making the story legible and offering good potential for a focused poster, though the emotional tone is more contemplative than overtly triumphant."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 7.0,
+          "rationale": "The image clearly depicts the key subject holding the defining object, making the story legible and offering good potential for a focused poster, though the emotional tone is more contemplative than overtly triumphant."
+        }
+      ],
+      "weighted_total": 74.0,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-3-cand-2",
+        "title": "University of Houston Physicists Break Superconductivity Temperature Record",
+        "source_page_url": "https://www.uh.edu/nsm/news-events/stories/2026/0310-superconductivity-record.php",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZRYEXqXAJUiuvYn-Lk4Olvu5mZf3TasUUVQ&s",
+        "full_image_url": "https://www.uh.edu/nsm/_images/nsm/news-events/2026/20260310-superconductivity-record-2.jpg",
+        "width_px": 720,
+        "height_px": 541,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-3/refs/digest-3-cand-2.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 7.0,
+          "rationale": "The image clearly shows a scientist engaged with complex lab equipment, fitting the subject and action, but lacks an overt triumphant emotion and the specific object isn't immediately identifiable as a superconductor record."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 8.0,
+          "rationale": "The image clearly shows a scientist engaged with complex lab equipment, fitting the subject and action, but lacks an overt triumphant emotion and the specific object isn't immediately identifiable as a superconductor record."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 9.0,
+          "rationale": "The image clearly shows a scientist engaged with complex lab equipment, fitting the subject and action, but lacks an overt triumphant emotion and the specific object isn't immediately identifiable as a superconductor record."
+        },
+        {
+          "key": "single_subject",
+          "score": 7.0,
+          "rationale": "The image clearly shows a scientist engaged with complex lab equipment, fitting the subject and action, but lacks an overt triumphant emotion and the specific object isn't immediately identifiable as a superconductor record."
+        },
+        {
+          "key": "iconic",
+          "score": 6.0,
+          "rationale": "The image clearly shows a scientist engaged with complex lab equipment, fitting the subject and action, but lacks an overt triumphant emotion and the specific object isn't immediately identifiable as a superconductor record."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 4.0,
+          "rationale": "The image clearly shows a scientist engaged with complex lab equipment, fitting the subject and action, but lacks an overt triumphant emotion and the specific object isn't immediately identifiable as a superconductor record."
+        }
+      ],
+      "weighted_total": 60.0,
+      "disqualified": false
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-3-cand-3",
+        "title": "Houston scientist Dr. Paul Chu upends the physics world",
+        "source_page_url": "https://www.chron.com/local/history/medical-science/article/Houston-scientist-Dr-Paul-Chu-upends-the-physics-8406495.php",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSzSS7FOQ770Vjw-nzC5oqHjK1uAGUOhcOKWA&s",
+        "full_image_url": "https://s.hdnux.com/photos/50/45/23/10638533/4/1920x0.jpg",
+        "width_px": 1920,
+        "height_px": 2921,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-3/refs/digest-3-cand-3.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 3.0,
+          "rationale": "The image features scientists in a lab, fitting the key subject, but lacks a clear depiction of holding a superconductor sample and does not convey a triumphant emotional tone."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 4.0,
+          "rationale": "The image features scientists in a lab, fitting the key subject, but lacks a clear depiction of holding a superconductor sample and does not convey a triumphant emotional tone."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 2.0,
+          "rationale": "The image features scientists in a lab, fitting the key subject, but lacks a clear depiction of holding a superconductor sample and does not convey a triumphant emotional tone."
+        },
+        {
+          "key": "single_subject",
+          "score": 3.0,
+          "rationale": "The image features scientists in a lab, fitting the key subject, but lacks a clear depiction of holding a superconductor sample and does not convey a triumphant emotional tone."
+        },
+        {
+          "key": "iconic",
+          "score": 3.0,
+          "rationale": "The image features scientists in a lab, fitting the key subject, but lacks a clear depiction of holding a superconductor sample and does not convey a triumphant emotional tone."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 2.0,
+          "rationale": "The image features scientists in a lab, fitting the key subject, but lacks a clear depiction of holding a superconductor sample and does not convey a triumphant emotional tone."
+        }
+      ],
+      "weighted_total": 26.0,
+      "disqualified": true
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-3-cand-4",
+        "title": "University of Houston Physicists Break Superconductivity Temperature Record",
+        "source_page_url": "https://thequantuminsider.com/2026/03/11/university-of-houston-physicists-break-superconductivity-temperature-record/",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQbI4_HEXvPiJi9NsVVx7goBY7YP0k0JeGUcQ&s",
+        "full_image_url": "https://thequantuminsider.com/wp-content/uploads/2026/03/Screenshot-2026-03-11-at-8.45.34-AM.png",
+        "width_px": 538,
+        "height_px": 336,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-3/refs/digest-3-cand-4.png"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 0.0,
+          "rationale": "The image is an abstract heat map with no discernible subject or object, making it impossible to convey the specific story of a physicist and a superconductor, nor a triumphant emotional tone."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 3.0,
+          "rationale": "The image is an abstract heat map with no discernible subject or object, making it impossible to convey the specific story of a physicist and a superconductor, nor a triumphant emotional tone."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 5.0,
+          "rationale": "The image is an abstract heat map with no discernible subject or object, making it impossible to convey the specific story of a physicist and a superconductor, nor a triumphant emotional tone."
+        },
+        {
+          "key": "single_subject",
+          "score": 0.0,
+          "rationale": "The image is an abstract heat map with no discernible subject or object, making it impossible to convey the specific story of a physicist and a superconductor, nor a triumphant emotional tone."
+        },
+        {
+          "key": "iconic",
+          "score": 2.0,
+          "rationale": "The image is an abstract heat map with no discernible subject or object, making it impossible to convey the specific story of a physicist and a superconductor, nor a triumphant emotional tone."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 1.0,
+          "rationale": "The image is an abstract heat map with no discernible subject or object, making it impossible to convey the specific story of a physicist and a superconductor, nor a triumphant emotional tone."
+        }
+      ],
+      "weighted_total": 14.5,
+      "disqualified": true
+    },
+    {
+      "candidate": {
+        "candidate_id": "digest-3-cand-5",
+        "title": "University of Houston Physicists Set New Superconductivity Temperature  Record",
+        "source_page_url": "https://www.youtube.com/watch?v=qXNxljanKw4",
+        "thumbnail_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS0FA3-A9UbNV5Mu3CBg7JAD5Q0fwEMpbv56g&s",
+        "full_image_url": "https://i.ytimg.com/vi/qXNxljanKw4/maxresdefault.jpg",
+        "width_px": 1280,
+        "height_px": 720,
+        "local_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-3/refs/digest-3-cand-5.jpg"
+      },
+      "scores": [
+        {
+          "key": "headline_aptness",
+          "score": 2.0,
+          "rationale": "The image features a clear subject who appears to be a scientist, but it lacks any visual cue for superconductivity or a triumphant breakthrough, making it a generic lab scene."
+        },
+        {
+          "key": "metaphor_potential",
+          "score": 3.0,
+          "rationale": "The image features a clear subject who appears to be a scientist, but it lacks any visual cue for superconductivity or a triumphant breakthrough, making it a generic lab scene."
+        },
+        {
+          "key": "vertical_fit",
+          "score": 5.0,
+          "rationale": "The image features a clear subject who appears to be a scientist, but it lacks any visual cue for superconductivity or a triumphant breakthrough, making it a generic lab scene."
+        },
+        {
+          "key": "single_subject",
+          "score": 8.0,
+          "rationale": "The image features a clear subject who appears to be a scientist, but it lacks any visual cue for superconductivity or a triumphant breakthrough, making it a generic lab scene."
+        },
+        {
+          "key": "iconic",
+          "score": 3.0,
+          "rationale": "The image features a clear subject who appears to be a scientist, but it lacks any visual cue for superconductivity or a triumphant breakthrough, making it a generic lab scene."
+        },
+        {
+          "key": "emotional_tone",
+          "score": 4.0,
+          "rationale": "The image features a clear subject who appears to be a scientist, but it lacks any visual cue for superconductivity or a triumphant breakthrough, making it a generic lab scene."
+        }
+      ],
+      "weighted_total": 36.5,
+      "disqualified": true
+    }
+  ],
+  "winner_candidate_id": "digest-3-cand-1",
+  "synthesized_prompt": "Generate a 9:16 photorealistic news poster key art featuring an older Asian male physicist with glasses, reminiscent of the subject in the seed image, his expression conveying triumphant breakthrough. He is holding an intricate superconductor sample, glowing softly, in his right hand. Dramatic cinematic lighting with a strong duotone grade in #22D3EE dominates the scene, while a subtle, upward-sweeping graphic line in #22C55E rises from the superconductor, symbolizing the record-breaking achievement. Position the physicist in the upper-center third, with a dark, abstract background hinting at advanced lab equipment, leaving the lower 40% quiet and deep black. Near-black background #020617, restrained palette built around the segment accent (with semantic red/green only on any up/down element), duotone grade toward #020617 plus the accent, cinematic single-source rim light, deep shadow falloff into black, fine film grain, soft radial vignette toward the focal point. High contrast, one clear idea, one main subject, legible at 120px thumbnail. Reserve the lower 40% of the frame as quiet dark low-detail negative space for a caption overlay; 9:16 vertical. --no text, no logos, no watermark, no border, no UI, no words, no background people, no bystanders, no crowd.",
+  "poster_path": "/Users/asheshsrivastava/News20/News20/assets/m0/digest-3/poster.png",
+  "notes": ""
+}
