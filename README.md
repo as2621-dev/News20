@@ -2,6 +2,22 @@
 
 A slim Claude Code template. 9 commands, 12 rules. No fluff.
 
+## blip — the app in this repo
+
+This repo builds **blip** (codename News20): an audio-first AI news-digest iPhone app. **Phase 1** ships the Next.js 15 static-export reel that plays the 5 real M0 digests as local fixtures — audio-driven karaoke captions, a finite swipe loop, and the "all caught up" finish line. No backend yet (fixtures only; Supabase lands in a later phase).
+
+```bash
+npm install        # frontend deps
+npm run dev        # Next dev server → http://localhost:3000
+npm run build      # static SPA export → out/
+npm test           # Vitest unit suite (tests/lib/**)
+npm run lint       # Biome
+```
+
+Cross-phase feed contract: `src/types/feed.ts`. Reel UI: `src/components/reel/`, `src/lib/reel/`. Karaoke selector: `src/lib/captions/captionState.ts`. Phase record: `plans/phase-1-audio-first-reel-progress.md`.
+
+> The sections below document the **Claude Code template** this project was scaffolded from.
+
 ## Use this template for a new project
 
 This repo is configured as a **GitHub Template Repository**. Don't fork — use the template button.

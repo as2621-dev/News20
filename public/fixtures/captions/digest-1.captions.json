@@ -1,0 +1,918 @@
+{
+  "digest_id": "digest-1",
+  "audio_duration_s": 50.611,
+  "speech_end_s": 50.611,
+  "sentence_count": 11,
+  "words": [
+    {
+      "word": "The",
+      "start_s": 0.0,
+      "end_s": 0.287,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "U.S.",
+      "start_s": 0.287,
+      "end_s": 0.502,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "military",
+      "start_s": 0.502,
+      "end_s": 1.147,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "hit",
+      "start_s": 1.147,
+      "end_s": 1.434,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "another",
+      "start_s": 1.434,
+      "end_s": 2.007,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "target",
+      "start_s": 2.007,
+      "end_s": 2.509,
+      "sentence_index": 0,
+      "is_highlight": true
+    },
+    {
+      "word": "inside",
+      "start_s": 2.509,
+      "end_s": 3.011,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "Iran",
+      "start_s": 3.011,
+      "end_s": 3.369,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "overnight",
+      "start_s": 3.369,
+      "end_s": 4.086,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 4.086,
+      "end_s": 4.158,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 4.158,
+      "end_s": 4.301,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "site",
+      "start_s": 4.301,
+      "end_s": 4.66,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "Washington",
+      "start_s": 4.66,
+      "end_s": 5.448,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "says",
+      "start_s": 5.448,
+      "end_s": 5.807,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "threatened",
+      "start_s": 5.807,
+      "end_s": 6.595,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "American",
+      "start_s": 6.595,
+      "end_s": 7.24,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "forces",
+      "start_s": 7.24,
+      "end_s": 7.742,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "and",
+      "start_s": 7.742,
+      "end_s": 8.029,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "commercial",
+      "start_s": 8.029,
+      "end_s": 8.817,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "shipping.",
+      "start_s": 8.817,
+      "end_s": 9.463,
+      "sentence_index": 0,
+      "is_highlight": false
+    },
+    {
+      "word": "And",
+      "start_s": 9.463,
+      "end_s": 9.749,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "President",
+      "start_s": 9.749,
+      "end_s": 10.466,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "Trump",
+      "start_s": 10.466,
+      "end_s": 10.896,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "says",
+      "start_s": 10.896,
+      "end_s": 11.255,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "he's",
+      "start_s": 11.255,
+      "end_s": 11.542,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "confident",
+      "start_s": 11.542,
+      "end_s": 12.258,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 12.258,
+      "end_s": 12.402,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "deal",
+      "start_s": 12.402,
+      "end_s": 12.76,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 12.76,
+      "end_s": 12.975,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "end",
+      "start_s": 12.975,
+      "end_s": 13.262,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 13.262,
+      "end_s": 13.549,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "fighting",
+      "start_s": 13.549,
+      "end_s": 14.194,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 14.194,
+      "end_s": 14.409,
+      "sentence_index": 1,
+      "is_highlight": false
+    },
+    {
+      "word": "close.",
+      "start_s": 14.409,
+      "end_s": 14.839,
+      "sentence_index": 1,
+      "is_highlight": true
+    },
+    {
+      "word": "But",
+      "start_s": 14.839,
+      "end_s": 15.126,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "\"close\"",
+      "start_s": 15.126,
+      "end_s": 15.556,
+      "sentence_index": 2,
+      "is_highlight": true
+    },
+    {
+      "word": "isn't",
+      "start_s": 15.556,
+      "end_s": 15.914,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "\"done.",
+      "start_s": 15.914,
+      "end_s": 16.273,
+      "sentence_index": 2,
+      "is_highlight": false
+    },
+    {
+      "word": "Right",
+      "start_s": 16.273,
+      "end_s": 16.703,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 16.703,
+      "end_s": 16.775,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "he",
+      "start_s": 16.775,
+      "end_s": 16.99,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "made",
+      "start_s": 16.99,
+      "end_s": 17.348,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "clear",
+      "start_s": 17.348,
+      "end_s": 17.778,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "he's",
+      "start_s": 17.778,
+      "end_s": 18.065,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "not",
+      "start_s": 18.065,
+      "end_s": 18.352,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "satisfied",
+      "start_s": 18.352,
+      "end_s": 19.069,
+      "sentence_index": 3,
+      "is_highlight": true
+    },
+    {
+      "word": "with",
+      "start_s": 19.069,
+      "end_s": 19.427,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 19.427,
+      "end_s": 19.714,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "terms",
+      "start_s": 19.714,
+      "end_s": 20.144,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "yet.",
+      "start_s": 20.144,
+      "end_s": 20.431,
+      "sentence_index": 3,
+      "is_highlight": false
+    },
+    {
+      "word": "And",
+      "start_s": 20.431,
+      "end_s": 20.718,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "he's",
+      "start_s": 20.718,
+      "end_s": 21.004,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "willing",
+      "start_s": 21.004,
+      "end_s": 21.578,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 21.578,
+      "end_s": 21.793,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "restart",
+      "start_s": 21.793,
+      "end_s": 22.366,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "strikes",
+      "start_s": 22.366,
+      "end_s": 22.94,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "if",
+      "start_s": 22.94,
+      "end_s": 23.155,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "Iran",
+      "start_s": 23.155,
+      "end_s": 23.513,
+      "sentence_index": 4,
+      "is_highlight": true
+    },
+    {
+      "word": "doesn't",
+      "start_s": 23.513,
+      "end_s": 24.015,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "meet",
+      "start_s": 24.015,
+      "end_s": 24.374,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "U.S.",
+      "start_s": 24.374,
+      "end_s": 24.589,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "demands.",
+      "start_s": 24.589,
+      "end_s": 25.162,
+      "sentence_index": 4,
+      "is_highlight": false
+    },
+    {
+      "word": "Meanwhile",
+      "start_s": 25.162,
+      "end_s": 25.879,
+      "sentence_index": 5,
+      "is_highlight": true
+    },
+    {
+      "word": "Tehran",
+      "start_s": 25.879,
+      "end_s": 26.381,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 26.381,
+      "end_s": 26.596,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "pushing",
+      "start_s": 26.596,
+      "end_s": 27.169,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "back",
+      "start_s": 27.169,
+      "end_s": 27.528,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "hard.",
+      "start_s": 27.528,
+      "end_s": 27.886,
+      "sentence_index": 5,
+      "is_highlight": false
+    },
+    {
+      "word": "It",
+      "start_s": 27.886,
+      "end_s": 28.101,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "just",
+      "start_s": 28.101,
+      "end_s": 28.46,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "issued",
+      "start_s": 28.46,
+      "end_s": 28.962,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "new",
+      "start_s": 28.962,
+      "end_s": 29.248,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "rules",
+      "start_s": 29.248,
+      "end_s": 29.678,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "for",
+      "start_s": 29.678,
+      "end_s": 29.965,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "any",
+      "start_s": 29.965,
+      "end_s": 30.252,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "ship",
+      "start_s": 30.252,
+      "end_s": 30.61,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "trying",
+      "start_s": 30.61,
+      "end_s": 31.112,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 31.112,
+      "end_s": 31.327,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "pass",
+      "start_s": 31.327,
+      "end_s": 31.686,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "through",
+      "start_s": 31.686,
+      "end_s": 32.259,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 32.259,
+      "end_s": 32.546,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "Strait",
+      "start_s": 32.546,
+      "end_s": 33.048,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 33.048,
+      "end_s": 33.263,
+      "sentence_index": 6,
+      "is_highlight": false
+    },
+    {
+      "word": "Hormuz.",
+      "start_s": 33.263,
+      "end_s": 33.765,
+      "sentence_index": 6,
+      "is_highlight": true
+    },
+    {
+      "word": "That's",
+      "start_s": 33.765,
+      "end_s": 34.195,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 34.195,
+      "end_s": 34.481,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "chokepoint",
+      "start_s": 34.481,
+      "end_s": 35.27,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "where",
+      "start_s": 35.27,
+      "end_s": 35.7,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "about",
+      "start_s": 35.7,
+      "end_s": 36.13,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 36.13,
+      "end_s": 36.274,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "fifth",
+      "start_s": 36.274,
+      "end_s": 36.704,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "of",
+      "start_s": 36.704,
+      "end_s": 36.919,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 36.919,
+      "end_s": 37.206,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "world's",
+      "start_s": 37.206,
+      "end_s": 37.707,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "oil",
+      "start_s": 37.707,
+      "end_s": 37.994,
+      "sentence_index": 7,
+      "is_highlight": true
+    },
+    {
+      "word": "moves.",
+      "start_s": 37.994,
+      "end_s": 38.424,
+      "sentence_index": 7,
+      "is_highlight": false
+    },
+    {
+      "word": "Iran's",
+      "start_s": 38.424,
+      "end_s": 38.854,
+      "sentence_index": 8,
+      "is_highlight": true
+    },
+    {
+      "word": "trying",
+      "start_s": 38.854,
+      "end_s": 39.356,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "to",
+      "start_s": 39.356,
+      "end_s": 39.571,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "formalize",
+      "start_s": 39.571,
+      "end_s": 40.288,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "control",
+      "start_s": 40.288,
+      "end_s": 40.862,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "over",
+      "start_s": 40.862,
+      "end_s": 41.22,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "it",
+      "start_s": 41.22,
+      "end_s": 41.435,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 41.435,
+      "end_s": 41.507,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "defying",
+      "start_s": 41.507,
+      "end_s": 42.08,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "U.S.",
+      "start_s": 42.08,
+      "end_s": 42.295,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "warnings.",
+      "start_s": 42.295,
+      "end_s": 42.94,
+      "sentence_index": 8,
+      "is_highlight": false
+    },
+    {
+      "word": "So",
+      "start_s": 42.94,
+      "end_s": 43.156,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 43.156,
+      "end_s": 43.299,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "ceasefire",
+      "start_s": 43.299,
+      "end_s": 44.016,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "is",
+      "start_s": 44.016,
+      "end_s": 44.231,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "being",
+      "start_s": 44.231,
+      "end_s": 44.661,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "talked",
+      "start_s": 44.661,
+      "end_s": 45.163,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "up,",
+      "start_s": 45.163,
+      "end_s": 45.378,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "and",
+      "start_s": 45.378,
+      "end_s": 45.665,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "a",
+      "start_s": 45.665,
+      "end_s": 45.808,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "flashpoint",
+      "start_s": 45.808,
+      "end_s": 46.597,
+      "sentence_index": 9,
+      "is_highlight": true
+    },
+    {
+      "word": "is",
+      "start_s": 46.597,
+      "end_s": 46.812,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "heating",
+      "start_s": 46.812,
+      "end_s": 47.385,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "up",
+      "start_s": 47.385,
+      "end_s": 47.6,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "\u2014",
+      "start_s": 47.6,
+      "end_s": 47.672,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "at",
+      "start_s": 47.672,
+      "end_s": 47.887,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "the",
+      "start_s": 47.887,
+      "end_s": 48.174,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "same",
+      "start_s": 48.174,
+      "end_s": 48.532,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "time.",
+      "start_s": 48.532,
+      "end_s": 48.89,
+      "sentence_index": 9,
+      "is_highlight": false
+    },
+    {
+      "word": "We'll",
+      "start_s": 48.89,
+      "end_s": 49.249,
+      "sentence_index": 10,
+      "is_highlight": false
+    },
+    {
+      "word": "see",
+      "start_s": 49.249,
+      "end_s": 49.536,
+      "sentence_index": 10,
+      "is_highlight": false
+    },
+    {
+      "word": "which",
+      "start_s": 49.536,
+      "end_s": 49.966,
+      "sentence_index": 10,
+      "is_highlight": false
+    },
+    {
+      "word": "one",
+      "start_s": 49.966,
+      "end_s": 50.253,
+      "sentence_index": 10,
+      "is_highlight": false
+    },
+    {
+      "word": "wins.",
+      "start_s": 50.253,
+      "end_s": 50.611,
+      "sentence_index": 10,
+      "is_highlight": true
+    }
+  ]
+}
