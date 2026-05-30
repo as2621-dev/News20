@@ -8,8 +8,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     // Reason: the repo also holds a Python pytest tree under tests/agents/**.
-    // Scope Vitest to tests/lib/** ONLY so it never tries to parse Python files.
-    include: ["tests/lib/**/*.test.{ts,tsx}"],
+    // Scope Vitest to the TS test trees (tests/lib/** + tests/seed/**) ONLY so it
+    // never tries to parse Python files under tests/agents/**.
+    include: ["tests/lib/**/*.test.{ts,tsx}", "tests/seed/**/*.test.{ts,tsx}"],
   },
   resolve: {
     alias: {

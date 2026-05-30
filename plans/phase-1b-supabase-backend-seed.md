@@ -1,7 +1,7 @@
 # Phase 1b: Supabase backend — content schema, storage, seed, data layer
 
 **Milestone:** M1 — Audio-first karaoke reel MVP
-**Status:** Not started
+**Status:** DONE — credentials added (2026-05-30); migrations 0001+0002 applied to hosted DB; 5 M0 digests seeded (content+captions+audio+posters); public-read RLS verified (anon read-allow/write-deny); getFeed() live-verified (5 Zod-valid stories, audio/poster URLs HTTP 200). Two real bugs fixed during apply (seed partial-unique-index onConflict; getFeed single-object segment embed). All DoDs PASS; lint/tsc clean; vitest 82/82. See plans/phase-1b-supabase-backend-seed-progress.md.
 **Estimated effort:** L
 
 ## Goal

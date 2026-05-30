@@ -49,3 +49,7 @@ openmemory.md
 
 # OpenMemory - IDE/Assistant specific rules
 CLAUDE.md
+
+# ─── Supabase CLI local artifacts ─────────────────────────
+supabase/.temp/
+supabase/.branches/

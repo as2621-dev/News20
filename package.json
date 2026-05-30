@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed": "tsx supabase/seed/seedM0Digests.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -33,6 +34,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "jsdom": "^28.1.0",
     "tailwindcss": "^4.1.5",
+    "tsx": "^4.22.3",
     "typescript": "^5.8.3",
     "vitest": "^4.0.18"
   }
