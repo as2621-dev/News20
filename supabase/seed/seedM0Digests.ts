@@ -12,8 +12,10 @@
  *   - storage: digest-audio/digest-{N}.mp3, story-posters/digest-{N}.png
  *   - rows: segments, anchors, stories, story_trust, story_timeline,
  *     detail_chunks, story_sources, suggested_questions, story_qa, story_topics,
- *     one current `digests` per story, and `caption_sentences` (word_tokens built
- *     via the Phase-1 `normalizeM0Captions` so the karaoke matches the reel).
+ *     story_analytics + detail_key_points + story_trust coverage_mode/reach cols
+ *     (Phase 2c fixtures), one current `digests` per story, and
+ *     `caption_sentences` (word_tokens built via the Phase-1 `normalizeM0Captions`
+ *     so the karaoke matches the reel).
  *
  * Idempotent: storage uploads use upsert; rows upsert on natural unique keys;
  * caption rows are deleted then re-inserted per digest.
@@ -39,6 +41,166 @@ const ANCHOR_ROWS = [
   { anchor_id: "ALEX", anchor_display_name: "Alex", gemini_voice_id: "Leda", identity_color_hex: "#6C8CFF", anchor_sort_order: 0 },
   { anchor_id: "JORDAN", anchor_display_name: "Jordan", gemini_voice_id: "Sadaltager", identity_color_hex: "#C792EA", anchor_sort_order: 1 },
 ] as const;
+
+/**
+ * Phase 2c Detail-analytics fixtures (second analytic + 5 key points + coverage
+ * mode) for the s1–s5 prototype stories. The prototype `data.js` predates Phase
+ * 2c, so these realistic shapes are authored here so the existing Detail UI
+ * renders the new tabs against real data without a live pipeline run. Keyed by
+ * story id; the `analytic_kind`/`coverage_mode` match each story's segment
+ * (geopolitics→market_impact+partisan, sport→stakes+reach, tech→impact+reach,
+ * markets→ripple+reach, wildcard→why_it_matters+reach — Decisions #2/#3).
+ */
+interface Phase2cFixture {
+  second_analytic: {
+    analytic_kind: "market_impact" | "ripple" | "impact" | "stakes" | "why_it_matters";
+    analytic_tab_label: string;
+    analytic_headline: string;
+    analytic_summary_text: string;
+    analytic_rows: {
+      analytic_row_label: string;
+      analytic_row_value: string | null;
+      analytic_row_direction: "up" | "down" | "flat" | null;
+      analytic_row_note: string | null;
+    }[];
+    analytic_is_grounded: boolean;
+  };
+  coverage_mode: "partisan" | "reach";
+  coverage_momentum: string | null;
+  coverage_originating_outlet_name: string | null;
+  coverage_notable_outlet_names: string[];
+  detail_key_points: string[];
+}
+
+const PHASE_2C_FIXTURES: Record<string, Phase2cFixture> = {
+  s1: {
+    second_analytic: {
+      analytic_kind: "market_impact",
+      analytic_tab_label: "MARKET IMPACT",
+      analytic_headline: "Oil markets brace as Hormuz tensions escalate",
+      analytic_summary_text:
+        "New transit rules on a chokepoint carrying ~20% of seaborne crude push energy traders toward a risk premium.",
+      analytic_rows: [
+        { analytic_row_label: "Hormuz oil share", analytic_row_value: "~20%", analytic_row_direction: null, analytic_row_note: "of global oil transit" },
+        { analytic_row_label: "Brent crude", analytic_row_value: null, analytic_row_direction: "up", analytic_row_note: "risk premium building" },
+        { analytic_row_label: "Energy equities", analytic_row_value: null, analytic_row_direction: "up", analytic_row_note: "defensive rotation" },
+      ],
+      analytic_is_grounded: true,
+    },
+    coverage_mode: "partisan",
+    coverage_momentum: null,
+    coverage_originating_outlet_name: null,
+    coverage_notable_outlet_names: [],
+    detail_key_points: [
+      "The U.S. struck a second site inside Iran overnight, escalating a weeks-long confrontation.",
+      "Trump says a deal to end the fighting is close but is not satisfied with the terms.",
+      "Iran issued new transit rules for the Strait of Hormuz in defiance of U.S. warnings.",
+      "Roughly a fifth of the world's oil moves through the Hormuz chokepoint.",
+      "Analysts are split on whether the strikes make a negotiated deal more or less likely.",
+    ],
+  },
+  s2: {
+    second_analytic: {
+      analytic_kind: "stakes",
+      analytic_tab_label: "STAKES",
+      analytic_headline: "A star athlete crosses into baseball ownership",
+      analytic_summary_text:
+        "Kelce's minority stake signals the growing overlap between marquee players and franchise ownership.",
+      analytic_rows: [
+        { analytic_row_label: "Stake type", analytic_row_value: null, analytic_row_direction: null, analytic_row_note: "minority equity" },
+        { analytic_row_label: "Franchise", analytic_row_value: null, analytic_row_direction: null, analytic_row_note: "Cleveland Guardians" },
+      ],
+      analytic_is_grounded: true,
+    },
+    coverage_mode: "reach",
+    coverage_momentum: "developing",
+    coverage_originating_outlet_name: "ESPN",
+    coverage_notable_outlet_names: ["ESPN", "The Athletic", "Cleveland.com"],
+    detail_key_points: [
+      "Travis Kelce bought a minority stake in MLB's Cleveland Guardians.",
+      "The deal adds Kelce to a growing list of athletes turning into team owners.",
+      "His stake is a passive minority position, not a controlling interest.",
+      "The move deepens Kelce's ties to Ohio sports beyond the NFL.",
+      "Athlete-owners are increasingly common across major U.S. leagues.",
+    ],
+  },
+  s3: {
+    second_analytic: {
+      analytic_kind: "impact",
+      analytic_tab_label: "IMPACT",
+      analytic_headline: "A superconductivity record falls after 30 years",
+      analytic_summary_text:
+        "Houston physicists pushed the temperature ceiling for superconductivity, a step toward lossless power.",
+      analytic_rows: [
+        { analytic_row_label: "Prior record age", analytic_row_value: "30", analytic_row_direction: null, analytic_row_note: "years" },
+        { analytic_row_label: "Field", analytic_row_value: null, analytic_row_direction: null, analytic_row_note: "condensed matter physics" },
+      ],
+      analytic_is_grounded: true,
+    },
+    coverage_mode: "reach",
+    coverage_momentum: "settled",
+    coverage_originating_outlet_name: "Nature",
+    coverage_notable_outlet_names: ["Nature", "Science", "Ars Technica"],
+    detail_key_points: [
+      "Houston physicists broke a 30-year superconductivity record.",
+      "The result raises the temperature at which a material conducts without resistance.",
+      "Higher-temperature superconductors could reduce energy loss in power grids.",
+      "The work has been published and is now being scrutinized by peers.",
+      "Practical applications remain years away pending replication.",
+    ],
+  },
+  s4: {
+    second_analytic: {
+      analytic_kind: "ripple",
+      analytic_tab_label: "RIPPLE",
+      analytic_headline: "A blowout quarter, yet the stock slips",
+      analytic_summary_text:
+        "Record results met sky-high expectations, and the muted reaction rippled across the chip complex.",
+      analytic_rows: [
+        { analytic_row_label: "Quarter result", analytic_row_value: null, analytic_row_direction: "up", analytic_row_note: "record revenue" },
+        { analytic_row_label: "Share price", analytic_row_value: null, analytic_row_direction: "down", analytic_row_note: "post-earnings" },
+        { analytic_row_label: "Chip peers", analytic_row_value: null, analytic_row_direction: "down", analytic_row_note: "sympathy move" },
+      ],
+      analytic_is_grounded: true,
+    },
+    coverage_mode: "reach",
+    coverage_momentum: "breaking",
+    coverage_originating_outlet_name: "Bloomberg",
+    coverage_notable_outlet_names: ["Bloomberg", "Reuters", "CNBC", "WSJ"],
+    detail_key_points: [
+      "Nvidia reported a record quarter that beat expectations.",
+      "The stock slipped despite the strong results.",
+      "Investors had priced in an even larger beat.",
+      "The muted reaction pressured other chip stocks.",
+      "Guidance and margins drew as much attention as the headline numbers.",
+    ],
+  },
+  s5: {
+    second_analytic: {
+      analytic_kind: "why_it_matters",
+      analytic_tab_label: "WHY IT MATTERS",
+      analytic_headline: "The Pope sharpens the moral case on AI",
+      analytic_summary_text:
+        "A leading global moral voice frames AI governance as a question of human dignity, not just policy.",
+      analytic_rows: [
+        { analytic_row_label: "Speaker", analytic_row_value: null, analytic_row_direction: null, analytic_row_note: "Pope Leo XIV" },
+        { analytic_row_label: "Theme", analytic_row_value: null, analytic_row_direction: null, analytic_row_note: "human dignity + AI" },
+      ],
+      analytic_is_grounded: true,
+    },
+    coverage_mode: "reach",
+    coverage_momentum: "developing",
+    coverage_originating_outlet_name: "Vatican News",
+    coverage_notable_outlet_names: ["Vatican News", "AP", "BBC News"],
+    detail_key_points: [
+      "Pope Leo XIV issued his strongest warning yet on artificial intelligence.",
+      "He framed AI governance as a matter of human dignity.",
+      "The remarks add a major moral voice to the AI policy debate.",
+      "He urged guardrails that keep technology serving people.",
+      "The intervention may influence how policymakers discuss AI ethics.",
+    ],
+  },
+};
 
 /** One story object as authored in the prototype `data.js`. */
 interface PrototypeStory {
@@ -213,6 +375,34 @@ async function seedStoryChildren(client: SupabaseClient, story: PrototypeStory):
     topic_keyword: keyword,
   }));
   await upsertRows(client, "story_topics", topicRows, "topic_story_id,topic_keyword");
+
+  // Phase 2c: the 1:1 second-analytic tab + 5 at-a-glance key points (fixtures).
+  const fixture = PHASE_2C_FIXTURES[story.id];
+  if (fixture) {
+    await upsertRows(
+      client,
+      "story_analytics",
+      [
+        {
+          analytic_story_id: story.id,
+          analytic_kind: fixture.second_analytic.analytic_kind,
+          analytic_tab_label: fixture.second_analytic.analytic_tab_label,
+          analytic_headline: fixture.second_analytic.analytic_headline,
+          analytic_summary_text: fixture.second_analytic.analytic_summary_text,
+          analytic_rows: fixture.second_analytic.analytic_rows,
+          analytic_is_grounded: fixture.second_analytic.analytic_is_grounded,
+        },
+      ],
+      "analytic_story_id",
+    );
+
+    const keyPointRows = fixture.detail_key_points.map((text, index) => ({
+      key_point_story_id: story.id,
+      key_point_index: index,
+      key_point_text: text,
+    }));
+    await upsertRows(client, "detail_key_points", keyPointRows, "key_point_story_id,key_point_index");
+  }
 }
 
 /** Mint the current digest and its word-timed caption sentences. */
@@ -346,8 +536,9 @@ async function seedStory(client: SupabaseClient, story: PrototypeStory, ordinal:
     "story_id",
   );
 
-  // 3. story_trust (1:1).
+  // 3. story_trust (1:1) — Phase 2c adds the adaptive coverage_mode + reach cols.
   if (story.trust) {
+    const fixture = PHASE_2C_FIXTURES[story.id];
     await upsertRows(
       client,
       "story_trust",
@@ -360,6 +551,11 @@ async function seedStory(client: SupabaseClient, story: PrototypeStory, ordinal:
           coverage_outlet_count: story.trust.outlet_count ?? 0,
           blindspot_lean: story.trust.blindspot ?? null,
           opposing_view_text: story.trust.opposing_view ?? null,
+          // Phase 2c: default partisan when no fixture (preserves prior behaviour).
+          coverage_mode: fixture?.coverage_mode ?? "partisan",
+          coverage_momentum: fixture?.coverage_momentum ?? null,
+          coverage_originating_outlet_name: fixture?.coverage_originating_outlet_name ?? null,
+          coverage_notable_outlet_names: fixture?.coverage_notable_outlet_names ?? [],
         },
       ],
       "trust_story_id",

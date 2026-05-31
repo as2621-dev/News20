@@ -32,6 +32,73 @@
 export type BiasLean = "left" | "center" | "right";
 
 /**
+ * The segment-skinned "second analytic" Detail tab kind (Phase 2c). Mirrors the
+ * `analytic_kind` Postgres enum (`reference/supabase-schema.md` §1). Chosen
+ * deterministically from the story's segment (geopolitics→market_impact,
+ * markets→ripple, tech→impact, sport→stakes, wildcard→why_it_matters).
+ */
+export type AnalyticKind = "market_impact" | "ripple" | "impact" | "stakes" | "why_it_matters";
+
+/**
+ * How the Detail "Coverage" tab is framed (Phase 2c). Mirrors the `coverage_mode`
+ * Postgres enum (`reference/supabase-schema.md` §1). `partisan` = L·C·R + blindspot
+ * (contested / geopolitics); `reach` = covered-by-N + momentum + who-broke-it.
+ */
+export type CoverageMode = "partisan" | "reach";
+
+/**
+ * One labeled row inside the second-analytic tab — an element of the
+ * `story_analytics.analytic_rows` JSONB array (Phase 2c).
+ *
+ * Numeric `analytic_row_value`s are grounded-or-omitted: an unsupported number is
+ * dropped (`null`) and the row renders `analytic_row_direction`-only.
+ */
+export interface AnalyticRow {
+  /** Left-column label (`analytic_rows[].analytic_row_label`). */
+  analytic_row_label: string;
+  /** Grounded figure ("+4%", "$81.6B"), or `null` when no source-supported number exists. */
+  analytic_row_value: string | null;
+  /** Optional directional glyph (`analytic_rows[].analytic_row_direction`). */
+  analytic_row_direction: "up" | "down" | "flat" | null;
+  /** Optional one-line qualifier, or `null` (`analytic_rows[].analytic_row_note`). */
+  analytic_row_note: string | null;
+}
+
+/**
+ * The segment-skinned "second analytic" Detail tab — a `story_analytics` row
+ * (Phase 2c). 1:1 per story. `analytic_kind` drives the tab label + accent.
+ *
+ * Maps `story_analytics.{analytic_kind, analytic_tab_label, analytic_headline,
+ * analytic_summary_text, analytic_rows, analytic_is_grounded}`.
+ */
+export interface SecondAnalytic {
+  /** The segment-derived analytic kind (`story_analytics.analytic_kind`). */
+  analytic_kind: AnalyticKind;
+  /** Display label ("MARKET IMPACT", "STAKES"; `story_analytics.analytic_tab_label`). */
+  analytic_tab_label: string;
+  /** One-liner under the tab (`story_analytics.analytic_headline`). */
+  analytic_headline: string;
+  /** LLM 1–2 sentence so-what (`story_analytics.analytic_summary_text`). */
+  analytic_summary_text: string;
+  /** 2–4 labeled rows (`story_analytics.analytic_rows`). */
+  analytic_rows: AnalyticRow[];
+  /** True when numeric row values were verified vs source (`story_analytics.analytic_is_grounded`). */
+  analytic_is_grounded: boolean;
+}
+
+/**
+ * One at-a-glance bullet — a `detail_key_points` row (Phase 2c). Exactly 5 per
+ * story, shown above "Read the full article" and distinct from the long-form
+ * {@link DetailChunk} body. Render in ascending `key_point_index` order.
+ */
+export interface DetailKeyPoint {
+  /** 0-based display order, 0..4 (`detail_key_points.key_point_index`). */
+  key_point_index: number;
+  /** One bullet sentence (`detail_key_points.key_point_text`). */
+  key_point_text: string;
+}
+
+/**
  * One chunked paragraph of the readable Detail body — a `detail_chunks` row.
  *
  * Maps `detail_chunks.{chunk_index, chunk_text}`. Chunks render in ascending
@@ -72,6 +139,29 @@ export interface TrustSummary {
   blindspot_lean: BiasLean | null;
   /** The opposing-view card quote, or `null` (`story_trust.opposing_view_text`). */
   opposing_view_text: string | null;
+  /**
+   * How this story's coverage is framed (Phase 2c; `story_trust.coverage_mode`).
+   * `partisan` → the L/C/R counts + `blindspot_lean` are meaningful; `reach` →
+   * use `coverage_outlet_count` + the three reach fields below. Optional so the
+   * pre-2c fetch path (which doesn't yet read the column) still satisfies the
+   * contract; SP4 populates it. Defaults `partisan` at the DB level.
+   */
+  coverage_mode?: CoverageMode;
+  /**
+   * reach mode: coverage volume/spread ("breaking" | "developing" | "settled"),
+   * or `null` (`story_trust.coverage_momentum`). Optional until SP4 reads it.
+   */
+  coverage_momentum?: string | null;
+  /**
+   * reach mode: who broke it — earliest GDELT seendate outlet — or `null`
+   * (`story_trust.coverage_originating_outlet_name`). Optional until SP4 reads it.
+   */
+  coverage_originating_outlet?: string | null;
+  /**
+   * reach mode: up to 5 notable outlet names
+   * (`story_trust.coverage_notable_outlet_names`). Optional until SP4 reads it.
+   */
+  coverage_notable_outlets?: string[];
 }
 
 /**
@@ -166,4 +256,15 @@ export interface StoryDetail {
   timeline: TimelineEvent[];
   /** Tappable suggested-question chips, ordered by `question_index`. */
   suggested_questions: SuggestedQuestion[];
+  /**
+   * The 5 at-a-glance bullets above "Read the full article" (Phase 2c), ordered
+   * by `key_point_index`. Distinct from {@link detail_chunks} (the long-form body).
+   * Optional so the pre-2c fetch path still satisfies the contract; SP4 populates it.
+   */
+  detail_key_points?: DetailKeyPoint[];
+  /**
+   * The segment-skinned "second analytic" tab (Phase 2c), or `null` when the
+   * story has no analytic row yet. Optional until SP4's fetch reads `story_analytics`.
+   */
+  second_analytic?: SecondAnalytic | null;
 }

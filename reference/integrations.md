@@ -5,13 +5,17 @@
 **When to update:** When an integration is added, a key rotates, or a rate limit/quota bites.
 
 ## News ingestion (NEW adapters, against TLDW `ingestion/adapters/base.py`)
+
+> **Live source = GDELT DOC 2.0, not NewsAPI (verified 2026-05-31).** No NewsAPI key was available, so the v1 ingestion adapter is the **keyless GDELT DOC 2.0** index (`agents/ingestion/adapters/gdelt_doc.py`, `GdeltDocAdapter`). Real constraints baked into the adapter: **≤1 request / 5s** via a shared throttle lock (faster bursts return a plaintext rate-limit notice, not JSON), `sort=hybridrel`, `maxrecords ≤ 250`, `timespan` 1–3d, metadata-only (body via `trafilatura`). The NewsAPI/MediaStack/Alpha Vantage/HN/Product Hunt rows below are the **planned future adapter set**, not what is wired today. The Phase 2c **Coverage census** (`agents/pipeline/stages/coverage_gdelt.py`) reuses this same `GdeltDocAdapter` — it does NOT build a new client.
+
 | Service | Use | Auth | Notes |
 |---|---|---|---|
-| **NewsAPI** | General news articles | API key (header/query) | Free tier limited + delayed; budget for paid tier at scale. |
-| **MediaStack** | News articles, broad outlet coverage | API key (query) | Good for outlet-count breadth → "42 outlets covering this". |
-| **Alpha Vantage** | Finance/markets news | API key (query) | 5 req/min, 500/day free — cache aggressively. |
-| **Hacker News** | Tech stories | None (Firebase API) | No key; be polite with rate. |
-| **Product Hunt** | Tech/product launches | OAuth2 (GraphQL API) | Token-based; refresh handling needed. |
+| **GDELT DOC 2.0** *(LIVE)* | General news index + the Phase 2c coverage census | None (keyless) | The actual v1 source. ≤1 req/5s shared throttle, `sort=hybridrel`, `maxrecords ≤ 250`, `timespan` 1–3d; metadata-only. |
+| **NewsAPI** *(planned)* | General news articles | API key (header/query) | Free tier limited + delayed; budget for paid tier at scale. |
+| **MediaStack** *(planned)* | News articles, broad outlet coverage | API key (query) | Good for outlet-count breadth → "42 outlets covering this". |
+| **Alpha Vantage** *(planned)* | Finance/markets news | API key (query) | 5 req/min, 500/day free — cache aggressively. |
+| **Hacker News** *(planned)* | Tech stories | None (Firebase API) | No key; be polite with rate. |
+| **Product Hunt** *(planned)* | Tech/product launches | OAuth2 (GraphQL API) | Token-based; refresh handling needed. |
 
 All adapters implement the TLDW base adapter interface and feed `ingestion/dedup.py` for cross-source clustering (powers outlet count + coverage breakdown).
 

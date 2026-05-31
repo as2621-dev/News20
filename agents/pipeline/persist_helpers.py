@@ -27,9 +27,23 @@ from __future__ import annotations
 from typing import Any
 
 from agents.ingestion.models import CanonicalStory, StoryInterestTag
-from agents.pipeline.models import DigestScript
+from agents.pipeline.models import (
+    CoverageReport,
+    DetailKeyPoint,
+    DetailTimelineEvent,
+    DigestScript,
+    KeyFigure,
+    SecondAnalytic,
+)
 from agents.pipeline.stages.forced_alignment import CaptionTrack
 from agents.voice.gemini_tts import VOICE_MAP_GEMINI
+
+# Reason: the catch-all editorial segment when no matched interest resolves to a
+# concrete one — mirrors persist.DEFAULT_SEGMENT_SLUG (segment_slug enum).
+_DEFAULT_SEGMENT_SLUG = "wildcard"
+_VALID_SEGMENT_SLUGS = frozenset(
+    {"geopolitics", "markets", "tech", "sport", "wildcard"}
+)
 
 # Reason: the static AllSides/Ad Fontes outlet→bias lookup (reference/
 # integrations.md: one-time static table, NOT a per-story API call). Keyed by
@@ -196,6 +210,7 @@ def build_story_row(
     poster_url: str | None,
     coverage_counts: dict[str, int],
     blindspot_lean: str | None,
+    key_figure: KeyFigure | None = None,
 ) -> dict[str, Any]:
     """Build the ``stories`` insert payload (reference/supabase-schema.md).
 
@@ -206,6 +221,9 @@ def build_story_row(
         poster_url: Public poster URL (None if poster generation failed).
         coverage_counts: ``derive_coverage_counts`` output.
         blindspot_lean: ``derive_blindspot_lean`` output (nullable).
+        key_figure: The grounded hero ``KeyFigure`` (Phase 2c SP3 enrichment);
+            ``None`` (or all-None fields) when the story has no key figure. Both
+            ``stories.story_key_figure_*`` columns are nullable.
 
     Returns:
         A column dict for ``stories``.
@@ -225,6 +243,11 @@ def build_story_row(
         "story_last_updated_utc": published_iso,
         "story_outlet_count": story.story_outlet_count,
         "story_blindspot_lean": blindspot_lean,
+        # Reason: the Detail hero key-figure card (Phase 2c). The value is already
+        # source-grounded-or-None by SP3 enrichment — a fabricated number never
+        # reaches this column (Decision #5).
+        "story_key_figure_value": key_figure.key_figure_value if key_figure else None,
+        "story_key_figure_label": key_figure.key_figure_label if key_figure else None,
     }
 
 
@@ -341,17 +364,181 @@ def build_story_trust_row(
     story_id: str,
     coverage_counts: dict[str, int],
     blindspot_lean: str | None,
+    coverage_report: CoverageReport | None = None,
 ) -> dict[str, Any]:
-    """Build the 1:1 ``story_trust`` row from the static coverage derivation."""
+    """Build the 1:1 ``story_trust`` row (static counts + optional GDELT reach).
+
+    When a Phase 2c ``coverage_report`` is supplied (the GDELT census, SP2), it is
+    the authoritative source: its mode-correct counts + blindspot replace the
+    static-derivation fallback, and the four reach columns
+    (``coverage_mode`` / ``coverage_momentum`` / ``coverage_originating_outlet_name``
+    / ``coverage_notable_outlet_names``) are populated. Without a report the row
+    falls back to the legacy ``covering_outlets`` static derivation and the
+    DB-default ``coverage_mode='partisan'`` (column omitted so the default holds).
+
+    Args:
+        story_id: The ``stories.story_id`` (FK).
+        coverage_counts: ``derive_coverage_counts`` output (the static fallback).
+        blindspot_lean: ``derive_blindspot_lean`` output (the static fallback).
+        coverage_report: The GDELT ``CoverageReport`` (Phase 2c SP2), or None.
+
+    Returns:
+        A column dict for ``story_trust``.
+    """
+    if coverage_report is None:
+        return {
+            "trust_story_id": story_id,
+            "coverage_left_count": coverage_counts.get("left", 0),
+            "coverage_center_count": coverage_counts.get("center", 0),
+            "coverage_right_count": coverage_counts.get("right", 0),
+            "coverage_outlet_count": coverage_counts.get("total", 0),
+            "blindspot_lean": blindspot_lean,
+            "opposing_view_text": None,
+        }
     return {
         "trust_story_id": story_id,
-        "coverage_left_count": coverage_counts.get("left", 0),
-        "coverage_center_count": coverage_counts.get("center", 0),
-        "coverage_right_count": coverage_counts.get("right", 0),
-        "coverage_outlet_count": coverage_counts.get("total", 0),
-        "blindspot_lean": blindspot_lean,
+        "coverage_left_count": coverage_report.coverage_left_count,
+        "coverage_center_count": coverage_report.coverage_center_count,
+        "coverage_right_count": coverage_report.coverage_right_count,
+        "coverage_outlet_count": coverage_report.coverage_outlet_count,
+        "blindspot_lean": coverage_report.blindspot_lean,
         "opposing_view_text": None,
+        # Reason: the Phase 2c adaptive-coverage reach columns (0004 ALTER).
+        "coverage_mode": coverage_report.coverage_mode,
+        "coverage_momentum": coverage_report.coverage_momentum,
+        "coverage_originating_outlet_name": coverage_report.coverage_originating_outlet_name,
+        "coverage_notable_outlet_names": coverage_report.coverage_notable_outlet_names,
     }
+
+
+def build_story_timeline_rows(
+    story_id: str, timeline: list[DetailTimelineEvent]
+) -> list[dict[str, Any]]:
+    """Build ordered ``story_timeline`` rows from the enrichment timeline.
+
+    One row per "HOW IT DEVELOPED" event. ``timeline_event_index`` is taken
+    verbatim from the (already contiguous, 0-based) enrichment events. A None
+    ``timeline_event_at`` is omitted so the column's ``DEFAULT now()`` applies.
+
+    Args:
+        story_id: The ``stories.story_id`` (FK).
+        timeline: The grounded, ordered ``DetailTimelineEvent``s (SP3).
+
+    Returns:
+        Ordered ``story_timeline`` row payloads (contiguous index order).
+    """
+    rows: list[dict[str, Any]] = []
+    for event in timeline:
+        row: dict[str, Any] = {
+            "timeline_story_id": story_id,
+            "timeline_event_index": event.timeline_event_index,
+            "timeline_when_label": event.timeline_when_label,
+            "timeline_what_text": event.timeline_what_text,
+        }
+        if event.timeline_event_at is not None:
+            row["timeline_event_at"] = event.timeline_event_at
+        rows.append(row)
+    return rows
+
+
+def build_story_analytics_row(
+    story_id: str, second_analytic: SecondAnalytic
+) -> dict[str, Any]:
+    """Build the 1:1 ``story_analytics`` row from the segment-skinned analytic.
+
+    Each ``analytic_rows`` element is re-validated through ``AnalyticRow``
+    (``SecondAnalytic.analytic_rows`` already holds ``AnalyticRow`` models) and
+    serialized to the exact JSONB shape Postgres stores — never a raw dict at the
+    DB boundary (schema §0 types / Rule 9). ``analytic_story_id`` overrides the id
+    on the analytic so the row FKs to the persisted story.
+
+    Args:
+        story_id: The ``stories.story_id`` (FK; the analytic is 1:1 per story).
+        second_analytic: The grounded ``SecondAnalytic`` (SP3).
+
+    Returns:
+        A column dict for ``story_analytics``.
+    """
+    return {
+        "analytic_story_id": story_id,
+        "analytic_kind": second_analytic.analytic_kind,
+        "analytic_tab_label": second_analytic.analytic_tab_label,
+        "analytic_headline": second_analytic.analytic_headline,
+        "analytic_summary_text": second_analytic.analytic_summary_text,
+        # Reason: validate-then-dump each row so a malformed element can never
+        # reach Postgres (the elements are AnalyticRow models; model_dump emits the
+        # canonical JSONB shape with explicit nulls).
+        "analytic_rows": [row.model_dump() for row in second_analytic.analytic_rows],
+        "analytic_is_grounded": second_analytic.analytic_is_grounded,
+    }
+
+
+def build_detail_key_point_rows(
+    story_id: str, key_points: list[DetailKeyPoint]
+) -> list[dict[str, Any]]:
+    """Build ordered ``detail_key_points`` rows from the 5 at-a-glance bullets.
+
+    ``key_point_index`` is taken verbatim from the (0-based, contiguous)
+    enrichment bullets — exactly 5 per story (SP3 enforces the count; this is a
+    straight mapping).
+
+    Args:
+        story_id: The ``stories.story_id`` (FK).
+        key_points: The 5 grounded ``DetailKeyPoint``s (SP3).
+
+    Returns:
+        Ordered ``detail_key_points`` row payloads.
+    """
+    return [
+        {
+            "key_point_story_id": story_id,
+            "key_point_index": point.key_point_index,
+            "key_point_text": point.key_point_text,
+        }
+        for point in key_points
+    ]
+
+
+def resolve_segment_from_tags(
+    story_interest_tags: list[StoryInterestTag],
+    interest_segment_lookup: dict[str, str] | None,
+) -> str:
+    """Resolve a story's ``story_segment_slug`` from its best-matched interest.
+
+    The second-analytic kind + coverage mode are chosen deterministically from the
+    segment (Decisions #2/#3), so the segment must reflect the interest the story
+    most-closely serves. We pick the lowest ``story_interest_match_depth`` tag (the
+    leaf / closest match) whose interest resolves to a valid segment in the
+    injected ``interest_segment_lookup`` (``{interest_id: segment_slug}`` built once
+    per batch from the ``interests`` table, where depth-0 rows carry the segment and
+    leaves inherit their root's). Falls back to ``wildcard`` when nothing resolves.
+
+    Args:
+        story_interest_tags: The story's ``story_interests`` tags (interest_id +
+            relative match depth).
+        interest_segment_lookup: ``{interest_id: segment_slug}`` (injected; None or
+            empty → wildcard).
+
+    Returns:
+        A valid ``segment_slug`` enum value (``wildcard`` when unresolved).
+
+    Example:
+        >>> tags = [StoryInterestTag(story_interest_story_id="s1",
+        ...     story_interest_interest_id="int-world", story_interest_match_depth=0)]
+        >>> resolve_segment_from_tags(tags, {"int-world": "geopolitics"})
+        'geopolitics'
+        >>> resolve_segment_from_tags(tags, {})
+        'wildcard'
+    """
+    if not interest_segment_lookup:
+        return _DEFAULT_SEGMENT_SLUG
+    # Reason: closest match first — a leaf (depth 0) is more specific than an
+    # ancestor (depth 1/2), so it best characterizes the story's segment.
+    for tag in sorted(story_interest_tags, key=lambda t: t.story_interest_match_depth):
+        segment = interest_segment_lookup.get(tag.story_interest_interest_id)
+        if segment in _VALID_SEGMENT_SLUGS:
+            return segment
+    return _DEFAULT_SEGMENT_SLUG
 
 
 def build_story_source_rows(
@@ -434,6 +621,36 @@ def build_suggested_question_rows(
         for index, question in enumerate(questions)
         if question.strip()
     ]
+
+
+def load_outlets_lookup(supabase_client: Any) -> dict[str, str]:
+    """Load the ``{outlet_domain: outlet_bias_lean}`` map from the ``outlets`` table.
+
+    Read ONCE per batch (the GDELT coverage census resolves every domain against
+    this dict, SP2). Only rows with a non-null ``outlet_domain`` AND a non-null
+    ``outlet_bias_lean`` are usable (a domain with no lean can't rate coverage).
+    The client is INJECTED (service-role read) — tests pass a mock; this never
+    reads a secret itself.
+
+    Args:
+        supabase_client: A service-role supabase client (injected; mocked in tests).
+
+    Returns:
+        ``{outlet_domain: bias_lean}`` for every rated, domain-bearing outlet row.
+    """
+    response = (
+        supabase_client.table("outlets")
+        .select("outlet_domain,outlet_bias_lean")
+        .execute()
+    )
+    rows = getattr(response, "data", None) or []
+    lookup: dict[str, str] = {}
+    for row in rows:
+        domain = row.get("outlet_domain")
+        lean = row.get("outlet_bias_lean")
+        if domain and lean:
+            lookup[str(domain).strip().lower()] = str(lean)
+    return lookup
 
 
 def script_speaker_order(script: DigestScript) -> list[str]:

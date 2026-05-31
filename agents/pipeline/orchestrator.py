@@ -31,6 +31,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 
+from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline.feed_assembly import (
     FeedWriteResult,
@@ -39,8 +40,14 @@ from agents.pipeline.feed_assembly import (
     write_daily_feed,
 )
 from agents.pipeline.llm_clients import LLMClient
-from agents.pipeline.models import DigestScript
+from agents.pipeline.models import CoverageReport, DigestScript
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
+from agents.pipeline.persist_helpers import resolve_segment_from_tags
+from agents.pipeline.stages.coverage_gdelt import build_coverage_report
+from agents.pipeline.stages.detail_enrichment import (
+    DetailEnrichment,
+    run_detail_enrichment,
+)
 from agents.pipeline.stages.ranking import UserProfileInterest
 from agents.pipeline.stages.forced_alignment import (
     CaptionTrack,
@@ -241,6 +248,46 @@ def generate_poster_bytes(
     return _read_poster_bytes(getattr(report, "poster_path", None))
 
 
+async def _run_detail_stages(
+    story: CanonicalStory,
+    script: DigestScript,
+    segment_slug: str,
+    llm_client: LLMClient,
+    outlets_lookup: dict[str, str] | None,
+    gdelt_adapter: GdeltDocAdapter | None,
+) -> tuple[DetailEnrichment, CoverageReport | None]:
+    """Run the Phase 2c detail stages (enrichment + GDELT coverage) for one story.
+
+    Both are optional and dependency-gated: enrichment always runs when wired (it
+    needs only the LLM); the GDELT coverage census runs only when a shared
+    ``gdelt_adapter`` + an ``outlets_lookup`` are injected (else coverage stays the
+    legacy static derivation at persist time). The coverage call passes the SAME
+    ``segment_slug`` the enrichment uses, so the second-analytic kind and the
+    coverage mode agree (Decisions #2/#3).
+
+    Returns:
+        ``(enrichment, coverage_report)`` — either may be None (un-wired path).
+    """
+    enrichment = await run_detail_enrichment(
+        story=story,
+        script=script,
+        llm_client=llm_client,
+        segment_slug=segment_slug,
+    )
+    coverage_report: CoverageReport | None = None
+    if gdelt_adapter is not None and outlets_lookup is not None:
+        # Reason: the GDELT census shares the ingestion adapter's <=1-req/5s throttle
+        # and is non-fatal (build_coverage_report never raises — degrades to the
+        # story's covering_outlets on failure).
+        coverage_report = await build_coverage_report(
+            story=story,
+            story_segment_slug=segment_slug,
+            outlets_lookup=outlets_lookup,  # type: ignore[arg-type]
+            adapter=gdelt_adapter,
+        )
+    return enrichment, coverage_report
+
+
 async def orchestrate_story(
     story: CanonicalStory,
     story_interest_tags: list[StoryInterestTag],
@@ -251,8 +298,12 @@ async def orchestrate_story(
     poster_builder: Any | None = None,
     story_id: str | None = None,
     suggested_questions: list[str] | None = None,
+    enable_detail_enrichment: bool = False,
+    interest_segment_lookup: dict[str, str] | None = None,
+    outlets_lookup: dict[str, str] | None = None,
+    gdelt_adapter: GdeltDocAdapter | None = None,
 ) -> OrchestratorResult:
-    """Run the full per-story pipeline: script → verify → TTS → caption → poster → persist.
+    """Run the full per-story pipeline: script → verify → TTS → caption → poster → enrich → persist.
 
     The verification guardrail is the hard gate: a ``VerificationHaltError`` is
     caught and the story is skipped (never persisted). Every other stage reuses a
@@ -261,7 +312,7 @@ async def orchestrate_story(
     Args:
         story: The gated canonical story (must carry ``canonical_body_text``).
         story_interest_tags: The story's ``story_interests`` tag payloads (SP1).
-        llm_client: Gemini text client (scripting + verification).
+        llm_client: Gemini text client (scripting + verification + enrichment).
         tts_client: Gemini multi-speaker TTS client (audio).
         supabase_client: Service-role supabase client (persist).
         poster_genai_client: ``google.genai`` client for the poster (None to
@@ -270,6 +321,20 @@ async def orchestrate_story(
         story_id: Optional explicit ``stories.story_id`` (the live e2e passes a
             ``FIXTURE-SP3-`` id).
         suggested_questions: Optional suggested-question strings.
+        enable_detail_enrichment: Phase 2c gate. When True, runs the grounded
+            detail-enrichment stage (a paid LLM call) + the optional GDELT coverage
+            census, persisting the key figure / timeline / second analytic / 5
+            bullets / reach coverage. Defaults False so the SP3 produce path is
+            unchanged until the batch loader feeds the Phase 2c lookups.
+        interest_segment_lookup: ``{interest_id: segment_slug}`` (Phase 2c; injected
+            per batch). Resolves the story's ``story_segment_slug`` from its matched
+            interest, which fixes the second-analytic kind + coverage mode. ``None``
+            → ``wildcard``.
+        outlets_lookup: ``{outlet_domain: bias_lean}`` (Phase 2c; loaded once per
+            batch). Required (with ``gdelt_adapter``) for the GDELT coverage census;
+            ``None`` skips it (legacy static coverage).
+        gdelt_adapter: The SHARED ``GdeltDocAdapter`` (Phase 2c; honors the
+            <=1-req/5s throttle). ``None`` skips the GDELT census.
 
     Returns:
         An :class:`OrchestratorResult`. ``published`` is True only when the digest
@@ -285,10 +350,17 @@ async def orchestrate_story(
         True
     """
     start_time = time.monotonic()
+    # Reason: resolve the segment ONCE — both detail stages + persist must agree
+    # (the second-analytic kind, coverage mode, and stored story_segment_slug all
+    # derive from it).
+    segment_slug = resolve_segment_from_tags(
+        story_interest_tags, interest_segment_lookup
+    )
     logger.info(
         "orchestrate_story_started",
         story_id=story.canonical_story_id,
         interest_tag_count=len(story_interest_tags),
+        segment_slug=segment_slug,
     )
 
     # ── 1. Script (SP2) ──
@@ -327,7 +399,20 @@ async def orchestrate_story(
         poster_builder=poster_builder,
     )
 
-    # ── 6. Persist (SP3) ──
+    # ── 6. Detail analytics (Phase 2c) — grounded enrichment + GDELT coverage ──
+    enrichment: DetailEnrichment | None = None
+    coverage_report: CoverageReport | None = None
+    if enable_detail_enrichment:
+        enrichment, coverage_report = await _run_detail_stages(
+            story=story,
+            script=script,
+            segment_slug=segment_slug,
+            llm_client=llm_client,
+            outlets_lookup=outlets_lookup,
+            gdelt_adapter=gdelt_adapter,
+        )
+
+    # ── 7. Persist (SP3 + SP4) ──
     persist_result = persist_digest(
         supabase_client=supabase_client,
         story=story,
@@ -339,6 +424,9 @@ async def orchestrate_story(
         poster_bytes=poster_bytes,
         suggested_questions=suggested_questions,
         story_id=story_id,
+        enrichment=enrichment,
+        coverage_report=coverage_report,
+        interest_segment_lookup=interest_segment_lookup,
     )
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)

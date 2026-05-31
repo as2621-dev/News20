@@ -35,20 +35,25 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, StoryInterestTag
-from agents.pipeline.models import DigestScript
+from agents.pipeline.models import CoverageReport, DigestScript
 from agents.pipeline.persist_helpers import (
     build_caption_sentence_rows,
     build_detail_chunk_rows,
+    build_detail_key_point_rows,
     build_digest_row,
+    build_story_analytics_row,
     build_story_interest_rows,
     build_story_row,
     build_story_source_rows,
+    build_story_timeline_rows,
     build_story_trust_row,
     build_suggested_question_rows,
     derive_blindspot_lean,
     derive_coverage_counts,
+    resolve_segment_from_tags,
     script_speaker_order,
 )
+from agents.pipeline.stages.detail_enrichment import DetailEnrichment
 from agents.pipeline.stages.forced_alignment import CaptionTrack
 from agents.shared.exceptions import PipelineStageError
 from agents.shared.logger import get_logger
@@ -59,14 +64,6 @@ logger = get_logger("pipeline.persist")
 # public). Audio → digest-audio, poster → story-posters.
 AUDIO_BUCKET = "digest-audio"
 POSTER_BUCKET = "story-posters"
-
-# Reason: the default segment when the canonical story carries no resolved
-# segment — 'wildcard' is the catch-all editorial segment (segment_slug enum).
-DEFAULT_SEGMENT_SLUG = "wildcard"
-
-_VALID_SEGMENT_SLUGS = frozenset(
-    {"geopolitics", "markets", "tech", "sport", "wildcard"}
-)
 
 
 class PersistResult(BaseModel):
@@ -117,22 +114,43 @@ class PersistResult(BaseModel):
     story_source_count: int = Field(default=0, ge=0)
     story_interest_count: int = Field(default=0, ge=0)
     suggested_question_count: int = Field(default=0, ge=0)
+    timeline_event_count: int = Field(
+        default=0, ge=0, description="Number of story_timeline rows inserted"
+    )
+    detail_key_point_count: int = Field(
+        default=0, ge=0, description="Number of detail_key_points rows inserted"
+    )
+    story_analytics_written: bool = Field(
+        default=False, description="True when the 1:1 story_analytics row was inserted"
+    )
     created_table_row_ids: dict[str, list[str]] = Field(
         default_factory=dict,
         description="{table: [uuid PK, ...]} for auditable cleanup",
     )
 
 
-def _resolve_segment_slug(story: CanonicalStory) -> str:
-    """Pick a valid ``segment_slug`` for the story (defaults to wildcard).
+def _resolve_segment_slug(
+    story_interest_tags: list[StoryInterestTag],
+    interest_segment_lookup: dict[str, str] | None,
+) -> str:
+    """Resolve the story's ``story_segment_slug`` from its best-matched interest.
 
-    Reason: ``stories.story_segment_slug`` is a NOT NULL enum FK. The canonical
-    story does not carry a resolved segment yet (segment resolution is a
-    later-phase join through the interest tree), so default to ``wildcard`` to
-    keep the insert valid. FLAGGED for SP4 to backfill from the matched
-    interest's ``interest_segment_slug``.
+    ``stories.story_segment_slug`` is a NOT NULL enum FK that ALSO fixes the
+    Detail second-analytic kind + coverage mode (Decisions #2/#3) — so it must
+    reflect the interest the story most-closely serves, not a blanket
+    ``wildcard``. Resolved from the lowest-``match_depth`` tag against the injected
+    ``interest_segment_lookup`` (``{interest_id: segment_slug}``); falls back to
+    ``wildcard`` only when nothing resolves (Phase 2c SP4 — backfills the SP3 stub).
+
+    Args:
+        story_interest_tags: The story's ``story_interests`` tags.
+        interest_segment_lookup: ``{interest_id: segment_slug}`` (injected per
+            batch; None/empty → wildcard).
+
+    Returns:
+        A valid ``segment_slug`` enum value.
     """
-    return DEFAULT_SEGMENT_SLUG
+    return resolve_segment_from_tags(story_interest_tags, interest_segment_lookup)
 
 
 def _insert_rows(
@@ -237,6 +255,9 @@ def persist_digest(
     story_id: str | None = None,
     audio_content_type: str = "audio/mpeg",
     poster_content_type: str = "image/png",
+    enrichment: DetailEnrichment | None = None,
+    coverage_report: CoverageReport | None = None,
+    interest_segment_lookup: dict[str, str] | None = None,
 ) -> PersistResult:
     """Persist one produced digest end-to-end (uploads + content INSERTs).
 
@@ -260,6 +281,13 @@ def persist_digest(
             ``FIXTURE-SP3-`` prefixed id so the row is recognizable/cleanable.
         audio_content_type: Audio MIME type.
         poster_content_type: Poster MIME type.
+        enrichment: The grounded Detail enrichment (Phase 2c SP3) → key figure,
+            ``story_timeline``, ``story_analytics``, ``detail_key_points``. ``None``
+            skips all four (un-enriched run).
+        coverage_report: The GDELT ``CoverageReport`` (SP2) → ``story_trust`` reach
+            columns. ``None`` → legacy static ``covering_outlets`` derivation.
+        interest_segment_lookup: ``{interest_id: segment_slug}`` (per batch) →
+            resolves ``story_segment_slug``. ``None`` → ``wildcard``.
 
     Returns:
         A :class:`PersistResult` listing every created row id + storage path.
@@ -273,9 +301,9 @@ def persist_digest(
         True
     """
     resolved_story_id = story_id or f"sp3-{story.canonical_story_id}"[:255]
-    segment_slug = _resolve_segment_slug(story)
-    if segment_slug not in _VALID_SEGMENT_SLUGS:
-        segment_slug = DEFAULT_SEGMENT_SLUG
+    # Reason: resolve_segment_from_tags only ever returns a valid segment_slug enum
+    # value (wildcard fallback), so no extra validity guard is needed here.
+    segment_slug = _resolve_segment_slug(story_interest_tags, interest_segment_lookup)
 
     # Reason: confirm both anchors render (audit only; non-fatal).
     speaker_order = script_speaker_order(script)
@@ -327,6 +355,7 @@ def persist_digest(
         poster_url=poster_url,
         coverage_counts=coverage_counts,
         blindspot_lean=blindspot_lean,
+        key_figure=enrichment.key_figure if enrichment else None,
     )
     _insert_rows(supabase_client, "stories", [story_row], result, pk_column=None)
     result.created_table_row_ids.setdefault("stories", []).append(resolved_story_id)
@@ -373,9 +402,9 @@ def persist_digest(
     )
     result.detail_chunk_count = len(detail_rows)
 
-    # ── 7. Insert story_trust (1:1) ──
+    # ── 7. Insert story_trust (1:1) — GDELT reach columns when a report is given ──
     trust_row = build_story_trust_row(
-        resolved_story_id, coverage_counts, blindspot_lean
+        resolved_story_id, coverage_counts, blindspot_lean, coverage_report
     )
     _insert_rows(
         supabase_client, "story_trust", [trust_row], result, pk_column="story_trust_id"
@@ -417,6 +446,12 @@ def persist_digest(
         )
         result.suggested_question_count = len(question_rows)
 
+    # ── 11-13. Detail analytics (Phase 2c) — only when enrichment is present ──
+    if enrichment is not None:
+        _persist_detail_enrichment(
+            supabase_client, resolved_story_id, enrichment, result
+        )
+
     logger.info(
         "persist_digest_completed",
         story_id=resolved_story_id,
@@ -427,8 +462,58 @@ def persist_digest(
         detail_chunk_count=result.detail_chunk_count,
         story_source_count=result.story_source_count,
         story_interest_count=result.story_interest_count,
+        timeline_event_count=result.timeline_event_count,
+        detail_key_point_count=result.detail_key_point_count,
+        story_analytics_written=result.story_analytics_written,
+        segment_slug=segment_slug,
     )
     return result
+
+
+def _persist_detail_enrichment(
+    supabase_client: Any,
+    story_id: str,
+    enrichment: DetailEnrichment,
+    result: PersistResult,
+) -> None:
+    """Insert the Phase 2c Detail-analytics children for one story (INSERT only).
+
+    The ``stories`` parent (carrying the key figure) is already written; this adds
+    the FK children: ``story_timeline`` (contiguous index order), the 1:1
+    ``story_analytics`` row (each ``analytic_rows`` element validated as an
+    ``AnalyticRow`` in the builder), and the 5 ``detail_key_points`` (0-based).
+    """
+    timeline_rows = build_story_timeline_rows(story_id, enrichment.timeline)
+    if timeline_rows:
+        _insert_rows(
+            supabase_client,
+            "story_timeline",
+            timeline_rows,
+            result,
+            pk_column="story_timeline_id",
+        )
+        result.timeline_event_count = len(timeline_rows)
+
+    analytics_row = build_story_analytics_row(story_id, enrichment.second_analytic)
+    _insert_rows(
+        supabase_client,
+        "story_analytics",
+        [analytics_row],
+        result,
+        pk_column="story_analytic_id",
+    )
+    result.story_analytics_written = True
+
+    key_point_rows = build_detail_key_point_rows(story_id, enrichment.key_points)
+    if key_point_rows:
+        _insert_rows(
+            supabase_client,
+            "detail_key_points",
+            key_point_rows,
+            result,
+            pk_column="detail_key_point_id",
+        )
+        result.detail_key_point_count = len(key_point_rows)
 
 
 def make_story_id(prefix: str = "") -> str:

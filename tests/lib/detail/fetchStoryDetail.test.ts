@@ -25,6 +25,29 @@ const trustSummarySchema = z.object({
   coverage_outlet_count: z.number(),
   blindspot_lean: biasLeanSchema.nullable(),
   opposing_view_text: z.string().nullable(),
+  // Phase 2c reach fields (optional in the contract; SP4 populates them).
+  coverage_mode: z.enum(["partisan", "reach"]).optional(),
+  coverage_momentum: z.string().nullable().optional(),
+  coverage_originating_outlet: z.string().nullable().optional(),
+  coverage_notable_outlets: z.array(z.string()).optional(),
+});
+const analyticRowSchema = z.object({
+  analytic_row_label: z.string(),
+  analytic_row_value: z.string().nullable(),
+  analytic_row_direction: z.enum(["up", "down", "flat"]).nullable(),
+  analytic_row_note: z.string().nullable(),
+});
+const secondAnalyticSchema = z.object({
+  analytic_kind: z.enum(["market_impact", "ripple", "impact", "stakes", "why_it_matters"]),
+  analytic_tab_label: z.string(),
+  analytic_headline: z.string(),
+  analytic_summary_text: z.string(),
+  analytic_rows: z.array(analyticRowSchema),
+  analytic_is_grounded: z.boolean(),
+});
+const detailKeyPointSchema = z.object({
+  key_point_index: z.number(),
+  key_point_text: z.string(),
 });
 const storySourceSchema = z.object({
   source_outlet_name: z.string(),
@@ -54,6 +77,9 @@ const storyDetailSchema = z.object({
   sources: z.array(storySourceSchema).min(1),
   timeline: z.array(timelineEventSchema).min(1),
   suggested_questions: z.array(suggestedQuestionSchema).min(1),
+  // Phase 2c (optional in the contract; SP4's fetch populates them).
+  second_analytic: secondAnalyticSchema.nullable().optional(),
+  detail_key_points: z.array(detailKeyPointSchema).optional(),
 });
 
 /** One mocked per-table result: the rows (or single row) and a terminal mode. */
@@ -127,6 +153,11 @@ function sampleResults(): Record<string, TableResult> {
         coverage_outlet_count: 19,
         blindspot_lean: "right",
         opposing_view_text: "A right-leaning outlet frames it differently.",
+        // Phase 2c reach columns (a partisan-mode story leaves these null/empty).
+        coverage_mode: "partisan",
+        coverage_momentum: null,
+        coverage_originating_outlet_name: null,
+        coverage_notable_outlet_names: [],
       },
       error: null,
     },
@@ -169,6 +200,43 @@ function sampleResults(): Record<string, TableResult> {
     stories: {
       mode: "single",
       data: { story_key_figure_value: "~20%", story_key_figure_label: "of global oil transits Hormuz" },
+      error: null,
+    },
+    story_analytics: {
+      mode: "single",
+      data: {
+        analytic_kind: "market_impact",
+        analytic_tab_label: "MARKET IMPACT",
+        analytic_headline: "Oil markets brace on Hormuz tension",
+        analytic_summary_text: "A closure would choke ~20% of seaborne crude.",
+        analytic_rows: [
+          {
+            analytic_row_label: "Hormuz oil share",
+            analytic_row_value: "~20%",
+            analytic_row_direction: null,
+            analytic_row_note: null,
+          },
+          {
+            analytic_row_label: "Brent crude",
+            analytic_row_value: null,
+            analytic_row_direction: "up",
+            analytic_row_note: null,
+          },
+        ],
+        analytic_is_grounded: true,
+      },
+      error: null,
+    },
+    detail_key_points: {
+      mode: "list",
+      // Out of order on purpose so the index-order assertion is meaningful (Rule 9).
+      data: [
+        { key_point_index: 0, key_point_text: "First bullet." },
+        { key_point_index: 1, key_point_text: "Second bullet." },
+        { key_point_index: 2, key_point_text: "Third bullet." },
+        { key_point_index: 3, key_point_text: "Fourth bullet." },
+        { key_point_index: 4, key_point_text: "Fifth bullet." },
+      ],
       error: null,
     },
   };
@@ -239,6 +307,83 @@ describe("fetchStoryDetail (supabase source)", () => {
     expect(eqCalls).toContainEqual({ table: "story_sources", column: "source_story_id", value: "s1" });
     expect(eqCalls).toContainEqual({ table: "suggested_questions", column: "question_story_id", value: "s1" });
     expect(eqCalls).toContainEqual({ table: "stories", column: "story_id", value: "s1" });
+    expect(eqCalls).toContainEqual({ table: "story_analytics", column: "analytic_story_id", value: "s1" });
+    expect(eqCalls).toContainEqual({ table: "detail_key_points", column: "key_point_story_id", value: "s1" });
+  });
+
+  it("maps the Phase 2c second_analytic + 5 key points in index order", async () => {
+    // WHY: SP4 additively reads story_analytics (1:1) + detail_key_points (ordered).
+    // This fails if the analytic columns are swapped, the JSONB rows are dropped,
+    // or the key points come back unordered (Rule 9).
+    const { client, orderCalls } = makeFakeClient(sampleResults());
+
+    const detail = await fetchStoryDetail("s1", client);
+
+    expect(detail.second_analytic).not.toBeNull();
+    expect(detail.second_analytic?.analytic_kind).toBe("market_impact");
+    expect(detail.second_analytic?.analytic_tab_label).toBe("MARKET IMPACT");
+    expect(detail.second_analytic?.analytic_is_grounded).toBe(true);
+    expect(detail.second_analytic?.analytic_rows).toHaveLength(2);
+    expect(detail.second_analytic?.analytic_rows[0].analytic_row_value).toBe("~20%");
+    // Direction-only row carries null value (ungrounded number dropped upstream).
+    expect(detail.second_analytic?.analytic_rows[1].analytic_row_value).toBeNull();
+    expect(detail.second_analytic?.analytic_rows[1].analytic_row_direction).toBe("up");
+
+    expect(detail.detail_key_points?.map((p) => p.key_point_index)).toEqual([0, 1, 2, 3, 4]);
+    expect(detail.detail_key_points?.[0].key_point_text).toBe("First bullet.");
+    // Ordering requested from Postgres, not the test data accidentally.
+    expect(orderCalls).toContainEqual({ table: "detail_key_points", column: "key_point_index" });
+  });
+
+  it("maps the Phase 2c partisan-mode coverage fields off story_trust", async () => {
+    const { client } = makeFakeClient(sampleResults());
+    const detail = await fetchStoryDetail("s1", client);
+    expect(detail.trust_summary.coverage_mode).toBe("partisan");
+    expect(detail.trust_summary.coverage_momentum).toBeNull();
+    expect(detail.trust_summary.coverage_originating_outlet).toBeNull();
+    expect(detail.trust_summary.coverage_notable_outlets).toEqual([]);
+  });
+
+  it("maps reach-mode coverage fields (momentum + originating + notable outlets)", async () => {
+    // WHY: a `reach` story (markets/sport/tech/wildcard) surfaces the GDELT reach
+    // census. This fails if any reach column is dropped or mapped to the wrong field.
+    const results = sampleResults();
+    results.story_trust = {
+      mode: "single",
+      data: {
+        coverage_left_count: 0,
+        coverage_center_count: 0,
+        coverage_right_count: 0,
+        coverage_outlet_count: 23,
+        blindspot_lean: null,
+        opposing_view_text: null,
+        coverage_mode: "reach",
+        coverage_momentum: "developing",
+        coverage_originating_outlet_name: "Reuters",
+        coverage_notable_outlet_names: ["Reuters", "BBC News", "AP"],
+      },
+      error: null,
+    };
+    const { client } = makeFakeClient(results);
+
+    const detail = await fetchStoryDetail("s1", client);
+
+    expect(detail.trust_summary.coverage_mode).toBe("reach");
+    expect(detail.trust_summary.coverage_momentum).toBe("developing");
+    expect(detail.trust_summary.coverage_originating_outlet).toBe("Reuters");
+    expect(detail.trust_summary.coverage_notable_outlets).toEqual(["Reuters", "BBC News", "AP"]);
+  });
+
+  it("returns second_analytic as null when the story has no story_analytics row", async () => {
+    // WHY: story_analytics is 1:1 but optional — a story without one renders no
+    // second-analytic tab. A mapping that fabricated an empty analytic would lie.
+    const results = sampleResults();
+    results.story_analytics = { mode: "single", data: null, error: null };
+    const { client } = makeFakeClient(results);
+
+    const detail = await fetchStoryDetail("s1", client);
+
+    expect(detail.second_analytic).toBeNull();
   });
 
   it("carries a NULL blindspot through as null (no-blindspot story renders no chip)", async () => {

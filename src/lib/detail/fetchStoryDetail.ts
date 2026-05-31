@@ -22,9 +22,14 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
+  AnalyticKind,
+  AnalyticRow,
   BiasLean,
+  CoverageMode,
   DetailChunk,
+  DetailKeyPoint,
   KeyFigure,
+  SecondAnalytic,
   StoryDetail,
   StorySource,
   SuggestedQuestion,
@@ -34,10 +39,14 @@ import type {
 
 /** `detail_chunks` columns read for the Playfair body. */
 const DETAIL_CHUNK_SELECT = "chunk_index,chunk_text";
-/** `story_trust` columns read for the COVERAGE strip (1:1 with the story). */
+/**
+ * `story_trust` columns read for the COVERAGE strip (1:1 with the story). Phase
+ * 2c adds the four adaptive-coverage reach columns alongside the partisan counts.
+ */
 const STORY_TRUST_SELECT =
   "coverage_left_count,coverage_center_count,coverage_right_count," +
-  "coverage_outlet_count,blindspot_lean,opposing_view_text";
+  "coverage_outlet_count,blindspot_lean,opposing_view_text," +
+  "coverage_mode,coverage_momentum,coverage_originating_outlet_name,coverage_notable_outlet_names";
 /** `story_timeline` columns read for the "HOW IT DEVELOPED" drawer. */
 const STORY_TIMELINE_SELECT = "timeline_event_index,timeline_when_label,timeline_what_text";
 /** `story_sources` columns read for the sources / citation chips. */
@@ -47,6 +56,11 @@ const STORY_SOURCE_SELECT =
 const SUGGESTED_QUESTION_SELECT = "question_index,question_text";
 /** `stories` key-figure columns for the Detail key-figure card. */
 const STORY_KEY_FIGURE_SELECT = "story_key_figure_value,story_key_figure_label";
+/** `story_analytics` columns read for the segment-skinned second-analytic tab (Phase 2c, 1:1). */
+const STORY_ANALYTICS_SELECT =
+  "analytic_kind,analytic_tab_label,analytic_headline,analytic_summary_text,analytic_rows,analytic_is_grounded";
+/** `detail_key_points` columns read for the 5 at-a-glance bullets (Phase 2c). */
+const DETAIL_KEY_POINT_SELECT = "key_point_index,key_point_text";
 
 /** Raw `detail_chunks` row. */
 interface DetailChunkRow {
@@ -54,7 +68,7 @@ interface DetailChunkRow {
   chunk_text: string;
 }
 
-/** Raw `story_trust` row (1:1; nullable blindspot/opposing-view). */
+/** Raw `story_trust` row (1:1; nullable blindspot/opposing-view + Phase 2c reach cols). */
 interface StoryTrustRow {
   coverage_left_count: number;
   coverage_center_count: number;
@@ -62,6 +76,26 @@ interface StoryTrustRow {
   coverage_outlet_count: number;
   blindspot_lean: BiasLean | null;
   opposing_view_text: string | null;
+  coverage_mode: CoverageMode;
+  coverage_momentum: string | null;
+  coverage_originating_outlet_name: string | null;
+  coverage_notable_outlet_names: string[] | null;
+}
+
+/** Raw `story_analytics` row (1:1; Phase 2c). `analytic_rows` is a JSONB array. */
+interface StoryAnalyticsRow {
+  analytic_kind: AnalyticKind;
+  analytic_tab_label: string;
+  analytic_headline: string;
+  analytic_summary_text: string;
+  analytic_rows: AnalyticRow[] | null;
+  analytic_is_grounded: boolean;
+}
+
+/** Raw `detail_key_points` row (Phase 2c). */
+interface DetailKeyPointRow {
+  key_point_index: number;
+  key_point_text: string;
 }
 
 /** Raw `story_timeline` row. */
@@ -133,7 +167,16 @@ export async function fetchStoryDetail(
   client: SupabaseClient = getSupabaseBrowserClient(),
 ): Promise<StoryDetail> {
   // Reason: independent reads, no inter-query dependency — issue them concurrently.
-  const [chunksResult, trustResult, timelineResult, sourcesResult, questionsResult, storyResult] = await Promise.all([
+  const [
+    chunksResult,
+    trustResult,
+    timelineResult,
+    sourcesResult,
+    questionsResult,
+    storyResult,
+    analyticsResult,
+    keyPointsResult,
+  ] = await Promise.all([
     client
       .from("detail_chunks")
       .select(DETAIL_CHUNK_SELECT)
@@ -159,6 +202,19 @@ export async function fetchStoryDetail(
       .order("question_index", { ascending: true })
       .returns<SuggestedQuestionRow[]>(),
     client.from("stories").select(STORY_KEY_FIGURE_SELECT).eq("story_id", story_id).maybeSingle<StoryKeyFigureRow>(),
+    // Phase 2c: the 1:1 segment-skinned second-analytic tab (may be absent → null).
+    client
+      .from("story_analytics")
+      .select(STORY_ANALYTICS_SELECT)
+      .eq("analytic_story_id", story_id)
+      .maybeSingle<StoryAnalyticsRow>(),
+    // Phase 2c: the 5 at-a-glance bullets, ordered by index.
+    client
+      .from("detail_key_points")
+      .select(DETAIL_KEY_POINT_SELECT)
+      .eq("key_point_story_id", story_id)
+      .order("key_point_index", { ascending: true })
+      .returns<DetailKeyPointRow[]>(),
   ]);
 
   if (chunksResult.error) {
@@ -179,6 +235,12 @@ export async function fetchStoryDetail(
   if (storyResult.error) {
     throw detailReadError("stories", story_id, storyResult.error);
   }
+  if (analyticsResult.error) {
+    throw detailReadError("story_analytics", story_id, analyticsResult.error);
+  }
+  if (keyPointsResult.error) {
+    throw detailReadError("detail_key_points", story_id, keyPointsResult.error);
+  }
   if (!storyResult.data) {
     throw new Error(
       `Story "${story_id}" not found. fix_suggestion: confirm the story_id slug exists and the seed ran.`,
@@ -198,6 +260,12 @@ export async function fetchStoryDetail(
     coverage_outlet_count: trustRow.coverage_outlet_count,
     blindspot_lean: trustRow.blindspot_lean,
     opposing_view_text: trustRow.opposing_view_text,
+    // Phase 2c adaptive-coverage reach fields (`reach` mode uses these; `partisan`
+    // mode leaves momentum/originating null + notable empty).
+    coverage_mode: trustRow.coverage_mode,
+    coverage_momentum: trustRow.coverage_momentum,
+    coverage_originating_outlet: trustRow.coverage_originating_outlet_name,
+    coverage_notable_outlets: trustRow.coverage_notable_outlet_names ?? [],
   };
 
   const key_figure: KeyFigure = {
@@ -229,6 +297,24 @@ export async function fetchStoryDetail(
     question_text: row.question_text,
   }));
 
+  // Phase 2c: the 1:1 second-analytic tab is null when the story has no analytic row.
+  const analyticsRow = analyticsResult.data;
+  const second_analytic: SecondAnalytic | null = analyticsRow
+    ? {
+        analytic_kind: analyticsRow.analytic_kind,
+        analytic_tab_label: analyticsRow.analytic_tab_label,
+        analytic_headline: analyticsRow.analytic_headline,
+        analytic_summary_text: analyticsRow.analytic_summary_text,
+        analytic_rows: analyticsRow.analytic_rows ?? [],
+        analytic_is_grounded: analyticsRow.analytic_is_grounded,
+      }
+    : null;
+
+  const detail_key_points: DetailKeyPoint[] = (keyPointsResult.data ?? []).map((row) => ({
+    key_point_index: row.key_point_index,
+    key_point_text: row.key_point_text,
+  }));
+
   return {
     story_id,
     detail_chunks,
@@ -237,5 +323,7 @@ export async function fetchStoryDetail(
     sources,
     timeline,
     suggested_questions,
+    second_analytic,
+    detail_key_points,
   };
 }

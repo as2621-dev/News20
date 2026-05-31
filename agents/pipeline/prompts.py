@@ -119,3 +119,104 @@ SOURCE_ARTICLE
 
 DIGEST_SCRIPT (the lines to fact-check)
 {SCRIPT_TEXT}"""
+
+
+# ---------------------------------------------------------------------------
+# Detail enrichment (Phase 2c SP3) — the richer Story Detail payload
+# ---------------------------------------------------------------------------
+# Per-``analytic_kind`` instruction strings injected into DETAIL_ENRICHMENT_PROMPT
+# at {ANALYTIC_INSTRUCTION}. The analytic_kind is chosen DETERMINISTICALLY from
+# the story segment in code (Decision #2 / Rule 5), NEVER by the model — the model
+# only drafts the narrative + rows for the kind it is told to produce. Keyed by the
+# AnalyticKind literal (agents/pipeline/models.py).
+
+DETAIL_ANALYTIC_INSTRUCTIONS: dict[str, str] = {
+    "market_impact": (
+        "SECOND ANALYTIC — MARKET IMPACT. The tab label is 'MARKET IMPACT'. "
+        "Draft how this story moves markets: which instruments (oil, FX, equities, "
+        "rates) are affected and in which direction. Each row is an instrument with "
+        "its move. ONLY include a numeric value if the SOURCE_ARTICLE states that "
+        "exact figure; otherwise give a direction ('up'|'down'|'flat') and no value."
+    ),
+    "ripple": (
+        "SECOND ANALYTIC — RIPPLE. The tab label is 'RIPPLE'. Draft the second-order "
+        "effects: who/what is hit next as this propagates (sectors, suppliers, rivals, "
+        "regions). Each row is an affected party with the effect. ONLY include a numeric "
+        "value the SOURCE_ARTICLE states; otherwise direction-only, no value."
+    ),
+    "impact": (
+        "SECOND ANALYTIC — IMPACT. The tab label is 'IMPACT'. Draft the concrete "
+        "real-world impact of this development (who it changes things for, by how much). "
+        "Each row is an impacted dimension. ONLY include a numeric value the "
+        "SOURCE_ARTICLE states; otherwise direction-only, no value."
+    ),
+    "stakes": (
+        "SECOND ANALYTIC — STAKES. The tab label is 'STAKES'. Draft what is on the line "
+        "(standings, qualification, records, money). Each row is a stake with its current "
+        "state. ONLY include a numeric value the SOURCE_ARTICLE states; otherwise "
+        "direction-only, no value."
+    ),
+    "why_it_matters": (
+        "SECOND ANALYTIC — WHY IT MATTERS. The tab label is 'WHY IT MATTERS'. Draft why "
+        "a general reader should care: the broader significance and who is affected. Each "
+        "row is one reason/dimension. ONLY include a numeric value the SOURCE_ARTICLE "
+        "states; otherwise direction-only, no value."
+    ),
+}
+
+
+DETAIL_ENRICHMENT_PROMPT = """\
+You enrich a single news story into a structured Detail payload for News20. You
+draw facts ONLY from the single source article supplied below in SOURCE_ARTICLE.
+
+THE SINGLE-SOURCE RULE — NON-NEGOTIABLE
+- SOURCE_ARTICLE is the ONLY permitted source of facts. Do NOT add any fact,
+  number, date, name, quote, or claim that is not stated in SOURCE_ARTICLE. Do
+  NOT use outside knowledge, prior training, or assumptions.
+- NUMBERS ARE TRUST-CRITICAL. Every numeric value you emit (a percentage, a price,
+  a count, a score, a money amount) MUST be copied verbatim from SOURCE_ARTICLE.
+  A fabricated number is worse than no number. If the article does not state a
+  figure, omit the value and give only a direction. A downstream check drops any
+  number not found in the article and marks the analytic ungrounded.
+
+WHAT TO PRODUCE
+1. key_figure: the single most striking headline number in the article (e.g.
+   "~20%", "$81.6B"), with a short label of what it measures. Both null if the
+   article has no such figure. The value MUST appear in SOURCE_ARTICLE.
+2. timeline: the ordered "HOW IT DEVELOPED" beats, earliest first. Each beat has a
+   short mono "when" label (e.g. "08:10", "Mon", "1993") and a one-sentence "what".
+   Use only events the article describes. 2 to 6 beats.
+3. second_analytic: {ANALYTIC_INSTRUCTION}
+   Provide analytic_headline (one line), analytic_summary_text (1-2 sentences), and
+   2 to 4 rows. Each row: analytic_row_label (required), analytic_row_value
+   (verbatim figure from the article, or null), analytic_row_direction
+   ('up'|'down'|'flat'|null), analytic_row_note (optional, or null).
+4. key_points: EXACTLY 5 at-a-glance bullets summarizing the story, most important
+   first. Each one short sentence. These are distinct from the long-form body.
+
+OUTPUT CONTRACT
+Output ONLY a JSON object with this exact shape (no markdown, no code fences):
+{{
+  "key_figure": {{"key_figure_value": "<figure or null>", "key_figure_label": "<label or null>"}},
+  "timeline": [
+    {{"timeline_when_label": "<mono label>", "timeline_what_text": "<one sentence>"}}
+  ],
+  "second_analytic": {{
+    "analytic_headline": "<one line>",
+    "analytic_summary_text": "<1-2 sentences>",
+    "analytic_rows": [
+      {{"analytic_row_label": "<label>", "analytic_row_value": "<figure or null>",
+        "analytic_row_direction": "<up|down|flat|null>", "analytic_row_note": "<note or null>"}}
+    ]
+  }},
+  "key_points": ["<bullet 1>", "<bullet 2>", "<bullet 3>", "<bullet 4>", "<bullet 5>"]
+}}
+
+SOURCE_ARTICLE
+Headline: {SOURCE_HEADLINE}
+Outlet: {SOURCE_OUTLET}
+Published: {SOURCE_PUBLISHED}
+Body:
+{SOURCE_BODY}
+
+Now produce the Detail enrichment. Output ONLY the JSON object."""
