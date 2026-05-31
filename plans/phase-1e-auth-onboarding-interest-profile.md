@@ -5,14 +5,14 @@
 **Estimated effort:** L
 
 ## Goal
-A new user signs in by **email magic-link**, taps through a **3-level interest chip tree** (no voice — chips only for v1), with a free-text custom-interest chip and a per-interest **strict toggle** ("just give me cricket, nothing broader"), and lands with a persisted, RLS-scoped `user_interest_profile`. Ships the additive **migration 0003** (the user/personalization half of the schema + the two pipeline tables) so Phase 1d has interests/profiles to key on and Phase 1c has auth to gate on.
+A new user signs in by **email magic-link**, taps through a **3-level interest chip tree** (no voice — chips only), with a free-text custom-interest chip and a per-interest **strict toggle** ("just give me cricket, nothing broader"), and lands with a persisted, RLS-scoped `user_interest_profile`. Ships the additive **migration 0003** (the user/personalization half of the schema + the two pipeline tables) so Phase 1d has interests/profiles to key on and Phase 1c has auth to gate on.
 
 ## Why this phase exists (re-scope context)
-M1 was defined as an anonymous passive reel (master-plan §107–109); auth + onboarding + the user-side schema lived in M3. The owner re-scoped M1 to be **personalized end-to-end** (no anonymous reel) with **email magic-link auth now**. This phase pulls the minimum slice forward: a chip-based (voice-free) onboarding that writes the same `user_interest_profile` the M3 voice agent will later write through. See `reference/ranking-spec.md` for what consumes this profile.
+M1 was defined as an anonymous passive reel (master-plan §107–109); auth + onboarding + the user-side schema lived in M3. The owner re-scoped M1 to be **personalized end-to-end** (no anonymous reel) with **email magic-link auth now**. This phase pulls the minimum slice forward: a chip-based (voice-free) onboarding that writes the `user_interest_profile` the ranker reads. See `reference/ranking-spec.md` for what consumes this profile. *(Voice-agent onboarding was dropped 2026-05-30 — chips are the only onboarding, not a v1 stand-in.)*
 
 ## Context the sub-agents need
 - **Schema is already designed** in `reference/supabase-schema.md` §3 + §6 (the `interests` tree, `users`, `user_interest_profile`, `user_interest_traits`, `player_signals`, RLS). This phase **applies** the M1 subset as migration `0003` and adds the two NEW pipeline tables (`story_interests`, `daily_feeds`) + three new columns. Content tables (0001/0002) are untouched — additive only.
-- **Onboarding is chips, not voice.** The chip UI is the same scaffold M3 Phase 3c SP1 described (`InterestChips` + lazy child expansion), minus the Gemini Live orb. Voice onboarding becomes additive on top in M3 (3c writes through the *same* upsert path).
+- **Onboarding is chips, not voice.** `InterestChips` + lazy child expansion render the `interests` tree; there is no Gemini Live orb. *(Voice onboarding was dropped 2026-05-30 — Phase 3c is cancelled; chips are the final onboarding.)*
 - **Auth = Supabase email OTP** (`signInWithOtp`), pulled forward from M3 Phase 3 SP2. The browser client (`src/lib/supabase/client.ts`) currently sets `persistSession:false, autoRefreshToken:false` — these must flip to `true` for an authed session to survive.
 - **Static export reality:** no Next.js server runtime on device — auth + profile writes run **client-side directly against Supabase under RLS**.
 - **Taxonomy seed:** ~7–10 depth-0 categories mapping to a `segment_slug` accent, each interest carrying an `interest_search_query` (the news query Phase 1d ingests on). Draft list + example chains below.
@@ -33,13 +33,13 @@ M1 was defined as an anonymous passive reel (master-plan §107–109); auth + on
 
 ### Sub-phase 3: 3-level interest chips + custom interest + strict toggle
 - **Files touched:** `src/components/onboarding/InterestChips.tsx`, `src/components/onboarding/CustomInterestChip.tsx`, `src/lib/interests.ts`.
-- **What ships:** `InterestChips` rendering the `interests` tree with **lazy child expansion** (tap a depth-0 chip → fetch depth-1 → depth-2 via the recursive read in `src/lib/interests.ts`); a **free-text "custom interest" chip** producing a pending `interest_kind='custom'` selection; a per-interest **strict toggle** ("just give me cricket, nothing broader") setting a pending `profile_is_strict`. No voice/orb (M3).
+- **What ships:** `InterestChips` rendering the `interests` tree with **lazy child expansion** (tap a depth-0 chip → fetch depth-1 → depth-2 via the recursive read in `src/lib/interests.ts`); a **free-text "custom interest" chip** producing a pending `interest_kind='custom'` selection; a per-interest **strict toggle** ("just give me cricket, nothing broader") setting a pending `profile_is_strict`. No voice/orb (dropped 2026-05-30).
 - **Definition of done:** chips render the seeded depth-0 categories; tapping reveals depth-1 then depth-2 (asserted against mocked `interests` data); toggling strict on a chip marks that selection strict; a custom free-text entry yields a pending custom selection. No write happens yet (SP4 persists).
 - **Dependencies:** Sub-phase 1.
 
 ### Sub-phase 4: Persist interest profile + onboarding flow order
 - **Files touched:** `src/components/onboarding/OnboardingFlow.tsx`, `src/components/onboarding/OnboardingSplash.tsx`, `src/lib/onboardingProfile.ts`, `src/app/(onboarding)/page.tsx`.
-- **What ships:** upsert handlers writing selected leaves (with `profile_is_strict`) to `user_interest_profile` (`profile_source='typed'`, default `profile_weight` by selection) scoped to `auth.uid()`, plus `user_interest_traits` defaults; custom free-text is **canonicalized** into the tree (matched to an existing node or attached as a typed custom entry, never a dangling row — Rule 12); the flow order **splash → email sign-in → interest chips → loading → reel**; `users.user_onboarded_at` set on completion; a returning onboarded user skips straight to the reel.
+- **What ships:** upsert handlers writing selected leaves (with `profile_is_strict`) to `user_interest_profile` (`profile_source='typed'`, default `profile_weight` by selection) scoped to `auth.uid()`, plus `user_interest_traits` defaults (**now deprecated** — voice onboarding dropped; the table is retained in the DB but unused); custom free-text is **canonicalized** into the tree (matched to an existing node or attached as a typed custom entry, never a dangling row — Rule 12); the flow order **splash → email sign-in → interest chips → loading → reel**; `users.user_onboarded_at` set on completion; a returning onboarded user skips straight to the reel.
 - **Definition of done:** completing onboarding writes ≥1 `user_interest_profile` row scoped to `auth.uid()` with strict flags preserved (asserted against mocked Supabase); `user_onboarded_at` is set; an onboarded user routes to the reel and an authed-but-un-onboarded user routes to chips; a custom interest with no taxonomy match is stored as a typed custom entry, never orphaned.
 - **Dependencies:** Sub-phases 1–3.
 
@@ -65,8 +65,8 @@ A signed-out user requests a magic link, lands authenticated with a `users` row,
 Example 3-level chains (each with an `interest_search_query`): Sport→Cricket→India (`"India cricket team BCCI news"`); Sport→Soccer→Arsenal (`"Arsenal FC news Premier League"` — the ancestor-tag demo); Business→Equities→Semiconductors (`"semiconductor stocks NVIDIA TSMC news"`); Tech→AI→LLMs (`"large language models OpenAI Anthropic news"`).
 
 ## Out of scope
-- Voice onboarding / Gemini Live orb (M3 Phase 3c — additive on top of these chips, writes the same profile path).
-- `onboarding_conversations` table (its migration moves to Phase 3c with the voice transcript).
+- Voice onboarding / Gemini Live orb — **dropped 2026-05-30** (Phase 3c cancelled). Onboarding is chip-only; the surviving in-news Voice mode lives in Phase 3b.
+- `onboarding_conversations` table — **dropped** (voice onboarding cut; never created). `user_interest_traits` + the `'voice'` `interest_profile_source` value shipped in migration 0003 (applied) but are now deprecated/unused; retained in the DB (not un-migrated), per the keep-DB-as-is decision.
 - `follows` / `saves` / `play_sessions` tables (Phase 3d / M3 / M4).
 - The daily pipeline that fills `daily_feeds` (Phase 1d) and the reel read of it (Phase 1c SP4).
 - Applying/seeding migration 0003 against a live DB (needs creds; done at `/run-phase` time — same blocker noted in `phase-1b-supabase-backend-seed-progress.md`).
@@ -80,7 +80,7 @@ Example 3-level chains (each with an `interest_search_query`): Sport→Cricket�
 
 **Product lens:** PASS — delivers the owner's "personalized from day one" directive with the lowest-friction onboarding that still feeds the ranker (chips, not voice). Strict toggle + custom interest are exactly the controls the owner asked for. No M2/M3 surface creep (no follow, no voice, no detail).
 
-**Engineering lens:** PASS — chip-tap and the future voice agent share one `user_interest_profile` upsert path (`onboardingProfile.ts`), so they aren't two implementations. Migration 0003 is additive-only and applies the already-designed DDL (conforms to `supabase-schema.md`, doesn't reinvent). DoDs are mock-verifiable in fresh context. The `client.ts` auth-config flip is called out explicitly (a silent `persistSession:false` would break every authed read downstream).
+**Engineering lens:** PASS — the chip-tap onboarding writes `user_interest_profile` through one upsert path (`onboardingProfile.ts`). Migration 0003 is additive-only and applies the already-designed DDL (conforms to `supabase-schema.md`, doesn't reinvent). DoDs are mock-verifiable in fresh context. The `client.ts` auth-config flip is called out explicitly (a silent `persistSession:false` would break every authed read downstream).
 
 **Risk lens:** PASS with flags. ⚠ SP1 is a forward-only migration (additive, no drops — reversible only by a new down-migration; flagged for a disposable DB first). Within-phase file overlap: `OnboardingFlow.tsx` is touched by SP4 only; `client.ts` by SP2 only — no parallel-edit conflict. RLS allow/deny is a first-class DoD (a leaked `daily_feeds`/profile is the worst failure here). Painting-into-a-corner check: SP1 schema → SP2 auth → SP3 chips → SP4 persist leaves a profile Phase 1d reads directly.
 

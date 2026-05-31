@@ -1,6 +1,6 @@
 # Phase 3d: Personalization + follow + what's-new
 
-**Milestone:** M3 — Voice + personalization + follow + onboarding
+**Milestone:** M3 — Voice mode + follow
 **Status:** Not started
 **Estimated effort:** S–M (reduced — see re-scope)
 

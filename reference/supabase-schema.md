@@ -5,12 +5,12 @@
 **Scope note — four pivots baked in:**
 1. **Brand** is `blip` (was News20). Repo/codename stays `News20`.
 2. **Audio-first reel.** The reel is rendered **live, client-side** from `(digest audio + word-timed caption JSON + an ambient drifting poster wash)` — there is **no pre-rendered MP4**. `caption_sentences.word_tokens` is therefore the load-bearing table, not a video file. (See `prototype/.../ui-design-decisions.md` §0.)
-3. **Voice-agent onboarding.** A Gemini Live agent interviews the user and builds a live interest profile; the checkbox grid is gone. This is why `interests` is a **hierarchical taxonomy** and why `onboarding_conversations` stores a transcript.
+3. **Chip-based hierarchical onboarding.** A tappable **category → subcategory → sub-subcategory** interest picker builds the profile; the checkbox grid is gone. This is why `interests` is a **hierarchical taxonomy**. *(Voice-agent onboarding was dropped 2026-05-30 — onboarding is chip-only; in-news Voice mode survives, see §2 row 7. `onboarding_conversations` was therefore never created; `user_interest_traits` + the `'voice'` enum value shipped in migration 0003 (applied) and are retained in the live DB but unused/deprecated.)*
 4. **Auth** is **email-only passwordless magic-link** (Supabase email OTP). Sign-in-with-Apple removed. `users` maps 1:1 to Supabase `auth.users`.
 
 **When to update:** whenever a stored entity or a prototype field shape changes. Keep the TS interfaces in `src/types/`, the Pydantic models, and this DDL in sync (`reference/api-contracts.md`).
 
-> **Voice-onboarding build target (the real spec, ahead of the prototype code):** the prototype still ships the older *scripted* `VP_TURNS` flow. The schema below is built for the **final** target the owner asked for: niche-down follow-ups (e.g. Sport → which team), on-screen **tappable category chips** backed by a **dynamic hierarchical taxonomy** (category → subcategory → sub-subcategory), and the mic folded into the orb. That target is the reason `interests` is a self-referencing tree.
+> **Onboarding build target (the real spec, ahead of the prototype code):** the prototype still ships the older *scripted* `VP_TURNS` voice flow. The schema below is built for the **final** target the owner asked for: **chip-based onboarding** with on-screen **tappable category chips** backed by a **dynamic hierarchical taxonomy** (category → subcategory → sub-subcategory) and per-interest niche-down via chip drill-down (e.g. Sport → which team). That target is the reason `interests` is a self-referencing tree. *(The voice-agent interview was dropped 2026-05-30; onboarding is chip-only.)*
 
 ---
 
@@ -34,7 +34,9 @@ CREATE TYPE bias_lean AS ENUM ('left', 'center', 'right');
 -- Fixed top-level editorial segments. Mirrors data.js SEGMENTS keys exactly.
 CREATE TYPE segment_slug AS ENUM ('geopolitics', 'markets', 'tech', 'sport', 'wildcard');
 
--- Where an interest weight came from (voice onboarding, typed fallback, or implicit signal).
+-- Where an interest weight came from (typed chip onboarding or implicit engagement signal).
+-- NOTE: 'voice' is DEPRECATED/unused — voice-agent onboarding was dropped 2026-05-30. It is
+-- retained because it shipped in migration 0003 (applied) and Postgres can't cleanly drop an enum value.
 CREATE TYPE interest_profile_source AS ENUM ('voice', 'typed', 'signal');
 
 -- Implicit engagement events feeding category prioritization (reuse: TLDW player_signals).
@@ -318,7 +320,7 @@ CREATE TABLE anchors (
 
 ## 3. Taxonomy & user tables
 
-> **M1 re-scope (2026-05-30) — migration `0003`.** Personalization moved from M3 into M1 (`plans/phase-1e-auth-onboarding-interest-profile.md`). Migration `0003` applies the M1 subset of this section — `users` (+ `handle_new_user()` trigger), `interests` (with the new `interest_search_query` / `interest_kind` columns), `user_interest_profile` (with `profile_is_strict`), `user_interest_traits`, `player_signals` — plus the two new pipeline tables `story_interests` (§2) and `daily_feeds` (below). **Deferred to their feature phases:** `onboarding_conversations` → M3 Phase 3c (voice transcript); `follows` → M3 Phase 3d; `saves` / `play_sessions` → M3/M4. Onboarding is chip-based in M1 (`profile_source='typed'`); the voice path (`'voice'`) is added in M3. See `reference/ranking-spec.md` for how these tables are scored/allocated.
+> **M1 re-scope (2026-05-30) — migration `0003` (applied).** Personalization moved from M3 into M1 (`plans/phase-1e-auth-onboarding-interest-profile.md`). Migration `0003` applies the M1 subset of this section — `users` (+ `handle_new_user()` trigger), `interests` (with the new `interest_search_query` / `interest_kind` columns), `user_interest_profile` (with `profile_is_strict`), `user_interest_traits`, `player_signals` — plus the two new pipeline tables `story_interests` (§2) and `daily_feeds` (below). **Deferred to their feature phases:** `follows` → M3 Phase 3d; `saves` / `play_sessions` → M3/M4. Onboarding is **chip-only** (`profile_source='typed'`). *(Voice-agent onboarding was dropped 2026-05-30, so `onboarding_conversations` was never created. `user_interest_traits` + the `'voice'` enum value shipped in 0003 (applied) and are retained in the DB but unused/deprecated — not un-migrated, per the owner's keep-DB-as-is decision.)* See `reference/ranking-spec.md` for how these tables are scored/allocated.
 
 ### `interests`  ← **hierarchical self-referencing taxonomy**
 Purpose: the dynamic category → subcategory → sub-subcategory tree that backs the tappable onboarding chips and niche-down follow-ups (e.g. Sport → Soccer → Premier League).
@@ -416,8 +418,8 @@ CREATE TABLE users (
 ```
 
 ### `user_interest_profile`
-Purpose: the per-user weighted interest graph the voice agent builds; drives reel ranking.
-Maps: `app.js voiceProfileStep()` — detected interests become weighted picks (`picks.add(...)`); `profile_source` records whether it came from voice, the typed fallback, or an implicit signal.
+Purpose: the per-user weighted interest graph the chip onboarding builds; drives reel ranking.
+Maps: the chip interest picker (replacing `app.js voiceProfileStep()`) — selected interests become weighted picks; `profile_source` records whether it came from a typed chip pick or an implicit engagement signal (`'voice'` is unused — voice onboarding dropped).
 
 ```sql
 CREATE TABLE user_interest_profile (
@@ -425,7 +427,7 @@ CREATE TABLE user_interest_profile (
   profile_user_id           uuid NOT NULL REFERENCES users (user_id) ON DELETE CASCADE,
   profile_interest_id       uuid NOT NULL REFERENCES interests (interest_id) ON DELETE CASCADE,
   profile_weight            numeric NOT NULL DEFAULT 1.0,        -- ranking weight (signals nudge over time)
-  profile_source            interest_profile_source NOT NULL,   -- 'voice' | 'typed' | 'signal'
+  profile_source            interest_profile_source NOT NULL,   -- 'typed' | 'signal' ('voice' deprecated/unused)
   profile_is_strict         boolean NOT NULL DEFAULT false,     -- M1 (0003): "just give me cricket, nothing broader" — caps fallback (ranking-spec §2)
   profile_created_at        timestamptz NOT NULL DEFAULT now(),
   profile_updated_at        timestamptz NOT NULL DEFAULT now(),
@@ -435,9 +437,9 @@ CREATE TABLE user_interest_profile (
 CREATE INDEX idx_user_interest_profile_user ON user_interest_profile (profile_user_id);
 ```
 
-### `user_interest_traits`
-Purpose: the non-category preference traits the voice agent extracts (ordering / depth preferences).
-Maps: `app.js VP_TURNS` trait detections — `world-first` ("Big global headlines first, or your niche up top?") and `context` ("just the facts, or the why behind them?"). These are `trait: true` tags, distinct from category picks.
+### `user_interest_traits`  ← **DEPRECATED (voice onboarding dropped 2026-05-30)**
+Purpose: non-category preference traits (ordering / depth). Was populated by the voice interview's `record_trait`. **Deprecated** — voice-agent onboarding was dropped; chip onboarding does not capture traits, and the active `reference/ranking-spec.md` does not consume them. The table shipped in migration 0003 (applied) and is **retained in the DB at defaults, unused** (not un-migrated, per the keep-DB-as-is decision).
+Maps: `app.js VP_TURNS` trait detections — `world-first` and `context` (historical; no longer captured).
 
 ```sql
 CREATE TABLE user_interest_traits (
@@ -450,26 +452,8 @@ CREATE TABLE user_interest_traits (
 );
 ```
 
-### `onboarding_conversations`
-Purpose: the raw voice-onboarding transcript + the structured profile extracted from it.
-Maps: the voice-agent interview in `app.js voiceProfileStep()`. In the prototype the conversation is scripted (`VP_TURNS`); in production it is a Gemini Live transcript with function-call-extracted structure (`ui-design-decisions.md` §2 port note; `reuse-map.md` interrogation layer).
-
-```sql
-CREATE TABLE onboarding_conversations (
-  onboarding_conversation_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_user_id        uuid NOT NULL REFERENCES users (user_id) ON DELETE CASCADE,
-  -- transcript: [{ "turn_index": 0, "role": "agent"|"user", "text": "...", "at_ms": 0 }, ...]
-  conversation_transcript     jsonb NOT NULL DEFAULT '[]',
-  -- extracted_profile: { "interest_slugs": ["geopolitics","tech","markets"],
-  --                      "traits": { "world_first": true, "context_vs_facts": 0.8 } }
-  extracted_profile           jsonb NOT NULL DEFAULT '{}',
-  conversation_mode           text NOT NULL DEFAULT 'voice',     -- 'voice' | 'typed' (fallback path)
-  conversation_completed_at   timestamptz,
-  conversation_started_at     timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_onboarding_conversations_user ON onboarding_conversations (conversation_user_id);
-```
+### ~~`onboarding_conversations`~~ — **DROPPED (voice onboarding cut 2026-05-30)**
+The raw voice-onboarding transcript store. Voice-agent onboarding was dropped, so this table was **never created** — it had been deferred to the cancelled Phase 3c and was not part of migration 0003. No replacement: chip onboarding has no transcript.
 
 ### `follows`
 Purpose: stories a user follows, with the last-seen marker that powers "what's new since you last watched".
@@ -617,12 +601,11 @@ CREATE INDEX idx_daily_feeds_user_date ON daily_feeds (feed_user_id, feed_date, 
    anchors (ALEX/JORDAN) ── referenced by caption_sentences.anchor_speaker (enum)
                                                      │               │
    auth.users (Supabase) ──1:1── users (user_id = auth.uid())        │
-                                   │  ▲  ▲  ▲  ▲  ▲                   │
-        user_interest_profile ─────┘  │  │  │  │  └── user_interest_profile.profile_interest_id ─┘
-        user_interest_traits ─────────┘  │  │  │
-        onboarding_conversations ────────┘  │  │
-        follows / saves ────────────────────┘  │  (FK to stories)
-        player_signals / play_sessions ────────┘
+                                   │  ▲  ▲  ▲  ▲                     │
+        user_interest_profile ─────┘  │  │  └── user_interest_profile.profile_interest_id ─┘
+        user_interest_traits ─────────┘  │  (deprecated — voice onboarding dropped)
+        follows / saves ──────────────────┘  (FK to stories)
+        player_signals / play_sessions ───────┘
 ```
 
 Cardinalities: `stories 1—N {digests, detail_chunks, story_timeline, story_sources, suggested_questions, story_qa, story_topics}`; `stories 1—1 story_trust`; `digests 1—N caption_sentences`; `interests 1—N interests` (self); `users 1—N {user_interest_profile, follows, saves, player_signals, play_sessions}`; `users 1—1 user_interest_traits`.
@@ -637,7 +620,7 @@ Per `reference/reuse-map.md`:
 - **`anchors`** — voices and the multi-speaker format come from TLDW `agents/voice/gemini_tts.py` (**PORT**): ALEX→`Leda`, JORDAN→`Sadaltager`.
 - **`story_trust` / `story_timeline` / `outlets`** — the bias/coverage/blindspot layer is **NEW** (no TLDW analog) but `coverage_outlet_count` is fed by TLDW `agents/ingestion/dedup.py` cross-source clustering (**PORT**).
 - **`player_signals` / `play_sessions`** — TLDW `agents/memory/player_signals.py` + `session_processor.py` (**ADAPT** for category prioritization).
-- **`interests` / `user_interest_profile` / `user_interest_traits`** — seeded from TLDW `agents/shared/taxonomy.py` (**ADAPT** into the hierarchical tree); the rest is **NEW** (voice onboarding is new).
+- **`interests` / `user_interest_profile` / `user_interest_traits`** — seeded from TLDW `agents/shared/taxonomy.py` (**ADAPT** into the hierarchical tree); the rest is **NEW** (chip onboarding is new; `user_interest_traits` is deprecated — voice onboarding dropped).
 - The Supabase migration *scaffolding* follows TLDW `supabase/` as a **PATTERN**; the schema itself is new (`reuse-map.md`: "News20 schema is new: stories, digests, sources, bias, follows, signals").
 
 ---
@@ -659,7 +642,7 @@ CREATE POLICY stories_public_read ON stories
 
 -- ── Tier 2: per-user private tables ──
 -- Applies to: users, follows, saves, player_signals, play_sessions,
---             user_interest_profile, user_interest_traits, onboarding_conversations.
+--             user_interest_profile, user_interest_traits (deprecated — voice onboarding dropped).
 -- daily_feeds is per-user but SELECT-self only (no write policy → only the service-role pipeline writes).
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -691,10 +674,6 @@ CREATE POLICY user_interest_profile_owner_all ON user_interest_profile
 ALTER TABLE user_interest_traits ENABLE ROW LEVEL SECURITY;
 CREATE POLICY user_interest_traits_owner_all ON user_interest_traits
   FOR ALL USING (traits_user_id = auth.uid()) WITH CHECK (traits_user_id = auth.uid());
-
-ALTER TABLE onboarding_conversations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY onboarding_conversations_owner_all ON onboarding_conversations
-  FOR ALL USING (conversation_user_id = auth.uid()) WITH CHECK (conversation_user_id = auth.uid());
 
 -- ── M1 re-scope (migration 0003): story_interests is public-read content; daily_feeds is read-self only ──
 ALTER TABLE story_interests ENABLE ROW LEVEL SECURITY;

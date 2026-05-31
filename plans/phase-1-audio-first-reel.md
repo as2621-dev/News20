@@ -46,7 +46,7 @@ A runnable Next.js 15 static-SPA reel that plays the **5 real M0 digests** (real
 ## Out of scope
 - Any backend/Supabase — **fixtures only** (Phase 1b/1c).
 - Capacitor / iOS build (Phase 1c); the daily content pipeline (Phase 1d).
-- Story Detail + trust layer + typed Q&A (M2); Voice mode + voice-agent onboarding + auth (M3).
+- Story Detail + trust layer + typed Q&A (M2); Voice mode + follow (M3); auth + chip onboarding (M1, `phase-1e`). *(Voice-agent onboarding dropped 2026-05-30 — onboarding is chip-only.)*
 - Real per-word forced alignment (M0 timings are time-sliced — Open Q1).
 - Persisting Save/Follow (local in-memory state only in M1); Ask/Voice/Detail navigation targets (deferred).
 

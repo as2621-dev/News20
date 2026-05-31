@@ -1,6 +1,6 @@
 # Phase 3b: In-news Voice mode (swipe-left)
 
-**Milestone:** M3 — Voice + personalization + follow + onboarding
+**Milestone:** M3 — Voice mode + follow
 **Status:** Not started
 **Estimated effort:** M
 
@@ -38,7 +38,7 @@ From a reel story, swipe-left opens a hands-free conversation scoped to that sto
 
 ## Out of scope
 - The RAG retriever/verification implementation itself (built in M2; this phase only wires the Live function-call to it).
-- Voice-agent onboarding (3c) — different prompt/tool, built next, but reuses this phase's transport.
+- Voice-agent onboarding (3c) — **dropped 2026-05-30** (onboarding is chip-only, `plans/phase-1e-auth-onboarding-interest-profile.md`); this phase's transport is now used only by Voice mode.
 - Bridge-clip cross-fades between turns (memory note: likely unneeded for swipe-left UX).
 
 ## Open questions

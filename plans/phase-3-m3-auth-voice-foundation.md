@@ -1,17 +1,17 @@
 # Phase 3: Auth + Gemini Live foundation
 
-**Milestone:** M3 — Voice + personalization + follow + onboarding
+**Milestone:** M3 — Voice mode + follow
 **Status:** Not started
 **Estimated effort:** L
 
 ## Goal
-The shared rails M3 needs before any feature: the user-side Supabase schema (+RLS+seed taxonomy), email-only passwordless sign-in, and a parameterized Gemini Live transport (ephemeral-token mint + raw-WSS hook) with the shared orb/waveform UI — so both Voice mode (3b) and Voice onboarding (3c) mount one brain and one component.
+The shared rails M3 needs before any feature: the user-side Supabase schema (+RLS+seed taxonomy), email-only passwordless sign-in, and a parameterized Gemini Live transport (ephemeral-token mint + raw-WSS hook) with the shared orb/waveform UI — so in-news Voice mode (3b) mounts one brain and one component. *(Voice onboarding (3c) was dropped 2026-05-30 — onboarding is chip-only; Voice mode is the sole consumer of this transport.)*
 
 ## Sub-phases
 
 ### Sub-phase 1: Migrate user-side schema + RLS + seed interest taxonomy ⚠ irreversible
 - **Files touched:** `supabase/migrations/<ts>_m3_user_personalization.sql`, `supabase/seed/interests.sql`
-- **What ships:** The M3 user/personalization tables exactly per `reference/supabase-schema.md` §3: `users` (+ `handle_new_user()` trigger on `auth.users` insert), `interests` (self-FK tree), `user_interest_profile`, `user_interest_traits`, `onboarding_conversations`, `follows`, `player_signals` — each with the §6 RLS policies (content/`interests` public-read; user tables `auth.uid()`-scoped). Seed the 5 depth-0 segment interests + the representative niche-down chains from §3 (Sport→Soccer→Premier League, Markets→Equities→Semiconductors).
+- **What ships:** The M3 user/personalization tables exactly per `reference/supabase-schema.md` §3: `users` (+ `handle_new_user()` trigger on `auth.users` insert), `interests` (self-FK tree), `user_interest_profile`, `user_interest_traits` (deprecated — voice onboarding dropped), `follows`, `player_signals` — each with the §6 RLS policies (content/`interests` public-read; user tables `auth.uid()`-scoped). Seed the 5 depth-0 segment interests + the representative niche-down chains from §3 (Sport→Soccer→Premier League, Markets→Equities→Semiconductors).
 - **Definition of done:** Migration applies cleanly **on a DB that already has the M1 content tables** (FKs: `interests.interest_segment_slug`→`segments`, `follows.follow_story_id`/`player_signals.signal_story_id`→`stories`); the recursive CTE in §3 returns the seeded 3-level chains; an anon client can `SELECT` `interests` but **cannot** read another user's `follows`/`player_signals` (RLS test); inserting a row into `auth.users` creates the matching `users` row via trigger.
 - **Dependencies:** none within phase. **Cross-milestone:** requires M1's content migration (`segments`, `stories`, `segment_slug` enum) to exist first — see Open questions.
 
@@ -34,10 +34,10 @@ The shared rails M3 needs before any feature: the user-side Supabase schema (+RL
 - **Dependencies:** none within phase. Can run in parallel with SP1–SP3 (worktree).
 
 ## Phase-level definition of done
-A signed-out user can request a magic link and land authenticated with a `users` row; the M3 user-side schema is live with RLS enforced and the interest taxonomy seeded; a throwaway test page can mint a Live token, open one constrained WSS, exchange `setup`/`setupComplete`, and render the shared `VoiceOrb`/`Waveform` reacting to mic input — i.e. every shared rail 3b/3c depend on is verified in isolation.
+A signed-out user can request a magic link and land authenticated with a `users` row; the M3 user-side schema is live with RLS enforced and the interest taxonomy seeded; a throwaway test page can mint a Live token, open one constrained WSS, exchange `setup`/`setupComplete`, and render the shared `VoiceOrb`/`Waveform` reacting to mic input — i.e. every shared rail in-news Voice mode (3b) depends on is verified in isolation.
 
 ## Out of scope
-- Any in-news Voice mode behavior (3b) or onboarding conversation logic (3c) — this phase only builds the reusable transport + UI, not the prompts/tools that drive them.
+- Any in-news Voice mode behavior (3b) — this phase only builds the reusable transport + UI, not the prompts/tools that drive it. *(Voice onboarding (3c) was dropped 2026-05-30.)*
 - `saves` / `play_sessions` tables and the full profile sheet (deferred; `saves`+streak are not in M3's "true when"; `play_sessions` is M4 metric instrumentation).
 - RAG retriever/verification (built in M2; reused by 3b).
 
