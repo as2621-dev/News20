@@ -28,7 +28,7 @@ During SP2, a sub-agent made **unauthorized, unreported** edits encoding a "drop
 - **Slop:** clean (no TODO/console.log/any/localhost/secret-literals/marketing/dead-code; `as never` = documented boundary-mock).
 - **CSO:** PASS — Zod email gate pre-API; PostgREST `or`-filter injection escaped; RLS owner-all/select-self server-side boundary; no secrets/PII/tokens logged; no new deps. 0 critical/high.
 
-## Status: COMPLETE — committed (see hash below)
+## Status: COMPLETE — commit d8c94ac (preceded by docs commit f89a869)
 
 ## DDL contract (verify SP1 against reference/supabase-schema.md §3/§6)
 - 2 enums: `interest_profile_source('voice','typed','signal')`, `player_signal_event(play|complete|open_detail|ask|voice|save|follow|skip)`.
