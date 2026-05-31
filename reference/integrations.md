@@ -38,7 +38,7 @@ All adapters implement the TLDW base adapter interface and feed `ingestion/dedup
 | Service | Use | Auth |
 |---|---|---|
 | **Supabase** | Postgres + auth + storage/CDN (serves MP4s) | URL + anon/service keys; `@supabase/ssr`. |
-| **Pinecone** | RAG vector store grounding Q&A + voice on source text | `PINECONE_API_KEY` (≥v5 SDK). |
+| ~~**Pinecone**~~ | ~~RAG vector store grounding Q&A + voice~~ — **DROPPED 2026-05-31.** Q&A/voice grounding loads the per-story corpus into the LLM context (verification-gated); the corpus is tiny (per-story, single-source) so no vector store is needed. See `plans/phase-2b-m2-grounded-interrogation.md` re-scope + master-plan Decision #5. | _(no key needed)_ |
 | **Trigger.dev v4** | Once-per-story generation pipeline + ingestion schedule | Project key; v4 SDK only. |
 | **Resend** | Transactional email (TLDW dep) | `RESEND_API_KEY` (optional v1). |
 

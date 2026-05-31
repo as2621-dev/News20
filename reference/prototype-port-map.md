@@ -185,12 +185,14 @@ export default config;
 
 ---
 
-## 7. Grounded Q&A + refusal — real RAG, identical visual contract
+## 7. Grounded Q&A + refusal — in-context grounding, identical visual contract
+
+> **⚠ Re-scoped 2026-05-31 (supersedes the "real RAG" framing below).** No vector store. A News20 story's grounding corpus is tiny (per-story, single-source, "<100s read" — `s1` = 3 `detail_chunks`), so the whole corpus is loaded **directly into the LLM context** and the model is constrained to answer only from it; the verification stage still gates every claim. PORT `agents/pipeline/stages/verification.py` + adapt `agents/chat/*`, but **NOT** `agents/rag/*` / Pinecone. The endpoint contract + the visual contract below are unchanged. See `plans/phase-2b-m2-grounded-interrogation.md`.
 
 **Prototype (`resolveAnswer`):** canned. Exact suggested-question match → `st.answers[q]`; free text matched against a curated per-story `topics` list → closest canned answer; off-topic → the mandatory refusal string. `askQuestion()` renders a thinking state, then a grounded bubble **with citation chips** or the **`⌀ CAN'T ANSWER FROM SOURCE` blush refusal** card.
 
 **Production (`reference/reuse-map.md` + `news20-gemini-live-tts-contract.md`):**
-- Replace `resolveAnswer()` with the **real RAG retriever + verification stage** — PORT TLDW `agents/rag/*` (chunker/embedder/retriever/pinecone) + `agents/pipeline/stages/verification.py`, scoped to the **single active `story_id`'s source set** (not the whole briefing). The `/api/interjection/rag` shape from the memory applies: tool `search_briefing_content(query)` → embeddings → Pinecone topK → lexical re-rank → scope by the story's `source_id`s. Returns HTTP 200 + fallback so the conversation never breaks; the system prompt **forbids answering without tool context**.
+- Replace `resolveAnswer()` with **in-context grounding + the verification stage** — load the active `story_id`'s whole corpus (`detail_chunks` + `story_timeline` + digest + any single-source body) into the prompt, constrain the model to answer **only** from it, then PORT `agents/pipeline/stages/verification.py` to gate the claim. Scoped to the **single active `story_id`** (a per-story DB read — never the whole briefing). Returns HTTP 200 + fallback so the conversation never breaks; the system prompt **forbids answering without the provided context**. Prompt/context-cache the per-story corpus block for cheap repeat questions. *(No embeddings / Pinecone / topK retrieval — the corpus is small enough to pass whole.)*
 - Response maps to `api-contracts.md` `QuestionAnswer`: `{ answer_text, answer_citations[], answer_is_grounded }`. **Contract rule (Decision #5):** `answer_is_grounded === false` → render the refusal state, never an ungrounded guess.
 - **Keep the visual contract byte-for-byte:** grounded answer → `.qa-bubble-a` with `.cite-chip` citation chips (one per `answer_citations` source); off-source → `.qa-refusal` blush card with the mono header `⌀ CAN'T ANSWER FROM SOURCE`. Keep the `.dot-typing` thinking state before every answer. This visual distinction is *how users learn to trust the system* (`ui-design-decisions.md` §7) — do not redesign it.
 - Same brain powers typed Q&A (Detail) and Voice mode; voice just streams the same grounded answer via Gemini Live audio.

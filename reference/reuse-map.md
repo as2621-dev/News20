@@ -41,7 +41,7 @@ Legend: **PORT** = copy with minimal edits · **ADAPT** = copy then meaningfully
 |---|---|---|
 | `agents/chat/agent.py` | Interrupt-to-ask agent → typed search-box Q&A + voice mode brain | **ADAPT** (ground on a single story's source set) |
 | `agents/chat/prompts.py` | Q&A system prompts | **ADAPT** |
-| `agents/rag/chunker.py` `embedder.py` `retriever.py` `pinecone_client.py` `pipeline.py` `models.py` | Grounding for Q&A so answers cite the source, not invent | **PORT** |
+| `agents/rag/chunker.py` `embedder.py` `retriever.py` `pinecone_client.py` `pipeline.py` `models.py` | ~~Grounding for Q&A~~ | **SKIP (superseded 2026-05-31).** News20's per-story corpus is tiny (single-source, "<100s read"), so Q&A grounding loads the whole corpus into the LLM context (verification-gated) — no chunk/embed/vector retrieval. See `plans/phase-2b-m2-grounded-interrogation.md` + master-plan Decision #5. Revisit only if a corpus outgrows the context window. |
 
 ### Ingestion
 | TLDW path | News20 use | Decision |
@@ -66,7 +66,7 @@ Legend: **PORT** = copy with minimal edits · **ADAPT** = copy then meaningfully
 | `agents/shared/exceptions.py` | Custom exceptions (`TTSRenderError`, etc.) | **PORT** |
 | `agents/shared/taxonomy.py` | Topic taxonomy → interest categories | **ADAPT** |
 | `agents/worker/main.py`, `auth.py` | FastAPI worker entrypoint | **PORT** |
-| `requirements.txt` | Python deps (google-genai, pydub, yt-dlp, pinecone, openai, fastapi, structlog…) | **PORT** (drop yt-dlp/youtube-transcript-api until later phase) |
+| `requirements.txt` | Python deps (google-genai, pydub, yt-dlp, pinecone, openai, fastapi, structlog…) | **PORT** (drop yt-dlp/youtube-transcript-api until later phase; **drop `pinecone`** — in-context grounding needs no vector store, see Decision #5) |
 
 ### Frontend + backend scaffolding
 | TLDW asset | News20 use | Decision |
