@@ -1,0 +1,235 @@
+"""Pydantic models for the News20 produce-gate + single-source script pipeline (Phase 1d SP2).
+
+ADAPTED from the TLDW donor (`agents/pipeline/models.py`). The donor models a
+multi-source, multi-story, 12-minute audio *briefing* (RankedStory with N
+source_content_items, BriefingScript at ~2050 words). News20 is the opposite
+unit: **one canonical story → one ~55-second single-source digest**
+(Decision #4) produced once and fanned out across every user whose interest it
+serves. So these models are News20-native and intentionally smaller than the
+donor's:
+
+    - ``DialogueTurn``       -- one ALEX/JORDAN line (ported shape).
+    - ``DigestScript``       -- the single-source digest script (News20's slim
+                                analog of the donor's BriefingScript).
+    - ``ClaimVerification``  -- one fact-checked claim (ported shape).
+    - ``VerificationReport`` -- the hallucination-guardrail result.
+    - ``ProduceDecision``    -- the produce-once gate's typed verdict (NEW).
+
+The donor's ranking / quality / pipeline-state models are NOT ported here:
+ranking is SP3 (and is a different, per-user heuristic — `reference/ranking-spec.md`),
+the quality gate is out of scope, and pipeline state is the SP3 orchestrator's
+concern. Porting them now would be dead code (Rule 2), mirroring how SP1
+deferred ``feed_utils``.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+# Speaker labels are the locked News20 anchor duo (reference/reuse-map.md:
+# ALEX → Leda, JORDAN → Sadaltager). Unlike the donor, there is no CLIP speaker
+# — News20 single-source digests have no embedded YouTube clip audio.
+SpeakerLabel = Literal["ALEX", "JORDAN"]
+
+# A claim's grounding status against the single source article. News20 drops the
+# donor's NEEDS_HEDGE/Google-Search path: grounding is **in-context only** against
+# the one source's body text (memory: news20-qa-incontext-grounding) — a claim is
+# either SUPPORTED by the source or it is not (UNSUPPORTED / CONTRADICTED).
+ClaimStatus = Literal["SUPPORTED", "UNSUPPORTED", "CONTRADICTED"]
+
+
+class DialogueTurn(BaseModel):
+    """A single turn of dialogue spoken by either ALEX or JORDAN.
+
+    Ported shape from the donor. ALEX is the curious learner, JORDAN the
+    informed analyst. The text is rendered verbatim by Gemini multi-speaker TTS
+    downstream (SP3), so it must be plain speakable English — no bracket tags.
+
+    Attributes:
+        speaker: Which anchor speaks this turn ("ALEX" or "JORDAN").
+        text: The dialogue text (plain, speakable, non-empty).
+
+    Example:
+        >>> turn = DialogueTurn(speaker="ALEX", text="Wait, so they just announced it?")
+        >>> turn.speaker
+        'ALEX'
+    """
+
+    speaker: SpeakerLabel = Field(
+        ...,
+        description="Which anchor speaks this turn: ALEX (curious) or JORDAN (analyst)",
+    )
+    text: str = Field(
+        ..., min_length=1, description="Plain speakable dialogue text for this turn"
+    )
+
+
+class DigestScript(BaseModel):
+    """A complete single-source digest script for one canonical story.
+
+    News20's slim analog of the donor's ``BriefingScript`` — but bounded to a
+    single source article and a ~55-second runtime (Decision #4), not a
+    multi-story 12-minute briefing.
+
+    Attributes:
+        digest_story_id: The canonical story this script narrates (FK to
+            ``stories.story_id`` at persist time, SP3).
+        turns: Ordered ALEX/JORDAN dialogue turns.
+        word_count: Total spoken word count across all turns.
+        estimated_duration_seconds: Estimated spoken duration at the calibrated WPM.
+        source_url: The single source article URL the script is constrained to
+            (carried through for the verification grounding step + UI attribution).
+
+    Example:
+        >>> script = DigestScript(
+        ...     digest_story_id="cand-abc123",
+        ...     turns=[DialogueTurn(speaker="ALEX", text="What just happened?")],
+        ...     word_count=4,
+        ...     estimated_duration_seconds=2,
+        ... )
+        >>> script.digest_story_id
+        'cand-abc123'
+    """
+
+    digest_story_id: str = Field(
+        ...,
+        description="Canonical story id this script narrates (FK to stories.story_id)",
+    )
+    turns: list[DialogueTurn] = Field(
+        ..., min_length=1, description="Ordered ALEX/JORDAN dialogue turns"
+    )
+    word_count: int = Field(
+        default=0, ge=0, description="Total spoken word count across all turns"
+    )
+    estimated_duration_seconds: int = Field(
+        default=0,
+        ge=0,
+        description="Estimated spoken duration in seconds (at the calibrated WPM)",
+    )
+    source_url: str = Field(
+        default="",
+        description="The single source article URL the script is constrained to",
+    )
+
+
+class ClaimVerification(BaseModel):
+    """The grounding verdict for one factual claim extracted from the script.
+
+    Ported shape from the donor, trimmed to News20's in-context grounding:
+    each claim is checked against the single source's body text and classified
+    SUPPORTED / UNSUPPORTED / CONTRADICTED (no NEEDS_HEDGE, no web search).
+
+    Attributes:
+        claim_text: The factual claim extracted from the digest script.
+        status: Whether the source supports, fails to support, or contradicts it.
+        source_evidence: A short supporting snippet/locator from the source
+            (empty for UNSUPPORTED).
+
+    Example:
+        >>> claim = ClaimVerification(
+        ...     claim_text="The central bank cut rates by 50 basis points",
+        ...     status="SUPPORTED",
+        ...     source_evidence="...cut its benchmark rate by half a point...",
+        ... )
+        >>> claim.status
+        'SUPPORTED'
+    """
+
+    claim_text: str = Field(
+        ..., description="The factual claim extracted from the digest script"
+    )
+    status: ClaimStatus = Field(
+        ..., description="Grounding status against the single source article"
+    )
+    source_evidence: str = Field(
+        default="",
+        description="Short supporting snippet/locator from the source (empty if unsupported)",
+    )
+
+
+class VerificationReport(BaseModel):
+    """The hallucination-guardrail result for one digest script.
+
+    The guardrail (Decision #5) blocks any digest whose script makes claims the
+    single source does not support. ``is_grounded`` is False whenever any claim
+    is UNSUPPORTED or CONTRADICTED — the orchestrator (SP3) must not publish a
+    non-grounded digest.
+
+    Attributes:
+        digest_story_id: The story whose script was verified.
+        claims: Every extracted claim with its grounding verdict.
+        is_grounded: True only when no claim is UNSUPPORTED or CONTRADICTED.
+        ungrounded_claim_count: Count of UNSUPPORTED + CONTRADICTED claims.
+
+    Example:
+        >>> report = VerificationReport(
+        ...     digest_story_id="cand-abc123",
+        ...     claims=[ClaimVerification(claim_text="x", status="SUPPORTED")],
+        ...     is_grounded=True,
+        ...     ungrounded_claim_count=0,
+        ... )
+        >>> report.is_grounded
+        True
+    """
+
+    digest_story_id: str = Field(..., description="The story whose script was verified")
+    claims: list[ClaimVerification] = Field(
+        default_factory=list,
+        description="Every extracted claim with its grounding verdict",
+    )
+    is_grounded: bool = Field(
+        ...,
+        description="True only when no claim is UNSUPPORTED or CONTRADICTED",
+    )
+    ungrounded_claim_count: int = Field(
+        default=0, ge=0, description="Count of UNSUPPORTED + CONTRADICTED claims"
+    )
+
+
+class ProduceDecision(BaseModel):
+    """The produce-once gate's typed verdict for one canonical story (NEW).
+
+    A story is produced only when it (a) serves at least one active interest,
+    (b) clears the importance/freshness floor, and (c) lacks a current digest
+    (``digests.digest_is_current``). When any check fails, ``should_produce`` is
+    False and ``skip_reason`` names the failing check — keeping generation cost
+    down (one canonical asset per story, Decision #3).
+
+    Attributes:
+        story_id: The canonical story this verdict is for.
+        should_produce: True only when every gate check passes.
+        skip_reason: Machine-readable reason when skipped, else "".
+        serves_interest_count: How many active interests the story serves.
+        importance_score: The 0–1 importance score evaluated against the floor.
+        freshness_score: The 0–1 freshness score evaluated against the floor.
+
+    Example:
+        >>> decision = ProduceDecision(
+        ...     story_id="cand-abc123",
+        ...     should_produce=False,
+        ...     skip_reason="has_current_digest",
+        ...     serves_interest_count=2,
+        ... )
+        >>> decision.should_produce
+        False
+    """
+
+    story_id: str = Field(..., description="The canonical story this verdict is for")
+    should_produce: bool = Field(
+        ..., description="True only when every produce-gate check passes"
+    )
+    skip_reason: str = Field(
+        default="",
+        description="Machine-readable skip reason when not produced, else empty",
+    )
+    serves_interest_count: int = Field(
+        default=0, ge=0, description="How many active interests the story serves"
+    )
+    importance_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="0–1 importance score vs the floor"
+    )
+    freshness_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="0–1 freshness score vs the floor"
+    )

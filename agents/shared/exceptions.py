@@ -106,6 +106,43 @@ class TTSRenderError(PipelineStageError):
 # ---------------------------------------------------------------------------
 
 
+class VerificationHaltError(PipelineStageError):
+    """Raised when the verification guardrail blocks a digest from publishing.
+
+    The hallucination guardrail (reference/reuse-map.md Decision #5) refuses to
+    ship a digest whose script makes claims the single source does not support.
+    The orchestrator (SP3) catches this to skip/rollback the offending story
+    rather than publish ungrounded narration.
+
+    Attributes:
+        unsupported_count: Number of UNSUPPORTED claims in the script.
+        contradicted_count: Number of CONTRADICTED claims in the script.
+
+    Example:
+        >>> raise VerificationHaltError(
+        ...     unsupported_count=1,
+        ...     contradicted_count=0,
+        ... )
+    """
+
+    def __init__(
+        self,
+        unsupported_count: int,
+        contradicted_count: int,
+        fix_suggestion: str = "Regenerate the script constrained to the single source, "
+        "or drop this story from the batch",
+    ) -> None:
+        self.unsupported_count = unsupported_count
+        self.contradicted_count = contradicted_count
+        message = (
+            f"verification blocked the digest: {unsupported_count} unsupported + "
+            f"{contradicted_count} contradicted claim(s) not grounded in the source"
+        )
+        super().__init__(
+            stage="verification", message=message, fix_suggestion=fix_suggestion
+        )
+
+
 class IngestionError(VoiceAgentError):
     """Base exception for the news ingestion stage.
 
