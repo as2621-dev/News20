@@ -42,6 +42,7 @@ import { LoadingSkeleton } from "@/components/reel/LoadingSkeleton";
 import { ReelError } from "@/components/reel/ReelError";
 import { ReelStory } from "@/components/reel/ReelStory";
 import { TapToStart } from "@/components/reel/TapToStart";
+import { useLayerStack } from "@/components/shell/LayerStackContext";
 import { getFeed } from "@/lib/feed/fixtureFeed";
 import { logger } from "@/lib/logger";
 import { useActiveStoryObserver } from "@/lib/reel/gestures";
@@ -150,6 +151,19 @@ export function Reel() {
     containerRef: scrollContainerRef,
     storyCount: stories.length,
   });
+
+  // Surface the active (snapped) story UP to the LayerStack shell so it — and
+  // SP2's swipe-right trigger — can open Detail for whatever the user is looking
+  // at, without prop-drilling through ReelStory/ReelChrome. This is the ONLY
+  // shell seam in the reel; it touches no audio/karaoke/scroll/status logic.
+  const { setActiveStory } = useLayerStack();
+  const currentStory = stories[activeIndex] ?? null;
+  // Reason: keep the shell's active story in sync as the snapped story changes
+  // (and clear it before the feed resolves); `currentStory` is derived from
+  // state so this runs only on a genuine active-story change.
+  useEffect(() => {
+    setActiveStory(currentStory);
+  }, [currentStory, setActiveStory]);
 
   // The active story + the next 1–2 (preload window) get <audio preload="auto">;
   // the rest stay "none" (port-map §6 — gap-free auto-advance). Pure + finite.
