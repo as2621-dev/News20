@@ -187,3 +187,79 @@ class AdapterFetchError(IngestionError):
             message=f"[{adapter_name}] {message}" if adapter_name else message,
             fix_suggestion=fix_suggestion,
         )
+
+
+# ---------------------------------------------------------------------------
+# Grounded Q&A exceptions (Phase 2b SP1 — the per-story grounding corpus loader,
+# agents/qa/corpus.py).
+# ---------------------------------------------------------------------------
+
+
+class GroundingCorpusError(VoiceAgentError):
+    """Base exception for the grounded-Q&A corpus loader (agents/qa/corpus.py).
+
+    Raised when a story's grounding corpus cannot be assembled — e.g. the
+    ``story_id`` has no readable grounding text at all (no ``detail_chunks`` and
+    no other passages), so there is nothing to ground an answer on.
+
+    Attributes:
+        story_id: The story whose corpus could not be loaded.
+
+    Example:
+        >>> raise GroundingCorpusError(
+        ...     story_id="s1",
+        ...     message="story 's1' has no grounding passages to load",
+        ...     fix_suggestion="Confirm detail_chunks are seeded for this story (M1 Phase 1b)",
+        ... )
+    """
+
+    def __init__(
+        self,
+        story_id: str,
+        message: str,
+        fix_suggestion: str = "Confirm the story_id exists and its grounding text is seeded",
+    ) -> None:
+        self.story_id = story_id
+        super().__init__(
+            message=f"[story_id={story_id}] {message}", fix_suggestion=fix_suggestion
+        )
+
+
+class CorpusBudgetExceededError(GroundingCorpusError):
+    """Raised when a story's assembled corpus exceeds the char budget (fail loud).
+
+    The per-story corpus is loaded whole into the LLM context, so it must stay
+    small (``plans/phase-2b-m2-grounded-interrogation.md`` re-scope, Rule 12 —
+    fail loud, never silently truncate). Exceeding the budget signals a story
+    that has outgrown the in-context grounding approach (the documented escape
+    hatch: reintroduce retrieval behind the same endpoint contract).
+
+    Attributes:
+        total_char_count: The assembled corpus's actual character count.
+        char_budget: The maximum allowed character count.
+
+    Example:
+        >>> raise CorpusBudgetExceededError(
+        ...     story_id="s1",
+        ...     total_char_count=31000,
+        ...     char_budget=24000,
+        ... )
+    """
+
+    def __init__(
+        self,
+        story_id: str,
+        total_char_count: int,
+        char_budget: int,
+        fix_suggestion: str = "Trim the story's grounding text, or reintroduce retrieval "
+        "behind the same endpoint contract (the phase-2b escape hatch)",
+    ) -> None:
+        self.total_char_count = total_char_count
+        self.char_budget = char_budget
+        message = (
+            f"grounding corpus is {total_char_count} chars, over the "
+            f"{char_budget}-char budget — too large to load whole into context"
+        )
+        super().__init__(
+            story_id=story_id, message=message, fix_suggestion=fix_suggestion
+        )

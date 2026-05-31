@@ -30,6 +30,14 @@ pydub>=0.25
 supabase>=2.0
 python-dotenv>=1.0
 
+# ──── Worker API: the server-side grounded Q&A endpoint (Phase 2b SP2) ────
+# The static-export SPA cannot hold the Gemini key / run verification client-side,
+# so POST /api/story/{story_id}/question runs in this FastAPI worker. uvicorn is
+# the ASGI server it runs under. Both are actively maintained (fastapi + uvicorn
+# ship frequent releases; last release within weeks as of 2026-05).
+fastapi>=0.115
+uvicorn>=0.32
+
 # ──── Logging ────
 structlog>=24.0
 
