@@ -95,6 +95,12 @@ _CRICKET_BODIES = [
         "Smriti Mandhana scored 78 from 65 balls. Captain Harmanpreet Kaur said the "
         "team had waited years for this moment. The final is on Sunday."
     ),
+    (
+        "India spinner Kuldeep Yadav took four wickets as India beat Sri Lanka by 80 "
+        "runs in the first Twenty20 in Pune on Sunday. India posted 201 for five, with "
+        "Suryakumar Yadav scoring 65. Sri Lanka were bowled out for 121 in reply. India "
+        "lead the three-match series 1-0."
+    ),
 ]
 _ARSENAL_BODIES = [
     (
@@ -121,6 +127,12 @@ _ARSENAL_BODIES = [
         "Salah had given Liverpool the lead. Arteta said a point at Anfield was a fair "
         "result. The two sides are separated by a single point."
     ),
+    (
+        "Arsenal goalkeeper David Raya kept his eighth clean sheet of the season as "
+        "Arsenal beat Brentford 3-0 on Saturday. Kai Havertz scored twice in the first "
+        "half. Manager Mikel Arteta praised the team's defensive record. Arsenal have "
+        "conceded the fewest goals in the league this season."
+    ),
 ]
 _SPORT_BODIES = [
     (
@@ -141,6 +153,12 @@ _SPORT_BODIES = [
         "the change is meant to improve the spectator experience. Several athletes "
         "welcomed the move. It takes effect at the next world championships."
     ),
+    (
+        "Formula One confirmed on Monday that the 2027 calendar will feature 24 races. "
+        "The series said a new street circuit in Bangkok will join the schedule. Several "
+        "teams welcomed the expansion in Asia. The season will run from March to "
+        "December."
+    ),
 ]
 _WORLD_BODIES = [
     (
@@ -148,6 +166,12 @@ _WORLD_BODIES = [
         "mission in the region for another year. Fourteen members voted in favour with "
         "one abstention. The secretary-general welcomed the renewal. The mission has "
         "operated in the area since 2011."
+    ),
+    (
+        "The World Health Organization said on Thursday that global cases of a seasonal "
+        "flu strain had fallen 30 percent from last year. The agency credited wider "
+        "vaccination. It urged continued monitoring in the southern hemisphere. A full "
+        "report is due next month."
     ),
 ]
 
