@@ -46,6 +46,16 @@ CREATE TYPE player_signal_event AS ENUM (
 
 -- Which anchor voice spoke a caption sentence. Mirrors data.js anchors[] + app.js identity colours.
 CREATE TYPE anchor_speaker AS ENUM ('ALEX', 'JORDAN');
+
+-- ── migration 0004 (Detail analytics, phase-2c) ──
+-- How the Detail "Coverage" tab is framed. partisan = L·C·R + blindspot (contested
+-- stories); reach = covered-by-N + momentum + who-broke-it (no partisan axis).
+CREATE TYPE coverage_mode AS ENUM ('partisan', 'reach');
+
+-- The segment-skinned "second analytic" tab. Chosen DETERMINISTICALLY from
+-- story_segment_slug (Decision #10), not by the LLM:
+--   geopolitics→market_impact, markets→ripple, tech→impact, sport→stakes, wildcard→why_it_matters.
+CREATE TYPE analytic_kind AS ENUM ('market_impact', 'ripple', 'impact', 'stakes', 'why_it_matters');
 ```
 
 ---
@@ -81,6 +91,11 @@ CREATE TABLE outlets (
 );
 
 CREATE INDEX idx_outlets_bias_lean ON outlets (outlet_bias_lean);
+
+-- migration 0004 (phase-2c): GDELT returns *domains* ("foxnews.com"), not outlet
+-- names, so the coverage census resolves domain→lean via this column.
+ALTER TABLE outlets ADD COLUMN outlet_domain text;
+CREATE UNIQUE INDEX uq_outlets_domain ON outlets (outlet_domain) WHERE outlet_domain IS NOT NULL;
 ```
 
 ### `stories`
@@ -176,6 +191,44 @@ CREATE TABLE detail_chunks (
 CREATE INDEX idx_detail_chunks_story ON detail_chunks (detail_story_id, chunk_index);
 ```
 
+### `detail_key_points`  ← **migration 0004 (phase-2c)**
+Purpose: the **5 at-a-glance bullet points** shown above "Read the full article" in Detail. Distinct from `detail_chunks` (the long-form body behind the button).
+Maps: the red-bullet breakdown in the Detail mockup. LLM-generated, grounded against the single source (Decision #4/#5).
+
+```sql
+CREATE TABLE detail_key_points (
+  detail_key_point_id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key_point_story_id    text NOT NULL REFERENCES stories (story_id) ON DELETE CASCADE,
+  key_point_index       smallint NOT NULL,                       -- 0..4 display order
+  key_point_text        text NOT NULL,                           -- one bullet sentence
+  CONSTRAINT uq_detail_key_point_order UNIQUE (key_point_story_id, key_point_index)
+);
+
+CREATE INDEX idx_detail_key_points_story ON detail_key_points (key_point_story_id, key_point_index);
+```
+
+### `story_analytics`  ← **migration 0004 (phase-2c); the segment-skinned "second analytic" tab**
+Purpose: the variable middle Detail tab (Market Impact / Ripple / Impact / Stakes / Why It Matters). 1:1 per story. `analytic_kind` is chosen deterministically from `story_segment_slug` (Decision #10).
+Maps: the "THE SECOND ANALYTIC" tab in the Detail mockup. Narrative is LLM-generated; numeric `analytic_rows[].analytic_row_value`s are **grounded-or-omitted** (a fabricated market move never publishes — `analytic_is_grounded` records the verdict).
+
+```sql
+CREATE TABLE story_analytics (
+  story_analytic_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  analytic_story_id      text NOT NULL UNIQUE REFERENCES stories (story_id) ON DELETE CASCADE,
+  analytic_kind          analytic_kind NOT NULL,                 -- drives tab label + accent
+  analytic_tab_label     text NOT NULL,                          -- "MARKET IMPACT", "STAKES", ...
+  analytic_headline      text NOT NULL,                          -- one-liner under the tab
+  analytic_summary_text  text NOT NULL,                          -- LLM 1–2 sentence so-what
+  -- rows: [{ "analytic_row_label": "Brent crude", "analytic_row_value": "+4%",
+  --          "analytic_row_direction": "up"|"down"|"flat"|null, "analytic_row_note": "..."|null }, ...]
+  -- JSONB (like caption_sentences.word_tokens): a variable-length array consumed whole by the
+  -- client renderer; validate each element against a Pydantic model before insert (§0 types).
+  analytic_rows          jsonb NOT NULL DEFAULT '[]'::jsonb,      -- 2–4 labeled rows
+  analytic_is_grounded   boolean NOT NULL DEFAULT false,         -- numbers verified vs source
+  analytic_created_at    timestamptz NOT NULL DEFAULT now()
+);
+```
+
 ### `story_trust`
 Purpose: the per-story trust summary backing the Detail "COVERAGE" strip.
 Maps: `data.js story.trust` — `coverage.{left,center,right}`, `outlet_count`, `blindspot`, `opposing_view`. (Timeline is normalized into `story_timeline`.) Aligns with `BiasBreakdown` + `Story.blindspot_flag` in `api-contracts.md`.
@@ -191,7 +244,16 @@ CREATE TABLE story_trust (
   blindspot_lean          bias_lean,                             -- trust.blindspot ('right' | NULL)
   opposing_view_text      text                                   -- trust.opposing_view (the light card quote)
 );
+
+-- migration 0004 (phase-2c): adaptive Coverage tab. partisan mode uses the L/C/R
+-- counts + blindspot above; reach mode uses coverage_outlet_count + the three below.
+ALTER TABLE story_trust
+  ADD COLUMN coverage_mode                  coverage_mode NOT NULL DEFAULT 'partisan',  -- how this story's coverage is framed
+  ADD COLUMN coverage_momentum              text,                                       -- reach mode: 'breaking'|'developing'|'settled' (from GDELT volume)
+  ADD COLUMN coverage_originating_outlet_name text,                                     -- reach mode: who broke it (earliest GDELT seendate)
+  ADD COLUMN coverage_notable_outlet_names  text[] NOT NULL DEFAULT '{}';               -- reach mode: up to 5 notable outlets
 ```
+> **Coverage source (revised 2026-05-31, phase-2c):** counts come from a **GDELT DOC 2.0 census** of distinct domains covering the story, each resolved to a lean via `outlets.outlet_domain`. `coverage_mode` is chosen deterministically by segment (`geopolitics`→`partisan`, else `reach`). GDELT failure is non-fatal — fall back to the `covering_outlets`-derived counts.
 > **Blindspot rule (`reuse-map.md` bias layer):** `blindspot_lean` is set when one side is materially under-covered (>70% of coverage on the other sides). The prototype hardcodes it; production derives it from the three counts at ingestion time.
 
 ### `story_timeline`
@@ -632,6 +694,7 @@ Two tiers. **Content tables are public-read** (anyone can read the daily briefin
 ```sql
 -- ── Tier 1: public-read content (read-only to clients; worker writes via service role) ──
 -- Applies to: segments, outlets, stories, digests, caption_sentences, detail_chunks,
+--             detail_key_points (0004), story_analytics (0004),
 --             story_trust, story_timeline, story_sources, suggested_questions,
 --             story_qa, story_topics, story_interests, anchors, interests.
 ALTER TABLE stories ENABLE ROW LEVEL SECURITY;

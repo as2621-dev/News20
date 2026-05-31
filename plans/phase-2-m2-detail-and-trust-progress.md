@@ -28,9 +28,8 @@
   - **Divergence RESOLVED (owner chose trim):** the BALANCED chip was removed to match the plan's literal DoD — `blindspot_lean=NULL` now renders NO chip (bias bar + outlet count + opposing view only). Re-validated: Biome 0 / tsc 0 / vitest 122 / clean build; null-blindspot test asserts no-chip (Rule-9 verified). `TrustStripProps` unchanged.
 - [x] 4: Timeline drawer — **COMPLETE**. StoryTimelineDrawer.tsx fleshed out (collapsed-default, ≥44px toggle, index-order events, `font-mono` when-label, reduced-motion snap, empty-safe). tests/lib/detail/storyTimelineDrawer.test.tsx (collapsed→expand→collapse + ordering, mutation-verified). Biome 0 / tsc 0 / vitest 122 (15 files) / clean build OK. `StoryTimelineDrawerProps` unchanged. Report: sub-4.md.
   - **Concern (same class as SP2):** collapse-animation exit lingers under jsdom no-op rAF; test asserts on `aria-expanded`/`data-timeline-toggle` state (authoritative). Animated-height feel → human simulator smoke.
-- [ ] 2: Detail layer shell — drag-to-open panel, staggered reveal, body + key figure, mount slots — PENDING
-- [ ] 3: Trust strip — BiasBar + coverage + blindspot + opposing view — PENDING
-- [ ] 4: Timeline drawer — "HOW IT DEVELOPED" — PENDING
+
+> _Reconciliation 2026-05-31 (phase-2c audit): removed three stale `[ ] … PENDING` duplicate lines for SP2/SP3/SP4 that contradicted the `[x] … COMPLETE` entries above and this file's `Status: COMPLETE`. They were leftover scaffold from the initial sub-phase checklist; SP0–SP4 all shipped in commit `0e76d50`._
 
 ## Phase-level passes (all PASS)
 - **DoD:** PASS (automated). Clean combined-tree build green: Biome 57-file clean · tsc 0 · vitest 122/122 (15 files) · `next build` static export (`/` prerendered). `fetchStoryDetail('s1')` returns a complete payload (SP1 live-smoke). StoryDetail composes Playfair body → KeyFigureCard → TrustStrip (bias bar + outlet count + blindspot + opposing view) → expandable timeline; blindspot + no-blindspot branches tested; drag-open/close + reduced-motion implemented. **PENDING human simulator smoke:** real swipe/drag feel + collapse-animation feel + on-device colour/contrast (same class as Phase 1's pending visual smoke) — not faked.
