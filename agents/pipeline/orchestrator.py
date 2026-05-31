@@ -24,16 +24,24 @@ from __future__ import annotations
 
 import io
 import time
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 
-from agents.ingestion.models import CanonicalStory, StoryInterestTag
+from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.pipeline.feed_assembly import (
+    FeedWriteResult,
+    ScoredCandidate,
+    assemble_user_feed,
+    write_daily_feed,
+)
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import DigestScript
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
+from agents.pipeline.stages.ranking import UserProfileInterest
 from agents.pipeline.stages.forced_alignment import (
     CaptionTrack,
     align_transcript_to_audio,
@@ -349,6 +357,169 @@ async def orchestrate_story(
     )
 
 
+class ActiveUserFeedInputs(BaseModel):
+    """The per-user inputs the batch allocator needs for one active user.
+
+    The batch is pure over these — the Supabase reads that build them (the active
+    user list, each user's ``user_interest_profile`` rows, the shared story pool,
+    tags, taxonomy, and prior ``daily_feeds`` story ids) are the loader's job,
+    injected so the batch is unit-testable with mocks (CLAUDE.md mandate).
+
+    Attributes:
+        active_user_id: The ``users.user_id`` this feed is for.
+        profile_interests: The user's followed interests (Affinity + strict flags).
+        prior_feed_story_ids: Story ids already shown to this user (§3.8 exclusion).
+        exploration_candidates_by_interest: Optional pre-scored adjacent-interest
+            candidates for the ~10% exploration slots (omit to skip exploration).
+
+    Example:
+        >>> inputs = ActiveUserFeedInputs(
+        ...     active_user_id="u1",
+        ...     profile_interests=[],
+        ... )
+        >>> inputs.active_user_id
+        'u1'
+    """
+
+    active_user_id: str = Field(..., description="The users.user_id this feed is for")
+    profile_interests: list[UserProfileInterest] = Field(
+        default_factory=list, description="The user's followed interests"
+    )
+    prior_feed_story_ids: list[str] = Field(
+        default_factory=list, description="Prior daily_feeds story ids (don't-repeat)"
+    )
+    exploration_candidates_by_interest: dict[str, list[ScoredCandidate]] = Field(
+        default_factory=dict,
+        description="Adjacent-interest scored candidates for exploration slots",
+    )
+
+
+class DailyFeedsBatchResult(BaseModel):
+    """The outcome of one ``assemble_daily_feeds`` batch run.
+
+    Attributes:
+        feed_date: The feed date the batch wrote for (ISO).
+        active_user_count: How many active users the batch iterated.
+        feeds_written: How many users got a freshly-written feed this run.
+        users_skipped_empty: Users skipped because they had no eligible story.
+        users_skipped_idempotent: Users skipped because a feed already existed
+            (produce-once).
+        write_results: Per-user audit records.
+
+    Example:
+        >>> result = DailyFeedsBatchResult(feed_date="2026-05-31", active_user_count=2)
+        >>> result.active_user_count
+        2
+    """
+
+    feed_date: str = Field(..., description="ISO feed date the batch wrote for")
+    active_user_count: int = Field(default=0, ge=0)
+    feeds_written: int = Field(default=0, ge=0)
+    users_skipped_empty: int = Field(default=0, ge=0)
+    users_skipped_idempotent: int = Field(default=0, ge=0)
+    write_results: list[FeedWriteResult] = Field(default_factory=list)
+
+
+def assemble_daily_feeds(
+    target_date: date,
+    active_user_inputs: list[ActiveUserFeedInputs],
+    stories: list[CanonicalStory],
+    story_interest_tags: list[StoryInterestTag],
+    interest_nodes: dict[str, InterestNode],
+    supabase_client: Any,
+    now_utc: Any = None,
+) -> DailyFeedsBatchResult:
+    """Assemble + persist a per-user ``daily_feeds`` feed for every active user.
+
+    The SP4 batch entry point. For each active user it (1) scores the shared,
+    already-produced story pool for that user and allocates a ~30-slot ordered
+    feed (``assemble_user_feed``, ranking-spec §3), then (2) writes one ordered
+    ``daily_feeds`` row per slot **idempotently** (``write_daily_feed`` —
+    produce-once per user per ``target_date``). A user with NO eligible story is
+    SKIPPED (no empty-feed row). Re-running for the same ``target_date`` does NOT
+    duplicate any user's feed.
+
+    The shared story pool is produced ONCE upstream (SP1 ingest → SP2 gate → SP3
+    ``orchestrate_story`` fan-out); this batch only ranks + allocates the already
+    persisted pool into per-user feeds — it does not re-produce digests.
+
+    Args:
+        target_date: The feed date to write (``daily_feeds.feed_date``).
+        active_user_inputs: One :class:`ActiveUserFeedInputs` per active user
+            (built by the Supabase loader; injected for testability).
+        stories: The shared deduped/produced story pool.
+        story_interest_tags: All ``story_interests`` tag payloads for the pool.
+        interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
+        supabase_client: A service-role supabase client (injected; mocked in tests).
+        now_utc: Current time for freshness (defaults to ``utcnow``).
+
+    Returns:
+        A :class:`DailyFeedsBatchResult` summarizing writes/skips per user.
+
+    Example:
+        >>> result = assemble_daily_feeds(  # doctest: +SKIP
+        ...     date(2026, 5, 31), inputs, stories, tags, nodes, client,
+        ... )
+        >>> result.feeds_written >= 2
+        True
+    """
+    feed_date_iso = target_date.isoformat()
+    logger.info(
+        "assemble_daily_feeds_started",
+        feed_date=feed_date_iso,
+        active_user_count=len(active_user_inputs),
+        story_pool_size=len(stories),
+    )
+
+    result = DailyFeedsBatchResult(
+        feed_date=feed_date_iso,
+        active_user_count=len(active_user_inputs),
+    )
+
+    for user_inputs in active_user_inputs:
+        slots = assemble_user_feed(
+            profile_interests=user_inputs.profile_interests,
+            stories=stories,
+            story_interest_tags=story_interest_tags,
+            interest_nodes=interest_nodes,
+            prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
+            exploration_candidates_by_interest=(
+                user_inputs.exploration_candidates_by_interest or None
+            ),
+            now_utc=now_utc,
+        )
+        # Reason: empty allocation → skip the user (no daily_feeds row) — SP4 DoD-c.
+        if not slots:
+            result.users_skipped_empty += 1
+            logger.info(
+                "assemble_daily_feeds_user_skipped_empty",
+                active_user_id=user_inputs.active_user_id,
+                feed_date=feed_date_iso,
+            )
+            continue
+
+        write_result = write_daily_feed(
+            supabase_client=supabase_client,
+            feed_user_id=user_inputs.active_user_id,
+            feed_date=target_date,
+            slots=slots,
+        )
+        result.write_results.append(write_result)
+        if write_result.already_present:
+            result.users_skipped_idempotent += 1
+        elif write_result.slots_written > 0:
+            result.feeds_written += 1
+
+    logger.info(
+        "assemble_daily_feeds_completed",
+        feed_date=feed_date_iso,
+        feeds_written=result.feeds_written,
+        users_skipped_empty=result.users_skipped_empty,
+        users_skipped_idempotent=result.users_skipped_idempotent,
+    )
+    return result
+
+
 # Reason: re-export a couple of names the live e2e script + tests import from a
 # single place (keeps their imports stable if internals move).
 __all__ = [
@@ -359,4 +530,7 @@ __all__ = [
     "generate_poster_bytes",
     "make_story_id",
     "AudioSegment",
+    "ActiveUserFeedInputs",
+    "DailyFeedsBatchResult",
+    "assemble_daily_feeds",
 ]
