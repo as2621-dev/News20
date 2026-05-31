@@ -1,9 +1,11 @@
 /**
- * Browser Supabase client (Phase 1b SP4) for the reel's read-only feed queries.
+ * Browser Supabase client (Phase 1b SP4) for the reel's read-only feed queries
+ * and (Phase 1e SP2) the authenticated email magic-link session.
  *
  * Uses the public anon key (safe in the browser) against the public-read content
- * tables. Reads NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY so it
- * runs in client components. This is the only place the anon client is built.
+ * tables and, post sign-in, against the user's own RLS-scoped rows. Reads
+ * NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY so it runs in client
+ * components. This is the only place the anon client is built.
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -33,7 +35,11 @@ export function getSupabaseBrowserClient(): SupabaseClient {
     );
   }
   cachedClient = createClient(supabaseUrl, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    // Reason: Phase 1e SP2 — persist + auto-refresh keep the magic-link session
+    // alive across reloads/relaunches (Capacitor WebView), and detectSessionInUrl
+    // lets supabase-js parse the auth tokens out of the magic-link URL on the
+    // static-export callback page (no server runtime to do it).
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
   return cachedClient;
 }
