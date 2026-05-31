@@ -33,13 +33,14 @@
   - **Live e2e evidence (orchestrator-verified, INSERT-only, one story):** `stories.story_id=FIXTURE-SP3-950c5e0f05a1`, `digests.digest_id=df2839ae-bf68-440d-8347-f6d52a593c6d`, 10 caption_sentences, 1 detail_chunks, 1 story_trust, 4 story_sources, 2 story_interests (depth 0+1), 2 suggested_questions. Audio URL → **HTTP 200, 962,924 B audio/mpeg**; poster URL → **HTTP 200, 1,976,879 B image/png** (re-confirmed via httpx by orchestrator). Spend ≈$0.16 (1 TTS + 1 image + ~2 text + Serper). ⚠ **This fixture row is still live in Supabase** — delete it when no longer needed (it has the `FIXTURE-SP3-` prefix; local poster artifact at `assets/m0/FIXTURE-SP3-950c5e0f05a1/`, untracked).
   - **Flagged divergences:** (1) trust derived from static outlet→bias table (no importable M2 Python module — M2 is read-only TS); (2) `story_segment_slug` defaults to `wildcard` — SP4 backfills from matched interest's `interest_segment_slug`; (3) live e2e under `tests/` (env-gated `RUN_LIVE_E2E=1`, not pytest-collected) not `scripts/`; (4) `persist` split into `persist_helpers.py` for <500 LoC; (5) fixed a real blindspot-derivation bug (mis-fired on balanced coverage).
   - **SP4 handoff:** consume `score_candidates_for_user(...) -> {followed_leaf_id: [ScoredCandidate]}` (each carries score/matched_interest_id/fallback_depth). Exploration (§3.7) is an allocator concern, intentionally NOT in the fallback generator. SP4 builds `interest_nodes`/`UserProfileInterest[]`/`has_current_digest_lookup` from Supabase, owns `daily_feeds`, confirms `T`/floor constants at the 2-user run.
-- [ ] 4: Profile-update job + per-user allocation → daily_feeds + Trigger.dev fan-out — PENDING (⚠ irreversible: cron + paid API + writes; needs live news source)
+- [ ] 4: Profile-update job + per-user allocation → daily_feeds + Trigger.dev fan-out — PENDING (⚠ irreversible: registers the daily cron + first **live GDELT batch at active-interest scale** + paid API + writes). Source is the **same GDELT adapter SP1 built** (`ingest_active_interests(adapter=...)` — GDELT in prod, mock in tests); SP1/SP2/SP3 never made a live GDELT call (SP3's e2e used a static fixture), so SP4 is the first real at-scale ingest. No second source — open item is GDELT *coverage* for niche/financial interests, not source *choice*.
 
 ## Open questions resolved by orchestrator (defaults, low-risk)
 - Q1 caption timing: REUSE M0 time-slice path (phase recommendation). No real forced alignment in M1.
 - Q3 execution host: SP4 wires Trigger.dev v4 `schedules.task` → `batchTrigger` per the phase; heavy Python steps run inline for the manual M1 run. Flag at SP4.
 - Q4 allocation constants: confirmed via the SP4 2-user manual run (first-draft constants).
 
-## Awaiting user decision
-- News source for live ingestion (see Step 0). SP1 build target depends on it.
-- Budget ack for paid Gemini TTS/image + Supabase writes (SP3 ~1 story; SP4 ≥10 stories). "Run phase 1d" taken as authorization for the modest flagged side-effects unless the user says otherwise.
+## Decisions (resolved) + what's still open
+- ✅ **News source: GDELT DOC 2.0 for everything** (Step 0, validated live 2026-05-31). One source, injected as `adapter` into `ingest_active_interests` — SP1 and SP4 use the *same* `GdeltDocAdapter`; there is no second source. (Stale pre-pivot "NewsAPI" mentions in the phase file Open Q2 are dead.)
+- ✅ **SP3 spend pre-authorized** (owner, 2026-05-31) — SP3's ~$0.16 fixture run done.
+- ⏳ **Open for SP4:** budget ack for the at-scale batch (≥10 stories paid Gemini TTS/image + Supabase writes) + the daily cron registration; and a coverage expectation — GDELT news-search only (price/score interests get no data feed in v1, already out-of-scope-flagged). Not a source choice.
