@@ -23,6 +23,13 @@ trafilatura>=1.6
 # ──── Audio Processing (needs ffmpeg/ffprobe on PATH) ────
 pydub>=0.25
 
+# ──── Persistence: Supabase service-role writes/uploads (Phase 1d SP3) ────
+# supabase-py writes stories/digests/captions + uploads audio/poster to storage.
+# python-dotenv loads .env for the standalone live e2e script (the agent clients
+# read keys via pydantic-settings, which already bundles dotenv).
+supabase>=2.0
+python-dotenv>=1.0
+
 # ──── Logging ────
 structlog>=24.0
 
