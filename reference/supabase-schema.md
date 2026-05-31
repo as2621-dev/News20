@@ -281,6 +281,25 @@ CREATE TABLE story_topics (
 CREATE INDEX idx_story_topics_story ON story_topics (topic_story_id);
 ```
 
+### `story_interests`  ← **the interest-keyed fan-out join (M1 re-scope, migration 0003)**
+Purpose: the M:N link from a story to the interest nodes it serves — the mechanism that distributes one deduped story to every user whose interest matches. A story is tagged to its matched node **and all ancestors** (Arsenal → Soccer → Sport), so a broad follower catches a niche story for free.
+Maps: produced at ingest by `agents/ingestion/ancestor_tagging.py` (Phase 1d SP1); read by the per-user scorer (`reference/ranking-spec.md` §1–2). `story_interest_match_depth` (0 leaf / 1 parent / 2 grandparent) feeds the `DepthMatch` score term.
+
+```sql
+CREATE TABLE story_interests (
+  story_interest_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  story_interest_story_id    text NOT NULL REFERENCES stories (story_id) ON DELETE CASCADE,
+  story_interest_interest_id uuid NOT NULL REFERENCES interests (interest_id) ON DELETE CASCADE,
+  story_interest_match_depth smallint NOT NULL,                 -- 0 = leaf-matched, 1 = parent, 2 = grandparent
+  story_interest_relevance   numeric,                           -- optional per-(story,interest) relevance from ingestion
+  story_interest_created_at  timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_story_interest UNIQUE (story_interest_story_id, story_interest_interest_id)
+);
+
+CREATE INDEX idx_story_interests_interest ON story_interests (story_interest_interest_id);
+CREATE INDEX idx_story_interests_story    ON story_interests (story_interest_story_id);
+```
+
 ### `anchors`
 Purpose: the two AI anchors with their Gemini TTS voice id and fixed identity colour.
 Maps: `data.js story.anchors[]` (`"ALEX"`, `"JORDAN"`) + `app.js` identity colours `{ ALEX: "#6C8CFF", JORDAN: "#C792EA" }`. Voice ids per `reuse-map.md` (ALEX→`Leda`, JORDAN→`Sadaltager`).
@@ -299,6 +318,8 @@ CREATE TABLE anchors (
 
 ## 3. Taxonomy & user tables
 
+> **M1 re-scope (2026-05-30) — migration `0003`.** Personalization moved from M3 into M1 (`plans/phase-1e-auth-onboarding-interest-profile.md`). Migration `0003` applies the M1 subset of this section — `users` (+ `handle_new_user()` trigger), `interests` (with the new `interest_search_query` / `interest_kind` columns), `user_interest_profile` (with `profile_is_strict`), `user_interest_traits`, `player_signals` — plus the two new pipeline tables `story_interests` (§2) and `daily_feeds` (below). **Deferred to their feature phases:** `onboarding_conversations` → M3 Phase 3c (voice transcript); `follows` → M3 Phase 3d; `saves` / `play_sessions` → M3/M4. Onboarding is chip-based in M1 (`profile_source='typed'`); the voice path (`'voice'`) is added in M3. See `reference/ranking-spec.md` for how these tables are scored/allocated.
+
 ### `interests`  ← **hierarchical self-referencing taxonomy**
 Purpose: the dynamic category → subcategory → sub-subcategory tree that backs the tappable onboarding chips and niche-down follow-ups (e.g. Sport → Soccer → Premier League).
 Maps: replaces the prototype's flat `INTERESTS`/`VP_LABEL` lists in `app.js`. Top-level rows correspond to segment slugs; deeper rows are the niche-down targets the voice agent drills into.
@@ -313,6 +334,8 @@ CREATE TABLE interests (
   interest_label        text NOT NULL,                          -- "Sport", "Soccer", "Premier League"
   depth_level           smallint NOT NULL DEFAULT 0,            -- 0 = category, 1 = subcategory, 2 = sub-sub
   interest_segment_slug segment_slug REFERENCES segments (segment_slug),  -- set on depth-0 rows
+  interest_search_query text,                              -- M1 (0003): news query the daily pipeline ingests on (reference/ranking-spec.md §2)
+  interest_kind         text NOT NULL DEFAULT 'taxonomy',  -- M1 (0003): 'taxonomy' | 'custom' (free-text onboarding interest)
   interest_sort_order   smallint NOT NULL DEFAULT 0,
   interest_is_active    boolean NOT NULL DEFAULT true,          -- taxonomy is dynamic; soft-disable nodes
   interest_created_at   timestamptz NOT NULL DEFAULT now(),
@@ -403,6 +426,7 @@ CREATE TABLE user_interest_profile (
   profile_interest_id       uuid NOT NULL REFERENCES interests (interest_id) ON DELETE CASCADE,
   profile_weight            numeric NOT NULL DEFAULT 1.0,        -- ranking weight (signals nudge over time)
   profile_source            interest_profile_source NOT NULL,   -- 'voice' | 'typed' | 'signal'
+  profile_is_strict         boolean NOT NULL DEFAULT false,     -- M1 (0003): "just give me cricket, nothing broader" — caps fallback (ranking-spec §2)
   profile_created_at        timestamptz NOT NULL DEFAULT now(),
   profile_updated_at        timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT uq_user_interest UNIQUE (profile_user_id, profile_interest_id)
@@ -543,6 +567,28 @@ CREATE TABLE play_sessions (
 CREATE INDEX idx_play_sessions_user_date ON play_sessions (session_user_id, session_local_date DESC);
 ```
 
+### `daily_feeds`  ← **the precomputed per-user feed (M1 re-scope, migration 0003)**
+Purpose: one row per (user, story, position) for a given day — the personalized feed the reel reads. Written by the daily pipeline's allocator (Phase 1d SP4, `agents/pipeline/feed_assembly.py`) per `reference/ranking-spec.md` §3; read by `getDailyFeed(userId, feedDate)` in `src/lib/feed/supabaseFeed.ts` (Phase 1c SP4) into the unchanged `Story[]` contract. Ranking is **precomputed here, not a live RPC** (static-export client → trivial indexed read).
+Maps: replaces the previous notion of a single global `feed_position` order — ordering is now per-user.
+
+```sql
+CREATE TABLE daily_feeds (
+  daily_feed_id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  feed_user_id             uuid NOT NULL REFERENCES users (user_id) ON DELETE CASCADE,
+  feed_story_id            text NOT NULL REFERENCES stories (story_id) ON DELETE CASCADE,
+  feed_date                date NOT NULL,
+  feed_position            smallint NOT NULL,                   -- 01..N order in the reel
+  feed_score               numeric NOT NULL,                    -- the per-user Score that earned the slot (ranking-spec §1)
+  feed_matched_interest_id uuid REFERENCES interests (interest_id) ON DELETE SET NULL,
+  feed_slot_kind           text NOT NULL DEFAULT 'interest',    -- 'breaking' | 'interest' | 'exploration'
+  feed_created_at          timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_daily_feed_position UNIQUE (feed_user_id, feed_date, feed_position),
+  CONSTRAINT uq_daily_feed_story    UNIQUE (feed_user_id, feed_date, feed_story_id)
+);
+
+CREATE INDEX idx_daily_feeds_user_date ON daily_feeds (feed_user_id, feed_date, feed_position);
+```
+
 ---
 
 ## 4. ER overview (text)
@@ -604,7 +650,7 @@ Two tiers. **Content tables are public-read** (anyone can read the daily briefin
 -- ── Tier 1: public-read content (read-only to clients; worker writes via service role) ──
 -- Applies to: segments, outlets, stories, digests, caption_sentences, detail_chunks,
 --             story_trust, story_timeline, story_sources, suggested_questions,
---             story_qa, story_topics, anchors, interests.
+--             story_qa, story_topics, story_interests, anchors, interests.
 ALTER TABLE stories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY stories_public_read ON stories
   FOR SELECT USING (true);
@@ -614,6 +660,7 @@ CREATE POLICY stories_public_read ON stories
 -- ── Tier 2: per-user private tables ──
 -- Applies to: users, follows, saves, player_signals, play_sessions,
 --             user_interest_profile, user_interest_traits, onboarding_conversations.
+-- daily_feeds is per-user but SELECT-self only (no write policy → only the service-role pipeline writes).
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY users_select_self ON users
@@ -648,6 +695,16 @@ CREATE POLICY user_interest_traits_owner_all ON user_interest_traits
 ALTER TABLE onboarding_conversations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY onboarding_conversations_owner_all ON onboarding_conversations
   FOR ALL USING (conversation_user_id = auth.uid()) WITH CHECK (conversation_user_id = auth.uid());
+
+-- ── M1 re-scope (migration 0003): story_interests is public-read content; daily_feeds is read-self only ──
+ALTER TABLE story_interests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY story_interests_public_read ON story_interests
+  FOR SELECT USING (true);
+
+ALTER TABLE daily_feeds ENABLE ROW LEVEL SECURITY;
+CREATE POLICY daily_feeds_select_self ON daily_feeds
+  FOR SELECT USING (feed_user_id = auth.uid());
+-- (no INSERT/UPDATE/DELETE policy → only the service-role pipeline writes daily_feeds)
 ```
 
 **Auth mapping (email-only magic-link pivot).** `users.user_id` is a FK to Supabase `auth.users.id`; `auth.uid()` returns that id for the authenticated request. Sessions are created by Supabase email OTP / magic-link (`supabase.auth.signInWithOtp({ email })`) — no password, no Sign-in-with-Apple. A `handle_new_user()` trigger on `auth.users` insert should create the matching `users` row (copying `user_email`) so the app profile exists immediately after the first magic-link click.

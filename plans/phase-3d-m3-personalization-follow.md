@@ -2,7 +2,9 @@
 
 **Milestone:** M3 — Voice + personalization + follow + onboarding
 **Status:** Not started
-**Estimated effort:** M
+**Estimated effort:** S–M (reduced — see re-scope)
+
+> ⚠ **Re-scoped 2026-05-30 — shrunk by the M1 personalization pull-forward.** SP1 (engagement-signal instrumentation + signal→weight job) and SP2 (interest-weighted feed ranking) now ship in **`phase-1d-daily-content-pipeline.md`** (the daily profile-update job + the per-user scorer/allocator → `daily_feeds`, per `reference/ranking-spec.md`). The `player_signals` table + its `logSignal` call sites also land in M1 (schema in migration 0003; call sites with the reel/detail surfaces). The master-plan "world tier + niche tier" framing (SP2) is **superseded** by the breaking-tier-within-interests model (`ranking-spec.md` §6). This phase reduces to **SP3 (follow-a-story)** + **SP4 (Following view + "what's new since you last watched")**; the `follows` table + its RLS (not in migration 0003) ships with **this** phase's migration. When executing, treat SP1–SP2 as **done in M1**.
 
 ## Goal
 The reel adapts to the user's interest profile + engagement signals (with a guaranteed world tier), and a user can follow a story and see "what's new since you last watched" — closing M3's "feed adapts, follow works" promise.

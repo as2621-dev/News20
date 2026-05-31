@@ -2,7 +2,9 @@
 
 **Milestone:** M3 — Voice + personalization + follow + onboarding
 **Status:** Not started
-**Estimated effort:** L
+**Estimated effort:** M (reduced — see re-scope)
+
+> ⚠ **Re-scoped 2026-05-30 — shrunk by the M1 personalization pull-forward.** The chip UI (SP1: `InterestChips` + lazy expansion + `src/lib/interests.ts`) and the **typed-fallback upsert path** now ship in **`phase-1e-auth-onboarding-interest-profile.md`** (chip-based onboarding, `profile_source='typed'`). This phase reduces to the **voice layer on top**: SP2 (Gemini Live orb + adaptive conversation), SP3 (function-calling extraction → the *same* `user_interest_profile` upsert path 1e built, `profile_source='voice'`), SP4 (voice flow order + voice/typed fallback). The `onboarding_conversations` table + its RLS (not in migration 0003) ships with **this** phase's migration. When executing, treat SP1 as **done in 1e** (reuse, don't rebuild) and re-anchor SP2–SP4 on the existing chip components.
 
 ## Goal
 A new user is interviewed by a Gemini Live agent (the same brain/orb as Voice mode) that adapts to what they say, niches down through the hierarchical interest taxonomy (Sport → which team?), and extracts a weighted interest profile via function-calling — replacing the prototype's canned `VP_TURNS` script.
