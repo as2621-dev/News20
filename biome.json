@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**", "tests/lib/**", "*.ts", "*.mjs", "!trigger"]
+    "includes": ["src/**", "tests/lib/**", "trigger/**", "*.ts", "*.mjs"]
   },
   "formatter": {
     "enabled": true,
