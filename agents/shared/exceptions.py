@@ -98,3 +98,55 @@ class TTSRenderError(PipelineStageError):
             message=f"[{audio_step}] {message}" if audio_step else message,
             fix_suggestion=fix_suggestion,
         )
+
+
+# ---------------------------------------------------------------------------
+# Ingestion exceptions (Phase 1d SP1 — reintroduced from TLDW as the ingestion
+# stage is ported; see reference/reuse-map.md "Ingestion").
+# ---------------------------------------------------------------------------
+
+
+class IngestionError(VoiceAgentError):
+    """Base exception for the news ingestion stage.
+
+    Raised when the interest-keyed ingestion pipeline cannot proceed — e.g.,
+    the active-interest set is empty (no user profiles), or an interest node
+    referenced for ancestor tagging is missing from the taxonomy.
+
+    Example:
+        >>> raise IngestionError(
+        ...     message="Active-interest set is empty — no user profiles to ingest for",
+        ...     fix_suggestion="Seed at least one user_interest_profile (Phase 1e) before ingesting",
+        ... )
+    """
+
+
+class AdapterFetchError(IngestionError):
+    """Raised when a news source adapter fails to fetch or extract content.
+
+    Common causes: the source API returns an HTTP error, times out, or returns
+    a non-parseable body (e.g., GDELT's rate-limit plaintext notice instead of
+    JSON).
+
+    Attributes:
+        adapter_name: The adapter that raised the error (e.g., "gdelt_doc").
+
+    Example:
+        >>> raise AdapterFetchError(
+        ...     message="GDELT returned a rate-limit notice instead of JSON",
+        ...     adapter_name="gdelt_doc",
+        ...     fix_suggestion="Throttle to <=1 request / 5s and retry",
+        ... )
+    """
+
+    def __init__(
+        self,
+        message: str,
+        adapter_name: str = "",
+        fix_suggestion: str = "Check the source API status, the request rate, and network connectivity",
+    ) -> None:
+        self.adapter_name = adapter_name
+        super().__init__(
+            message=f"[{adapter_name}] {message}" if adapter_name else message,
+            fix_suggestion=fix_suggestion,
+        )

@@ -15,6 +15,11 @@ google-genai>=1.0
 httpx>=0.27
 Pillow>=10.0
 
+# ──── News ingestion (Phase 1d SP1) ────
+# GDELT DOC 2.0 returns article metadata only (no body); trafilatura extracts the
+# article body text from the fetched HTML for downstream scripting (SP2).
+trafilatura>=1.6
+
 # ──── Audio Processing (needs ffmpeg/ffprobe on PATH) ────
 pydub>=0.25
 
