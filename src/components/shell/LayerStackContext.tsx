@@ -16,6 +16,11 @@
  * This file only declares the context + a typed `useLayerStack()` hook. The
  * provider + the actual open/close state machine live in {@link LayerStack} so
  * the state and its consumers stay colocated.
+ *
+ * **Voice members (phase-3b SP2).** The left lateral Voice layer mirrors Detail
+ * exactly — `openVoice(story)` / `closeVoice()` plus `isVoiceOpen` /
+ * `openVoiceStory` — so the same shell drives both lateral directions (Detail
+ * right, Voice left) off one shared context (port-map §1, §3.2).
  */
 
 import { createContext, useContext } from "react";
@@ -50,6 +55,21 @@ export interface LayerStackContextValue {
   openDetail: (story: Story) => void;
   /** Close the Detail layer (the Detail panel calls this on back-swipe / close). */
   closeDetail: () => void;
+  /** Whether the lateral Voice layer is currently open (phase-3b SP2). */
+  isVoiceOpen: boolean;
+  /**
+   * The story the Voice layer is conversing about (null while the layer is
+   * closed). Mirrors {@link openDetailStory}: SP2's `VoiceMode` reads the full
+   * {@link Story} so it can scope the Gemini Live session to that `digest_id`.
+   */
+  openVoiceStory: Story | null;
+  /**
+   * Open the Voice layer for `story` (a left-drag over the reel calls this with
+   * its active story — prototype `attachGestures`: `dx < 0 → openVoice`).
+   */
+  openVoice: (story: Story) => void;
+  /** Close the Voice layer (the Voice panel calls this on back-swipe / close). */
+  closeVoice: () => void;
 }
 
 /**
