@@ -26,7 +26,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from agents.pipeline.llm_clients import LLMClient
@@ -35,6 +35,7 @@ from agents.qa.corpus import load_grounding_corpus
 from agents.qa.models import QuestionAnswer, StoryQaCacheRow
 from agents.shared.exceptions import GroundingCorpusError
 from agents.shared.logger import get_logger
+from agents.voice.live_token import EphemeralTokenResponse, mint_ephemeral_token
 from agents.worker.corpus_cache import get_or_load_corpus
 
 logger = get_logger("worker.qa")
@@ -311,3 +312,53 @@ async def post_story_question(
     # failure logs + returns the live answer (never breaks the HTTP-200 contract).
     _write_cached_answer(supabase_client, story_id, request.question_text, live_answer)
     return live_answer
+
+
+# ---------------------------------------------------------------------------
+# Gemini Live ephemeral-token mint (Phase 3 SP3) — additive route.
+#
+# The frontend (``src/lib/voice/useGeminiLive.ts``) opens a raw WebSocket to the
+# Gemini Live ``BidiGenerateContentConstrained`` endpoint. To keep GEMINI_API_KEY
+# off-device, the client first POSTs here; the worker mints a single-use token
+# (the key stays server-side, never logged/returned) and hands back ONLY the
+# ``auth_tokens/...`` name, which the client passes via ``?access_token=``.
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/voice/live-token")
+async def post_voice_live_token() -> EphemeralTokenResponse:
+    """Mint a single-use Gemini Live ephemeral token (key stays server-side).
+
+    Delegates to :func:`agents.voice.live_token.mint_ephemeral_token`, which calls
+    ``POST v1alpha/auth_tokens`` with the ``x-goog-api-key`` header and returns the
+    minted ``auth_tokens/...`` name. The long-lived ``GEMINI_API_KEY`` is NEVER
+    sent to the client and NEVER logged (env-var-safety mandate).
+
+    On a mint failure (missing key / Gemini error / malformed response) this
+    returns HTTP 502 — NOT the Q&A endpoint's graceful HTTP-200 refusal — because
+    a missing token has no in-conversation fallback: the client cannot open the
+    WSS at all, so the honest signal is an explicit error (Rule 12 — fail loud).
+
+    Returns:
+        An :class:`EphemeralTokenResponse` whose ``ephemeral_token_name`` starts
+        with ``auth_tokens/``.
+
+    Raises:
+        HTTPException: HTTP 502 when the token could not be minted.
+    """
+    logger.info("live_token_request_received")
+    try:
+        token = await mint_ephemeral_token()
+    except RuntimeError as exc:
+        logger.error(
+            "live_token_mint_failed",
+            error_code="live_token_mint_failed",
+            error_message=str(exc)[:200],
+            timestamp_utc=_utc_now_iso(),
+            fix_suggestion="Confirm GEMINI_API_KEY is set + has Live API access; check network",
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Could not mint a Gemini Live ephemeral token",
+        ) from exc
+    return token
