@@ -2,15 +2,30 @@
 feel personal over time.
 
 Runs FIRST in the daily batch (before scoring), so today's feed reflects
-yesterday's behavior. It aggregates ``player_signals`` per followed interest and
-applies **bounded, slow-decay** nudges to ``user_interest_profile.profile_weight``:
+yesterday's behavior. It aggregates TWO bounded inputs onto each followed
+interest and applies **bounded, slow-decay** nudges to
+``user_interest_profile.profile_weight``:
 
-  1. attenuate each signal by how specifically its story hit the interest
+  - ``player_signals`` since the last run (engagement → signed delta), and
+  - the user's persistent ``follows`` set (phase-3d): each currently-followed
+    story re-applies a strong ``FOLLOW_BOOST_DELTA`` on its matched interest
+    node(s) EVERY run while followed — the ``follows`` table is the single source
+    of truth for the follow contribution (a transient ``player_signals.follow``
+    row is inert, so a follow is counted ONCE).
+
+then, per followed interest:
+
+  1. attenuate each contribution by how specifically its story hit the interest
      (leaf 1.0 / parent 0.5 / grandparent 0.25),
   2. cap the aggregate per-run delta (``MAX_DELTA_PER_RUN``),
   3. decay every followed weight slowly toward baseline (an ignored interest
      fades, it does not snap to zero),
   4. clamp the result to ``[FLOOR, CEILING]``.
+
+The follow boost is just another bounded contribution into the SAME accumulation
+— it shares the per-run cap, the slow decay, and the floor/ceiling clamp. There
+is no second, divergent guard system, so a persistent follow shifts tomorrow's
+feed toward the subniche WITHOUT collapsing onto it (the over-narrowing caution).
 
 These guards (cap + decay + clamp), together with the allocator's floor-1 / 40%
 cap / 10% exploration invariants (§3), are what stop the feed collapsing onto one
@@ -35,7 +50,11 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agents.ingestion.models import StoryInterestTag
-from agents.memory.player_signals import SignalEvent, compute_signal_delta
+from agents.memory.player_signals import (
+    FOLLOW_BOOST_DELTA,
+    SignalEvent,
+    compute_signal_delta,
+)
 from agents.pipeline.stages.ranking import UserProfileInterest
 from agents.shared.logger import get_logger
 
@@ -115,21 +134,35 @@ def compute_weight_updates(
     profile_interests: list[UserProfileInterest],
     signals: list[SignalEvent],
     story_interest_tags: list[StoryInterestTag],
+    followed_story_ids: list[str] | None = None,
 ) -> list[InterestWeightUpdate]:
     """Compute one run's bounded, slow-decay weight updates for ONE user (§4).
 
     For every followed interest it (1) sums the depth-attenuated deltas of the
-    user's signals whose story is tagged to that interest, (2) caps the aggregate
-    at ``±MAX_DELTA_PER_RUN``, (3) decays the old weight slowly toward
-    ``BASELINE_WEIGHT``, and (4) clamps to ``[FLOOR, CEILING]``. EVERY followed
-    interest gets an update record — even one with no signal — so neglect-driven
-    decay (the "ignored interest fades" guard) is applied and auditable.
+    user's signals AND a ``FOLLOW_BOOST_DELTA`` for each currently-followed story
+    whose tag hits that interest, (2) caps the aggregate at ``±MAX_DELTA_PER_RUN``,
+    (3) decays the old weight slowly toward ``BASELINE_WEIGHT``, and (4) clamps to
+    ``[FLOOR, CEILING]``. EVERY followed interest gets an update record — even one
+    with no signal — so neglect-driven decay (the "ignored interest fades" guard)
+    is applied and auditable.
+
+    The follow boost is re-applied on EVERY run while the story stays followed
+    (the persistent ``follows`` set is the source of truth, phase-3d); it is the
+    SAME bounded contribution as a signal — sharing the per-run cap, decay, and
+    clamp — so a followed subniche rises without over-narrowing. It is attenuated
+    to ancestor-tagged interests exactly like a signal (Rule 11 — mirror existing
+    behavior). A transient ``player_signals.follow`` row contributes 0.0
+    (``player_signals._STRONG_POSITIVE_EVENTS`` excludes it), so each follow is
+    counted ONCE.
 
     Args:
         profile_interests: The user's followed interests (current weights).
         signals: The user's ``player_signals`` since the last run.
-        story_interest_tags: ``story_interests`` rows for the signalled stories
-            (provides each story's interest + ancestor ``match_depth``).
+        story_interest_tags: ``story_interests`` rows for the signalled AND
+            followed stories (provides each story's interest + ancestor
+            ``match_depth``).
+        followed_story_ids: ``follows.follow_story_id`` for this user — the stories
+            the user currently follows (None/empty = no follow boost this run).
 
     Returns:
         One :class:`InterestWeightUpdate` per followed interest.
@@ -142,21 +175,33 @@ def compute_weight_updates(
     tags_by_story = _index_tags_by_story(story_interest_tags)
     followed_ids = {pi.profile_interest_id for pi in profile_interests}
 
-    # 1. Aggregate depth-attenuated signal deltas onto followed interests.
+    # 1. Aggregate depth-attenuated deltas onto followed interests — from BOTH the
+    #    user's signals and their persistent `follows` set (phase-3d). Both feed the
+    #    SAME accumulator, so they share the cap/decay/clamp guards below.
     raw_delta_by_interest: dict[str, float] = {iid: 0.0 for iid in followed_ids}
-    for signal in signals:
-        if signal.signal_story_id is None:
-            continue
-        base_delta = compute_signal_delta(signal)
-        if base_delta == 0.0:
-            continue
-        for interest_id, match_depth in tags_by_story.get(signal.signal_story_id, []):
+
+    def _accumulate(story_id: str, base_delta: float) -> None:
+        """Fold a depth-attenuated ``base_delta`` for ``story_id`` onto followed nodes."""
+        for interest_id, match_depth in tags_by_story.get(story_id, []):
             if interest_id not in followed_ids:
                 continue  # only nudge interests the user actually follows (M1)
             attenuation = DEPTH_ATTENUATION[
                 min(match_depth, len(DEPTH_ATTENUATION) - 1)
             ]
             raw_delta_by_interest[interest_id] += base_delta * attenuation
+
+    for signal in signals:
+        if signal.signal_story_id is None:
+            continue
+        base_delta = compute_signal_delta(signal)
+        if base_delta == 0.0:
+            continue
+        _accumulate(signal.signal_story_id, base_delta)
+
+    # Persistent follow boost: each currently-followed story re-applies a strong,
+    # bounded `+` on its matched node(s) — same source of truth every run.
+    for followed_story_id in followed_story_ids or []:
+        _accumulate(followed_story_id, FOLLOW_BOOST_DELTA)
 
     # 2–4. Cap, decay toward baseline, clamp — per followed interest.
     updates: list[InterestWeightUpdate] = []
@@ -261,18 +306,46 @@ def _load_story_interests(
     ]
 
 
+def _load_follows(
+    supabase_client: Any, user_ids: list[str] | None
+) -> dict[str, list[str]]:
+    """Read the persistent ``follows`` set, grouped ``user_id -> [story_id, ...]``.
+
+    The job runs with the service-role key (bypasses RLS), so it sees all users'
+    follows. ``follow_story_id`` is ``text`` (FK to ``stories.story_id``); it joins
+    to ``story_interests.story_interest_story_id`` (also ``text``) with NO cast.
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+        user_ids: Restrict to these users (None = all users).
+
+    Returns:
+        Map of ``follow_user_id`` to the list of ``follow_story_id`` they follow.
+    """
+    query = supabase_client.table("follows").select("follow_user_id,follow_story_id")
+    if user_ids:
+        query = query.in_("follow_user_id", user_ids)
+    rows = getattr(query.execute(), "data", None) or []
+    follows_by_user: dict[str, list[str]] = {}
+    for row in rows:
+        follows_by_user.setdefault(str(row["follow_user_id"]), []).append(
+            str(row["follow_story_id"])
+        )
+    return follows_by_user
+
+
 def run_profile_update_job(
     supabase_client: Any,
     user_ids: list[str] | None = None,
     since_utc: datetime | None = None,
     now_utc: datetime | None = None,
 ) -> ProfileUpdateResult:
-    """Aggregate signals and write bounded, slow-decay weight nudges (§4).
+    """Aggregate signals + follows and write bounded, slow-decay weight nudges (§4).
 
     The daily batch's FIRST stage. Reads each user's profile + recent signals +
-    the signalled stories' interest tags, computes the updates
-    (``compute_weight_updates``), and writes the changed ``profile_weight`` rows.
-    A weight equal to its prior value is not written.
+    their persistent ``follows`` set + the (signalled OR followed) stories' interest
+    tags, computes the updates (``compute_weight_updates``), and writes the changed
+    ``profile_weight`` rows. A weight equal to its prior value is not written.
 
     Args:
         supabase_client: Service-role client (injected; mocked in tests).
@@ -290,7 +363,10 @@ def run_profile_update_job(
     now = now_utc or datetime.now(timezone.utc)
     profiles = _load_user_profiles(supabase_client, user_ids)
     signals_by_user = _load_signals(supabase_client, user_ids, since_utc)
+    follows_by_user = _load_follows(supabase_client, user_ids)
 
+    # Story-interest tags must cover BOTH signalled and followed stories so the
+    # follow boost can resolve each followed story → its matched interest node(s).
     all_story_ids = sorted(
         {
             s.signal_story_id
@@ -298,13 +374,19 @@ def run_profile_update_job(
             for s in user_signals
             if s.signal_story_id is not None
         }
+        | {
+            story_id
+            for user_follows in follows_by_user.values()
+            for story_id in user_follows
+        }
     )
     story_interest_tags = _load_story_interests(supabase_client, all_story_ids)
 
     logger.info(
         "run_profile_update_job_started",
         user_count=len(profiles),
-        signalled_story_count=len(all_story_ids),
+        signalled_or_followed_story_count=len(all_story_ids),
+        followed_story_count=sum(len(v) for v in follows_by_user.values()),
         since_utc=since_utc.isoformat() if since_utc else None,
     )
 
@@ -314,6 +396,7 @@ def run_profile_update_job(
             profile_interests=profile_interests,
             signals=signals_by_user.get(user_id, []),
             story_interest_tags=story_interest_tags,
+            followed_story_ids=follows_by_user.get(user_id, []),
         )
         written: list[InterestWeightUpdate] = []
         for update in updates:

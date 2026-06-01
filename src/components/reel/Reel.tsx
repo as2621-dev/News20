@@ -32,9 +32,12 @@
  * inside its tap handler ({@link handleStart}) via the registered play handle —
  * the only place iOS will honour `play()`. Until that gesture, nothing plays.
  *
- * Save/Follow are LOCAL in-memory state lifted to this component (Set of story
- * ids) so they survive scroll-away; seeded to mirror the prototype (one followed
- * story). Ask/Voice/Detail are deferred no-ops in {@link ReelChrome}.
+ * Save is LOCAL in-memory state lifted to this component (Set of story ids) so it
+ * survives scroll-away. Follow is PERSISTENT (Phase 3d SP3): its lifted set is
+ * hydrated from the `follows` table on feed load and each toggle writes through
+ * {@link toggleFollow} (optimistic UI, reconciled on the write result), so a
+ * follow boosts that story's subniche in tomorrow's feed. Ask/Voice/Detail are
+ * deferred no-ops in {@link ReelChrome}.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AllCaughtUp } from "@/components/reel/AllCaughtUp";
@@ -44,6 +47,7 @@ import { ReelStory } from "@/components/reel/ReelStory";
 import { TapToStart } from "@/components/reel/TapToStart";
 import { useLayerStack } from "@/components/shell/LayerStackContext";
 import { getFeed } from "@/lib/feed/fixtureFeed";
+import { getFollowedStoryIds, toggleFollow } from "@/lib/follows";
 import { logger } from "@/lib/logger";
 import { useActiveStoryObserver } from "@/lib/reel/gestures";
 import { computePreloadIndices } from "@/lib/reel/preload";
@@ -127,9 +131,6 @@ export function nextReelStatus(current: ReelStatus, event: ReelEvent): ReelStatu
   }
 }
 
-/** Seed one followed story to mirror the prototype (`S.followed = new Set(["s1"])`). */
-const INITIALLY_FOLLOWED_DIGEST_IDS: readonly string[] = ["digest-1"];
-
 /**
  * Mount the reel: load the feed, wire the status state machine + audio unlock,
  * and render the stories.
@@ -145,7 +146,10 @@ export function Reel() {
   const [reelStatus, setReelStatus] = useState<ReelStatus>("loading");
   const [isAudioUnlocked, setIsAudioUnlocked] = useState<boolean>(false);
   const [savedDigestIds, setSavedDigestIds] = useState<Set<string>>(() => new Set());
-  const [followedDigestIds, setFollowedDigestIds] = useState<Set<string>>(() => new Set(INITIALLY_FOLLOWED_DIGEST_IDS));
+  // Followed state is PERSISTENT: seeded empty, then hydrated from the `follows`
+  // table once the feed resolves (one batched read), and written through on each
+  // toggle. Signed-out users hydrate to empty (no crash) — see follows.ts.
+  const [followedDigestIds, setFollowedDigestIds] = useState<Set<string>>(() => new Set());
 
   const activeIndex = useActiveStoryObserver({
     containerRef: scrollContainerRef,
@@ -201,6 +205,34 @@ export function Reel() {
 
   // Load the fixture feed once on mount (async to match the production seam).
   useEffect(() => loadFeed(), [loadFeed]);
+
+  // Hydrate the persisted follow set once the feed has stories (one batched read
+  // of the `follows` table). Signed-out users resolve to an empty set (no crash).
+  // Runs when the loaded stories change so a swapped feed re-hydrates correctly.
+  useEffect(() => {
+    if (stories.length === 0) {
+      return;
+    }
+    let isMounted = true;
+    getFollowedStoryIds()
+      .then((persistedFollowedStoryIds) => {
+        if (isMounted) {
+          setFollowedDigestIds(persistedFollowedStoryIds);
+        }
+      })
+      .catch((hydrateError: unknown) => {
+        // Reason: getFollowedStoryIds already swallows errors to an empty set;
+        // this catch is a belt-and-braces guard so a rejected hydrate never
+        // unmounts the reel. Leave the existing (empty) followed state.
+        logger.error("reel_follow_hydrate_failed", {
+          error_message: hydrateError instanceof Error ? hydrateError.message : "unknown",
+          fix_suggestion: "Confirm migration 0005 applied and the follows RLS allows the authed SELECT.",
+        });
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [stories]);
 
   /**
    * Register/unregister the ACTIVE story's play handle. Each `ReelStory` calls
@@ -295,7 +327,17 @@ export function Reel() {
     });
   }, []);
 
+  /**
+   * Persist a follow toggle (Phase 3d SP3). Optimistically flips the lifted
+   * followed set for snappy `follow-on` feedback, writes through
+   * {@link toggleFollow}, then RECONCILES to the authoritative persisted state
+   * the write returns — so a failed/skipped (e.g. signed-out) write reverts the
+   * accent instead of leaving the UI lying about a non-existent row.
+   *
+   * `digestId` here is the story id (`Story.digest_id` carries `stories.story_id`).
+   */
   const toggleFollowedForStory = useCallback((digestId: string): void => {
+    // Optimistic flip for immediate UI feedback.
     setFollowedDigestIds((previous) => {
       const next = new Set(previous);
       if (next.has(digestId)) {
@@ -305,6 +347,33 @@ export function Reel() {
       }
       return next;
     });
+
+    toggleFollow(digestId)
+      .then((persistedIsFollowed) => {
+        // Reconcile: snap the set to the persisted truth the write returned.
+        setFollowedDigestIds((previous) => {
+          const next = new Set(previous);
+          if (persistedIsFollowed) {
+            next.add(digestId);
+          } else {
+            next.delete(digestId);
+          }
+          return next;
+        });
+      })
+      .catch((toggleError: unknown) => {
+        // Reason: toggleFollow already swallows write errors to the unchanged
+        // persisted state; this guard handles an unexpected throw by re-reading
+        // truth so the optimistic flip never sticks on a failed write.
+        logger.error("reel_follow_toggle_failed", {
+          story_id: digestId,
+          error_message: toggleError instanceof Error ? toggleError.message : "unknown",
+          fix_suggestion: "Confirm migration 0005 applied and the follows RLS allows the authed write.",
+        });
+        getFollowedStoryIds().then((persistedFollowedStoryIds) => {
+          setFollowedDigestIds(persistedFollowedStoryIds);
+        });
+      });
   }, []);
 
   return (

@@ -5,10 +5,17 @@ delta. The aggregation + bounded application lives in ``session_processor``; thi
 module only answers "how much, and which direction, does THIS event nudge?".
 
 Signal → effect (ranking-spec §4 table):
-  complete / save / follow / ask / voice → strong +
-  open_detail                            → mild +
-  play (partial)                         → small +, scaled by completion_pct
-  skip (fast, low dwell_ms)              → −
+  complete / save / ask / voice → strong +
+  open_detail                   → mild +
+  play (partial)                → small +, scaled by completion_pct
+  skip (fast, low dwell_ms)     → −
+
+``follow`` is intentionally NOT a transient signal here. As of phase-3d, a follow
+persists in the ``follows`` table and is re-applied as a boost on EVERY daily run
+while followed — the persistent ``follows`` set is the single source of truth for
+the follow contribution (``session_processor`` reads it directly). So a transient
+``player_signals`` row with ``event_type='follow'`` is INERT here (delta 0.0) to
+avoid double-counting the same follow. See ``FOLLOW_BOOST_DELTA`` below.
 
 Constants are FIRST-DRAFT and tunable (confirm at the 2-user manual run, phase
 Open Q4); do not scatter copies — import from here.
@@ -26,10 +33,19 @@ logger = get_logger("memory.player_signals")
 # Reason: affinity-dominant, bounded nudges. A single strong positive is ~⅔ of
 # the per-run cap (session_processor.MAX_DELTA_PER_RUN=0.5), so it takes a few
 # consistent strong signals — not one tap — to move an interest a full step.
-STRONG_POSITIVE_DELTA: float = 0.30  # complete, save, follow, ask, voice
+STRONG_POSITIVE_DELTA: float = 0.30  # complete, save, ask, voice
 MILD_POSITIVE_DELTA: float = 0.10  # open_detail
 PLAY_MAX_POSITIVE_DELTA: float = 0.15  # play, multiplied by completion_pct (0–1)
 SKIP_NEGATIVE_DELTA: float = -0.20  # a fast skip = explicit "not for me"
+
+# Reason (phase-3d): a *persistent* follow is a deliberate, durable "more of this
+# subniche" — stronger than a single transient strong signal, but still BELOW the
+# per-run cap (session_processor.MAX_DELTA_PER_RUN=0.5) so that on its own a follow
+# nudges hard yet cannot, in one run, jump a weight a full step toward the ceiling
+# (over-narrowing guard). It is re-applied every run while the follow persists, so
+# the cumulative pull is the decay-balanced equilibrium, not a single jump. Sourced
+# from the `follows` table (NOT a player_signals row) to avoid double-counting.
+FOLLOW_BOOST_DELTA: float = 0.40  # one followed story → its matched node, per run
 
 # A skip is only punitive if the user bounced fast; a skip after watching most of
 # a reel is not a rejection of the topic.
@@ -39,8 +55,11 @@ SKIP_FAST_DWELL_MS: int = 2000
 # can't size) — modest positive, not a full strong signal.
 PLAY_DEFAULT_COMPLETION: float = 0.3
 
+# Reason: 'follow' is deliberately EXCLUDED — its contribution comes from the
+# persistent `follows` set (FOLLOW_BOOST_DELTA, applied in session_processor), not
+# from a transient signal row, so a `follow` event scores 0.0 here (no double-count).
 _STRONG_POSITIVE_EVENTS: frozenset[str] = frozenset(
-    {"complete", "save", "follow", "ask", "voice"}
+    {"complete", "save", "ask", "voice"}
 )
 
 
@@ -126,6 +145,11 @@ def compute_signal_delta(event: SignalEvent) -> float:
         # (no dwell recorded = the user did not engage).
         is_fast = event.dwell_ms is None or event.dwell_ms < SKIP_FAST_DWELL_MS
         return SKIP_NEGATIVE_DELTA if is_fast else 0.0
+    if event_type == "follow":
+        # Reason: a transient follow event is INERT here — the follow boost is
+        # sourced from the persistent `follows` set (FOLLOW_BOOST_DELTA, applied in
+        # session_processor) to avoid double-counting (phase-3d). Not "unhandled".
+        return 0.0
     logger.info(
         "compute_signal_delta_unhandled_event",
         event_type=event_type,

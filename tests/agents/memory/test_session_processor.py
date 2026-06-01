@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 from agents.ingestion.models import StoryInterestTag
 from agents.memory.player_signals import (
+    FOLLOW_BOOST_DELTA,
     MILD_POSITIVE_DELTA,
     PLAY_MAX_POSITIVE_DELTA,
     SKIP_NEGATIVE_DELTA,
@@ -135,6 +136,138 @@ def test_unfollowed_interest_tags_do_not_nudge() -> None:
 
     assert arsenal.raw_delta == 0.0
     assert arsenal.new_weight < arsenal.old_weight  # decay only
+
+
+# ── Follow boost (phase-3d) — persistent `follows` set raises the matched node ─
+def test_following_a_story_raises_matched_interest_vs_non_following_user() -> None:
+    """The §4 DoD (pure core): with NO signals at all, a user who FOLLOWS a story
+    ends the run with a HIGHER matched-interest weight than an identical user who
+    does not follow it — and the boosted weight stays within the bounded ceiling
+    (no over-narrowing). The follow boost is sourced from `followed_story_ids`."""
+    tags = [_tag("s-arsenal", "int-arsenal", 0)]
+
+    follower = UserProfileInterest(
+        profile_interest_id="int-arsenal", profile_weight=1.0
+    )
+    non_follower = UserProfileInterest(
+        profile_interest_id="int-arsenal", profile_weight=1.0
+    )
+
+    # Identical inputs except one user follows the story; NO player_signals.
+    (followed,) = compute_weight_updates(
+        [follower],
+        signals=[],
+        story_interest_tags=tags,
+        followed_story_ids=["s-arsenal"],
+    )
+    (not_followed,) = compute_weight_updates(
+        [non_follower],
+        signals=[],
+        story_interest_tags=tags,
+        followed_story_ids=[],
+    )
+
+    # The follow boost is the ONLY difference — and it is what raises the weight.
+    assert followed.raw_delta == FOLLOW_BOOST_DELTA
+    assert not_followed.raw_delta == 0.0
+    assert followed.new_weight > not_followed.new_weight
+    # The following user's weight rises above its starting point (boost beats decay).
+    assert followed.new_weight > follower.profile_weight
+    # Bounded: a single-run follow cannot exceed the per-run cap or the ceiling.
+    assert followed.applied_delta <= MAX_DELTA_PER_RUN
+    assert followed.new_weight <= PROFILE_WEIGHT_CEILING
+
+
+def test_unfollowing_before_the_run_yields_no_boost() -> None:
+    """Un-following (story absent from `followed_story_ids`) removes the boost: the
+    weight then only decays toward baseline — exactly the non-following path."""
+    tags = [_tag("s-arsenal", "int-arsenal", 0)]
+    interest = UserProfileInterest(
+        profile_interest_id="int-arsenal", profile_weight=1.5
+    )
+
+    (after_unfollow,) = compute_weight_updates(
+        [interest], signals=[], story_interest_tags=tags, followed_story_ids=[]
+    )
+
+    assert after_unfollow.raw_delta == 0.0
+    assert after_unfollow.new_weight < after_unfollow.old_weight  # decay only
+
+
+def test_follow_boost_cannot_push_weight_past_the_ceiling() -> None:
+    """Stacking the per-run cap onto an already-near-ceiling weight clamps at the
+    ceiling — a persistent follow can never over-narrow past the bound (§3/§4)."""
+    near_ceiling = UserProfileInterest(
+        profile_interest_id="int-arsenal", profile_weight=PROFILE_WEIGHT_CEILING
+    )
+    # Follow many stories all tagged to the same node → aggregate exceeds the cap.
+    followed_ids = [f"s-arsenal-{i}" for i in range(5)]
+    tags = [_tag(sid, "int-arsenal", 0) for sid in followed_ids]
+
+    (arsenal,) = compute_weight_updates(
+        [near_ceiling],
+        signals=[],
+        story_interest_tags=tags,
+        followed_story_ids=followed_ids,
+    )
+
+    assert arsenal.applied_delta == MAX_DELTA_PER_RUN  # aggregate capped
+    assert arsenal.new_weight == PROFILE_WEIGHT_CEILING  # clamped, not above
+
+
+def test_follow_attenuates_to_ancestor_followers_like_a_signal() -> None:
+    """A follow on a leaf-tagged story nudges a PARENT-follower at the parent
+    attenuation (0.5) — mirroring signal behavior, not a divergent path."""
+    niche_tags = [
+        _tag("s-niche", "int-arsenal", 0),
+        _tag("s-niche", "int-football", 1),
+    ]
+    leaf_follower = UserProfileInterest(
+        profile_interest_id="int-arsenal", profile_weight=1.0
+    )
+    parent_follower = UserProfileInterest(
+        profile_interest_id="int-football", profile_weight=1.0
+    )
+
+    (leaf,) = compute_weight_updates(
+        [leaf_follower],
+        signals=[],
+        story_interest_tags=niche_tags,
+        followed_story_ids=["s-niche"],
+    )
+    (parent,) = compute_weight_updates(
+        [parent_follower],
+        signals=[],
+        story_interest_tags=niche_tags,
+        followed_story_ids=["s-niche"],
+    )
+
+    assert leaf.raw_delta == FOLLOW_BOOST_DELTA * DEPTH_ATTENUATION[0]
+    assert parent.raw_delta == FOLLOW_BOOST_DELTA * DEPTH_ATTENUATION[1]
+    assert parent.raw_delta == 0.5 * leaf.raw_delta
+
+
+def test_transient_follow_signal_is_inert_no_double_count() -> None:
+    """A `player_signals` row with event_type='follow' contributes 0.0, so the
+    follow boost is counted ONCE (from the persistent `follows` set only)."""
+    interest = UserProfileInterest(
+        profile_interest_id="int-arsenal", profile_weight=1.0
+    )
+    tags = [_tag("s-arsenal", "int-arsenal", 0)]
+    transient_follow_signal = SignalEvent(
+        signal_user_id="u1", signal_story_id="s-arsenal", event_type="follow"
+    )
+
+    # Same story both as a transient `follow` signal AND in the follows set.
+    (with_both,) = compute_weight_updates(
+        [interest],
+        signals=[transient_follow_signal],
+        story_interest_tags=tags,
+        followed_story_ids=["s-arsenal"],
+    )
+
+    # Only the persistent follow contributes — the transient signal adds nothing.
+    assert with_both.raw_delta == FOLLOW_BOOST_DELTA
 
 
 # ── Per-signal mapping (player_signals) ───────────────────────────────────────
@@ -281,3 +414,87 @@ def test_run_profile_update_job_writes_only_changed_weights() -> None:
     for write in fake.updates:
         assert write["filters"]["profile_user_id"] == "u1"
         assert "profile_updated_at" in write["payload"]
+
+
+def test_run_job_follow_raises_weight_vs_identical_non_following_user() -> None:
+    """End-to-end DoD through the mocked Supabase client (Rule 9 — asserts on the
+    PERSISTED ``profile_weight``, not the read): two identical users follow the
+    SAME interest at the SAME baseline weight; only ``u_follower`` has a ``follows``
+    row for a story tagged to that interest. With NO player_signals, the follower's
+    persisted weight RISES above the non-follower's (which only decays), and stays
+    within the ceiling (no over-narrowing)."""
+    baseline = 1.0
+    fake = _FakeSupabase(
+        {
+            "user_interest_profile": [
+                {
+                    "profile_user_id": "u_follower",
+                    "profile_interest_id": "int-arsenal",
+                    "profile_weight": baseline,
+                    "profile_is_strict": False,
+                },
+                {
+                    "profile_user_id": "u_non_follower",
+                    "profile_interest_id": "int-arsenal",
+                    "profile_weight": baseline,
+                    "profile_is_strict": False,
+                },
+            ],
+            "player_signals": [],  # isolate the follow boost from any signal
+            "follows": [
+                {"follow_user_id": "u_follower", "follow_story_id": "s-arsenal"}
+            ],
+            "story_interests": [
+                {
+                    "story_interest_story_id": "s-arsenal",
+                    "story_interest_interest_id": "int-arsenal",
+                    "story_interest_match_depth": 0,
+                }
+            ],
+        }
+    )
+
+    result = run_profile_update_job(fake)
+
+    writes_by_user = {
+        w["filters"]["profile_user_id"]: w["payload"]["profile_weight"]
+        for w in fake.updates
+    }
+    follower_weight = writes_by_user["u_follower"]
+    # The non-follower at baseline==1.0 decays to exactly 1.0 (== old), so its row
+    # is not written; its effective persisted weight is therefore the baseline.
+    non_follower_weight = writes_by_user.get("u_non_follower", baseline)
+
+    assert result.users_processed == 2
+    # The follow boost beats decay → follower rises above baseline AND above peer.
+    assert follower_weight > baseline
+    assert follower_weight > non_follower_weight
+    # Bounded: even with the boost the persisted weight respects the ceiling.
+    assert follower_weight <= PROFILE_WEIGHT_CEILING
+
+
+def test_run_job_no_follows_table_rows_is_a_no_op_for_follow_boost() -> None:
+    """With an empty ``follows`` set, the job behaves exactly as the signal-only
+    path — un-following before the run yields no boost (the persisted weight only
+    reflects decay/signals, never a phantom follow)."""
+    fake = _FakeSupabase(
+        {
+            "user_interest_profile": [
+                {
+                    "profile_user_id": "u1",
+                    "profile_interest_id": "int-arsenal",
+                    "profile_weight": 2.0,
+                    "profile_is_strict": False,
+                }
+            ],
+            "player_signals": [],
+            "follows": [],  # user un-followed everything before the run
+            "story_interests": [],
+        }
+    )
+
+    run_profile_update_job(fake)
+
+    # Only decay applied → the single write is strictly BELOW the prior weight.
+    assert len(fake.updates) == 1
+    assert fake.updates[0]["payload"]["profile_weight"] < 2.0

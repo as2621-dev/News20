@@ -75,10 +75,21 @@ A **daily job runs FIRST** (before scoring), aggregating `player_signals` since 
 
 | Signal (`player_signal_event`) | Weight effect |
 |--------------------------------|---------------|
-| `complete`, `save`, `follow`, `ask` | strong **+** |
+| `complete`, `save`, `ask`, `voice` | strong **+** |
 | `play` (partial) | small **+** scaled by `completion_pct` |
 | `skip` (fast, low `dwell_ms`) | **−** |
 | `open_detail` | mild **+** |
+
+**Follow boost (M3, phase-3d).** A `follow` does **not** nudge as a one-shot
+`player_signals.follow` event. Instead it persists in the `follows` table and the
+daily job re-applies a strong **+** (`FOLLOW_BOOST_DELTA`) to the followed story's
+matched interest node(s) **on every run while the story stays followed** — the
+persistent `follows` set is the source of truth (a transient `player_signals.follow`
+row is inert, so a follow is counted once). The boost is the **same bounded
+contribution** as a signal: it shares the per-run cap, the slow decay, and the
+floor/ceiling clamp below — it cannot push a weight past the ceiling or collapse
+the feed (it stays inside the §4 bounds + §3 invariants). Un-following stops the
+boost; the weight then decays back toward baseline.
 
 **Guards against over-narrowing (the brief's explicit caution):**
 - nudges are **bounded** (a per-run max delta and absolute floor/ceiling on `profile_weight`),
