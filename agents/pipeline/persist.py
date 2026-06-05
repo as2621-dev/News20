@@ -47,6 +47,7 @@ from agents.pipeline.persist_helpers import (
     build_story_source_rows,
     build_story_timeline_rows,
     build_story_trust_row,
+    build_story_url_alias_rows,
     build_suggested_question_rows,
     derive_blindspot_lean,
     derive_coverage_counts,
@@ -122,6 +123,11 @@ class PersistResult(BaseModel):
     )
     story_analytics_written: bool = Field(
         default=False, description="True when the 1:1 story_analytics row was inserted"
+    )
+    story_url_alias_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of story_url_aliases rows upserted (cross-day identity)",
     )
     created_table_row_ids: dict[str, list[str]] = Field(
         default_factory=dict,
@@ -432,6 +438,9 @@ def persist_digest(
     )
     result.story_interest_count = len(interest_rows)
 
+    # ── 9b. Upsert story_url_aliases (cross-day produce-once identity, 0006) ──
+    _upsert_story_url_aliases(supabase_client, resolved_story_id, story, result)
+
     # ── 10. Insert suggested_questions (optional) ──
     question_rows = build_suggested_question_rows(
         resolved_story_id, suggested_questions or []
@@ -468,6 +477,46 @@ def persist_digest(
         segment_slug=segment_slug,
     )
     return result
+
+
+def _upsert_story_url_aliases(
+    supabase_client: Any,
+    story_id: str,
+    story: CanonicalStory,
+    result: PersistResult,
+) -> None:
+    """Upsert ``story_url_aliases`` for one story (cross-day produce-once, 0006).
+
+    NON-FATAL by design: aliases are an idempotency aid, not story content. If the
+    write fails (e.g. the 0006 migration isn't applied yet), we log and continue —
+    the story still persists; the only cost is that a future re-cluster of this
+    event might not resolve back to this id (the pre-fix status quo), never a
+    crash. Uses ``upsert`` on the ``alias_normalized_url`` PK so a URL already
+    aliased to this story is a no-op rather than a constraint error.
+
+    Args:
+        supabase_client: The service-role client.
+        story_id: The persisted ``stories.story_id`` to alias URLs to.
+        story: The canonical story (source of the member URLs).
+        result: The audit record (records the alias count written).
+    """
+    alias_rows = build_story_url_alias_rows(story_id, story)
+    if not alias_rows:
+        return
+    try:
+        supabase_client.table("story_url_aliases").upsert(
+            alias_rows, on_conflict="alias_normalized_url"
+        ).execute()
+        result.story_url_alias_count = len(alias_rows)
+    except Exception as exc:  # noqa: BLE001 — non-fatal identity aid
+        logger.warning(
+            "persist_story_url_aliases_failed",
+            story_id=story_id,
+            alias_count=len(alias_rows),
+            error_message=str(exc)[:300],
+            fix_suggestion="Apply migration 0006 (story_url_aliases); story still "
+            "persisted — only cross-day re-cluster resolution is affected.",
+        )
 
 
 def _persist_detail_enrichment(

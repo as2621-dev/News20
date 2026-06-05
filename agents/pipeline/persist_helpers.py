@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agents.ingestion.dedup import normalize_url
 from agents.ingestion.models import CanonicalStory, StoryInterestTag
 from agents.pipeline.models import (
     CoverageReport,
@@ -606,6 +607,41 @@ def build_story_interest_rows(
             }
         )
     return rows
+
+
+def build_story_url_alias_rows(
+    story_id: str, story: CanonicalStory
+) -> list[dict[str, Any]]:
+    """Build ``story_url_aliases`` rows — every covering-outlet URL → this story id.
+
+    The cross-day produce-once aid (migration 0006): persisting these means a
+    later batch that re-clusters the SAME event (different earliest member, so a
+    different freshly-derived ``canonical_story_id``) can normalize its members'
+    URLs, find one already aliased here, and REUSE this ``story_id`` — keeping one
+    id per event across days so produce-once + don't-repeat hold.
+
+    URLs are normalized with the SAME ``normalize_url`` the clusterer + resolver
+    use, so write-time and lookup-time keys match exactly. Empty/blank URLs are
+    dropped; the set is deduped and sorted for deterministic output.
+
+    Args:
+        story_id: The persisted ``stories.story_id`` to alias every URL to.
+        story: The canonical story (carries ``member_candidate_ids`` = the member
+            article URLs, plus the representative ``canonical_url`` /
+            ``canonical_normalized_url``).
+
+    Returns:
+        ``story_url_aliases`` row payloads (one per distinct normalized URL).
+    """
+    urls = {normalize_url(member_url) for member_url in story.member_candidate_ids}
+    urls.add(normalize_url(story.canonical_url))
+    if story.canonical_normalized_url:
+        urls.add(story.canonical_normalized_url)
+    urls.discard("")
+    return [
+        {"alias_normalized_url": url, "alias_story_id": story_id}
+        for url in sorted(urls)
+    ]
 
 
 def build_suggested_question_rows(

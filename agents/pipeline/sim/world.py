@@ -1,0 +1,299 @@
+"""Deterministic synthetic world for the offline ranking simulation.
+
+Builds, with NO randomness and NO external calls:
+
+  * a 3-level interest taxonomy (``dict[interest_id, InterestNode]``),
+  * ~100 ``CanonicalStory`` items with varied importance (outlet count) and
+    freshness (publish offset from a fixed ``SIM_NOW``),
+  * the ``story_interests`` tags for every story via the REAL ancestor tagger
+    (``agents.ingestion.ancestor_tagging.merge_story_tags``), and
+  * three user profiles that stress distinct ranking paths (strict / broad /
+    niche+exploration).
+
+Everything is index-derived so two runs produce byte-identical worlds — the
+simulation is reproducible and its assertions are stable (Rule 9).
+
+Interest ids are the slugs themselves (e.g. ``"sport.cricket.india"``) — there is
+no DB here, so a readable stable id beats a uuid.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from pydantic import BaseModel, Field
+
+from agents.ingestion.ancestor_tagging import merge_story_tags
+from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.pipeline.stages.ranking import (
+    UserProfileInterest,
+    score_stories_for_interest,
+)
+from agents.pipeline.stages.ranking import ScoredCandidate
+
+# Reason: a FIXED clock so freshness (an exponential decay on publish time) is
+# deterministic — the sim must produce the same feed every run.
+SIM_NOW: datetime = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+# ── Taxonomy spec: (slug, parent_slug | None, depth_level) ────────────────────
+# Three categories with sub- and sub-sub nodes — enough to exercise leaf/parent/
+# grandparent DepthMatch (1.0 / 0.6 / 0.3) and strict-vs-broad following.
+_TAXONOMY_SPEC: list[tuple[str, str | None, int]] = [
+    ("sport", None, 0),
+    ("sport.cricket", "sport", 1),
+    ("sport.cricket.india", "sport.cricket", 2),
+    ("sport.soccer", "sport", 1),
+    ("sport.soccer.arsenal", "sport.soccer", 2),
+    ("world", None, 0),
+    ("world.geopolitics", "world", 1),
+    ("world.health", "world", 1),
+    ("tech", None, 0),
+    ("tech.ai", "tech", 1),
+    ("tech.ai.llms", "tech.ai", 2),
+    ("tech.gadgets", "tech", 1),
+    ("markets", None, 0),
+    ("markets.crypto", "markets", 1),
+    ("markets.stocks", "markets", 1),
+]
+
+# ── Story allocation: how many stories carry each node as their MATCHED interest.
+# Sums to ~100. A story matched at a node is ancestor-tagged up to its grandparent
+# by merge_story_tags, so e.g. a cricket.india story also serves cricket and sport.
+_STORY_COUNTS: dict[str, int] = {
+    "sport.cricket.india": 10,
+    "sport.soccer.arsenal": 10,
+    "sport.cricket": 5,
+    "sport.soccer": 5,
+    "sport": 6,
+    "world.geopolitics": 10,
+    "world.health": 6,
+    "world": 5,
+    "tech.ai.llms": 8,
+    "tech.ai": 5,
+    "tech.gadgets": 6,
+    "tech": 4,
+    "markets.crypto": 6,
+    "markets.stocks": 6,
+    "markets": 3,
+}
+
+# Reason: deterministic variety. Outlet count drives Importance (saturates at 12);
+# the cycle includes single-outlet niche items AND many-outlet "breaking" items.
+_OUTLET_CYCLE: tuple[int, ...] = (2, 4, 1, 8, 3, 13, 5, 2, 16, 6, 1, 9)
+# Publish-age cycle in hours from SIM_NOW — drives Freshness (~24h half-life).
+_FRESHNESS_CYCLE_HOURS: tuple[int, ...] = (1, 5, 18, 30, 3, 48, 12, 72, 6, 24, 2, 9)
+
+# Short readable headline templates per matched node (index appended).
+_HEADLINE_BY_NODE: dict[str, str] = {
+    "sport.cricket.india": "India cricket",
+    "sport.soccer.arsenal": "Arsenal FC",
+    "sport.cricket": "Cricket world",
+    "sport.soccer": "Soccer roundup",
+    "sport": "Sport wire",
+    "world.geopolitics": "Geopolitics",
+    "world.health": "Global health",
+    "world": "World desk",
+    "tech.ai.llms": "LLM frontier",
+    "tech.ai": "AI industry",
+    "tech.gadgets": "Gadgets",
+    "tech": "Tech wire",
+    "markets.crypto": "Crypto markets",
+    "markets.stocks": "Equities",
+    "markets": "Markets wire",
+}
+
+
+class SimProfile(BaseModel):
+    """One simulated user: a label + their followed interests + exploration seeds.
+
+    Attributes:
+        profile_key: Short stable key (e.g. ``"A"``) for report headers.
+        label: Human description of who this user is.
+        interests: The user's followed ``UserProfileInterest`` rows.
+        exploration_interest_ids: Adjacent (NOT-followed) interest ids to seed the
+            ~10% exploration slots from (empty = no exploration for this user).
+    """
+
+    profile_key: str = Field(..., description="Short stable key for report headers")
+    label: str = Field(..., description="Human description of the user")
+    interests: list[UserProfileInterest] = Field(
+        ..., description="The user's followed interests (affinity + strict)"
+    )
+    exploration_interest_ids: list[str] = Field(
+        default_factory=list,
+        description="Adjacent not-followed interest ids to seed exploration from",
+    )
+
+
+def build_taxonomy() -> dict[str, InterestNode]:
+    """Build the interest taxonomy as ``{interest_id: InterestNode}``.
+
+    Returns:
+        The taxonomy map (interest_id == slug) the scorer + ancestor tagger walk.
+
+    Example:
+        >>> nodes = build_taxonomy()
+        >>> nodes["sport.cricket.india"].parent_interest_id
+        'sport.cricket'
+    """
+    nodes: dict[str, InterestNode] = {}
+    for slug, parent_slug, depth in _TAXONOMY_SPEC:
+        label = slug.rsplit(".", 1)[-1].replace("_", " ").title()
+        nodes[slug] = InterestNode(
+            interest_id=slug,
+            parent_interest_id=parent_slug,
+            interest_slug=slug,
+            interest_label=label,
+            depth_level=depth,
+            interest_search_query=label,
+        )
+    return nodes
+
+
+def build_world(
+    interest_nodes: dict[str, InterestNode],
+) -> tuple[list[CanonicalStory], list[StoryInterestTag]]:
+    """Build the ~100-story pool and its ancestor-expanded interest tags.
+
+    Each story is matched to exactly one node (its ``_STORY_COUNTS`` bucket) and
+    then ancestor-tagged up to its grandparent by the REAL ``merge_story_tags`` —
+    so a ``sport.cricket.india`` story carries (india, 0), (cricket, 1), (sport, 2)
+    and reaches a broad ``sport`` follower at the lower DepthMatch.
+
+    Args:
+        interest_nodes: The taxonomy map from :func:`build_taxonomy`.
+
+    Returns:
+        ``(stories, story_interest_tags)`` — the deduped pool + all tag payloads.
+
+    Example:
+        >>> nodes = build_taxonomy()
+        >>> stories, tags = build_world(nodes)
+        >>> 90 <= len(stories) <= 110
+        True
+    """
+    stories: list[CanonicalStory] = []
+    tags: list[StoryInterestTag] = []
+    global_index = 0
+
+    for matched_node_id, count in _STORY_COUNTS.items():
+        headline_stub = _HEADLINE_BY_NODE.get(matched_node_id, matched_node_id)
+        for local_index in range(1, count + 1):
+            story_id = f"sim-{matched_node_id}-{local_index:02d}"
+            outlet_count = _OUTLET_CYCLE[global_index % len(_OUTLET_CYCLE)]
+            age_hours = _FRESHNESS_CYCLE_HOURS[
+                global_index % len(_FRESHNESS_CYCLE_HOURS)
+            ]
+            published = SIM_NOW - timedelta(hours=age_hours)
+            stories.append(
+                CanonicalStory(
+                    canonical_story_id=story_id,
+                    canonical_title=f"{headline_stub} update {local_index}",
+                    canonical_url=f"https://sim.news/{story_id}",
+                    canonical_normalized_url=f"https://sim.news/{story_id}",
+                    canonical_published_utc=published,
+                    canonical_primary_outlet_domain="sim.news",
+                    canonical_primary_outlet_name="Sim Wire",
+                    covering_outlets=[f"outlet{i}.news" for i in range(outlet_count)],
+                    story_outlet_count=outlet_count,
+                    canonical_matched_interest_ids=[matched_node_id],
+                )
+            )
+            tags.extend(merge_story_tags(story_id, [matched_node_id], interest_nodes))
+            global_index += 1
+
+    return stories, tags
+
+
+def build_profiles() -> list[SimProfile]:
+    """Build the three stress-test user profiles.
+
+    A — strict cricket.india only (proves: no upward fallback, no exploration).
+    B — broad multi-interest, varied weights (proves: proportional split + 40% cap
+        + niche-reaches-broad via ancestor tags + breaking tier).
+    C — niche Arsenal + crypto, with an adjacent equities exploration seed
+        (proves: a deep niche surfaces + exploration fills ~10%).
+
+    Returns:
+        The three :class:`SimProfile` definitions.
+    """
+    return [
+        SimProfile(
+            profile_key="A",
+            label="Strict cricket fan — follows India cricket ONLY (strict)",
+            interests=[
+                UserProfileInterest(
+                    profile_interest_id="sport.cricket.india",
+                    profile_weight=1.0,
+                    profile_is_strict=True,
+                ),
+            ],
+        ),
+        SimProfile(
+            profile_key="B",
+            label="Broad reader — world-heavy, also sport / AI / a little stocks",
+            interests=[
+                UserProfileInterest(profile_interest_id="world", profile_weight=3.0),
+                UserProfileInterest(profile_interest_id="sport", profile_weight=1.0),
+                UserProfileInterest(profile_interest_id="tech.ai", profile_weight=2.0),
+                UserProfileInterest(
+                    profile_interest_id="markets.stocks", profile_weight=0.5
+                ),
+            ],
+        ),
+        SimProfile(
+            profile_key="C",
+            label="Niche fan — Arsenal + crypto, open to adjacent equities",
+            interests=[
+                UserProfileInterest(
+                    profile_interest_id="sport.soccer.arsenal", profile_weight=2.0
+                ),
+                UserProfileInterest(
+                    profile_interest_id="markets.crypto", profile_weight=1.0
+                ),
+            ],
+            exploration_interest_ids=["markets.stocks"],
+        ),
+    ]
+
+
+def build_exploration_candidates(
+    profile: SimProfile,
+    stories: list[CanonicalStory],
+    story_interest_tags: list[StoryInterestTag],
+    now_utc: datetime = SIM_NOW,
+) -> dict[str, list[ScoredCandidate]]:
+    """Pre-score adjacent (not-followed) interests to seed the exploration slots.
+
+    Mirrors how SP4 supplies ``exploration_candidates_by_interest`` to the
+    allocator: for each adjacent interest the profile is curious about, score the
+    stories tagged to that node at a nominal affinity (0.5) so the allocator can
+    fill the ~10% exploration reserve. Empty when the profile seeds none.
+
+    Args:
+        profile: The simulated user.
+        stories: The story pool.
+        story_interest_tags: All interest tags for the pool.
+        now_utc: The freshness clock (defaults to :data:`SIM_NOW`).
+
+    Returns:
+        ``{adjacent_interest_id: [ScoredCandidate, ...]}`` (descending by score).
+    """
+    if not profile.exploration_interest_ids:
+        return {}
+    tags_by_story: dict[str, dict[str, int]] = {}
+    for tag in story_interest_tags:
+        tags_by_story.setdefault(tag.story_interest_story_id, {})[
+            tag.story_interest_interest_id
+        ] = tag.story_interest_match_depth
+
+    exploration: dict[str, list[ScoredCandidate]] = {}
+    for adjacent_id in profile.exploration_interest_ids:
+        exploration[adjacent_id] = score_stories_for_interest(
+            interest_id=adjacent_id,
+            affinity=0.5,
+            stories=stories,
+            tags_by_story=tags_by_story,
+            now_utc=now_utc,
+        )
+    return exploration

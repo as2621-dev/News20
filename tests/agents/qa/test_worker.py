@@ -38,9 +38,13 @@ def client() -> TestClient:
 @pytest.fixture(autouse=True)
 def _stub_supabase_client(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub the service-role client builder so no env vars / network are needed."""
-    monkeypatch.setattr(
-        worker_main, "_build_service_role_client", lambda: object()
-    )
+    monkeypatch.setattr(worker_main, "_build_service_role_client", lambda: object())
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> None:
+    """Clear the in-memory per-IP rate-limit state so tests don't pollute each other."""
+    worker_main._request_times_by_ip.clear()
 
 
 def _grounded_answer() -> QuestionAnswer:
@@ -62,9 +66,7 @@ def test_happy_path_returns_grounded_answer(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A successful request returns HTTP 200 + the grounded answer with a citation."""
-    monkeypatch.setattr(
-        worker_main, "get_or_load_corpus", lambda **_kwargs: object()
-    )
+    monkeypatch.setattr(worker_main, "get_or_load_corpus", lambda **_kwargs: object())
     monkeypatch.setattr(
         worker_main, "answer_question", AsyncMock(return_value=_grounded_answer())
     )
@@ -139,13 +141,62 @@ def test_missing_supabase_config_returns_http_200_refusal(
     assert response.json()["answer_is_grounded"] is False
 
 
+class TestDeployHardening:
+    """CSO follow-ups: CORS scoped to the app origin + per-IP rate limiting."""
+
+    def test_cors_allows_the_configured_app_origin(self, client: TestClient) -> None:
+        """A preflight from the allowed origin gets it echoed (NOT `*`)."""
+        response = client.options(
+            _QUESTION_PATH,
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        assert response.headers.get("access-control-allow-origin") == (
+            "http://localhost:3000"
+        )
+
+    def test_cors_does_not_allow_an_unlisted_origin(self, client: TestClient) -> None:
+        """A preflight from an unlisted origin is NOT granted access (no wildcard)."""
+        response = client.options(
+            _QUESTION_PATH,
+            headers={
+                "Origin": "https://evil.example",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        assert response.headers.get("access-control-allow-origin") != "*"
+        assert response.headers.get("access-control-allow-origin") != (
+            "https://evil.example"
+        )
+
+    def test_paid_endpoint_is_rate_limited_per_ip(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The Nth+1 request in the window is throttled with HTTP 429 — the interim
+        cost-abuse ceiling on the paid Q&A endpoint (CSO MEDIUM-1)."""
+        monkeypatch.setattr(worker_main, "get_or_load_corpus", lambda **_k: object())
+        monkeypatch.setattr(
+            worker_main, "answer_question", AsyncMock(return_value=_grounded_answer())
+        )
+        limit = worker_main._RATE_LIMIT_PER_MINUTE
+
+        ok_statuses = [
+            client.post(_QUESTION_PATH, json=_BODY).status_code for _ in range(limit)
+        ]
+        throttled = client.post(_QUESTION_PATH, json=_BODY)
+
+        assert all(status == 200 for status in ok_statuses)
+        assert throttled.status_code == 429
+        assert throttled.headers.get("Retry-After") is not None
+
+
 def test_unexpected_answer_error_returns_http_200_refusal(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An unexpected error inside answering → HTTP 200 refusal (never a 5xx)."""
-    monkeypatch.setattr(
-        worker_main, "get_or_load_corpus", lambda **_kwargs: object()
-    )
+    monkeypatch.setattr(worker_main, "get_or_load_corpus", lambda **_kwargs: object())
     monkeypatch.setattr(
         worker_main,
         "answer_question",

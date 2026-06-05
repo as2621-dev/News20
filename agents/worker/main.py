@@ -23,10 +23,13 @@ calls this endpoint and maps ``answer_is_grounded`` to the two visual states.
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from agents.pipeline.llm_clients import LLMClient
@@ -45,6 +48,81 @@ app = FastAPI(title="News20 Worker", version="2b")
 # Reason: the verified-answer cache table (reference/supabase-schema.md story_qa);
 # the (qa_story_id, qa_question_text) UNIQUE constraint is the cache key.
 STORY_QA_TABLE = "story_qa"
+
+# ── Deploy hardening (CSO follow-ups: phase-2b-2c-m2 MEDIUM-1/2 + phase-3 M-1) ──
+# CORS — scope to the app origin via env, NEVER `*` (the worker holds the
+# service-role key). QA_API_ALLOWED_ORIGINS is a comma-separated list; the local
+# Next.js dev origin is the safe default so dev works without config, but a real
+# deploy MUST set it (e.g. the Capacitor app origin / the hosted web origin).
+_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "QA_API_ALLOWED_ORIGINS", "http://localhost:3000"
+    ).split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["content-type", "authorization"],
+    allow_credentials=False,
+)
+
+# Per-IP rate limit on the PAID endpoints (Q&A LLM call + Gemini Live token mint),
+# the interim cost-abuse ceiling until per-user auth+quota lands (phase-3b SP4).
+# Dependency-free in-memory sliding window — correct for a SINGLE worker instance;
+# a multi-instance deploy needs a shared store (Redis) or an authenticated proxy.
+_RATE_LIMIT_PER_MINUTE = int(os.environ.get("QA_RATE_LIMIT_PER_MINUTE", "20"))
+_RATE_LIMIT_WINDOW_SECONDS = 60.0
+_RATE_LIMITED_PREFIXES = ("/api/story/", "/api/voice/live-token")
+_request_times_by_ip: dict[str, list[float]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP for rate limiting (first X-Forwarded-For hop if proxied)."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+@app.middleware("http")
+async def rate_limit_paid_endpoints(request: Request, call_next):
+    """Throttle the paid endpoints per IP (sliding 60s window) → HTTP 429 on excess.
+
+    Only the cost-bearing paths are limited; all other routes pass through. A 429
+    here is a deliberate, honest throttle (Rule 12) — distinct from the Q&A route's
+    HTTP-200 graceful-refusal contract, which covers internal errors, not abuse.
+    """
+    path = request.url.path
+    if request.method == "POST" and path.startswith(_RATE_LIMITED_PREFIXES):
+        now = time.monotonic()
+        client_ip = _client_ip(request)
+        recent = [
+            ts
+            for ts in _request_times_by_ip.get(client_ip, [])
+            if now - ts < _RATE_LIMIT_WINDOW_SECONDS
+        ]
+        if len(recent) >= _RATE_LIMIT_PER_MINUTE:
+            logger.warning(
+                "rate_limit_exceeded",
+                client_ip=client_ip,
+                path=path,
+                limit_per_minute=_RATE_LIMIT_PER_MINUTE,
+                fix_suggestion="Client exceeded the per-IP rate limit; returned 429.",
+            )
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error_code": "rate_limited",
+                    "error_message": "Too many requests; slow down.",
+                },
+                headers={"Retry-After": str(int(_RATE_LIMIT_WINDOW_SECONDS))},
+            )
+        recent.append(now)
+        _request_times_by_ip[client_ip] = recent
+    return await call_next(request)
 
 
 class QuestionRequest(BaseModel):

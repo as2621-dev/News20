@@ -20,10 +20,16 @@ import pytest
 
 from agents.ingestion.models import CanonicalStory, StoryInterestTag
 from agents.pipeline.models import DialogueTurn, DigestScript
-from agents.pipeline.persist import persist_digest, upload_to_bucket
+from agents.pipeline.persist import (
+    PersistResult,
+    _upsert_story_url_aliases,
+    persist_digest,
+    upload_to_bucket,
+)
 from agents.pipeline.persist_helpers import (
     bias_lean_for_domain,
     build_caption_sentence_rows,
+    build_story_url_alias_rows,
     derive_blindspot_lean,
     derive_coverage_counts,
 )
@@ -203,6 +209,69 @@ class TestCaptionMappingLossless:
         )
         rows = build_caption_sentence_rows("dig-1", "s1", track, ["ALEX", "JORDAN"])
         assert [r["anchor_speaker"] for r in rows] == ["ALEX", "JORDAN", "ALEX"]
+
+
+class TestStoryUrlAliases:
+    """D2 (0006): cross-day produce-once identity via story_url_aliases."""
+
+    def test_alias_rows_normalize_dedup_and_fk_story_id(self, canonical_story) -> None:
+        """Every covering-outlet URL → one normalized alias row FK'd to the story.
+        Normalization + dedup must match the resolver's lookup keys exactly, or a
+        re-clustered event won't resolve back."""
+        story = canonical_story.model_copy(
+            update={
+                "member_candidate_ids": [
+                    "http://www.bbc.com/sport/arsenal-liverpool?utm_source=x",  # → https, no www, no utm
+                    "https://reuters.com/markets",
+                    "https://reuters.com/markets",  # duplicate
+                    "",  # blank dropped
+                ],
+            }
+        )
+        rows = build_story_url_alias_rows("story-7", story)
+        urls = {r["alias_normalized_url"] for r in rows}
+        assert urls == {
+            "https://bbc.com/sport/arsenal-liverpool",
+            "https://reuters.com/markets",
+        }
+        assert all(r["alias_story_id"] == "story-7" for r in rows)
+
+    def test_upsert_records_count_on_success(self, canonical_story) -> None:
+        """A successful upsert records the alias count on the audit result."""
+        captured: dict = {}
+
+        class _Q:
+            def upsert(self, rows, **_k):
+                captured["rows"] = rows
+                captured["kwargs"] = _k
+                return self
+
+            def execute(self):
+                return MagicMock(data=captured["rows"])
+
+        class _Client:
+            def table(self, name):
+                assert name == "story_url_aliases"
+                return _Q()
+
+        result = PersistResult(story_id="story-7")
+        _upsert_story_url_aliases(_Client(), "story-7", canonical_story, result)
+        assert result.story_url_alias_count == len(captured["rows"]) > 0
+        # on_conflict targets the PK so a re-seen URL is a no-op, not an error.
+        assert captured["kwargs"].get("on_conflict") == "alias_normalized_url"
+
+    def test_upsert_is_non_fatal_on_error(self, canonical_story) -> None:
+        """If the alias write fails (e.g. 0006 not applied), persist must NOT crash —
+        aliases are an idempotency aid, not story content (degrade to status quo)."""
+
+        class _BrokenClient:
+            def table(self, _name):
+                raise RuntimeError("relation story_url_aliases does not exist")
+
+        result = PersistResult(story_id="story-7")
+        # Must not raise.
+        _upsert_story_url_aliases(_BrokenClient(), "story-7", canonical_story, result)
+        assert result.story_url_alias_count == 0
 
 
 class TestTrustDerivation:

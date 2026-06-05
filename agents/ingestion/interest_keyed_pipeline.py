@@ -22,12 +22,12 @@ Example:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta, timezone
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.ancestor_tagging import merge_story_tags
-from agents.ingestion.dedup import StoryClusterer
+from agents.ingestion.dedup import StoryClusterer, normalize_url
 from agents.ingestion.models import (
     ActiveInterest,
     IngestionResult,
@@ -136,13 +136,15 @@ async def ingest_active_interests(
     clusterer: StoryClusterer | None = None,
     since_utc: datetime | None = None,
     extract_bodies: bool = True,
+    resolve_existing_story_ids: Callable[[list[str]], dict[str, str]] | None = None,
 ) -> IngestionResult:
     """Run one interest-keyed ingestion batch → a deduped, tagged story pool.
 
     Steps: build the active-interest set → search per interest (stamping the
     matched interest on each candidate) → cluster into canonical stories with
-    outlet counts → (optionally) extract each story's body → ancestor-tag each
-    story into ``story_interests`` payloads.
+    outlet counts → resolve cross-day identity (reuse an existing story id when a
+    member URL was seen before) → (optionally) extract each NEW story's body →
+    ancestor-tag each story into ``story_interests`` payloads.
 
     Args:
         followed_interest_ids: All users' followed interest ids (deduped inside).
@@ -151,6 +153,12 @@ async def ingest_active_interests(
         clusterer: Optional StoryClusterer (defaults to one with standard thresholds).
         since_utc: Lower-bound publish time (defaults to ~2 days ago).
         extract_bodies: When True, fetch + extract each canonical story's body.
+        resolve_existing_story_ids: Optional ``(normalized_urls) -> {url: story_id}``
+            cross-day identity resolver (migration 0006 / ``story_url_aliases``).
+            When given, a freshly-clustered story whose ANY member URL is already
+            aliased REUSES that ``story_id`` (so produce-once + don't-repeat hold
+            across days) and SKIPS body extraction (it's already produced). ``None``
+            keeps the function pure (no DB) — the unit-test/fixture path.
 
     Returns:
         An IngestionResult with the canonical pool, story_interest tag payloads,
@@ -199,10 +207,39 @@ async def ingest_active_interests(
     # --- Dedup/cluster into the canonical story pool (with outlet counts) ---
     canonical_stories = clusterer.cluster_candidates(all_candidates)
 
-    # --- Extract each canonical story's body from its representative member ---
+    # --- Cross-day identity: reuse an existing story id when a member URL was seen
+    # before, so a multi-day event keeps ONE id (produce-once + don't-repeat hold).
+    # The newly-derived canonical_story_id is replaced in place, so the ancestor
+    # tags built below FK to the reused id. Already-persisted stories skip the
+    # (paid) body fetch — they will be gated out of production by their digest.
+    already_persisted_ids: set[str] = set()
+    if resolve_existing_story_ids is not None and canonical_stories:
+        member_urls_by_story = {
+            story.canonical_story_id: [
+                normalized
+                for member_url in story.member_candidate_ids
+                if (normalized := normalize_url(member_url))
+            ]
+            for story in canonical_stories
+        }
+        all_urls = sorted(
+            {url for urls in member_urls_by_story.values() for url in urls}
+        )
+        existing_by_url = resolve_existing_story_ids(all_urls) or {}
+        for story in canonical_stories:
+            for url in member_urls_by_story[story.canonical_story_id]:
+                existing_id = existing_by_url.get(url)
+                if existing_id:
+                    story.canonical_story_id = existing_id
+                    already_persisted_ids.add(existing_id)
+                    break
+
+    # --- Extract each NEW canonical story's body from its representative member ---
     if extract_bodies and canonical_stories:
         candidate_by_external_id = {c.candidate_external_id: c for c in all_candidates}
         for story in canonical_stories:
+            if story.canonical_story_id in already_persisted_ids:
+                continue  # already produced on a prior day — skip the paid re-fetch
             representative = candidate_by_external_id.get(
                 story.canonical_representative_external_id
             )
@@ -228,6 +265,7 @@ async def ingest_active_interests(
         failed_interests=failed_interests,
         total_candidates=total_candidates,
         canonical_stories=len(canonical_stories),
+        reused_existing_story_ids=len(already_persisted_ids),
         story_interest_tags=len(story_interest_tags),
     )
     return IngestionResult(

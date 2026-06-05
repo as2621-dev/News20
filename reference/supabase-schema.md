@@ -364,6 +364,20 @@ CREATE INDEX idx_story_interests_interest ON story_interests (story_interest_int
 CREATE INDEX idx_story_interests_story    ON story_interests (story_interest_story_id);
 ```
 
+### `story_url_aliases`  ← **migration 0006 (cross-day produce-once identity)**
+Purpose: map every covering-outlet URL of a produced story to its `stories.story_id`, so a later daily batch that re-clusters the SAME real-world event (a different earliest member → a different freshly-derived `canonical_story_id`) resolves back to the original id. Without it a multi-day story is re-produced (re-TTS/poster/enrich) and re-allocated each day — the user sees it again (don't-repeat keys on `feed_story_id`).
+Maps: written (upsert, non-fatal) by `agents/pipeline/persist.py` (`_upsert_story_url_aliases` ← `build_story_url_alias_rows`); read by the ingest resolver `agents/pipeline/daily_batch.py::build_story_id_resolver`, injected into `agents/ingestion/interest_keyed_pipeline.py::ingest_active_interests(resolve_existing_story_ids=…)`. **Service-role only** — RLS enabled with NO policy (unlike the public-read content tables above); clients never touch it.
+
+```sql
+CREATE TABLE story_url_aliases (
+  alias_normalized_url  text PRIMARY KEY,                          -- normalize_url() of a covering-outlet article URL
+  alias_story_id        text NOT NULL REFERENCES stories (story_id) ON DELETE CASCADE,
+  alias_first_seen_utc  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_story_url_aliases_story ON story_url_aliases (alias_story_id);
+ALTER TABLE story_url_aliases ENABLE ROW LEVEL SECURITY;          -- no policy → service-role-only
+```
+
 ### `anchors`
 Purpose: the two AI anchors with their Gemini TTS voice id and fixed identity colour.
 Maps: `data.js story.anchors[]` (`"ALEX"`, `"JORDAN"`) + `app.js` identity colours `{ ALEX: "#6C8CFF", JORDAN: "#C792EA" }`. Voice ids per `reuse-map.md` (ALEX→`Leda`, JORDAN→`Sadaltager`).

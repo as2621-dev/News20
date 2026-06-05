@@ -97,6 +97,85 @@ def _load_has_current_digest(
     return {str(row["digest_story_id"]): True for row in rows}
 
 
+def _load_prior_feed_story_ids(
+    supabase_client: Any, user_ids: list[str], target_date: date
+) -> dict[str, list[str]]:
+    """Load every active user's prior-feed story ids in ONE query (§3.8).
+
+    Replaces a per-user ``daily_feeds`` read (an N+1) with a single ``.in_()``
+    over all active users, grouped in memory. ``feed_date < target_date`` so only
+    earlier days count as "already shown".
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+        user_ids: The active user ids to load prior feeds for.
+        target_date: The feed date being built (prior = strictly before it).
+
+    Returns:
+        ``{user_id: [prior feed_story_id, ...]}`` (users with none are absent).
+    """
+    if not user_ids:
+        return {}
+    rows = (
+        getattr(
+            supabase_client.table("daily_feeds")
+            .select("feed_user_id,feed_story_id")
+            .in_("feed_user_id", user_ids)
+            .lt("feed_date", target_date.isoformat())
+            .execute(),
+            "data",
+            None,
+        )
+        or []
+    )
+    prior_by_user: dict[str, list[str]] = {}
+    for row in rows:
+        prior_by_user.setdefault(str(row["feed_user_id"]), []).append(
+            str(row["feed_story_id"])
+        )
+    return prior_by_user
+
+
+def build_story_id_resolver(
+    supabase_client: Any,
+) -> Callable[[list[str]], dict[str, str]]:
+    """Build the cross-day story-id resolver the ingest batch injects (0006).
+
+    Returns a callable that, given normalized URLs, returns the subset already
+    aliased to an existing ``stories.story_id`` (one ``.in_()`` query against
+    ``story_url_aliases``). Wire this into
+    ``ingest_active_interests(resolve_existing_story_ids=...)`` in production so a
+    re-clustered multi-day event reuses its original id — keeping produce-once and
+    don't-repeat correct across days.
+
+    Args:
+        supabase_client: Service-role client (bypasses RLS to read aliases).
+
+    Returns:
+        ``(normalized_urls) -> {normalized_url: existing_story_id}``.
+    """
+
+    def _resolve(normalized_urls: list[str]) -> dict[str, str]:
+        if not normalized_urls:
+            return {}
+        rows = (
+            getattr(
+                supabase_client.table("story_url_aliases")
+                .select("alias_normalized_url,alias_story_id")
+                .in_("alias_normalized_url", normalized_urls)
+                .execute(),
+                "data",
+                None,
+            )
+            or []
+        )
+        return {
+            str(row["alias_normalized_url"]): str(row["alias_story_id"]) for row in rows
+        }
+
+    return _resolve
+
+
 def load_active_user_inputs(
     supabase_client: Any,
     target_date: date,
@@ -142,26 +221,19 @@ def load_active_user_inputs(
             )
         )
 
+    # Reason: load EVERY active user's prior-feed story ids in ONE query (the §3.8
+    # don't-repeat exclusion), grouped in memory — not one query per user. At 100
+    # users this is 1 round-trip instead of 100 (the old per-user loop was an N+1).
+    prior_story_ids_by_user = _load_prior_feed_story_ids(
+        supabase_client, list(interests_by_user.keys()), target_date
+    )
     inputs: list[ActiveUserFeedInputs] = []
     for user_id, profile_interests in interests_by_user.items():
-        prior_rows = (
-            getattr(
-                supabase_client.table("daily_feeds")
-                .select("feed_story_id")
-                .eq("feed_user_id", user_id)
-                .lt("feed_date", target_date.isoformat())
-                .execute(),
-                "data",
-                None,
-            )
-            or []
-        )
-        prior_story_ids = [str(row["feed_story_id"]) for row in prior_rows]
         inputs.append(
             ActiveUserFeedInputs(
                 active_user_id=user_id,
                 profile_interests=profile_interests,
-                prior_feed_story_ids=prior_story_ids,
+                prior_feed_story_ids=prior_story_ids_by_user.get(user_id, []),
                 exploration_candidates_by_interest=exploration_by_user.get(user_id, {}),
             )
         )
@@ -177,12 +249,21 @@ async def _produce_story_pool(
     supabase_client: Any,
     poster_genai_client: Any | None,
     max_concurrent: int,
+    enable_detail_enrichment: bool = False,
+    interest_segment_lookup: dict[str, str] | None = None,
+    outlets_lookup: dict[str, str] | None = None,
+    gdelt_adapter: Any | None = None,
 ) -> list[CanonicalStory]:
     """Produce each gated story into a digest, bounded-concurrently (stage C).
 
     Returns the subset of stories that published (a verification-halt or a render
     error skips that story but never aborts the batch — the feed still builds from
     whatever produced).
+
+    The Phase 2c detail-enrichment lookups (``enable_detail_enrichment`` +
+    ``interest_segment_lookup`` / ``outlets_lookup`` / ``gdelt_adapter``) are passed
+    straight through to ``orchestrate_story`` — injected so the batch is
+    enrichment-capable without this module reading the DB itself.
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     tags_by_story: dict[str, list[StoryInterestTag]] = {}
@@ -200,6 +281,10 @@ async def _produce_story_pool(
                     supabase_client=supabase_client,
                     poster_genai_client=poster_genai_client,
                     story_id=story.canonical_story_id,
+                    enable_detail_enrichment=enable_detail_enrichment,
+                    interest_segment_lookup=interest_segment_lookup,
+                    outlets_lookup=outlets_lookup,
+                    gdelt_adapter=gdelt_adapter,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error(
@@ -227,6 +312,10 @@ async def run_daily_pipeline(
     now_utc: datetime | None = None,
     since_utc: datetime | None = None,
     max_concurrent_productions: int = DEFAULT_MAX_CONCURRENT_PRODUCTIONS,
+    enable_detail_enrichment: bool = False,
+    interest_segment_lookup: dict[str, str] | None = None,
+    outlets_lookup: dict[str, str] | None = None,
+    gdelt_adapter: Any | None = None,
 ) -> DailyPipelineResult:
     """Run the full daily personalized-feed batch end-to-end (stages A–E).
 
@@ -248,6 +337,17 @@ async def run_daily_pipeline(
         now_utc: Time for freshness + ``profile_updated_at`` (defaults to utcnow).
         since_utc: Only aggregate signals at/after this time (stage A).
         max_concurrent_productions: Bounded fan-out width for stage C.
+        enable_detail_enrichment: Phase 2c gate — when True, each produced story
+            also gets grounded detail enrichment + the GDELT coverage census.
+            Defaults False (the M1 produce path) until the production wiring passes
+            the lookups below.
+        interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
+            story's ``story_segment_slug`` (and the enrichment's analytic kind /
+            coverage mode). Injected per batch; ``None`` → ``wildcard`` fallback.
+        outlets_lookup: ``{outlet_domain: bias_lean}`` for the GDELT coverage
+            census (with ``gdelt_adapter``); ``None`` skips the census.
+        gdelt_adapter: The SHARED ``GdeltDocAdapter`` (honors the throttle) for the
+            coverage census; ``None`` skips it.
 
     Returns:
         A :class:`DailyPipelineResult` summarizing every stage.
@@ -278,6 +378,10 @@ async def run_daily_pipeline(
         supabase_client=supabase_client,
         poster_genai_client=poster_genai_client,
         max_concurrent=max_concurrent_productions,
+        enable_detail_enrichment=enable_detail_enrichment,
+        interest_segment_lookup=interest_segment_lookup,
+        outlets_lookup=outlets_lookup,
+        gdelt_adapter=gdelt_adapter,
     )
 
     # ── Stages D+E — score per user + allocate ~30-slot daily_feeds ───────────

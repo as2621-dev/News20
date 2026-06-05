@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import pytest
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
+from agents.ingestion.dedup import normalize_url
 from agents.ingestion.interest_keyed_pipeline import (
     build_active_interest_set,
     ingest_active_interests,
@@ -166,3 +167,97 @@ class TestIngestActiveInterests:
         )
         assert adapter.extract_calls == 0
         assert result.canonical_stories[0].canonical_body_text is None
+
+
+class _UrlIdAdapter(BaseNewsAdapter):
+    """Adapter mirroring PRODUCTION: candidate_external_id == candidate_url
+    (GDELT sets both to the article URL, gdelt_doc.py:313–315). This is what makes
+    ``member_candidate_ids`` the member URLs the cross-day resolver looks up.
+    """
+
+    def __init__(self) -> None:
+        self.extract_calls = 0
+
+    async def search(self, search_query, since_utc, **kwargs):
+        if search_query != "Arsenal FC":
+            return []
+        return [
+            CandidateStory(
+                candidate_external_id="https://cnn.com/arsenal",
+                candidate_title="Arsenal win at the Emirates",
+                candidate_url="https://cnn.com/arsenal",
+                candidate_outlet_domain="cnn.com",
+                candidate_published_utc=_NOW,
+            ),
+            CandidateStory(
+                candidate_external_id="https://bbc.com/arsenal",
+                candidate_title="Arsenal win at the Emirates!",
+                candidate_url="https://bbc.com/arsenal",
+                candidate_outlet_domain="bbc.com",
+                candidate_published_utc=_EARLIER,
+            ),
+        ]
+
+    async def extract_body(self, candidate, **kwargs):
+        self.extract_calls += 1
+        candidate.candidate_body_text = f"Body for {candidate.candidate_url}"
+        return candidate
+
+
+class TestCrossDayIdentityResolver:
+    """D2: a re-clustered multi-day event reuses its original story id (0006).
+
+    WHY this matters: without it, tomorrow's batch derives a NEW
+    ``canonical_story_id`` for the same event, the produce-once gate misses, the
+    story is re-produced (paid) AND re-allocated — so the user sees it again
+    (don't-repeat keys on the story id). Reuse keeps one id per event across days.
+    """
+
+    @pytest.mark.asyncio
+    async def test_resolver_reuses_existing_id_and_skips_extraction(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        adapter = _UrlIdAdapter()
+        # The resolver knows one of the Arsenal event's member URLs was already
+        # persisted yesterday as story id 'EXISTING-9'.
+        existing = {normalize_url("https://bbc.com/arsenal"): "EXISTING-9"}
+
+        def resolve(normalized_urls):
+            return {u: existing[u] for u in normalized_urls if u in existing}
+
+        result = await ingest_active_interests(
+            [interest_ids["arsenal"]],
+            interest_nodes,
+            adapter,
+            resolve_existing_story_ids=resolve,
+        )
+
+        arsenal = result.canonical_stories[0]
+        # The freshly-derived id is REPLACED with yesterday's persisted id …
+        assert arsenal.canonical_story_id == "EXISTING-9"
+        # … the body fetch is SKIPPED (already produced — saves the paid re-fetch) …
+        assert adapter.extract_calls == 0
+        assert arsenal.canonical_body_text is None
+        # … and the ancestor tags FK to the reused id (so scoring/allocation align).
+        assert all(
+            tag.story_interest_story_id == "EXISTING-9"
+            for tag in result.story_interest_tags
+        )
+
+    @pytest.mark.asyncio
+    async def test_unknown_event_mints_new_id_and_extracts(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """A first-seen event (no alias hit) keeps its minted id and IS extracted —
+        the resolver must not suppress genuinely new stories."""
+        adapter = _UrlIdAdapter()
+        result = await ingest_active_interests(
+            [interest_ids["arsenal"]],
+            interest_nodes,
+            adapter,
+            resolve_existing_story_ids=lambda _urls: {},
+        )
+        arsenal = result.canonical_stories[0]
+        assert not arsenal.canonical_story_id.startswith("EXISTING")
+        assert adapter.extract_calls == 1
+        assert arsenal.canonical_body_text is not None
