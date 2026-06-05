@@ -32,6 +32,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InterestSelection } from "@/components/onboarding/InterestChips";
 import { logger } from "@/lib/logger";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { FollowSelection, FollowSource } from "@/types/picker";
 
 /**
  * Default `profile_weight` by selection depth (phase Open Q1). Deeper picks are
@@ -268,6 +269,227 @@ export async function persistInterestProfile(
   logger.info("persist_interest_profile_completed", {
     persisted_count: result.persisted_count,
     unpersisted_count: result.unpersisted_customs.length,
+  });
+  return result;
+}
+
+// ─── Phase 5 SP4 — recursive-picker follows persistence ──────────────────────
+//
+// The recursive picker (Phase 5) produces a flat, canonical-deduped list of
+// {@link FollowSelection}s (one entry per real-world follow — see
+// `createSelectionStore().all()`). This is a DIFFERENT shape from the chip
+// onboarding's {@link InterestSelection}, and writes to TWO axes:
+//   - TOPIC follows  → `user_interest_profile` (the ranker already reads it),
+//     canonicalized against the public-read `interests` tree (reusing
+//     {@link findCanonicalInterest}); a topic that matches NOTHING is surfaced
+//     in `unpersisted`, never orphaned (mirrors the custom-interest handling).
+//   - ENTITY follows → the new `user_entity_follows` table (migration 0007),
+//     weighted by `follow_source` (the §7 intent signal: custom > more ≥ seed).
+//
+// Free-text customs (`kind === 'freetext'`) have NO `entities` row, and
+// `user_entity_follows.entity_id` is a NOT-NULL FK → they CANNOT be stored
+// without orphaning. They are surfaced in `unpersisted` (never dropped silently)
+// exactly like the unmatched chip customs above.
+
+/**
+ * Follow-weight by `follow_source` — the §7 intent signal (`reference/ranking-spec.md`
+ * §7): a `custom` follow (the user typed it) is higher-intent than a seed/more tap, so
+ * it weights MORE heavily. The single tunable map (not scattered across call-sites) so
+ * the weighting is changed in ONE place. Invariant: `custom > more ≥ seed`.
+ */
+export const ENTITY_FOLLOW_WEIGHT_BY_SOURCE: Readonly<Record<FollowSource, number>> = {
+  seed: 1.0,
+  more: 1.0,
+  custom: 2.0,
+};
+
+/** Resolve the `follow_weight` for an entity follow from its `source` (§7 intent signal). */
+function weightFor(source: FollowSource): number {
+  return ENTITY_FOLLOW_WEIGHT_BY_SOURCE[source];
+}
+
+/** One `user_entity_follows` row to upsert (migration 0007 column shape). */
+interface EntityFollowUpsertRow {
+  follow_user_id: string;
+  entity_id: string;
+  follow_path: string[];
+  follow_source: FollowSource;
+  follow_weight: number;
+}
+
+/** Typed outcome of a {@link persistPickerFollows} run. */
+export interface PersistPickerResult {
+  /** How many `user_interest_profile` rows were upserted (canonicalized topic follows). */
+  profile_count: number;
+  /** How many `user_entity_follows` rows were upserted (registry-resolved entity follows). */
+  entity_follow_count: number;
+  /**
+   * Follow labels that could NOT be persisted: a topic matching no taxonomy node, or a
+   * free-text custom with no registry entity (the NOT-NULL `entity_id` FK forbids a row).
+   * The caller surfaces these rather than dropping them silently (Rule 12).
+   */
+  unpersisted: string[];
+}
+
+/**
+ * Persist a completed recursive-picker selection for one user, scoped to their
+ * `auth.uid()` (= `userId`).
+ *
+ * Writes, in order: each TOPIC follow (canonicalized against `interests`) as a
+ * `user_interest_profile` upsert; each registry-resolved ENTITY follow as a
+ * `user_entity_follows` upsert (weighted by `source`); then the
+ * `users.user_onboarded_at` stamp. An EMPTY `selections` array is a valid skip: it
+ * writes NO profile/follow rows but STILL stamps onboarded_at (the picker is
+ * skippable — spec §11) and does NOT error.
+ *
+ * Free-text customs (`kind === 'freetext'`) and topic follows matching no taxonomy
+ * node are surfaced in {@link PersistPickerResult.unpersisted} — never written as
+ * orphan rows (Rule 12).
+ *
+ * **v1 simplification (documented, not a silent drop):** `user_entity_follows.follow_path`
+ * is a single `text[]`, so only the PRIMARY `selection.path` is stored. When a canonical
+ * entity was reached via several routes (`selection.extraPaths`), those alternate paths
+ * are NOT persisted in v1 — the schema is one path column; multi-path persistence is a
+ * tracked follow-up.
+ *
+ * @param userId - The authed user's id (`auth.uid()`); every row is scoped to it.
+ * @param selections - The canonical, deduped follows from `createSelectionStore().all()`.
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared
+ *   authed browser client.
+ * @returns A {@link PersistPickerResult} — topic rows + entity rows + any unpersisted labels.
+ * @throws If any write fails (errors are surfaced, never swallowed — Rule 12).
+ *
+ * @example
+ * const result = await persistPickerFollows(session.user.id, store.all());
+ * result.profile_count;        // 2  — canonicalized topic follows
+ * result.entity_follow_count;  // 5  — registry entity follows
+ * result.unpersisted;          // ["formula 1"] — free-text/unmatched, surface to the user
+ */
+export async function persistPickerFollows(
+  userId: string,
+  selections: FollowSelection[],
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<PersistPickerResult> {
+  logger.info("persist_picker_follows_started", {
+    selection_count: selections.length,
+    topic_count: selections.filter((selection) => selection.type === "topic").length,
+    entity_count: selections.filter((selection) => selection.type === "entity").length,
+  });
+
+  const profileRows: ProfileUpsertRow[] = [];
+  const entityRows: EntityFollowUpsertRow[] = [];
+  const unpersisted: string[] = [];
+
+  for (const selection of selections) {
+    if (selection.type === "topic") {
+      // Topic follows reach the ranker via `user_interest_profile`. Canonicalize the
+      // label against the public-read `interests` tree; a miss is surfaced (never an
+      // orphan row), mirroring the chip-onboarding custom handling.
+      const match = await findCanonicalInterest(client, selection.label);
+      if (match) {
+        profileRows.push({
+          profile_user_id: userId,
+          profile_interest_id: match.interest_id,
+          profile_weight: resolveProfileWeight(match.depth_level),
+          // The picker is a typed pick pointing at an existing node, not a strict-only.
+          profile_source: "typed",
+          profile_is_strict: false,
+        });
+      } else {
+        unpersisted.push(selection.label);
+        logger.warn("picker_topic_unpersisted_no_match", {
+          label: selection.label,
+          fix_suggestion:
+            "Novel topic nodes need a service-role/migration follow-up to seed `interests` (v1 limitation).",
+        });
+      }
+      continue;
+    }
+
+    // Entity follows. Free-text customs have NO `entities` row → the NOT-NULL
+    // `entity_id` FK forbids a row. Surface them instead of orphaning (Rule 12).
+    if (selection.kind === "freetext") {
+      unpersisted.push(selection.label);
+      logger.warn("picker_freetext_unpersisted_no_entity", {
+        label: selection.label,
+        follow_id: selection.followId,
+        fix_suggestion:
+          "Free-text customs have no entities row; resolving them needs a service-role registry seed (v1 limitation).",
+      });
+      continue;
+    }
+
+    // Registry-resolved entity follow → one `user_entity_follows` row. v1 stores ONLY the
+    // primary `path` (the schema is one text[]; `extraPaths` are a documented v1 omission).
+    entityRows.push({
+      follow_user_id: userId,
+      entity_id: selection.followId,
+      follow_path: selection.path,
+      follow_source: selection.source,
+      follow_weight: weightFor(selection.source),
+    });
+  }
+
+  // 1. Topic follows → user_interest_profile (upsert on the unique pair).
+  if (profileRows.length > 0) {
+    const { error: profileError } = await client
+      .from("user_interest_profile")
+      .upsert(profileRows, { onConflict: "profile_user_id,profile_interest_id" });
+    if (profileError) {
+      logger.error("persist_picker_profile_upsert_failed", {
+        error_message: profileError.message,
+        fix_suggestion: "Confirm the user is authed and user_interest_profile owner-all RLS permits the write.",
+      });
+      throw new Error(
+        `Failed to persist picker topic follows: ${profileError.message}. ` +
+          "fix_suggestion: confirm the user is authed and RLS permits the owner write.",
+      );
+    }
+  }
+
+  // 2. Entity follows → user_entity_follows (upsert on the PK pair — idempotent toggle).
+  if (entityRows.length > 0) {
+    const { error: entityError } = await client
+      .from("user_entity_follows")
+      .upsert(entityRows, { onConflict: "follow_user_id,entity_id" });
+    if (entityError) {
+      logger.error("persist_picker_entity_follows_upsert_failed", {
+        error_message: entityError.message,
+        fix_suggestion: "Confirm migration 0007 applied and user_entity_follows owner-all RLS permits the write.",
+      });
+      throw new Error(
+        `Failed to persist picker entity follows: ${entityError.message}. ` +
+          "fix_suggestion: confirm migration 0007 applied and RLS permits the owner write.",
+      );
+    }
+  }
+
+  // 3. Stamp onboarding completion on the user's own row — ALWAYS (even on a skip), so
+  // the onboarded-skip gate works for a zero-follow user (spec §11 skippable).
+  const { error: onboardedError } = await client
+    .from("users")
+    .update({ user_onboarded_at: new Date().toISOString() })
+    .eq("user_id", userId);
+  if (onboardedError) {
+    logger.error("persist_picker_user_onboarded_at_failed", {
+      error_message: onboardedError.message,
+      fix_suggestion: "Confirm users update-self RLS permits the write and the users row exists (handle_new_user).",
+    });
+    throw new Error(
+      `Failed to stamp user_onboarded_at: ${onboardedError.message}. ` +
+        "fix_suggestion: confirm users update-self RLS permits the write.",
+    );
+  }
+
+  const result: PersistPickerResult = {
+    profile_count: profileRows.length,
+    entity_follow_count: entityRows.length,
+    unpersisted,
+  };
+  logger.info("persist_picker_follows_completed", {
+    profile_count: result.profile_count,
+    entity_follow_count: result.entity_follow_count,
+    unpersisted_count: result.unpersisted.length,
   });
   return result;
 }
