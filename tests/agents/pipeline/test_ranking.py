@@ -12,19 +12,27 @@ Score = (Affinity × DepthMatch)·0.5 + Importance·0.3 + Freshness·0.2
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.pipeline import daily_batch
 from agents.pipeline.stages.ranking import (
     AFFINITY_WEIGHT,
     DEPTH_MATCH_BY_DEPTH,
+    ENTITY_BONUS_WEIGHT,
     FRESHNESS_WEIGHT,
     IMPORTANCE_WEIGHT,
+    FollowedEntity,
     UserProfileInterest,
+    assign_category,
     compute_story_score,
+    entity_title_match,
     normalize_affinities,
+    normalize_entity_follow_weights,
+    score_and_classify_for_user,
     score_candidates_for_user,
 )
 
@@ -35,11 +43,12 @@ def _story(
     story_id: str,
     outlet_count: int,
     published: datetime = _NOW,
+    title: str | None = None,
 ) -> CanonicalStory:
-    """Build a minimal canonical story with a given importance/freshness."""
+    """Build a minimal canonical story with a given importance/freshness/title."""
     return CanonicalStory(
         canonical_story_id=story_id,
-        canonical_title=f"Headline {story_id}",
+        canonical_title=title if title is not None else f"Headline {story_id}",
         canonical_url=f"https://example.com/{story_id}",
         canonical_normalized_url=f"https://example.com/{story_id}",
         canonical_published_utc=published,
@@ -214,3 +223,577 @@ class TestAffinityDominantOrdering:
         bucket = candidates["int-a"]
         assert [c.story_id for c in bucket] == ["hi", "lo"]
         assert bucket[0].score >= bucket[1].score
+
+
+# ── phase-5a SP2: entity-aware Score + story→category classifier ──────────────
+
+# The real seeded Semiconductors leaf (interests.sql) — a Nvidia earnings story is
+# leaf-tagged here. Its slug root 'business' maps up to the 'markets' screen
+# category (categories.SLUG_TO_CATEGORY), so the happy-path DoD lands in markets.
+_SEMIS_INTEREST_ID = "int-semis"
+_SEMIS_NODE = InterestNode(
+    interest_id=_SEMIS_INTEREST_ID,
+    parent_interest_id=None,
+    interest_slug="business.equities.semis",
+    interest_label="Semiconductors",
+    depth_level=2,
+)
+
+# The real seeded Nvidia entity identity (entities.sql): a 'company' with NVDA.
+_NVIDIA = FollowedEntity(
+    entity_id="tech/semiconductors-chips/companies/nvidia",
+    entity_label="Nvidia",
+    entity_ticker="NVDA",
+    entity_kind="company",
+    follow_weight=1.0,
+)
+
+
+def _semis_tag(story_id: str, depth: int = 0) -> StoryInterestTag:
+    return StoryInterestTag(
+        story_interest_story_id=story_id,
+        story_interest_interest_id=_SEMIS_INTEREST_ID,
+        story_interest_match_depth=depth,
+    )
+
+
+class TestEntityTitleMatch:
+    """Whole-word entity matching — the false-positive guard (Rule 9).
+
+    WHY: the entity signal must be a *precise* lift, not a substring scattergun.
+    If matching degraded to substring containment, "Meta" would fire on
+    "metabolism" and a 2-letter ticker would fire on any headline — drowning the
+    Affinity×Depth signal the spec is built to protect. These tests fail the
+    moment the matcher drops its word boundaries or the company-ticker gate.
+    """
+
+    def test_label_matches_as_whole_word(self) -> None:
+        """A followed label hits when it appears as a whole word in the title."""
+        story = _story("s", 6, title="Nvidia Q3 earnings beat expectations")
+        matched = entity_title_match(story, [_NVIDIA])
+        assert [e.entity_id for e in matched] == [_NVIDIA.entity_id]
+
+    def test_label_does_not_match_substring(self) -> None:
+        """'Meta' must NOT fire on 'metabolism' — the \\b boundaries are load-bearing."""
+        meta = FollowedEntity(
+            entity_id="e-meta",
+            entity_label="Meta",
+            entity_kind="company",
+            entity_ticker="META",
+        )
+        story = _story("s", 6, title="New study on human metabolism and diet")
+        assert entity_title_match(story, [meta]) == []
+
+    def test_company_ticker_matches_as_whole_word(self) -> None:
+        """A company ticker (NVDA) matches as a whole word even without the label."""
+        story = _story("s", 6, title="Chip rally lifts NVDA to a record high")
+        matched = entity_title_match(story, [_NVIDIA])
+        assert [e.entity_id for e in matched] == [_NVIDIA.entity_id]
+
+    def test_noncompany_ticker_is_ignored(self) -> None:
+        """A NON-company entity's ticker must never match — the kind gate (DoD).
+
+        WHY: a person/genre entity carrying the 'ticker' AI would otherwise boost
+        every generic 'AI' headline. The gate restricts ticker matching to
+        entity_kind == 'company'.
+        """
+        ai_person = FollowedEntity(
+            entity_id="e-ai-person",
+            entity_label="Some Analyst",
+            entity_kind="person",
+            entity_ticker="AI",
+        )
+        story = _story("s", 6, title="AI adoption accelerates across industries")
+        assert entity_title_match(story, [ai_person]) == []
+
+    def test_company_ticker_ai_still_word_bounded(self) -> None:
+        """Even a company ticker 'AI' is whole-word — it must not hit 'explainable'.
+
+        WHY: residual short-ticker risk (AI/ON/ALL) is bounded by \\b, not removed.
+        'AI' as a standalone word still fires; embedded letters do not.
+        """
+        c3 = FollowedEntity(
+            entity_id="e-c3ai",
+            entity_label="C3 dot ai",  # label that won't appear verbatim
+            entity_kind="company",
+            entity_ticker="AI",
+        )
+        embedded = _story("s1", 6, title="The most explainable model yet")
+        standalone = _story("s2", 6, title="Shares of AI jump on the deal")
+        assert entity_title_match(embedded, [c3]) == []
+        assert [e.entity_id for e in entity_title_match(standalone, [c3])] == ["e-c3ai"]
+
+    def test_dedupes_same_entity_followed_via_multiple_paths(self) -> None:
+        """One logical entity followed via N paths bonuses ONCE (identity dedup).
+
+        WHY: Nvidia is 3 entities rows (AI / business / tech paths) sharing
+        label+ticker+kind. Without identity dedup a story would be double-counted;
+        the matcher must collapse them to one, keeping the strongest follow_weight.
+        """
+        nvidia_ai = _NVIDIA.model_copy(
+            update={"entity_id": "ai/.../nvidia", "follow_weight": 1.0}
+        )
+        nvidia_biz = _NVIDIA.model_copy(
+            update={"entity_id": "business/.../nvidia", "follow_weight": 3.0}
+        )
+        story = _story("s", 6, title="Nvidia unveils its next GPU")
+        matched = entity_title_match(story, [nvidia_ai, nvidia_biz])
+        assert len(matched) == 1
+        # The higher-weight path is the kept representative.
+        assert matched[0].follow_weight == 3.0
+
+
+class TestEntityBonusScore:
+    """The additive EntityBonus on the Score — the happy + edge + custom>seed DoD."""
+
+    def _profile_and_nodes(self):
+        user = [
+            UserProfileInterest(
+                profile_interest_id=_SEMIS_INTEREST_ID, profile_weight=3.0
+            )
+        ]
+        nodes = {_SEMIS_INTEREST_ID: _SEMIS_NODE}
+        return user, nodes
+
+    def test_nvidia_follower_scores_strictly_higher_and_lands_in_markets(self) -> None:
+        """HAPPY DoD: a Nvidia follower's 'Nvidia Q3 earnings beat' scores strictly
+        higher than the same story WITHOUT the entity bonus, AND classifies into
+        'markets'.
+
+        WHY: this is the whole point of the phase — a followed entity must
+        measurably lift its story within the user's category. If the bonus were
+        non-additive (or zero), the two scores would tie and the test fails.
+        """
+        user, nodes = self._profile_and_nodes()
+        story = _story("nvda-earnings", 6, title="Nvidia Q3 earnings beat estimates")
+        tags = [_semis_tag("nvda-earnings")]
+
+        with_entity = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[_NVIDIA],
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+        baseline = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[],  # no entities → no bonus
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+
+        boosted = with_entity["markets"][0]
+        plain = baseline["markets"][0]
+        # Best-fit category is markets (business-rooted leaf tag).
+        assert boosted.feed_category == "markets"
+        assert boosted.matched_entity_id == _NVIDIA.entity_id
+        # Strictly higher, and the lift is exactly the entity bonus term.
+        assert boosted.score > plain.score
+        assert boosted.entity_bonus == pytest.approx(ENTITY_BONUS_WEIGHT)
+        assert boosted.score == pytest.approx(plain.score + ENTITY_BONUS_WEIGHT)
+        # The base α/β/γ terms are untouched (only the additive term differs).
+        assert boosted.affinity == plain.affinity
+        assert boosted.importance == plain.importance
+        assert boosted.freshness == plain.freshness
+
+    def test_no_matching_entity_is_byte_identical_to_baseline(self) -> None:
+        """EDGE DoD: a follower whose entities match NO story gets identical scores.
+
+        WHY: the bonus must be inert when nothing matches — an entity follow can
+        never *lower* or perturb a non-matching story's score. The two candidate
+        sets must be equal field-for-field.
+        """
+        user, nodes = self._profile_and_nodes()
+        story = _story("amd-news", 6, title="AMD reveals a new server chip")
+        tags = [_semis_tag("amd-news")]
+
+        with_entity = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[_NVIDIA],  # Nvidia does not appear in the title
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+        baseline = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[],
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+        boosted = with_entity["markets"][0]
+        plain = baseline["markets"][0]
+        assert boosted.entity_bonus == 0.0
+        assert boosted.matched_entity_id is None
+        assert boosted.score == pytest.approx(plain.score)
+        assert boosted.model_dump() == plain.model_dump()
+
+    def test_custom_source_follow_beats_seed_source_follow(self) -> None:
+        """CUSTOM>SEED DoD: a custom-source follow yields a LARGER bonus than a
+        seed-source follow on the same story.
+
+        WHY: custom is the highest-intent signal (0007 design). The DB stores
+        follow_weight=1.0 for both, so the loader encodes the differential — here
+        the FollowedEntity weights stand in for that loader output (custom weighted
+        3.0 vs seed 1.0). Max-normalization then makes the custom story reach the
+        full ENTITY_BONUS_WEIGHT while the seed story gets a fraction of it.
+
+        A user follows TWO entities — a custom-weighted one and a seed-weighted one
+        — and we compare the bonus each earns on its own matching story.
+        """
+        user = [
+            UserProfileInterest(
+                profile_interest_id=_SEMIS_INTEREST_ID, profile_weight=3.0
+            )
+        ]
+        nodes = {_SEMIS_INTEREST_ID: _SEMIS_NODE}
+        custom_entity = FollowedEntity(
+            entity_id="e-custom",
+            entity_label="Nvidia",
+            entity_ticker="NVDA",
+            entity_kind="company",
+            follow_weight=3.0,  # loader-applied custom multiplier
+        )
+        seed_entity = FollowedEntity(
+            entity_id="e-seed",
+            entity_label="Intel",
+            entity_ticker="INTC",
+            entity_kind="company",
+            follow_weight=1.0,  # loader-applied seed multiplier
+        )
+        custom_story = _story("c", 6, title="Nvidia ships record GPUs")
+        seed_story = _story("s", 6, title="Intel delays its next node")
+        tags = [_semis_tag("c"), _semis_tag("s")]
+
+        buckets = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[custom_entity, seed_entity],
+            stories=[custom_story, seed_story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+        by_story = {c.story_id: c for c in buckets["markets"]}
+        # Custom follow (normalized weight 1.0) earns the full bonus; seed (1/3) less.
+        assert by_story["c"].entity_bonus == pytest.approx(ENTITY_BONUS_WEIGHT)
+        assert by_story["s"].entity_bonus == pytest.approx(ENTITY_BONUS_WEIGHT / 3.0)
+        assert by_story["c"].entity_bonus > by_story["s"].entity_bonus
+
+    def test_strongest_matching_entity_wins_not_the_sum(self) -> None:
+        """Two distinct follows matching one story → single (max) bonus, not a sum.
+
+        WHY: a story is one lift, not multiply-boosted for unrelated follows — else
+        a story matching several follows could leapfrog the whole feed.
+        """
+        a = FollowedEntity(
+            entity_id="e-a",
+            entity_label="Apple",
+            entity_kind="company",
+            follow_weight=1.0,
+        )
+        b = FollowedEntity(
+            entity_id="e-b",
+            entity_label="Google",
+            entity_kind="company",
+            follow_weight=1.0,
+        )
+        story = _story("s", 6, title="Apple and Google announce a partnership")
+        weights = normalize_entity_follow_weights([a, b])
+        # Both normalize to 1.0; the bonus is one ENTITY_BONUS_WEIGHT, not double.
+        from agents.pipeline.stages.ranking import compute_entity_bonus
+
+        bonus, matched_id = compute_entity_bonus(story, [a, b], weights)
+        assert bonus == pytest.approx(ENTITY_BONUS_WEIGHT)
+        assert matched_id in {"e-a", "e-b"}
+
+
+class TestNormalizeEntityFollowWeights:
+    """Max-normalization mirrors normalize_affinities exactly (Rule 9)."""
+
+    def test_max_normalization_scales_top_follow_to_one(self) -> None:
+        """The strongest follow reaches 1.0; the rest scale relative to it."""
+        weights = normalize_entity_follow_weights(
+            [
+                FollowedEntity(
+                    entity_id="a",
+                    entity_label="A",
+                    entity_kind="company",
+                    follow_weight=3.0,
+                ),
+                FollowedEntity(
+                    entity_id="b",
+                    entity_label="B",
+                    entity_kind="team",
+                    follow_weight=1.0,
+                ),
+            ]
+        )
+        assert weights["a"] == 1.0
+        assert weights["b"] == pytest.approx(1.0 / 3.0)
+
+    def test_empty_follows_return_empty(self) -> None:
+        """No follows → no weights (the no-entity baseline path)."""
+        assert normalize_entity_follow_weights([]) == {}
+
+
+class TestAssignCategory:
+    """Single best-fit classification — lowest match_depth wins (Rule 9).
+
+    WHY: clean 30-slot accounting requires EXACTLY one category per story. The
+    lowest-match_depth tag is the most specific hit, so its category is the truest
+    fit — a story leaf-tagged in sport but grandparent-tagged in world must land in
+    sport, not world. If the rule used the wrong extreme (highest depth), the test
+    flips and fails.
+    """
+
+    def test_lowest_depth_tag_decides_category(self) -> None:
+        """A leaf (depth 0) sport tag beats a grandparent (depth 2) world tag."""
+        nodes = {
+            "int-cricket": InterestNode(
+                interest_id="int-cricket",
+                parent_interest_id=None,
+                interest_slug="sport.cricket.india",
+                interest_label="India",
+            ),
+            "int-world": InterestNode(
+                interest_id="int-world",
+                parent_interest_id=None,
+                interest_slug="world",
+                interest_label="World",
+            ),
+        }
+        tags_by_story = {
+            "s1": {"int-cricket": 0, "int-world": 2},  # leaf sport vs grandparent world
+        }
+        assert assign_category("s1", tags_by_story, nodes) == "sport"
+
+    def test_unknown_root_slug_falls_back_to_culture(self) -> None:
+        """A slug whose root is not mapped falls back to the culture catch-all."""
+        nodes = {
+            "int-x": InterestNode(
+                interest_id="int-x",
+                parent_interest_id=None,
+                interest_slug="obscure.thing",
+                interest_label="Obscure",
+            )
+        }
+        assert assign_category("s1", {"s1": {"int-x": 0}}, nodes) == "culture"
+
+    def test_no_tags_falls_back_to_culture_not_crash(self) -> None:
+        """Edge: an untagged story classifies to the default, never raising."""
+        assert assign_category("missing", {}, {}) == "culture"
+
+
+class TestScoreAndClassifyReturnsAllEightKeys:
+    """The SP3 handoff contract — all 8 keys, source buckets empty, breaking empty."""
+
+    def test_returns_all_eight_category_keys(self) -> None:
+        """WHY: SP3 reads every budgeted category; a missing key would KeyError the
+        allocator. Source categories + breaking must be present-but-empty here."""
+        user = [
+            UserProfileInterest(
+                profile_interest_id=_SEMIS_INTEREST_ID, profile_weight=1.0
+            )
+        ]
+        nodes = {_SEMIS_INTEREST_ID: _SEMIS_NODE}
+        story = _story("s", 6, title="Chip demand surges")
+        buckets = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[],
+            stories=[story],
+            story_interest_tags=[_semis_tag("s")],
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+        assert set(buckets.keys()) == {
+            "breaking",
+            "world_politics",
+            "tech_science",
+            "youtube",
+            "markets",
+            "sport",
+            "x",
+            "culture",
+        }
+        # The story classified into markets; source axes + breaking are empty.
+        assert [c.story_id for c in buckets["markets"]] == ["s"]
+        assert buckets["youtube"] == []
+        assert buckets["x"] == []
+        assert buckets["breaking"] == []
+
+
+class _FakeQuery:
+    """Chainable Supabase query stub (mirrors test_daily_batch): builders return
+    self; execute returns the seeded rows and bumps an optional call counter."""
+
+    def __init__(self, data: list[dict], on_execute=None) -> None:
+        self._data = data
+        self._on_execute = on_execute
+
+    def select(self, *_a, **_k):
+        return self
+
+    def in_(self, *_a, **_k):
+        return self
+
+    def lt(self, *_a, **_k):
+        return self
+
+    def eq(self, *_a, **_k):
+        return self
+
+    def execute(self):
+        if self._on_execute is not None:
+            self._on_execute()
+        return SimpleNamespace(data=self._data)
+
+
+class TestLoaderHydratesEntitiesAndAllocation:
+    """DB hydration against a MOCKED client (CLAUDE.md boundary mandate, Rule 9).
+
+    WHY: the loader is the only place the custom>more>seed weighting is encoded
+    (the DB stores 1.0 for every source). If the loader stopped applying
+    FOLLOW_SOURCE_WEIGHT, a custom follow would normalize identically to a seed
+    follow and the custom>seed DoD would silently break upstream. These tests pin
+    the join shape, the source weighting, and the one-query batching.
+    """
+
+    def test_hydrates_followed_entities_with_source_weighting(self) -> None:
+        """user_entity_follows ⋈ entities → FollowedEntity, custom weighted > seed."""
+        profile_rows = [
+            {
+                "profile_user_id": "u1",
+                "profile_interest_id": "int-a",
+                "profile_weight": 1.0,
+                "profile_is_strict": False,
+            }
+        ]
+        follow_rows = [
+            {
+                "follow_user_id": "u1",
+                "entity_id": "tech/.../nvidia",
+                "follow_source": "custom",
+                "follow_weight": 1.0,  # DB stores 1.0 for ALL sources
+                "follow_path": ["tech", "semis", "nvidia"],
+                "entities": {
+                    "entity_label": "Nvidia",
+                    "entity_ticker": "NVDA",
+                    "entity_kind": "company",
+                },
+            },
+            {
+                "follow_user_id": "u1",
+                "entity_id": "sport/.../arsenal",
+                "follow_source": "seed",
+                "follow_weight": 1.0,
+                "follow_path": ["sport", "soccer", "arsenal"],
+                "entities": {
+                    "entity_label": "Arsenal",
+                    "entity_ticker": None,
+                    "entity_kind": "team",
+                },
+            },
+        ]
+        follow_query_count: list[int] = []
+
+        class _Client:
+            def table(self, name: str):
+                if name == "user_interest_profile":
+                    return _FakeQuery(profile_rows)
+                if name == "user_entity_follows":
+                    return _FakeQuery(
+                        follow_rows,
+                        on_execute=lambda: follow_query_count.append(1),
+                    )
+                return _FakeQuery([])
+
+        inputs = daily_batch.load_active_user_inputs(_Client(), date(2026, 6, 1))
+        # ONE query for all users' follows (no N+1).
+        assert len(follow_query_count) == 1
+        entities = {e.entity_id: e for e in inputs[0].followed_entities}
+        # custom (×3) outweighs seed (×1) after the loader applies FOLLOW_SOURCE_WEIGHT.
+        assert entities["tech/.../nvidia"].follow_weight == 3.0
+        assert entities["sport/.../arsenal"].follow_weight == 1.0
+        # Join carried the identity columns through.
+        nvidia = entities["tech/.../nvidia"]
+        assert nvidia.entity_label == "Nvidia"
+        assert nvidia.entity_ticker == "NVDA"
+        assert nvidia.entity_kind == "company"
+        # A team with no ticker hydrates ticker=None.
+        assert entities["sport/.../arsenal"].entity_ticker is None
+
+    def test_hydrates_category_allocation_rows(self) -> None:
+        """user_feed_allocation rows → CategoryAllocation, grouped per user."""
+        profile_rows = [
+            {
+                "profile_user_id": "u1",
+                "profile_interest_id": "int-a",
+                "profile_weight": 1.0,
+                "profile_is_strict": False,
+            }
+        ]
+        allocation_rows = [
+            {
+                "follow_user_id": "u1",
+                "allocation_category": "markets",
+                "allocation_slot_count": 5,
+                "allocation_sort_order": 2,
+            },
+            {
+                "follow_user_id": "u1",
+                "allocation_category": "breaking",
+                "allocation_slot_count": 4,
+                "allocation_sort_order": 0,
+            },
+        ]
+
+        class _Client:
+            def table(self, name: str):
+                if name == "user_interest_profile":
+                    return _FakeQuery(profile_rows)
+                if name == "user_feed_allocation":
+                    return _FakeQuery(allocation_rows)
+                return _FakeQuery([])
+
+        inputs = daily_batch.load_active_user_inputs(_Client(), date(2026, 6, 1))
+        allocs = {a.allocation_category: a for a in inputs[0].category_allocation}
+        assert allocs["markets"].allocation_slot_count == 5
+        assert allocs["markets"].allocation_sort_order == 2
+        assert allocs["breaking"].allocation_slot_count == 4
+
+    def test_orphan_follow_without_joined_entity_is_skipped(self) -> None:
+        """A follow whose joined entities row is missing is skipped (no labelless entity)."""
+        profile_rows = [
+            {
+                "profile_user_id": "u1",
+                "profile_interest_id": "int-a",
+                "profile_weight": 1.0,
+                "profile_is_strict": False,
+            }
+        ]
+        follow_rows = [
+            {
+                "follow_user_id": "u1",
+                "entity_id": "orphan",
+                "follow_source": "seed",
+                "follow_weight": 1.0,
+                "follow_path": [],
+                "entities": None,  # orphaned FK / no embed
+            }
+        ]
+
+        class _Client:
+            def table(self, name: str):
+                if name == "user_interest_profile":
+                    return _FakeQuery(profile_rows)
+                if name == "user_entity_follows":
+                    return _FakeQuery(follow_rows)
+                return _FakeQuery([])
+
+        inputs = daily_batch.load_active_user_inputs(_Client(), date(2026, 6, 1))
+        assert inputs[0].followed_entities == []

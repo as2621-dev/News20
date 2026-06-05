@@ -52,6 +52,8 @@ Ancestor tagging (set at ingest, §`story_interests`) means a leaf-matched story
 
 ## 3. Allocation — assembling the ~30-slot daily feed (per user)
 
+> **⚠ Superseded for signed-in users by §3a (phase-5a, 2026-06-05).** Steps 2–6 (the affinity-proportional split) and step 7 (auto-exploration) are replaced by the user-set "Build your 30" category budgets; §3.1 breaking becomes a user-budgeted tier; §3.8 don't-repeat + the dedup/sparse-fallback rules are **preserved**. This section is retained as the M1 design history. See §3a for the active model.
+
 Let `N ≈ 30` (the per-user feed budget). Do **not** take a global top-30 (that starves niche users). Instead:
 
 1. **Breaking tier (~4 slots, preempt).** Reserve the top ~4 slots for the highest-`Importance` stories tagged to *any* node the user follows. A live spike (the "plane crash they follow") lands here and can grow its share — breaking preempts the proportional split.
@@ -66,6 +68,62 @@ Let `N ≈ 30` (the per-user feed budget). Do **not** take a global top-30 (that
 Each written `daily_feeds` row records `feed_position` (01..N), `feed_score`, `feed_matched_interest_id`, and `feed_slot_kind ∈ {breaking, interest, exploration}`.
 
 **Sparse/empty-profile fallback:** an un-onboarded or near-empty profile falls back to a recency/importance-ordered feed (no crash, no empty feed).
+
+---
+
+## 3a. Phase-5a — "Build your 30" allocation + entity-aware ranking (SUPERSEDES §3's split; RETIRES §3.7)
+
+**Status:** Active (M5, phase-5a, 2026-06-05). This section is the source of truth for two shipped mechanisms: the **EntityBonus** score term and the **category-budget + manual-sequence** allocator. It **supersedes** §3's affinity-proportional split (steps 2–6) and **retires** the §3.7 auto-exploration tier — see the conflict note at the end.
+
+The model is **two layers** (owner, 2026-06-05):
+
+- **Layer 1 — allocation:** the user sets, per screen category, how many of their 30 slots it gets (`user_feed_allocation.allocation_slot_count`) and where it sits in the manual sequence (`allocation_sort_order`). The user owns breadth — there is no algorithm-chosen proportional split or exploration reserve.
+- **Layer 2 — scoring:** the per-(user, story) Score (§1) — now entity-aware — picks **which** stories fill each category's slots.
+
+### 3a.1 EntityBonus (the entity follow as an additive score term)
+
+A user's followed entities (`user_entity_follows ⋈ entities`, migration 0007) add an **additive** term to the Score of a story whose title matches a followed entity:
+
+```
+EntityBonus = normalized_follow_weight × ENTITY_BONUS_WEIGHT
+Score_entity-aware = Score(§1) + EntityBonus
+```
+
+| Element | Rule |
+|---|---|
+| **Match surface** | `entity_label` matched as **whole words** in `stories.canonical_title` (case-insensitive, `\b…\b`, so "Meta" ∉ "metabolism"), PLUS `entity_ticker` matched as a whole word **only when `entity_kind = 'company'`** (the company-ticker gate — a non-company "ticker" never fires on a generic headline word). |
+| **Residual risk** | a *company* whose ticker is a common English word (`AI`, `ON`, `ALL`) still matches that standalone token — owner-accepted, documented + tested; a short-common-word stoplist is the cheap fix if it shows noise. |
+| **`normalized_follow_weight`** | the user's `follow_weight` **max-normalized** across their follow set (mirrors `normalize_affinities` — the strongest follow → 1.0). |
+| **Source weighting (`custom > more > seed`)** | the DB stores `follow_weight = 1.0` for every source (0007); the loader multiplies by `FOLLOW_SOURCE_WEIGHT` (`seed 1.0`, `more 2.0`, `custom 3.0`) at hydration time, so a custom follow normalizes higher than a seed follow. |
+| **Multiple matches** | when several distinct follows match one story, the **strongest** (max normalized weight) wins — the bonus is one additive lift, **not** a sum (a story cannot leapfrog by matching many follows). |
+| **Identity dedup** | one logical entity reachable via several follow paths (e.g. Nvidia under AI-hardware vs Business-earnings — multiple `entities` rows sharing label+ticker+kind) is bonused **once** per story (dedup on `(label, ticker, kind)`, highest weight kept). |
+| **`ENTITY_BONUS_WEIGHT`** | `0.3` (in `agents/pipeline/stages/ranking.py`, alongside α/β/γ). Confirmed at the phase-5a sim/e2e: a `0.3` lift cleanly reorders a followed story above an otherwise-identical twin within its category (e.g. twin base `0.81` → Nvidia `1.11`) without drowning the Affinity×Depth base. Single config constant; allocator-agnostic. |
+
+The bonus is **allocator-agnostic** — it is a term on the Score, not a reserved slot tier. The user already reserves slots by category (Layer 1); the bonus only changes the **order within** a category.
+
+### 3a.2 Category-budget + manual-sequence allocation
+
+Let `total_target = min(Σ allocation_slot_count, 30)`. The allocator fills the feed from the **8 screen categories** (`agents/pipeline/categories.py`, mirroring the `feed_category` enum, migration 0008):
+
+```
+Breaking News · World & Politics · Tech & Science · YouTube · Markets · Sport · X · Culture
+```
+
+The 13 seeded interest slugs map up into the 5 **topic** categories (`SLUG_TO_CATEGORY`): World&Politics ← `world`/`geopolitics`/`climate`; Tech&Science ← `tech`/`science`/`health`; Markets ← `business`/`markets`/`crypto`; Sport ← `sport`; Culture ← `entertainment`/`lifestyle`/`wildcard`. Each story classifies into **exactly one** best-fit category (the lowest-`match_depth` tag's root slug; slug tiebreak), for clean 30-slot accounting (no duplicates, budgets exact).
+
+The passes:
+
+1. **Breaking is a budgeted tier, not a slug bucket.** Fill the user's `breaking` budget from the **top-`Importance`** candidates across all topic buckets; remove each chosen story from its topic bucket (no double-placement). (Breaking is now **user-budgetable** — the screen shows "Breaking News − N +" — with a default of 4, superseding §3.1's fixed ~4-slot preempt.)
+2. **Topic budgets, in sequence.** Fill each topic category to its **own** `allocation_slot_count`, in `allocation_sort_order`, from its top-Score qualifying (`Score ≥ T`, §1) entity-aware candidates.
+3. **Source soft-roll.** `YouTube` and `X` are **source-axis** categories (phase-5d); no interest slug maps to them, so they hold zero items today. Their budgeted slots (plus any topic/breaking shortfall) **roll into the topic categories by sequence** until the feed reaches `total_target` — so the feed still totals 30 with no allocator change when source ingestion lands. Roll-over walks the sequence, so the **first** topic categories absorb the surplus.
+4. **Order + dedup.** Breaking first, then topic categories in the user's sequence; 1-based contiguous `feed_position`; **§3.8 don't-repeat** (exclude prior-`daily_feeds` stories) and within-feed dedup preserved verbatim; each row's `feed_slot_kind ∈ {breaking, interest}` (the `exploration` kind is retired — see below).
+
+**Default allocation (pre-screen users).** A user with **no** `user_feed_allocation` rows gets the balanced fallback: `breaking 4` + an even split of the remaining 26 across the topic categories that have available stories (largest-remainder; empty categories not budgeted). This replaces §3's affinity-proportional default so pre-screen users still get a feed.
+
+### 3a.3 Conflicts surfaced (Rule 7)
+
+- **Supersedes §3 steps 2–6** (proportional split / floor-1 / ~40% cap / redistribute): the user now sets the split **explicitly** via per-category budgets. §3 remains documented as the M1 history; phase-5a is the active model for signed-in users with an allocation.
+- **Retires §3.7 (auto-exploration ~10%):** there is **no** exploration reserve and **no** `exploration` slot kind is ever emitted. The user controls breadth via their category budgets (e.g. budgeting a category they don't yet follow), so an algorithm-chosen exploration tier is redundant under the user-set model. This is intentional, not a silent drop.
 
 ---
 

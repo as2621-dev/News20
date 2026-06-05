@@ -48,7 +48,8 @@ from agents.pipeline.stages.detail_enrichment import (
     DetailEnrichment,
     run_detail_enrichment,
 )
-from agents.pipeline.stages.ranking import UserProfileInterest
+from agents.pipeline.categories import CategoryAllocation
+from agents.pipeline.stages.ranking import FollowedEntity, UserProfileInterest
 from agents.pipeline.stages.forced_alignment import (
     CaptionTrack,
     align_transcript_to_audio,
@@ -456,6 +457,12 @@ class ActiveUserFeedInputs(BaseModel):
     Attributes:
         active_user_id: The ``users.user_id`` this feed is for.
         profile_interests: The user's followed interests (Affinity + strict flags).
+        followed_entities: The user's followed entities (phase-5a EntityBonus
+            source — ``user_entity_follows ⋈ entities``); empty when the user
+            follows none (the feed scores identically to the no-entity baseline).
+        category_allocation: The user's per-category slot budgets + manual sequence
+            (``user_feed_allocation``); empty for a pre-screen user (SP3 applies a
+            balanced default).
         prior_feed_story_ids: Story ids already shown to this user (§3.8 exclusion).
         exploration_candidates_by_interest: Optional pre-scored adjacent-interest
             candidates for the ~10% exploration slots (omit to skip exploration).
@@ -472,6 +479,14 @@ class ActiveUserFeedInputs(BaseModel):
     active_user_id: str = Field(..., description="The users.user_id this feed is for")
     profile_interests: list[UserProfileInterest] = Field(
         default_factory=list, description="The user's followed interests"
+    )
+    followed_entities: list[FollowedEntity] = Field(
+        default_factory=list,
+        description="The user's followed entities (phase-5a EntityBonus source)",
+    )
+    category_allocation: list[CategoryAllocation] = Field(
+        default_factory=list,
+        description="Per-category slot budgets + manual sequence (user_feed_allocation)",
     )
     prior_feed_story_ids: list[str] = Field(
         default_factory=list, description="Prior daily_feeds story ids (don't-repeat)"
@@ -570,6 +585,8 @@ def assemble_daily_feeds(
             stories=stories,
             story_interest_tags=story_interest_tags,
             interest_nodes=interest_nodes,
+            followed_entities=user_inputs.followed_entities,
+            category_allocation=user_inputs.category_allocation,
             prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
             exploration_candidates_by_interest=(
                 user_inputs.exploration_candidates_by_interest or None

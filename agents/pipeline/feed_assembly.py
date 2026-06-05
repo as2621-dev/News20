@@ -1,43 +1,58 @@
-"""Per-user feed allocator (Phase 1d SP4): turn scored candidates into a
-~30-slot ordered ``daily_feeds`` feed, written idempotently (produce-once).
+"""Per-user feed allocator (phase-5a SP3): turn a user's per-category slot
+budgets + manual sequence ("Build your 30, in order") into a 30-slot ordered
+``daily_feeds`` feed, written idempotently (produce-once).
 
-ADAPTED — there is no single TLDW analog. This implements the allocation layer
-of ``reference/ranking-spec.md`` §3 ("Re-ranking / allocation") on top of the
-SP3 scorer (``agents.pipeline.stages.ranking.score_candidates_for_user``):
+REWRITE (phase-5a SP3). This REPLACES the old affinity-proportional allocator
+(``reference/ranking-spec.md`` §3 — proportional split, floor-1, ~40% cap,
+exploration) with the owner's two-layer "Build your 30" model (owner, 2026-06-05):
 
-    score_candidates_for_user(...)  → {followed_leaf_id: [ScoredCandidate]}  (SP3)
-    assemble_user_feed(...)         → [AllocatedSlot]  (ordered 01..N)        (here)
-    write_daily_feed(...)           → one daily_feeds row per slot, idempotent (here)
+    Layer 1 — *allocation*: the user sets, per screen category, how many of their
+              30 slots it gets (``allocation_slot_count``) and where it sits in the
+              manual sequence (``allocation_sort_order``). This module honors those.
+    Layer 2 — *scoring*: SP2's entity-aware ``score_and_classify_for_user`` decides
+              WHICH stories fill each category's slots (top-Score, entity-aware).
 
-The allocator honors the §3 invariants:
+The allocation pipeline (this module):
 
-  §3.1 Breaking tier   — top ~4 slots by Importance across ALL followed nodes.
-  §3.2 Proportional    — remaining slots split ∝ normalized profile_weight.
-  §3.3 Floor-1         — every followed leaf with ≥1 qualifying story gets ≥1 slot.
-  §3.4 Cap ~40%        — no interest exceeds ~40% of N (unless single-interest/strict).
-  §3.5 Fill            — fill each bucket from its top-Score candidates.
-  §3.6 Redistribute    — unfilled slots flow to the next-highest-affinity interest.
-  §3.7 Exploration ~10%— ~10% of slots for sibling/parent (adjacent) interests;
-                         ``strict`` interests contribute NO exploration.
-  §3.8 Don't-repeat    — exclude any story already in this user's prior daily_feeds.
+    score_and_classify_for_user(...) → {FeedCategory: [ScoredCandidate]}  (SP2)
+    assemble_user_feed(...)          → [AllocatedSlot]  (ordered 01..30)  (here)
+    write_daily_feed(...)            → one daily_feeds row per slot, idempotent (here)
+
+Invariants this allocator honors:
+
+  - **Per-category budgets** — each category is filled to exactly its
+    ``allocation_slot_count`` from its SP2 bucket (top-Score, qualifying ``≥ T``),
+    subject to story availability.
+  - **Manual sequence** — categories are filled (and their slots ordered) by the
+    user's ``allocation_sort_order`` (lower = earlier).
+  - **Breaking tier** — ``breaking`` is a user-budgeted category filled by
+    top-``Importance`` across ALL topic buckets; a chosen story is REMOVED from its
+    topic bucket so it is never double-placed.
+  - **Source soft-roll** — ``youtube``/``x`` are source-axis categories that no
+    interest slug maps to (phase-5d, empty today); their budgeted slots roll into
+    the remaining topic categories by sequence so the feed still totals 30.
+  - **§3.8 don't-repeat** — exclude any story already in this user's prior
+    ``daily_feeds`` (preserved from the old allocator).
+  - **Within-feed dedup** — a story id appears at most once in one feed (preserved).
+  - **Default allocation** — a user with NO ``user_feed_allocation`` rows gets the
+    balanced fallback (``breaking 4`` + an even split of the remaining 26 across the
+    topic categories that have available stories) so pre-screen users still get a feed.
 
 A user whose allocation produces ZERO slots (no eligible stories anywhere) is
-returned an empty list — the caller (``assemble_daily_feeds`` in the
-orchestrator) SKIPS such a user and writes no ``daily_feeds`` rows for them
-(no empty-feed row).
+returned an empty list — the caller (``assemble_daily_feeds`` in the orchestrator)
+SKIPS such a user and writes no ``daily_feeds`` rows for them (no empty-feed row).
 
-PRODUCE-ONCE / IDEMPOTENCY (SP4 DoD-b)
---------------------------------------
+PRODUCE-ONCE / IDEMPOTENCY
+--------------------------
 ``write_daily_feed`` pre-checks for any existing ``daily_feeds`` row for the
 ``(feed_user_id, feed_date)`` pair and, when present, writes nothing and reports
 ``already_present``. Re-running the batch for the same day therefore does NOT
-duplicate a user's feed. This pre-check is the application-level guard that pairs
-with the DB constraint ``uq_daily_feed_position`` /
-``uq_daily_feed_story`` (migration 0003) which would otherwise raise on a second
-insert — we skip cleanly rather than relying on a constraint error.
+duplicate a user's feed.
 
 The supabase client is INJECTED so this module never reads a secret and the test
-suite mocks at the client boundary (CLAUDE.md mandate).
+suite mocks at the client boundary (CLAUDE.md mandate). ``assemble_user_feed`` is
+a PURE function over its injected inputs (profile + entities + allocation + story
+pool + taxonomy + prior feed) — no DB, no network — fully unit-testable.
 """
 
 from __future__ import annotations
@@ -48,27 +63,40 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
-from agents.pipeline.produce_gate import compute_importance_score
+from agents.pipeline.categories import (
+    SOURCE_CATEGORIES,
+    TOPIC_CATEGORIES,
+    CategoryAllocation,
+    FeedCategory,
+)
 from agents.pipeline.stages.ranking import (
     DEFAULT_SCORE_THRESHOLD,
+    FollowedEntity,
     ScoredCandidate,
     UserProfileInterest,
-    normalize_affinities,
-    score_candidates_for_user,
+    score_and_classify_for_user,
 )
 from agents.shared.logger import get_logger
 
 logger = get_logger("pipeline.feed_assembly")
 
-# Reason: the §3 allocation constants (reference/ranking-spec.md §3). First-draft,
-# confirmed at the SP4 2-user manual run. Single config source — never scattered.
-FEED_SLOT_BUDGET = 30  # N ≈ 30 per-user feed budget (§3)
-BREAKING_SLOT_COUNT = 4  # ~4 preempt slots for highest-Importance (§3.1)
-INTEREST_CAP_FRACTION = 0.40  # no single interest > ~40% of N (§3.4)
-EXPLORATION_FRACTION = 0.10  # ~10% of slots for adjacent interests (§3.7)
+# Reason: the feed budget (phase-5a). N = 30 — the "Build your 30" target. The
+# user's per-category slot counts SUM to 30; the allocator's roll-over logic owns
+# totalling to 30 when source categories (youtube/x) are budgeted-but-empty.
+FEED_SLOT_BUDGET = 30  # N = 30 per-user feed budget ("Build your 30")
 
-# Reason: feed_slot_kind enum-like values written to daily_feeds.feed_slot_kind
-# (reference/ranking-spec.md §3: {breaking, interest, exploration}).
+# Reason: the balanced default for a user with NO user_feed_allocation rows
+# (pre-screen users). breaking gets DEFAULT_BREAKING_SLOTS; the remaining slots
+# split evenly across the TOPIC categories that actually have available stories
+# (don't budget empty categories). Owner-locked default (phase-5a Open-Q3).
+DEFAULT_BREAKING_SLOTS = 4
+
+# Reason: feed_slot_kind enum-like values written to daily_feeds.feed_slot_kind.
+# The category-budget allocator uses two kinds: ``breaking`` for the top-Importance
+# tier, and ``interest`` for every category-filled slot (it carries the
+# matched-interest attribution). The old ``exploration`` kind is retired here (the
+# new model has no exploration reserve), but the constant is kept for the
+# daily_feeds row-contract vocabulary + any reader that still references it.
 SLOT_KIND_BREAKING = "breaking"
 SLOT_KIND_INTEREST = "interest"
 SLOT_KIND_EXPLORATION = "exploration"
@@ -84,7 +112,8 @@ class AllocatedSlot(BaseModel):
         feed_matched_interest_id: The followed interest this slot is attributed to
             (``feed_matched_interest_id``); None for a breaking slot with no
             specific attributed leaf.
-        feed_slot_kind: ``breaking`` / ``interest`` / ``exploration``.
+        feed_slot_kind: ``breaking`` / ``interest`` (``exploration`` retired in the
+            category-budget model).
 
     Example:
         >>> slot = AllocatedSlot(
@@ -103,7 +132,7 @@ class AllocatedSlot(BaseModel):
     )
     feed_slot_kind: str = Field(
         default=SLOT_KIND_INTEREST,
-        description="breaking / interest / exploration",
+        description="breaking / interest",
     )
 
 
@@ -134,67 +163,158 @@ class FeedWriteResult(BaseModel):
     )
 
 
-def _interest_budgets(
-    affinities: dict[str, float],
-    followed_leaf_ids: list[str],
-    available_slots: int,
-    cap_per_interest: int,
-) -> dict[str, int]:
-    """Split ``available_slots`` across followed leaves ∝ normalized affinity (§3.2/§3.4).
+def _ordered_categories_from_allocation(
+    category_allocation: list[CategoryAllocation],
+) -> list[CategoryAllocation]:
+    """Return the allocation rows in the user's manual sequence (sort_order asc).
 
-    Largest-remainder apportionment so the budgets sum to exactly
-    ``available_slots`` (no rounding drift), with each interest capped at
-    ``cap_per_interest`` (§3.4). The floor-1 and redistribution passes run later
-    on the actual filled counts.
+    Tiebreak (equal ``allocation_sort_order`` — not DB-unique) is deterministic by
+    category key so the same allocation always produces the same feed order.
 
     Args:
-        affinities: ``{interest_id: 0-1 affinity}`` for the followed leaves.
-        followed_leaf_ids: The user's followed leaf interest ids (allocation order).
-        available_slots: Slots left after the breaking + exploration reservations.
-        cap_per_interest: Max slots any single interest may receive (§3.4).
+        category_allocation: The user's ``user_feed_allocation`` rows.
 
     Returns:
-        ``{interest_id: budget_slots}`` summing to ``min(available_slots,
-        cap_per_interest * len(leaves))``.
+        The rows sorted by ``(allocation_sort_order, allocation_category)``.
     """
-    if available_slots <= 0 or not followed_leaf_ids:
-        return {leaf_id: 0 for leaf_id in followed_leaf_ids}
-
-    affinity_sum = sum(
-        max(affinities.get(leaf_id, 0.0), 0.0) for leaf_id in followed_leaf_ids
+    return sorted(
+        category_allocation,
+        key=lambda row: (row.allocation_sort_order, row.allocation_category),
     )
-    # Reason: zero-affinity (or empty) profile → split evenly so no leaf is starved.
-    if affinity_sum <= 0.0:
-        weights = {
-            leaf_id: 1.0 / len(followed_leaf_ids) for leaf_id in followed_leaf_ids
-        }
-    else:
-        weights = {
-            leaf_id: max(affinities.get(leaf_id, 0.0), 0.0) / affinity_sum
-            for leaf_id in followed_leaf_ids
-        }
 
-    # Largest-remainder apportionment of available_slots.
-    raw = {leaf_id: weights[leaf_id] * available_slots for leaf_id in followed_leaf_ids}
-    budgets = {leaf_id: int(raw[leaf_id]) for leaf_id in followed_leaf_ids}
-    assigned = sum(budgets.values())
-    remainder = available_slots - assigned
-    # Hand the leftover slots to the largest fractional remainders, highest first.
-    by_remainder = sorted(
-        followed_leaf_ids,
-        key=lambda leaf_id: raw[leaf_id] - int(raw[leaf_id]),
-        reverse=True,
-    )
-    for leaf_id in by_remainder:
-        if remainder <= 0:
+
+def _default_allocation(
+    buckets: dict[FeedCategory, list[ScoredCandidate]],
+    feed_slot_budget: int,
+    breaking_slots: int,
+) -> list[CategoryAllocation]:
+    """Build the balanced default allocation for a user with no allocation rows.
+
+    The owner-locked pre-screen fallback (phase-5a): ``breaking`` gets
+    ``breaking_slots``; the remaining slots split EVENLY across the TOPIC
+    categories that have at least one available candidate (empty categories are not
+    budgeted, so their slots are not wasted). Largest-remainder apportionment hands
+    any leftover slot to the earliest non-empty topic category so the budgets sum
+    to ``feed_slot_budget``. ``breaking`` always sorts first, then the topic
+    categories in :data:`TOPIC_CATEGORIES` order.
+
+    Args:
+        buckets: SP2's ``score_and_classify_for_user`` output (drives which topic
+            categories are non-empty + whether breaking has any eligible story).
+        feed_slot_budget: ``N`` — total feed slots (30).
+        breaking_slots: How many slots ``breaking`` gets in the default.
+
+    Returns:
+        A synthetic ``CategoryAllocation`` list (breaking first, then non-empty
+        topics) summing to at most ``feed_slot_budget``.
+    """
+    # Reason: a breaking story is the top-Importance story across the TOPIC buckets;
+    # if every topic bucket is empty there is nothing to promote, so don't budget
+    # breaking either (its slots would only waste the budget).
+    has_any_topic_story = any(buckets.get(cat) for cat in TOPIC_CATEGORIES)
+    non_empty_topics = [cat for cat in TOPIC_CATEGORIES if buckets.get(cat)]
+
+    allocation: list[CategoryAllocation] = []
+    sort_order = 0
+
+    effective_breaking = breaking_slots if has_any_topic_story else 0
+    effective_breaking = min(effective_breaking, feed_slot_budget)
+    if effective_breaking > 0:
+        allocation.append(
+            CategoryAllocation(
+                allocation_category="breaking",
+                allocation_slot_count=effective_breaking,
+                allocation_sort_order=sort_order,
+            )
+        )
+        sort_order += 1
+
+    remaining = feed_slot_budget - effective_breaking
+    if non_empty_topics and remaining > 0:
+        base = remaining // len(non_empty_topics)
+        leftover = remaining - base * len(non_empty_topics)
+        # Largest-remainder: the earliest topics (by TOPIC_CATEGORIES order) absorb
+        # the leftover so the split sums exactly to ``remaining``.
+        for index, category in enumerate(non_empty_topics):
+            slot_count = base + (1 if index < leftover else 0)
+            if slot_count <= 0:
+                continue
+            allocation.append(
+                CategoryAllocation(
+                    allocation_category=category,
+                    allocation_slot_count=slot_count,
+                    allocation_sort_order=sort_order,
+                )
+            )
+            sort_order += 1
+
+    return allocation
+
+
+def _select_breaking(
+    buckets: dict[FeedCategory, list[ScoredCandidate]],
+    breaking_slots: int,
+    used_story_ids: set[str],
+    excluded_story_ids: set[str],
+) -> list[ScoredCandidate]:
+    """Pick the top ``breaking_slots`` highest-Importance stories across all topics.
+
+    ``breaking`` is a TIER, not a slug bucket: SP2 leaves its bucket empty and the
+    allocator fills the user's breaking budget from the highest-``importance``
+    candidates across ALL topic buckets. Each chosen story is REMOVED from its topic
+    bucket (in place) so it is never double-placed in a topic slot later.
+
+    Args:
+        buckets: SP2's ``score_and_classify_for_user`` output (topic buckets are
+            MUTATED — a promoted story is removed from its source bucket).
+        breaking_slots: How many breaking slots to fill.
+        used_story_ids: Mutated — story ids already placed (breaking adds to it).
+        excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
+
+    Returns:
+        Up to ``breaking_slots`` candidates, highest Importance first (Score
+        tiebreak). The chosen stories are removed from their topic buckets.
+    """
+    if breaking_slots <= 0:
+        return []
+
+    # Gather every topic candidate (breaking promotes across topics only — source
+    # buckets are empty, and a breaking story must come from a real classified story).
+    eligible: list[ScoredCandidate] = []
+    for category in TOPIC_CATEGORIES:
+        for candidate in buckets.get(category, []):
+            if candidate.story_id in excluded_story_ids:
+                continue
+            eligible.append(candidate)
+
+    # Highest intrinsic Importance first (the breaking signal); Score as a tiebreak.
+    eligible.sort(key=lambda c: (c.importance, c.score), reverse=True)
+
+    chosen: list[ScoredCandidate] = []
+    chosen_story_ids: set[str] = set()
+    for candidate in eligible:
+        if len(chosen) >= breaking_slots:
             break
-        budgets[leaf_id] += 1
-        remainder -= 1
+        if candidate.story_id in used_story_ids:
+            continue
+        chosen.append(candidate)
+        chosen_story_ids.add(candidate.story_id)
+        used_story_ids.add(candidate.story_id)
 
-    # Apply the per-interest cap (§3.4).
-    return {
-        leaf_id: min(budget, cap_per_interest) for leaf_id, budget in budgets.items()
-    }
+    # Remove the promoted stories from their topic buckets so they are not also
+    # placed as a topic slot (no double-placement).
+    if chosen_story_ids:
+        for category in TOPIC_CATEGORIES:
+            bucket = buckets.get(category)
+            if not bucket:
+                continue
+            buckets[category] = [
+                candidate
+                for candidate in bucket
+                if candidate.story_id not in chosen_story_ids
+            ]
+
+    return chosen
 
 
 def _take_top_qualifying(
@@ -206,16 +326,15 @@ def _take_top_qualifying(
 ) -> list[ScoredCandidate]:
     """Take up to ``count`` top-Score qualifying candidates not yet used/excluded.
 
-    A candidate is eligible when its ``score >= score_threshold`` (§3 fill uses
-    the same `Score ≥ T` "good enough" bar, ranking-spec §1/§3.5), its story is
-    not already placed in this feed, and it is not in the don't-repeat exclusion
-    set (§3.8). ``candidates`` is assumed descending by score (the SP3 generator
-    sorts it).
+    A candidate is eligible when its ``score >= score_threshold`` (the same
+    ``Score ≥ T`` "good enough" bar, ranking-spec §1/§3.5), its story is not already
+    placed in this feed, and it is not in the don't-repeat exclusion set (§3.8).
+    ``candidates`` is assumed descending by score (SP2 sorts each bucket).
 
     Args:
-        candidates: The interest's scored candidates (descending by score).
+        candidates: A category's scored candidates (descending by score).
         count: Max candidates to take.
-        used_story_ids: Story ids already placed in this feed (dedup within feed).
+        used_story_ids: Story ids already placed in this feed (mutated; dedup).
         excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
         score_threshold: ``T`` — the qualifying bar.
 
@@ -238,260 +357,202 @@ def _take_top_qualifying(
     return taken
 
 
-def _select_breaking(
-    candidates_by_interest: dict[str, list[ScoredCandidate]],
-    stories_by_id: dict[str, CanonicalStory],
-    breaking_slots: int,
-    used_story_ids: set[str],
-    excluded_story_ids: set[str],
-) -> list[ScoredCandidate]:
-    """Pick the top ``breaking_slots`` highest-Importance stories across all interests (§3.1).
-
-    Breaking preempts the proportional split: the highest-Importance stories
-    tagged to *any* followed node take the first slots. Each chosen story keeps
-    the highest-Score candidate (its best interest attribution) for ordering.
-
-    Args:
-        candidates_by_interest: ``score_candidates_for_user`` output.
-        stories_by_id: ``{story_id: CanonicalStory}`` for the Importance lookup.
-        breaking_slots: How many breaking slots to fill.
-        used_story_ids: Mutated — story ids already placed (breaking adds to it).
-        excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
-
-    Returns:
-        Up to ``breaking_slots`` candidates, highest Importance first.
-    """
-    if breaking_slots <= 0:
-        return []
-
-    # Reason: keep the best (highest-Score) candidate per story so a story tagged
-    # to several followed interests is considered once, attributed to its
-    # strongest interest.
-    best_by_story: dict[str, ScoredCandidate] = {}
-    for candidates in candidates_by_interest.values():
-        for candidate in candidates:
-            existing = best_by_story.get(candidate.story_id)
-            if existing is None or candidate.score > existing.score:
-                best_by_story[candidate.story_id] = candidate
-
-    eligible = [
-        candidate
-        for story_id, candidate in best_by_story.items()
-        if story_id not in excluded_story_ids and story_id in stories_by_id
-    ]
-    # Sort by intrinsic Importance (the breaking signal), then Score as a tiebreak.
-    eligible.sort(
-        key=lambda c: (
-            compute_importance_score(stories_by_id[c.story_id].story_outlet_count),
-            c.score,
-        ),
-        reverse=True,
-    )
-
-    breaking: list[ScoredCandidate] = []
-    for candidate in eligible:
-        if len(breaking) >= breaking_slots:
-            break
-        if candidate.story_id in used_story_ids:
-            continue
-        breaking.append(candidate)
-        used_story_ids.add(candidate.story_id)
-    return breaking
-
-
 def assemble_user_feed(
     profile_interests: list[UserProfileInterest],
     stories: list[CanonicalStory],
     story_interest_tags: list[StoryInterestTag],
     interest_nodes: dict[str, InterestNode],
+    followed_entities: list[FollowedEntity] | None = None,
+    category_allocation: list[CategoryAllocation] | None = None,
     prior_feed_story_ids: set[str] | None = None,
-    exploration_candidates_by_interest: dict[str, list[ScoredCandidate]] | None = None,
+    exploration_candidates_by_interest: Any = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
-    breaking_slot_count: int = BREAKING_SLOT_COUNT,
-    interest_cap_fraction: float = INTEREST_CAP_FRACTION,
-    exploration_fraction: float = EXPLORATION_FRACTION,
+    default_breaking_slots: int = DEFAULT_BREAKING_SLOTS,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     now_utc: Any = None,
 ) -> list[AllocatedSlot]:
-    """Assemble one user's ordered ~N-slot feed from their scored candidates (§3).
+    """Assemble one user's ordered 30-slot feed from their category budgets (phase-5a).
 
-    Pure over its injected inputs (profile + story pool + taxonomy + prior feed) —
-    no DB, no network. Runs the SP3 scorer once, then the §3 allocation passes:
-    breaking preempt → proportional split (cap ~40%) → floor-1 → fill → redistribute
-    → exploration (~10%, excluding ``strict`` interests). Stories already in the
-    user's ``prior_feed_story_ids`` are never repeated (§3.8).
+    Pure over its injected inputs (profile + entities + allocation + story pool +
+    taxonomy + prior feed) — no DB, no network. Runs SP2's entity-aware
+    ``score_and_classify_for_user`` once, then the category-budget passes:
+
+      1. Resolve the allocation (user's rows, or the balanced default when none).
+      2. Fill ``breaking`` by top-``Importance`` across all topic buckets (removed
+         from their topic bucket so they are not double-placed).
+      3. Fill each TOPIC category to its budget from its top-Score qualifying
+         candidates, in the user's sequence order.
+      4. Soft-roll SOURCE category budgets (``youtube``/``x``, empty today) into the
+         remaining topic categories by sequence so the feed still totals 30.
+      5. Order the slots by the user's sequence (breaking first, then categories by
+         ``allocation_sort_order``); never repeat a prior-feed story (§3.8); never
+         place a story twice in one feed.
 
     Args:
         profile_interests: The user's followed interests (Affinity + strict flags).
         stories: The deduped candidate story pool (SP1 output).
         story_interest_tags: All ``story_interests`` tag payloads for the pool.
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
+        followed_entities: The user's followed entities (EntityBonus source); empty
+            → the feed scores identically to the no-entity baseline.
+        category_allocation: The user's per-category slot budgets + manual sequence
+            (``user_feed_allocation``). Empty/None → the balanced default.
         prior_feed_story_ids: Story ids already shown to this user (§3.8 exclusion).
-        exploration_candidates_by_interest: Optional pre-scored candidates for
-            adjacent (sibling/parent) interests the user does NOT follow — fills
-            the ~10% exploration slots. When omitted, exploration is skipped.
-        feed_slot_budget: ``N`` — total feed slots.
-        breaking_slot_count: Breaking-tier reservation (§3.1).
-        interest_cap_fraction: Per-interest cap as a fraction of ``N`` (§3.4).
-        exploration_fraction: Exploration reservation as a fraction of ``N`` (§3.7).
+        exploration_candidates_by_interest: Accepted for backward-compat with the
+            old allocator's callers (sim/orchestrator); IGNORED in the category-budget
+            model (the user reserves slots by category, not an exploration reserve).
+        feed_slot_budget: ``N`` — total feed slots (30).
+        default_breaking_slots: Breaking budget in the no-allocation default.
         score_threshold: ``T`` — the qualifying bar.
         now_utc: Current time for the freshness term (defaults to ``utcnow``).
 
     Returns:
-        The ordered slots (``feed_position`` 1..len). EMPTY when no eligible
-        story exists anywhere — the caller skips the user (no empty-feed row).
+        The ordered slots (``feed_position`` 1..len). EMPTY when no eligible story
+        exists anywhere — the caller skips the user (no empty-feed row).
 
     Example:
-        >>> # See tests/pipeline/test_feed_assembly.py for the allocator invariants
-        >>> # (floor-1, ~40% cap, breaking preempt, don't-repeat) asserted here.
+        >>> # See tests/agents/pipeline/test_feed_assembly.py for the category-budget
+        >>> # invariants (exact per-category counts, source soft-roll, sequence,
+        >>> # breaking tier, don't-repeat) asserted here.
     """
     excluded = set(prior_feed_story_ids or set())
-    stories_by_id = {story.canonical_story_id: story for story in stories}
 
     if not profile_interests:
         logger.info(
             "assemble_user_feed_empty_profile",
             fix_suggestion="User has no followed interests; allocator returns no slots "
-            "(caller writes no daily_feeds row). Sparse-profile recency fallback is "
-            "ranking-spec §3.8 future work.",
+            "(caller writes no daily_feeds row).",
         )
         return []
 
-    candidates_by_interest = score_candidates_for_user(
+    # ── Layer 2: entity-aware scoring + classification into the 8 categories ──
+    buckets = score_and_classify_for_user(
         profile_interests=profile_interests,
+        followed_entities=followed_entities or [],
         stories=stories,
         story_interest_tags=story_interest_tags,
         interest_nodes=interest_nodes,
         now_utc=now_utc,
         score_threshold=score_threshold,
     )
-    affinities = normalize_affinities(profile_interests)
-    strict_by_interest = {
-        interest.profile_interest_id: interest.profile_is_strict
-        for interest in profile_interests
-    }
-    followed_leaf_ids = [interest.profile_interest_id for interest in profile_interests]
-    is_single_interest = len(followed_leaf_ids) == 1
+
+    # ── Layer 1: resolve the per-category budgets + manual sequence ──
+    # Reason: a user with no user_feed_allocation rows (pre-screen) gets the
+    # balanced default so they still receive a feed (phase-5a Open-Q3).
+    allocation = list(category_allocation or [])
+    if not allocation:
+        allocation = _default_allocation(
+            buckets=buckets,
+            feed_slot_budget=feed_slot_budget,
+            breaking_slots=default_breaking_slots,
+        )
+
+    ordered_allocation = _ordered_categories_from_allocation(allocation)
+
+    # Reason: the feed target is the SUM of the user's per-category budgets, capped at
+    # N. A user whose budgets sum to < N (e.g. dialed some categories to 0) gets a
+    # SHORTER feed — the allocator never invents slots the user did not ask for. The
+    # source soft-roll keeps the feed AT this target (it redistributes within the
+    # sum, it does not inflate it). Bounded above by N so a mis-summed allocation
+    # (the cross-category SUM==30 is NOT DB-enforced) can never overshoot 30.
+    total_target = min(
+        sum(row.allocation_slot_count for row in ordered_allocation),
+        feed_slot_budget,
+    )
 
     used_story_ids: set[str] = set()
     ordered: list[ScoredCandidate] = []
     slot_kinds: list[str] = []
 
-    # ── §3.1 Breaking tier (preempt) ──
+    # ── Pass 1: fill the breaking tier (removes promoted stories from topics) ──
+    breaking_budget = sum(
+        row.allocation_slot_count
+        for row in ordered_allocation
+        if row.allocation_category == "breaking"
+    )
+    breaking_budget = min(breaking_budget, total_target)
     breaking = _select_breaking(
-        candidates_by_interest=candidates_by_interest,
-        stories_by_id=stories_by_id,
-        breaking_slots=min(breaking_slot_count, feed_slot_budget),
+        buckets=buckets,
+        breaking_slots=breaking_budget,
         used_story_ids=used_story_ids,
         excluded_story_ids=excluded,
     )
-    ordered.extend(breaking)
-    slot_kinds.extend([SLOT_KIND_BREAKING] * len(breaking))
 
-    # ── Reserve exploration slots (§3.7), then split the rest across interests ──
-    remaining_after_breaking = max(feed_slot_budget - len(ordered), 0)
-    has_exploration = bool(exploration_candidates_by_interest)
-    exploration_reserve = (
-        round(feed_slot_budget * exploration_fraction) if has_exploration else 0
-    )
-    exploration_reserve = min(exploration_reserve, remaining_after_breaking)
-    interest_slots = remaining_after_breaking - exploration_reserve
-
-    # Cap: §3.4 — relaxed for a single-interest or strict user (may fill its budget).
-    if is_single_interest:
-        cap_per_interest = feed_slot_budget
-    else:
-        cap_per_interest = max(round(feed_slot_budget * interest_cap_fraction), 1)
-
-    budgets = _interest_budgets(
-        affinities=affinities,
-        followed_leaf_ids=followed_leaf_ids,
-        available_slots=interest_slots,
-        cap_per_interest=cap_per_interest,
-    )
-
-    # ── §3.3 Floor-1: every leaf with ≥1 qualifying story gets at least 1 slot ──
-    for leaf_id in followed_leaf_ids:
-        has_qualifier = any(
-            c.score >= score_threshold for c in candidates_by_interest.get(leaf_id, [])
+    # ── Pass 2: gather each TOPIC category's own budget, in the user's sequence ──
+    # Reason: source categories (youtube/x) carry a budget but ZERO candidates today
+    # (phase-5d). We bank their budget as ``source_roll_slots`` and distribute it —
+    # together with any breaking/topic shortfall — across the topic categories by
+    # sequence in Pass 4 so the feed still totals 30 without overshooting N.
+    topic_budgets: dict[FeedCategory, int] = {}
+    topic_sequence: list[FeedCategory] = []
+    source_roll_slots = 0
+    for row in ordered_allocation:
+        category = row.allocation_category
+        if category == "breaking":
+            continue
+        if category in SOURCE_CATEGORIES:
+            source_roll_slots += row.allocation_slot_count
+            continue
+        topic_budgets[category] = (
+            topic_budgets.get(category, 0) + row.allocation_slot_count
         )
-        if has_qualifier and budgets.get(leaf_id, 0) < 1:
-            budgets[leaf_id] = 1
+        if category not in topic_sequence:
+            topic_sequence.append(category)
 
-    # Reason: the cap is a HARD per-interest ceiling on the final fill count for
-    # a multi-interest user — it must survive floor-1 AND redistribution, else a
-    # high-affinity glut interest reclaims every spare slot and blows past ~40%
-    # (§3.4). ``filled_count`` tracks the running placement per interest so both
-    # the fill and redistribute passes respect it.
-    filled_count: dict[str, int] = {leaf_id: 0 for leaf_id in followed_leaf_ids}
-
-    # ── §3.5 Fill each bucket from its top-Score candidates (capped) ──
-    for leaf_id in followed_leaf_ids:
-        budget = min(budgets.get(leaf_id, 0), cap_per_interest)
+    # ── Pass 3: fill each topic category to its OWN budget, in sequence ──
+    # Reason: a category never exceeds its own stated count in this pass — the
+    # rolled-over source slots are a SEPARATE distribution (Pass 4), so the
+    # per-category budgets are honored exactly when stories are available. The total
+    # never overshoots the user's target (breaking already consumed ``len(breaking)``).
+    topic_capacity = max(total_target - len(breaking), 0)
+    placed_topic_slots = 0
+    filled_by_category: dict[FeedCategory, list[ScoredCandidate]] = {}
+    for category in topic_sequence:
+        if placed_topic_slots >= topic_capacity:
+            break
+        want = min(topic_budgets.get(category, 0), topic_capacity - placed_topic_slots)
+        if want <= 0:
+            continue
         taken = _take_top_qualifying(
-            candidates=candidates_by_interest.get(leaf_id, []),
-            count=budget,
+            candidates=buckets.get(category, []),
+            count=want,
             used_story_ids=used_story_ids,
             excluded_story_ids=excluded,
             score_threshold=score_threshold,
         )
-        filled_count[leaf_id] += len(taken)
-        ordered.extend(taken)
-        slot_kinds.extend([SLOT_KIND_INTEREST] * len(taken))
+        filled_by_category[category] = taken
+        placed_topic_slots += len(taken)
 
-    # ── §3.6 Redistribute unfilled slots to the highest-affinity interests ──
-    # (still capped per interest — §3.4 holds through redistribution).
-    placed_interest_slots = sum(filled_count.values())
-    unfilled = interest_slots - placed_interest_slots
-    if unfilled > 0:
-        # Highest-affinity interests get first refusal on the spare slots.
-        by_affinity = sorted(
-            followed_leaf_ids,
-            key=lambda leaf_id: affinities.get(leaf_id, 0.0),
-            reverse=True,
-        )
-        for leaf_id in by_affinity:
-            if unfilled <= 0:
+    # ── Pass 4: distribute the leftover capacity by sequence (the source soft-roll) ──
+    # Reason: the remaining capacity is exactly the source-category budget PLUS any
+    # breaking/topic shortfall (a category short of stories yields its slots forward).
+    # Walk the topic sequence and hand each next category as many extra stories as it
+    # still has, until the feed totals N (or every category is exhausted). This is
+    # what makes ``len(feed) == 30`` hold when youtube/x are budgeted-but-empty.
+    remaining_capacity = topic_capacity - placed_topic_slots
+    if remaining_capacity > 0:
+        for category in topic_sequence:
+            if remaining_capacity <= 0:
                 break
-            headroom = cap_per_interest - filled_count[leaf_id]
-            if headroom <= 0:
-                continue
             extra = _take_top_qualifying(
-                candidates=candidates_by_interest.get(leaf_id, []),
-                count=min(unfilled, headroom),
+                candidates=buckets.get(category, []),
+                count=remaining_capacity,
                 used_story_ids=used_story_ids,
                 excluded_story_ids=excluded,
                 score_threshold=score_threshold,
             )
-            filled_count[leaf_id] += len(extra)
-            ordered.extend(extra)
-            slot_kinds.extend([SLOT_KIND_INTEREST] * len(extra))
-            unfilled -= len(extra)
+            if extra:
+                filled_by_category.setdefault(category, []).extend(extra)
+                placed_topic_slots += len(extra)
+                remaining_capacity -= len(extra)
 
-    # ── §3.7 Exploration: adjacent interests, excluding strict followed nodes ──
-    if has_exploration and exploration_reserve > 0:
-        # Reason: strict interests "disable exploration for that interest" — drop
-        # any adjacent bucket keyed to a followed-strict node (ranking-spec §3.7).
-        strict_followed = {
-            leaf_id for leaf_id, strict in strict_by_interest.items() if strict
-        }
-        explore_pool: list[ScoredCandidate] = []
-        for adjacent_id, candidates in (
-            exploration_candidates_by_interest or {}
-        ).items():
-            if adjacent_id in strict_followed:
-                continue
-            explore_pool.extend(candidates)
-        explore_pool.sort(key=lambda c: c.score, reverse=True)
-        explore_taken = _take_top_qualifying(
-            candidates=explore_pool,
-            count=exploration_reserve,
-            used_story_ids=used_story_ids,
-            excluded_story_ids=excluded,
-            score_threshold=score_threshold,
-        )
-        ordered.extend(explore_taken)
-        slot_kinds.extend([SLOT_KIND_EXPLORATION] * len(explore_taken))
+    # ── Order: breaking first, then topic categories in the user's sequence ──
+    ordered.extend(breaking)
+    slot_kinds.extend([SLOT_KIND_BREAKING] * len(breaking))
+    for category in topic_sequence:
+        taken = filled_by_category.get(category, [])
+        ordered.extend(taken)
+        slot_kinds.extend([SLOT_KIND_INTEREST] * len(taken))
 
     # ── Materialize ordered slots (cap at the budget; assign 1-based positions) ──
     slots: list[AllocatedSlot] = []
@@ -514,8 +575,11 @@ def assemble_user_feed(
 
     logger.info(
         "assemble_user_feed_completed",
-        followed_interest_count=len(followed_leaf_ids),
+        followed_interest_count=len(profile_interests),
+        followed_entity_count=len(followed_entities or []),
+        allocation_row_count=len(allocation),
         breaking_slots=len(breaking),
+        source_roll_slots=source_roll_slots,
         total_slots=len(slots),
         excluded_prior_count=len(excluded),
     )
@@ -557,8 +621,8 @@ def write_daily_feed(
 
     Pre-checks for any existing row for ``(feed_user_id, feed_date)``; if present,
     writes nothing and reports ``already_present=True`` (re-running the batch does
-    not duplicate the feed — SP4 DoD-b). An empty ``slots`` list writes nothing
-    (the caller already decided to skip the user — SP4 DoD-c).
+    not duplicate the feed). An empty ``slots`` list writes nothing (the caller
+    already decided to skip the user).
 
     Args:
         supabase_client: A service-role supabase client (injected; mocked in tests).
@@ -577,7 +641,7 @@ def write_daily_feed(
     feed_date_iso = feed_date.isoformat()
 
     if not slots:
-        # Reason: empty feed → skip the user entirely, no daily_feeds row (DoD-c).
+        # Reason: empty feed → skip the user entirely, no daily_feeds row.
         logger.info(
             "write_daily_feed_skipped_empty",
             feed_user_id=feed_user_id,

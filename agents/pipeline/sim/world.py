@@ -6,9 +6,13 @@ Builds, with NO randomness and NO external calls:
   * ~100 ``CanonicalStory`` items with varied importance (outlet count) and
     freshness (publish offset from a fixed ``SIM_NOW``),
   * the ``story_interests`` tags for every story via the REAL ancestor tagger
-    (``agents.ingestion.ancestor_tagging.merge_story_tags``), and
+    (``agents.ingestion.ancestor_tagging.merge_story_tags``),
   * three user profiles that stress distinct ranking paths (strict / broad /
-    niche+exploration).
+    niche — the §3.7 exploration tier is retired under phase-5a), and
+  * a separate phase-5a entity-boost scenario (``build_entity_boost_scenario``):
+    an isolated world with twin Nvidia stories + a "Build your 30" allocation so
+    the sim can prove a followed entity lifts a story AND the per-category budgets
+    are honored — without touching the legacy 3-profile invariants.
 
 Everything is index-derived so two runs produce byte-identical worlds — the
 simulation is reproducible and its assertions are stable (Rule 9).
@@ -25,7 +29,9 @@ from pydantic import BaseModel, Field
 
 from agents.ingestion.ancestor_tagging import merge_story_tags
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.pipeline.categories import CategoryAllocation
 from agents.pipeline.stages.ranking import (
+    FollowedEntity,
     UserProfileInterest,
     score_stories_for_interest,
 )
@@ -112,6 +118,13 @@ class SimProfile(BaseModel):
         interests: The user's followed ``UserProfileInterest`` rows.
         exploration_interest_ids: Adjacent (NOT-followed) interest ids to seed the
             ~10% exploration slots from (empty = no exploration for this user).
+        followed_entities: The user's followed entities (phase-5a EntityBonus
+            source). Empty for the legacy profiles; populated for the entity-boost
+            scenario so the sim can prove a followed entity lifts a story.
+        category_allocation: The user's per-category slot budgets + manual sequence
+            ("Build your 30"). Empty → the allocator's balanced default; populated
+            for the entity-boost scenario so the sim can assert exact budgets +
+            sequence (phase-5a SP4).
     """
 
     profile_key: str = Field(..., description="Short stable key for report headers")
@@ -122,6 +135,14 @@ class SimProfile(BaseModel):
     exploration_interest_ids: list[str] = Field(
         default_factory=list,
         description="Adjacent not-followed interest ids to seed exploration from",
+    )
+    followed_entities: list[FollowedEntity] = Field(
+        default_factory=list,
+        description="The user's followed entities (phase-5a EntityBonus source)",
+    )
+    category_allocation: list[CategoryAllocation] = Field(
+        default_factory=list,
+        description="Per-category slot budgets + manual sequence (Build your 30)",
     )
 
 
@@ -206,16 +227,21 @@ def build_world(
 
 
 def build_profiles() -> list[SimProfile]:
-    """Build the three stress-test user profiles.
+    """Build the three legacy stress-test user profiles (strict / broad / niche).
 
     A — strict cricket.india only (proves: no upward fallback, no exploration).
-    B — broad multi-interest, varied weights (proves: proportional split + 40% cap
-        + niche-reaches-broad via ancestor tags + breaking tier).
-    C — niche Arsenal + crypto, with an adjacent equities exploration seed
-        (proves: a deep niche surfaces + exploration fills ~10%).
+    B — broad multi-interest, varied weights (proves: diversity + niche-reaches-broad
+        via ancestor tags + the breaking tier hold under the balanced default).
+    C — niche Arsenal + crypto (proves: a deep niche still surfaces; the §3.7
+        auto-exploration tier is retired under phase-5a — no exploration slot).
+
+    The ``exploration_interest_ids`` seed on C is now INERT: the category-budget
+    allocator ignores the exploration param (the user reserves breadth via budgets).
+    It is left in place to keep the legacy profile definition stable; the phase-5a
+    entity-boost scenario is built separately (:func:`build_entity_boost_scenario`).
 
     Returns:
-        The three :class:`SimProfile` definitions.
+        The three legacy :class:`SimProfile` definitions.
     """
     return [
         SimProfile(
@@ -297,3 +323,171 @@ def build_exploration_candidates(
             now_utc=now_utc,
         )
     return exploration
+
+
+# ── Entity-boost scenario (phase-5a SP4) ──────────────────────────────────────
+# A SECOND, isolated synthetic world built so the offline sim can prove the two
+# phase-5a invariants DETERMINISTICALLY (no live DB, no network):
+#
+#   1. a followed entity (Nvidia, custom source) lifts a story ABOVE an otherwise
+#      identical non-followed twin WITHIN its category, and
+#   2. the user's per-category slot budgets + manual sequence are honored, the
+#      source-category (youtube/x) budgets soft-roll into the topic categories,
+#      and the feed totals exactly ``Σ budgets`` (== 30).
+#
+# It is kept separate from ``build_world`` so the legacy 3-profile invariants
+# (strict / broad / niche) are untouched — the twin Nvidia stories only exist
+# here, where the entity assertion can isolate the bonus as the sole tiebreaker.
+
+# The DoD allocation (phase-5a SP4 (a)/(b)): topic + source budgets sum to 30, so
+# the assembled feed must be exactly 30 slots with the 9 source slots (youtube 6 +
+# x 3) rolled into the topic categories by sequence.
+_ENTITY_SCENARIO_ALLOCATION: tuple[tuple[str, int, int], ...] = (
+    # (allocation_category, allocation_slot_count, allocation_sort_order)
+    ("breaking", 2, 0),
+    ("world_politics", 4, 1),
+    ("tech_science", 5, 2),
+    ("markets", 4, 3),
+    ("sport", 3, 4),
+    ("culture", 3, 5),
+    ("youtube", 6, 6),  # source-axis: empty today → budget rolls into topics
+    ("x", 3, 7),  # source-axis: empty today → budget rolls into topics
+)
+
+# Per matched node: how many filler stories to seed (enough to fill every topic
+# budget AND leave a surplus so the source soft-roll has somewhere to land).
+_ENTITY_SCENARIO_FILLER_COUNTS: dict[str, int] = {
+    "world.geopolitics": 10,
+    "tech.ai": 10,
+    "markets.stocks": 8,
+    "sport.soccer.arsenal": 8,
+    "world.health": 6,  # tech_science via the health→tech_science slug map
+}
+
+
+def build_entity_boost_scenario(
+    interest_nodes: dict[str, InterestNode],
+) -> tuple[list[CanonicalStory], list[StoryInterestTag], SimProfile]:
+    """Build the isolated entity-boost world + the profile that follows Nvidia.
+
+    Deterministic (no randomness, no clock dependency beyond :data:`SIM_NOW`): the
+    pool holds filler stories across the topic categories PLUS a TWIN PAIR of
+    ``markets.stocks`` stories that are identical in importance (outlet count) and
+    freshness (publish age) — one titled with "Nvidia", one not. The profile
+    follows the matching topic leaves AND a custom-source Nvidia entity, with the
+    DoD per-category allocation. Because the twins are equal on every base-Score
+    term, the EntityBonus is the ONLY differentiator, so a correct allocator must
+    place the Nvidia story above its twin within ``markets``.
+
+    Args:
+        interest_nodes: The taxonomy map from :func:`build_taxonomy` (the scenario
+            reuses the same taxonomy as :func:`build_world`).
+
+    Returns:
+        ``(stories, story_interest_tags, profile)`` — the isolated pool, its
+        ancestor-expanded tags, and the entity-following :class:`SimProfile`.
+
+    Example:
+        >>> nodes = build_taxonomy()
+        >>> stories, tags, profile = build_entity_boost_scenario(nodes)
+        >>> profile.followed_entities[0].entity_label
+        'Nvidia'
+    """
+    stories: list[CanonicalStory] = []
+    tags: list[StoryInterestTag] = []
+    global_index = 0
+
+    def _add_story(
+        story_id: str,
+        title: str,
+        matched_node_id: str,
+        outlet_count: int,
+        age_hours: int,
+    ) -> None:
+        published = SIM_NOW - timedelta(hours=age_hours)
+        stories.append(
+            CanonicalStory(
+                canonical_story_id=story_id,
+                canonical_title=title,
+                canonical_url=f"https://sim.news/{story_id}",
+                canonical_normalized_url=f"https://sim.news/{story_id}",
+                canonical_published_utc=published,
+                canonical_primary_outlet_domain="sim.news",
+                canonical_primary_outlet_name="Sim Wire",
+                covering_outlets=[f"outlet{i}.news" for i in range(outlet_count)],
+                story_outlet_count=outlet_count,
+                canonical_matched_interest_ids=[matched_node_id],
+            )
+        )
+        tags.extend(merge_story_tags(story_id, [matched_node_id], interest_nodes))
+
+    # Filler stories across the topic categories (index-derived importance/freshness).
+    for matched_node_id, count in _ENTITY_SCENARIO_FILLER_COUNTS.items():
+        headline_stub = _HEADLINE_BY_NODE.get(matched_node_id, matched_node_id)
+        for local_index in range(1, count + 1):
+            _add_story(
+                story_id=f"ent-{matched_node_id}-{local_index:02d}",
+                title=f"{headline_stub} update {local_index}",
+                matched_node_id=matched_node_id,
+                outlet_count=_OUTLET_CYCLE[global_index % len(_OUTLET_CYCLE)],
+                age_hours=_FRESHNESS_CYCLE_HOURS[
+                    global_index % len(_FRESHNESS_CYCLE_HOURS)
+                ],
+            )
+            global_index += 1
+
+    # The TWIN PAIR (markets.stocks): identical importance (5 outlets) + freshness
+    # (3h old), so the EntityBonus is the ONLY thing separating them. The "twin"
+    # title deliberately avoids the word "Nvidia"/"NVDA" so it earns no bonus.
+    _add_story(
+        story_id="ent-twin-nvidia",
+        title="Nvidia Q3 earnings beat expectations",
+        matched_node_id="markets.stocks",
+        outlet_count=5,
+        age_hours=3,
+    )
+    _add_story(
+        story_id="ent-twin-plain",
+        title="Chipmaker quarterly earnings beat expectations",
+        matched_node_id="markets.stocks",
+        outlet_count=5,
+        age_hours=3,
+    )
+
+    profile = SimProfile(
+        profile_key="D",
+        label="Entity follower — Build-your-30 budgets + a custom Nvidia follow",
+        interests=[
+            UserProfileInterest(
+                profile_interest_id="world.geopolitics", profile_weight=2.0
+            ),
+            UserProfileInterest(profile_interest_id="tech.ai", profile_weight=2.0),
+            UserProfileInterest(profile_interest_id="world.health", profile_weight=1.0),
+            UserProfileInterest(
+                profile_interest_id="markets.stocks", profile_weight=2.0
+            ),
+            UserProfileInterest(
+                profile_interest_id="sport.soccer.arsenal", profile_weight=1.0
+            ),
+        ],
+        followed_entities=[
+            FollowedEntity(
+                entity_id="ai/ai-hardware-compute/companies-topics/nvidia",
+                entity_label="Nvidia",
+                entity_ticker="NVDA",
+                entity_kind="company",
+                # Loader-applied custom-source weight (FOLLOW_SOURCE_WEIGHT["custom"]).
+                follow_weight=3.0,
+                follow_path=["ai", "ai-hardware-compute", "nvidia"],
+            )
+        ],
+        category_allocation=[
+            CategoryAllocation(
+                allocation_category=category,
+                allocation_slot_count=slot_count,
+                allocation_sort_order=sort_order,
+            )
+            for category, slot_count, sort_order in _ENTITY_SCENARIO_ALLOCATION
+        ],
+    )
+    return stories, tags, profile

@@ -1,3 +1,6 @@
+> **⚠ SUPERSEDED by phase-5a (2026-06-05) — see `plans/phase-5a-build-your-30-and-entity-ranker.md`.**
+> The master-dial + 30-cell-ribbon design below is **retired**. The owner replaced it with the **"Build your 30, in order"** screen: one ordered list of the 8 categories, explicit per-category slot counts, and a manual sequence. The backend contract it writes to (`user_feed_allocation` + the 8 `feed_category` keys, migration 0008) and the allocator that consumes it shipped in phase-5a. The entity-bonus + category-budget allocation are documented in `reference/ranking-spec.md` §3a. This document is kept for design history only.
+
 # Control Surface — Allocation Spec (Settings/Preferences)
 
 **Status:** 🟡 DRAFT scaffold for M5 / Phase 5E. No donor — TL;DW has no allocation UI; build fresh. Re-skin per `reference/design-language.md`.

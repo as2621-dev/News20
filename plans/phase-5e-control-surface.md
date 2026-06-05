@@ -1,3 +1,6 @@
+> **⚠ SUPERSEDED by phase-5a (2026-06-05) — see `plans/phase-5a-build-your-30-and-entity-ranker.md`.**
+> This phase's master-dial + draggable 30-cell-ribbon design is **retired**. The owner replaced it with the **"Build your 30, in order"** screen (one ordered list, explicit per-category slot counts, manual sequence). Phase-5a shipped that screen's **backend** — migration 0008 (`user_feed_allocation` + the 8 `feed_category` keys), the category-budget + manual-sequence allocator, and the entity-aware ranking (`reference/ranking-spec.md` §3a). Only the frontend screen remains; it writes the `user_feed_allocation` contract phase-5a defined. Kept for planning history.
+
 # Phase 5e: Control surface (allocation settings)
 
 **Milestone:** M5 — Two-axis personalization (sources + control surface)

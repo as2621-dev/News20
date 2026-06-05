@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.memory.session_processor import ProfileUpdateResult, run_profile_update_job
+from agents.pipeline.categories import CategoryAllocation
 from agents.pipeline.feed_assembly import ScoredCandidate
 from agents.pipeline.orchestrator import (
     DailyFeedsBatchResult,
@@ -35,7 +36,11 @@ from agents.pipeline.orchestrator import (
     orchestrate_story,
 )
 from agents.pipeline.produce_gate import select_stories_to_produce
-from agents.pipeline.stages.ranking import UserProfileInterest
+from agents.pipeline.stages.ranking import (
+    FOLLOW_SOURCE_WEIGHT,
+    FollowedEntity,
+    UserProfileInterest,
+)
 from agents.shared.logger import get_logger
 from agents.voice.gemini_tts import GeminiTTSClient
 
@@ -136,6 +141,126 @@ def _load_prior_feed_story_ids(
     return prior_by_user
 
 
+def _load_followed_entities(
+    supabase_client: Any, user_ids: list[str]
+) -> dict[str, list[FollowedEntity]]:
+    """Hydrate every active user's followed entities in ONE join query (phase-5a SP2).
+
+    Joins ``user_entity_follows`` to ``entities`` (migration 0007) so each follow
+    carries the entity's identity (label / ticker / kind) the EntityBonus matcher
+    needs. PostgREST embeds the joined ``entities`` row under the FK relationship.
+    Encodes the **custom > more > seed** source weighting HERE (the DB stores
+    ``follow_weight = 1.0`` for every source — SP1 report §7.3): each follow's
+    weight is multiplied by ``FOLLOW_SOURCE_WEIGHT[follow_source]`` so a custom
+    follow normalizes higher than a seed follow downstream.
+
+    A single ``.in_()`` over all active users (grouped in memory) — one round-trip,
+    not one per user (avoids the N+1 the prior-feed loader already avoids).
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+        user_ids: The active user ids to load entity follows for.
+
+    Returns:
+        ``{user_id: [FollowedEntity, ...]}`` (users with no follows are absent).
+    """
+    if not user_ids:
+        return {}
+    rows = (
+        getattr(
+            supabase_client.table("user_entity_follows")
+            .select(
+                "follow_user_id,entity_id,follow_source,follow_weight,follow_path,"
+                "entities(entity_label,entity_ticker,entity_kind)"
+            )
+            .in_("follow_user_id", user_ids)
+            .execute(),
+            "data",
+            None,
+        )
+        or []
+    )
+    entities_by_user: dict[str, list[FollowedEntity]] = {}
+    for row in rows:
+        entity = row.get("entities") or {}
+        # Reason: a follow whose joined entity row is missing (orphan FK) cannot be
+        # matched (no label) — skip it rather than fabricate an empty-label entity.
+        entity_label = entity.get("entity_label")
+        if not entity_label:
+            logger.warning(
+                "load_followed_entities_orphan_skipped",
+                follow_user_id=row.get("follow_user_id"),
+                entity_id=row.get("entity_id"),
+                fix_suggestion="user_entity_follows row has no joined entities row; "
+                "skipped (cannot match a labelless entity).",
+            )
+            continue
+        # Reason: encode custom>more>seed by multiplying the DB's flat 1.0 weight by
+        # the source multiplier (default 1.0 for an unknown source — fail safe).
+        source = str(row.get("follow_source") or "seed")
+        base_weight = float(row.get("follow_weight") or 1.0)
+        source_weight = base_weight * FOLLOW_SOURCE_WEIGHT.get(source, 1.0)
+        entities_by_user.setdefault(str(row["follow_user_id"]), []).append(
+            FollowedEntity(
+                entity_id=str(row["entity_id"]),
+                entity_label=str(entity_label),
+                entity_ticker=(
+                    str(entity["entity_ticker"])
+                    if entity.get("entity_ticker")
+                    else None
+                ),
+                entity_kind=str(entity.get("entity_kind") or "org"),
+                follow_weight=source_weight,
+                follow_path=[str(p) for p in (row.get("follow_path") or [])],
+            )
+        )
+    return entities_by_user
+
+
+def _load_category_allocation(
+    supabase_client: Any, user_ids: list[str]
+) -> dict[str, list[CategoryAllocation]]:
+    """Load every active user's ``user_feed_allocation`` rows in ONE query (phase-5a).
+
+    The Layer-1 per-category slot budgets + manual sequence (migration 0008) the
+    SP3 allocator reads. One ``.in_()`` over all active users, grouped in memory.
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+        user_ids: The active user ids to load allocations for.
+
+    Returns:
+        ``{user_id: [CategoryAllocation, ...]}`` (users with no allocation are
+        absent — SP3 applies a balanced default for them).
+    """
+    if not user_ids:
+        return {}
+    rows = (
+        getattr(
+            supabase_client.table("user_feed_allocation")
+            .select(
+                "follow_user_id,allocation_category,allocation_slot_count,"
+                "allocation_sort_order"
+            )
+            .in_("follow_user_id", user_ids)
+            .execute(),
+            "data",
+            None,
+        )
+        or []
+    )
+    allocation_by_user: dict[str, list[CategoryAllocation]] = {}
+    for row in rows:
+        allocation_by_user.setdefault(str(row["follow_user_id"]), []).append(
+            CategoryAllocation(
+                allocation_category=str(row["allocation_category"]),
+                allocation_slot_count=int(row["allocation_slot_count"]),
+                allocation_sort_order=int(row["allocation_sort_order"]),
+            )
+        )
+    return allocation_by_user
+
+
 def build_story_id_resolver(
     supabase_client: Any,
 ) -> Callable[[list[str]], dict[str, str]]:
@@ -224,15 +349,23 @@ def load_active_user_inputs(
     # Reason: load EVERY active user's prior-feed story ids in ONE query (the §3.8
     # don't-repeat exclusion), grouped in memory — not one query per user. At 100
     # users this is 1 round-trip instead of 100 (the old per-user loop was an N+1).
+    active_user_ids = list(interests_by_user.keys())
     prior_story_ids_by_user = _load_prior_feed_story_ids(
-        supabase_client, list(interests_by_user.keys()), target_date
+        supabase_client, active_user_ids, target_date
     )
+    # phase-5a: hydrate the entity follows (⋈ entities) + per-category allocations,
+    # each in ONE batched query keyed by the same active-user set.
+    entities_by_user = _load_followed_entities(supabase_client, active_user_ids)
+    allocation_by_user = _load_category_allocation(supabase_client, active_user_ids)
+
     inputs: list[ActiveUserFeedInputs] = []
     for user_id, profile_interests in interests_by_user.items():
         inputs.append(
             ActiveUserFeedInputs(
                 active_user_id=user_id,
                 profile_interests=profile_interests,
+                followed_entities=entities_by_user.get(user_id, []),
+                category_allocation=allocation_by_user.get(user_id, []),
                 prior_feed_story_ids=prior_story_ids_by_user.get(user_id, []),
                 exploration_candidates_by_interest=exploration_by_user.get(user_id, {}),
             )
