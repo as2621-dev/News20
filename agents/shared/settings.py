@@ -32,6 +32,7 @@ class Settings(BaseSettings):
         gemini_api_key: Google Gemini API key — used for multi-speaker TTS.
         gemini_api_key_tts: Optional dedicated TTS-permissioned Gemini key.
             Falls back to gemini_api_key when empty.
+        youtube_api_key: Optional YouTube Data API v3 key for the catalog seeder.
         log_level: Minimum log level for the structured JSON logger.
     """
 
@@ -53,6 +54,13 @@ class Settings(BaseSettings):
     serper_api_key: SecretStr = Field(
         default=SecretStr(""),
         description="Serper.dev API key — Google Images SERP search for the poster-seed pipeline.",
+    )
+    youtube_api_key: str | None = Field(
+        default=None,
+        description="YouTube Data API v3 key — used by the catalog seeder "
+        "(scripts/seed_catalog) to resolve channel handles → channel id + "
+        "thumbnail + subscriber count. Optional so existing envs without it "
+        "still load; the seeder fails loud at run time when it is missing.",
     )
     log_level: str = Field(
         default="INFO",

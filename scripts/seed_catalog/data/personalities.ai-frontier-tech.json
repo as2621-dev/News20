@@ -1,0 +1,8 @@
+[
+  {"display_name": "Andrej Karpathy", "wikipedia_slug": "Andrej_Karpathy", "aliases": ["Karpathy"], "topic_tags": ["ai", "tech"]},
+  {"display_name": "Demis Hassabis", "wikipedia_slug": "Demis_Hassabis", "topic_tags": ["ai"]},
+  {"display_name": "Yann LeCun", "wikipedia_slug": "Yann_LeCun", "topic_tags": ["ai"]},
+  {"display_name": "Fei-Fei Li", "wikipedia_slug": "Fei-Fei_Li", "topic_tags": ["ai"]},
+  {"display_name": "Sam Altman", "wikipedia_slug": "Sam_Altman", "topic_tags": ["ai", "tech"]},
+  {"display_name": "Geoffrey Hinton", "wikipedia_slug": "Geoffrey_Hinton", "topic_tags": ["ai"]}
+]

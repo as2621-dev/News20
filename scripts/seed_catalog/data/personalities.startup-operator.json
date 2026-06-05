@@ -1,0 +1,8 @@
+[
+  {"display_name": "Sam Altman", "wikipedia_slug": "Sam_Altman", "topic_tags": ["ai", "business", "tech"]},
+  {"display_name": "Paul Graham", "wikipedia_slug": "Paul_Graham_(programmer)", "topic_tags": ["business", "tech"]},
+  {"display_name": "Elon Musk", "wikipedia_slug": "Elon_Musk", "topic_tags": ["business", "tech"]},
+  {"display_name": "Brian Chesky", "wikipedia_slug": "Brian_Chesky", "topic_tags": ["business", "tech"]},
+  {"display_name": "Marc Andreessen", "wikipedia_slug": "Marc_Andreessen", "topic_tags": ["business", "tech"]},
+  {"display_name": "Patrick Collison", "wikipedia_slug": "Patrick_Collison", "topic_tags": ["business", "tech"]}
+]

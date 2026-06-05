@@ -1,0 +1,6 @@
+[
+  {"handle": "@karpathy", "source_name": "Andrej Karpathy", "topic_tags": ["ai", "tech"]},
+  {"handle": "@sama", "source_name": "Sam Altman", "topic_tags": ["ai", "tech"]},
+  {"handle": "@ylecun", "source_name": "Yann LeCun", "topic_tags": ["ai"]},
+  {"handle": "@DrJimFan", "source_name": "Jim Fan", "topic_tags": ["ai"]}
+]

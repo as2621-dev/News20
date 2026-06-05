@@ -43,6 +43,8 @@ Vectors below are weights 0–3 (0 = none, 3 = primary). Illustrative — **lock
 
 > A user who matches no archetype well (low similarity to all) falls back to **#12 Balanced Generalist**.
 
+> **Seeded by Phase 5B (SP2):** this draft 12 set is the one seeded into the `archetypes` table by `supabase/seed/archetypes.sql`. Each row's 0–3 weights above are normalized (÷ row sum, 4 dp) into `archetype_vector` over the 8 lowercase keys `ai, geopolitics, business, environment, politics, tech, sport, arts`. Slugs (kebab-case): `ai-frontier-tech`, `markets-macro`, `startup-operator`, `crypto-fintech`, `geopolitics-world`, `us-politics-policy`, `climate-energy`, `sports-fan`, `arts-culture`, `creator-media`, `tech-generalist`, `balanced-generalist`. Re-seedable in place (upsert on `archetype_slug`) once `/cmo` locks the final set — no schema change.
+
 ---
 
 ## 4. Per-archetype source list schema
