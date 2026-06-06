@@ -24,7 +24,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
-import { fetchStoryDetail } from "@/lib/detail/fetchStoryDetail";
+// Fixture-backed detail, mirroring the reel's fixture feed: a bare `next dev` has
+// no Supabase rows for the fixture digests, so the Supabase-direct fetch hangs on
+// "LOADING…". `fixtureStoryDetail` is the drop-in sibling of `fetchStoryDetail`
+// (same signature); Phase 1c/3 swaps this back to "@/lib/detail/fetchStoryDetail".
+import { fetchStoryDetail } from "@/lib/detail/fixtureStoryDetail";
 import { logger } from "@/lib/logger";
 import type {
   DetailChunk,
