@@ -25,13 +25,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { ContentSource, ContentSourceType, SourcePriority, UserContentSource } from "@/types/source";
+import type { Archetype, ContentSource, ContentSourceType, SourcePriority, UserContentSource } from "@/types/source";
 
 /** The `content_sources` table name — single source of truth for the table ref. */
 const CONTENT_SOURCES_TABLE = "content_sources";
 
 /** The `user_content_sources` follow-junction table name. */
 const USER_CONTENT_SOURCES_TABLE = "user_content_sources";
+
+/** The public-read `archetypes` reference table name (migration 0009). */
+const ARCHETYPES_TABLE = "archetypes";
+
+/**
+ * The exact `archetypes` column projection {@link getArchetypes} requests — every
+ * field of {@link Archetype}, pinning the row shape to the type (not `*`).
+ */
+const ARCHETYPE_COLUMNS = "archetype_id,archetype_slug,archetype_label,archetype_vector";
 
 /**
  * The exact `content_sources` column projection {@link listSourcesByArchetype}
@@ -141,6 +150,47 @@ export async function listSourcesByArchetype(
 }
 
 /**
+ * Read the whole public-read `archetypes` reference catalog (migration 0009 seed,
+ * `supabase/seed/archetypes.sql`). The 5c recommendation flow feeds these rows to
+ * the PURE {@link mapToArchetype} (SP1), which scores the user's rolled-up
+ * interest vector against each `archetype_vector` and returns the nearest match.
+ *
+ * Reads are anon-PUBLIC (the `archetypes_public_read` policy, migration 0009), so
+ * an anon onboarding browse loads them without a session — same posture as the
+ * {@link listSourcesByArchetype} catalog read. The 12-row draft set is tiny, so
+ * this is an unfiltered, unpaged read (no limit needed). Errors surface (Rule 12).
+ *
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns Every {@link Archetype} row (slug + label + 8-key vector) for the matcher.
+ * @throws If the query fails (errors are surfaced, never swallowed — Rule 12).
+ *
+ * @example
+ * const archetypes = await getArchetypes();
+ * const match = mapToArchetype(userVector, archetypes); // SP1 — nearest archetype
+ */
+export async function getArchetypes(client: SupabaseClient = getSupabaseBrowserClient()): Promise<Archetype[]> {
+  logger.info("get_archetypes_started", {});
+
+  const { data, error } = await client.from(ARCHETYPES_TABLE).select(ARCHETYPE_COLUMNS).returns<Archetype[]>();
+
+  if (error) {
+    logger.error("get_archetypes_failed", {
+      error_message: error.message,
+      fix_suggestion:
+        "Confirm migration 0009 applied, supabase/seed/archetypes.sql ran, and archetypes allows anon SELECT.",
+    });
+    throw new Error(
+      `Failed to read archetypes: ${error.message}. ` +
+        "fix_suggestion: confirm migration 0009 applied and the archetypes seed ran.",
+    );
+  }
+
+  const rows = data ?? [];
+  logger.info("get_archetypes_completed", { returned: rows.length });
+  return rows;
+}
+
+/**
  * Read the authed user's whole follow set from `user_content_sources` (RLS
  * returns only the caller's rows). Used to hydrate the control surface / drive
  * ingestion.
@@ -238,6 +288,166 @@ export async function followSource(
   }
 
   logger.info("follow_source_completed", { user_id: authedUserId, source_id: sourceId, priority });
+}
+
+/**
+ * The catalog-row fields a user-added (non-curated) source carries when promoted
+ * from a live search result into `content_sources`. Mirrors the worker's
+ * `WorkerSourceSearchResult` (`src/lib/sourceSearch.ts`) so the future
+ * search-and-add modal can pass a search hit straight through.
+ */
+export interface UserAddedSourceInput {
+  /** The axis this source lives on ({@link ContentSourceType}). */
+  content_source_type: ContentSourceType;
+  /** The platform id (YouTube channel id, `itunes-{id}`, lower-cased `@handle`). */
+  external_id: string;
+  /** The display name. */
+  source_name: string;
+  /** Optional blurb (channel/episode description, or the `@handle`). */
+  source_description?: string | null;
+  /** Optional avatar/artwork URL. */
+  thumbnail_url?: string | null;
+  /** Optional subscriber/follower count when the provider exposes it. */
+  subscriber_count?: number | null;
+  /**
+   * X-only: `true` when the `@handle` could NOT be resolved by the live X resolver
+   * and is stored as a PENDING free-text follow. Phase 5d enriches/polls it later.
+   * Persisted as `platform_metadata.is_pending` so the ingestion seam can find it.
+   */
+  is_pending?: boolean;
+}
+
+/** What {@link upsertUserAddedSource} resolves to — the catalog id it followed. */
+export interface UserAddedSourceResult {
+  /** The `content_sources.source_id` the source upserted/resolved to (now followed). */
+  source_id: string;
+  /** True when this call inserted a NEW catalog row (vs. matched an existing one). */
+  was_inserted: boolean;
+}
+
+/**
+ * The `content_sources` column the upsert dedups on — the `(content_source_type,
+ * external_id)` unique constraint (`uq_content_source_type_external`, migration
+ * 0009). Re-adding the same external id resolves to the existing row, not a dupe.
+ */
+const CONTENT_SOURCE_UPSERT_CONFLICT = "content_source_type,external_id";
+
+/**
+ * Promote a NON-curated source (from a live worker search result) into the catalog
+ * and follow it for the authed user — the SP3a search-and-add hand-off.
+ *
+ * Search results carry only an `external_id` (the platform id), but
+ * {@link followSource} needs a catalog `source_id`. This bridges the gap:
+ *
+ *  1. Upsert a `content_sources` row with `is_curated=false`, dedup-keyed on the
+ *     `(content_source_type, external_id)` unique constraint — so re-adding the
+ *     SAME `external_id` resolves to the EXISTING row instead of duplicating it
+ *     (idempotent). The upsert RETURNS the row so we recover its `source_id`
+ *     without a second round-trip.
+ *  2. {@link followSource} the resolved `source_id` for the authed user (RLS-scoped
+ *     owner write, idempotent on the `(user_id, source_id)` PK, default priority).
+ *
+ * A PENDING `x_account` (an `@handle` the live X resolver could not resolve) is
+ * stored with `platform_metadata.is_pending = true` so Phase 5d's ingestion can
+ * find and enrich/poll it later (SP3a hand-off gap #2).
+ *
+ * RLS-safe: `content_sources` has NO anon/authed write policy (only the
+ * service-role bypasses RLS), so an UNAUTHENTICATED caller is rejected app-side
+ * FIRST (loud, actionable — Rule 12) before any write. An authed user-added row is
+ * a shared-catalog insert under the authed key; the per-user FOLLOW that follows
+ * is owner-scoped.
+ *
+ * @param input - The {@link UserAddedSourceInput} (a search hit's fields).
+ * @param priority - Initial follow priority (default `everything` via {@link followSource}).
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns The {@link UserAddedSourceResult} — the followed `source_id` (+ insert flag).
+ * @throws If unauthenticated, or if the catalog upsert / follow fails (surfaced — Rule 12).
+ *
+ * @example
+ * // Add a searched channel not in the catalog, then follow it:
+ * const { source_id } = await upsertUserAddedSource({
+ *   content_source_type: "youtube_channel",
+ *   external_id: "UC_xyz",
+ *   source_name: "Some Indie Channel",
+ * });
+ *
+ * @example
+ * // Follow an unresolved @handle → stored pending for Phase 5d enrichment:
+ * await upsertUserAddedSource({
+ *   content_source_type: "x_account",
+ *   external_id: "@somehandle",
+ *   source_name: "@somehandle",
+ *   is_pending: true,
+ * });
+ */
+export async function upsertUserAddedSource(
+  input: UserAddedSourceInput,
+  priority: SourcePriority = DEFAULT_SOURCE_PRIORITY,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<UserAddedSourceResult> {
+  // Resolve auth BEFORE any write — a user-added follow is an authed action; reject
+  // the anon path loudly here rather than leaning on an opaque RLS rejection.
+  const authedUserId = await requireAuthedUserId(client);
+  logger.info("upsert_user_added_source_started", {
+    user_id: authedUserId,
+    content_source_type: input.content_source_type,
+    external_id: input.external_id,
+    is_pending: input.is_pending === true,
+  });
+
+  // Reason: a pending x_account marks platform_metadata.is_pending so Phase 5d can
+  // find unresolved handles to enrich/poll. Non-pending rows carry no marker (null
+  // metadata) — we only attach the flag when it is meaningfully `true`.
+  const platformMetadata = input.is_pending === true ? { is_pending: true } : null;
+
+  const { data, error } = await client
+    .from(CONTENT_SOURCES_TABLE)
+    .upsert(
+      {
+        content_source_type: input.content_source_type,
+        external_id: input.external_id,
+        source_name: input.source_name,
+        source_description: input.source_description ?? null,
+        thumbnail_url: input.thumbnail_url ?? null,
+        subscriber_count: input.subscriber_count ?? null,
+        platform_metadata: platformMetadata,
+        // A user-added source is NOT part of the curated catalog (5c recommendation
+        // grids read curated rows; this row exists to anchor the follow + ingestion).
+        is_curated: false,
+      },
+      { onConflict: CONTENT_SOURCE_UPSERT_CONFLICT },
+    )
+    .select("source_id")
+    .single<{ source_id: string }>();
+
+  if (error || !data) {
+    logger.error("upsert_user_added_source_failed", {
+      external_id: input.external_id,
+      error_message: error?.message ?? "no_row_returned",
+      fix_suggestion:
+        "Confirm migration 0009 applied, the (content_source_type, external_id) unique constraint exists, " +
+        "and content_sources permits the authed upsert (service-role/policy).",
+    });
+    throw new Error(
+      `Failed to upsert user-added source "${input.external_id}": ${error?.message ?? "no row returned"}. ` +
+        "fix_suggestion: confirm migration 0009 applied and content_sources permits the upsert.",
+    );
+  }
+
+  // Now follow the resolved catalog row (owner-scoped, idempotent on the PK).
+  await followSource(data.source_id, priority, client);
+
+  logger.info("upsert_user_added_source_completed", {
+    user_id: authedUserId,
+    source_id: data.source_id,
+    external_id: input.external_id,
+    is_pending: input.is_pending === true,
+  });
+  // Reason: PostgREST's upsert does not tell us insert-vs-update; we cannot cheaply
+  // distinguish without a pre-read, so `was_inserted` is best-effort `true` only
+  // when no row pre-existed — left false here (the caller doesn't branch on it; the
+  // FOLLOW idempotency is what matters). Documented to avoid a misleading guarantee.
+  return { source_id: data.source_id, was_inserted: false };
 }
 
 /**

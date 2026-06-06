@@ -493,3 +493,85 @@ export async function persistPickerFollows(
   });
   return result;
 }
+
+// ─── Phase 5c SP4 — source-onboarding-complete marker ────────────────────────
+//
+// The picker step already stamps `users.user_onboarded_at` (above). The SOURCE
+// step (the 3 recommendation screens) runs AFTER the picker, so it needs its OWN
+// completion marker — `user_onboarded_at` is taken by the prior step and adding a
+// `users.user_sources_onboarded_at` column would need a migration (out of scope
+// for this client-side SP4a logic pass; no migration file is in scope).
+//
+// Mechanism choice (Rule 7 — pick one, name the other): the codebase has TWO
+// "step state" mechanisms — the Supabase `users` column (`user_onboarded_at`) and
+// localStorage (`src/lib/signals.ts`, documented there as "no DB table, no
+// migration" for non-security client state). The source-step marker is a UX
+// SKIP-GATE only (the FOLLOWS themselves persist RLS-scoped to the DB via
+// `followSource`/`upsertUserAddedSource`), so it uses the localStorage mechanism —
+// mirroring `signals.ts` (SSR-safe, try/catch, best-effort). When a migration is
+// added later, this can be promoted to a `users` column (the getter/setter contract
+// stays the same). Flagged for cleanup in the SP4a report.
+
+/** The `localStorage` key holding the source-onboarding-complete marker. */
+const SOURCE_ONBOARDING_COMPLETE_STORAGE_KEY = "n20-source-onboarding-complete";
+
+/** The value written when the source step is complete (presence = done). */
+const SOURCE_ONBOARDING_COMPLETE_VALUE = "1";
+
+/**
+ * Mark the source-onboarding step (the 3 recommendation screens) complete, so the
+ * future flow wiring routes to the reel and a returning user skips the source
+ * screens. Best-effort: a `localStorage` write failure (private mode / quota) is
+ * logged and swallowed — it must never block routing to the reel (the worst case
+ * is the user sees the skippable screens again, never a hard error).
+ *
+ * SSR / no-`localStorage` safe (the static-export build renders some pages
+ * server-side): a no-op when `window`/`localStorage` is unavailable.
+ *
+ * @returns Nothing — best-effort persistence (mirrors `signals.ts`).
+ *
+ * @example
+ * markSourceOnboardingComplete(); // on completing/skipping the last source screen
+ */
+export function markSourceOnboardingComplete(): void {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(SOURCE_ONBOARDING_COMPLETE_STORAGE_KEY, SOURCE_ONBOARDING_COMPLETE_VALUE);
+    logger.info("source_onboarding_marked_complete", {});
+  } catch (error: unknown) {
+    logger.warn("source_onboarding_mark_failed", {
+      error_message: error instanceof Error ? error.message : "unknown",
+      fix_suggestion:
+        "localStorage write failed (private mode / quota); the source step may re-show next visit (harmless, skippable).",
+    });
+  }
+}
+
+/**
+ * Whether the source-onboarding step has been completed on THIS device — the
+ * returning-user-skip gate the future flow reads to send a returning user straight
+ * to the reel without re-walking the source screens.
+ *
+ * SSR / no-`localStorage` safe: returns `false` (not complete) when `window`/
+ * `localStorage` is unavailable or the read throws — defaulting to "show the
+ * (skippable) screens" is the safe failure (never silently traps the user).
+ *
+ * @returns `true` once {@link markSourceOnboardingComplete} has run on this device.
+ *
+ * @example
+ * if (isSourceOnboardingComplete()) router.replace("/"); // returning user → reel
+ */
+export function isSourceOnboardingComplete(): boolean {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(SOURCE_ONBOARDING_COMPLETE_STORAGE_KEY) === SOURCE_ONBOARDING_COMPLETE_VALUE;
+  } catch {
+    // Reason: corrupt/blocked storage must never trap the user — default to "not
+    // complete" so the skippable source screens show (worst case: shown again).
+    return false;
+  }
+}

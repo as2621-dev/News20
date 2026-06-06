@@ -25,19 +25,22 @@ from __future__ import annotations
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from agents.ingestion.adapters.x_resolver import XHandleParseError, resolve_x_handle
 from agents.pipeline.llm_clients import LLMClient
 from agents.qa.agent import answer_question, build_refusal_answer
 from agents.qa.corpus import load_grounding_corpus
 from agents.qa.models import QuestionAnswer, StoryQaCacheRow
 from agents.shared.exceptions import GroundingCorpusError
 from agents.shared.logger import get_logger
+from agents.shared.settings import Settings
 from agents.voice.live_token import EphemeralTokenResponse, mint_ephemeral_token
 from agents.worker.corpus_cache import get_or_load_corpus
 
@@ -75,7 +78,11 @@ app.add_middleware(
 # a multi-instance deploy needs a shared store (Redis) or an authenticated proxy.
 _RATE_LIMIT_PER_MINUTE = int(os.environ.get("QA_RATE_LIMIT_PER_MINUTE", "20"))
 _RATE_LIMIT_WINDOW_SECONDS = 60.0
-_RATE_LIMITED_PREFIXES = ("/api/story/", "/api/voice/live-token")
+_RATE_LIMITED_PREFIXES = (
+    "/api/story/",
+    "/api/voice/live-token",
+    "/api/sources/search",
+)
 _request_times_by_ip: dict[str, list[float]] = {}
 
 
@@ -440,3 +447,508 @@ async def post_voice_live_token() -> EphemeralTokenResponse:
             detail="Could not mint a Gemini Live ephemeral token",
         ) from exc
     return token
+
+
+# ---------------------------------------------------------------------------
+# Source-search endpoint (Phase 5c SP3a) — live "add anyone" search.
+#
+# The static-export SPA cannot hold the YouTube Data API key, so the live
+# external-API source search runs HERE (the same worker surface that already
+# holds the Gemini key). Ported from the donor `api/sources/search/route.ts`
+# (reuse-map §3): YouTube channels via the 2-step search.list → channels.list
+# flow, podcasts via the keyless iTunes Search API. The X-handle path is built
+# fresh (`agents/ingestion/adapters/x_resolver.py`). `is_already_added` is NOT
+# annotated here — the device has no service-role context for the caller's
+# follows; the TS client (`src/lib/sourceSearch.ts`) annotates it against the
+# user's RLS-scoped follow set after this returns (mirrors SP1).
+# ---------------------------------------------------------------------------
+
+_YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
+_ITUNES_SEARCH_BASE = "https://itunes.apple.com/search"
+_SOURCE_SEARCH_MAX_RESULTS = 10
+_SOURCE_SEARCH_TIMEOUT_SECONDS = 10.0
+_ITUNES_USER_AGENT = "News20-Sources/1.0"
+
+
+class _SourceSearchUnavailable(Exception):
+    """Internal signal: the search COULD NOT RUN (missing key / upstream error).
+
+    Distinct from an empty-but-successful search (no matches). The endpoint catches
+    this and returns ``search_ok=False`` so the client shows "search unavailable"
+    instead of "no results" — the honest distinction the ``search_ok`` field exists
+    for (Rule 12). Never escapes the module.
+    """
+
+
+class SourceSearchRequest(BaseModel):
+    """The source-search request body (Phase 5c SP3a).
+
+    Attributes:
+        query: The free-text search query (channel/podcast name, or an X handle/URL).
+        kind: Which axis to search — the worker-side searchable subset of
+            ``content_source_type`` (``personality`` is a client-side catalog read,
+            not a live external search, so it is excluded here).
+    """
+
+    query: str = Field(..., min_length=1, description="Free-text search query.")
+    kind: Literal["youtube_channel", "podcast", "x_account"] = Field(
+        ..., description="The source axis to search."
+    )
+
+
+class SourceSearchResult(BaseModel):
+    """One addable source result (Phase 5c SP3a) — the worker contract.
+
+    Shape mirrors the donor `SourceSearchResult` + the News20 `ContentSource`
+    fields the future Add UI needs. ``is_already_added`` is intentionally absent:
+    the TS client annotates it against the caller's RLS-scoped follows (the worker
+    has no per-user follow context). ``is_pending`` is X-only — true when an
+    ``@handle`` is stored as a free-text follow because live X enrichment is not
+    wired (open question #3).
+
+    Attributes:
+        source_name: Display name (channel/podcast title, or X handle).
+        external_id: Stable platform id used for dedup/follow (channel id,
+            ``itunes-{collectionId}``, or the lower-cased X handle).
+        content_source_type: The axis this result lives on.
+        thumbnail_url: Avatar/artwork URL, or ``None``.
+        description: Short blurb (channel description, episode count, or handle),
+            or ``None``.
+        subscriber_count: Follower/subscriber count when the provider exposes it,
+            else ``None`` (iTunes/X never expose one here).
+        is_pending: X-only — ``True`` when stored as a pending free-text follow.
+    """
+
+    source_name: str = Field(..., description="Display name of the source.")
+    external_id: str = Field(..., description="Stable platform id for dedup/follow.")
+    content_source_type: Literal["youtube_channel", "podcast", "x_account"] = Field(
+        ..., description="The source axis this result lives on."
+    )
+    thumbnail_url: str | None = Field(default=None, description="Avatar/artwork URL.")
+    description: str | None = Field(default=None, description="Short blurb.")
+    subscriber_count: int | None = Field(
+        default=None,
+        description="Subscriber/follower count when the provider exposes it.",
+    )
+    is_pending: bool = Field(
+        default=False,
+        description="X-only: True when stored as a pending free-text follow (no live enrichment).",
+    )
+
+
+class SourceSearchResponse(BaseModel):
+    """The source-search response envelope (Phase 5c SP3a).
+
+    A typed envelope (not a bare list) so a missing-key / upstream failure is an
+    HONEST, non-crashing signal the client can show as "search unavailable" rather
+    than an empty result set masquerading as "no matches" (Rule 12 — fail loud).
+
+    Attributes:
+        results: The addable results (possibly empty — a genuine "no matches").
+        search_ok: ``False`` when the search could not run (missing key / upstream
+            error); the client distinguishes this from an empty-but-successful search.
+    """
+
+    results: list[SourceSearchResult] = Field(
+        default_factory=list, description="Addable source results."
+    )
+    search_ok: bool = Field(
+        default=True,
+        description="False when the search could not run (missing key / upstream error).",
+    )
+
+
+def _log_source_search_error(
+    *, error_code: str, error_message: str, kind: str, fix_suggestion: str
+) -> None:
+    """Log a typed ErrorResponse-shaped record for a source-search failure.
+
+    Args:
+        error_code: Stable machine code for the failure class.
+        error_message: Human-readable message (never a secret/key value).
+        kind: The source axis being searched.
+        fix_suggestion: Actionable remediation hint (CLAUDE.md mandate).
+    """
+    logger.error(
+        error_code,
+        error_code=error_code,
+        error_message=error_message,
+        error_details={"kind": kind},
+        timestamp_utc=_utc_now_iso(),
+        fix_suggestion=fix_suggestion,
+    )
+
+
+async def _search_youtube_channels(query: str) -> list[SourceSearchResult]:
+    """Live YouTube channel search — the donor 2-step (search.list → channels.list).
+
+    Step 1 (``search.list?type=channel``) finds channel ids + snippet thumbnails;
+    step 2 (``channels.list?part=snippet,statistics``) enriches subscriber counts
+    and high-res thumbnails. A missing key returns ``[]`` and LOGS it (never a
+    crash, never a swallowed silence). Step-2 failure falls back to the step-1
+    snippets (unenriched) so a partial outage still returns addable channels.
+
+    Args:
+        query: The channel-name search query.
+
+    Returns:
+        The matching channels as typed results (possibly empty).
+    """
+    api_key = Settings().youtube_api_key
+    if not api_key:
+        _log_source_search_error(
+            error_code="source_search_youtube_missing_api_key",
+            error_message="YOUTUBE_API_KEY is not set in the worker environment",
+            kind="youtube_channel",
+            fix_suggestion="Set YOUTUBE_API_KEY (YouTube Data API v3) in the worker env to enable channel search.",
+        )
+        # Reason: a missing key means the search could not RUN — signal
+        # unavailability (search_ok=False), NOT an empty "no matches" result.
+        raise _SourceSearchUnavailable("YOUTUBE_API_KEY not configured")
+
+    snippets_by_id: dict[str, dict[str, str | None]] = {}
+    channel_ids: list[str] = []
+    async with httpx.AsyncClient(timeout=_SOURCE_SEARCH_TIMEOUT_SECONDS) as http_client:
+        # ── Step 1: search.list → channel ids + snippet thumbnails ──
+        try:
+            search_response = await http_client.get(
+                f"{_YOUTUBE_API_BASE}/search",
+                params={
+                    "type": "channel",
+                    "q": query,
+                    "part": "snippet",
+                    "maxResults": _SOURCE_SEARCH_MAX_RESULTS,
+                    "key": api_key,
+                },
+            )
+            search_response.raise_for_status()
+            search_body = search_response.json()
+        except Exception as exc:  # noqa: BLE001 — boundary: upstream failure → unavailable, logged
+            _log_source_search_error(
+                error_code="source_search_youtube_search_failed",
+                error_message=str(exc)[:200],
+                kind="youtube_channel",
+                fix_suggestion="Confirm YOUTUBE_API_KEY has Data API v3 enabled + quota, and YouTube is reachable.",
+            )
+            # Upstream step-1 failure → the search could not run (unavailable).
+            raise _SourceSearchUnavailable("YouTube search.list failed") from exc
+
+        for item in search_body.get("items", []) or []:
+            channel_id = (item.get("id") or {}).get("channelId")
+            if not channel_id:
+                continue
+            channel_ids.append(channel_id)
+            snippets_by_id[channel_id] = {
+                "title": (item.get("snippet") or {}).get("title"),
+                "description": (item.get("snippet") or {}).get("description"),
+                "thumbnail_url": _pick_youtube_thumbnail(
+                    (item.get("snippet") or {}).get("thumbnails")
+                ),
+            }
+
+        if not channel_ids:
+            return []
+
+        # ── Step 2: channels.list → subscriber counts + hi-res thumbnails ──
+        try:
+            channels_response = await http_client.get(
+                f"{_YOUTUBE_API_BASE}/channels",
+                params={
+                    "id": ",".join(channel_ids),
+                    "part": "snippet,statistics",
+                    "key": api_key,
+                },
+            )
+            channels_response.raise_for_status()
+            channels_body = channels_response.json()
+        except Exception as exc:  # noqa: BLE001 — boundary: enrich failure → step-1 snippets
+            _log_source_search_error(
+                error_code="source_search_youtube_enrich_failed",
+                error_message=str(exc)[:200],
+                kind="youtube_channel",
+                fix_suggestion="channels.list failed; returning unenriched search snippets (no sub counts).",
+            )
+            return _youtube_snippets_to_results(channel_ids, snippets_by_id)
+
+    return _youtube_channels_to_results(channels_body, snippets_by_id)
+
+
+def _pick_youtube_thumbnail(thumbnails: dict[str, Any] | None) -> str | None:
+    """Pick the highest-resolution available YouTube thumbnail URL (high → default).
+
+    Args:
+        thumbnails: The snippet's ``thumbnails`` object, or ``None``.
+
+    Returns:
+        The best thumbnail URL, or ``None`` when none is present.
+    """
+    if not thumbnails:
+        return None
+    for size in ("high", "medium", "default"):
+        url = (thumbnails.get(size) or {}).get("url")
+        if url:
+            return url
+    return None
+
+
+def _youtube_snippets_to_results(
+    channel_ids: list[str], snippets_by_id: dict[str, dict[str, str | None]]
+) -> list[SourceSearchResult]:
+    """Map step-1 search snippets to results (the unenriched step-2-fallback path).
+
+    Args:
+        channel_ids: The channel ids discovered by search.list, in order.
+        snippets_by_id: The per-channel title/description/thumbnail from step 1.
+
+    Returns:
+        Typed results without subscriber counts (channels lacking a title dropped).
+    """
+    results: list[SourceSearchResult] = []
+    for channel_id in channel_ids:
+        snippet = snippets_by_id.get(channel_id) or {}
+        title = snippet.get("title")
+        if not title:
+            continue
+        results.append(
+            SourceSearchResult(
+                source_name=title,
+                external_id=channel_id,
+                content_source_type="youtube_channel",
+                thumbnail_url=snippet.get("thumbnail_url"),
+                description=snippet.get("description"),
+                subscriber_count=None,
+            )
+        )
+    return results
+
+
+def _youtube_channels_to_results(
+    channels_body: dict[str, Any], snippets_by_id: dict[str, dict[str, str | None]]
+) -> list[SourceSearchResult]:
+    """Map channels.list items to enriched results (subscriber counts + thumbnails).
+
+    Hidden subscriber counts and non-numeric counts map to ``None`` (never a fake
+    zero). Falls back to the step-1 snippet thumbnail when the enriched one is absent.
+
+    Args:
+        channels_body: The parsed channels.list response.
+        snippets_by_id: The step-1 snippets, for the thumbnail fallback.
+
+    Returns:
+        The enriched, typed channel results.
+    """
+    results: list[SourceSearchResult] = []
+    for item in channels_body.get("items", []) or []:
+        channel_id = item.get("id") or ""
+        statistics = item.get("statistics") or {}
+        subscriber_count = _parse_subscriber_count(
+            raw_count=statistics.get("subscriberCount"),
+            is_hidden=bool(statistics.get("hiddenSubscriberCount")),
+        )
+        snippet = item.get("snippet") or {}
+        thumbnail = _pick_youtube_thumbnail(snippet.get("thumbnails")) or (
+            snippets_by_id.get(channel_id) or {}
+        ).get("thumbnail_url")
+        results.append(
+            SourceSearchResult(
+                source_name=snippet.get("title") or "",
+                external_id=channel_id,
+                content_source_type="youtube_channel",
+                thumbnail_url=thumbnail,
+                description=snippet.get("description"),
+                subscriber_count=subscriber_count,
+            )
+        )
+    return results
+
+
+def _parse_subscriber_count(*, raw_count: str | None, is_hidden: bool) -> int | None:
+    """Parse a YouTube subscriberCount string to an int, or ``None`` when unusable.
+
+    Args:
+        raw_count: The ``statistics.subscriberCount`` string (may be absent).
+        is_hidden: The ``hiddenSubscriberCount`` flag.
+
+    Returns:
+        The integer count, or ``None`` when hidden / absent / non-numeric.
+    """
+    if is_hidden or not raw_count:
+        return None
+    try:
+        return int(raw_count)
+    except (TypeError, ValueError):
+        return None
+
+
+async def _search_podcasts(query: str) -> list[SourceSearchResult]:
+    """Live podcast search via the keyless iTunes Search API (donor port).
+
+    ``external_id`` is built as ``itunes-{collectionId}`` to match the catalog
+    seeder convention (reuse-map §2), so a podcast added here resolves to the same
+    ``content_sources`` row the seeder would create. Any failure returns ``[]`` and
+    LOGS it (never a crash).
+
+    Args:
+        query: The podcast-name search query.
+
+    Returns:
+        The matching podcasts as typed results (possibly empty).
+    """
+    try:
+        async with httpx.AsyncClient(
+            timeout=_SOURCE_SEARCH_TIMEOUT_SECONDS
+        ) as http_client:
+            response = await http_client.get(
+                _ITUNES_SEARCH_BASE,
+                params={
+                    "term": query,
+                    "media": "podcast",
+                    "entity": "podcast",
+                    "limit": _SOURCE_SEARCH_MAX_RESULTS,
+                },
+                headers={"User-Agent": _ITUNES_USER_AGENT},
+            )
+            response.raise_for_status()
+            body = response.json()
+    except Exception as exc:  # noqa: BLE001 — boundary: upstream failure → unavailable, logged
+        _log_source_search_error(
+            error_code="source_search_podcasts_failed",
+            error_message=str(exc)[:200],
+            kind="podcast",
+            fix_suggestion="iTunes Search failed (likely rate-limited or unreachable); back off and retry.",
+        )
+        # Upstream failure → the search could not run (unavailable, not "no matches").
+        raise _SourceSearchUnavailable("iTunes Search failed") from exc
+
+    results: list[SourceSearchResult] = []
+    for entry in body.get("results", []) or []:
+        collection_id = entry.get("collectionId")
+        collection_name = entry.get("collectionName")
+        if not collection_id or not collection_name:
+            continue
+        artwork = (
+            entry.get("artworkUrl600")
+            or entry.get("artworkUrl100")
+            or entry.get("artworkUrl60")
+        )
+        results.append(
+            SourceSearchResult(
+                source_name=collection_name,
+                external_id=f"itunes-{collection_id}",
+                content_source_type="podcast",
+                thumbnail_url=artwork,
+                description=_podcast_description(entry),
+                subscriber_count=None,
+            )
+        )
+    return results
+
+
+def _podcast_description(entry: dict[str, Any]) -> str | None:
+    """Build a podcast blurb from episode count + artist (donor parity).
+
+    Args:
+        entry: One iTunes Search result object.
+
+    Returns:
+        ``"{n} episodes · {artist}"`` when a track count is present, else the
+        artist name, else ``None``.
+    """
+    track_count = entry.get("trackCount")
+    artist = entry.get("artistName")
+    if isinstance(track_count, int) and track_count > 0:
+        return (
+            f"{track_count:,} episodes · {artist}"
+            if artist
+            else f"{track_count:,} episodes"
+        )
+    return artist or None
+
+
+async def _search_x_account(query: str) -> list[SourceSearchResult]:
+    """Resolve an X handle/URL into a single addable ``x_account`` result.
+
+    Delegates to the build-fresh resolver (`agents/ingestion/adapters/x_resolver`).
+    With no live X lookup wired (open question #3), the result is a PENDING
+    free-text follow (``is_pending=True``) — the DoD fallback, a valid result, not
+    an error. An unparseable input returns ``[]`` (the user typed garbage).
+
+    Args:
+        query: The free-text X query (``@handle`` or profile URL).
+
+    Returns:
+        A single-element list with the resolved/pending result, or ``[]`` when the
+        input cannot be parsed into a handle.
+    """
+    try:
+        # Reason: live_lookup is None — no X API key is wired yet (open question
+        # #3). The resolver returns a pending free-text follow, which is addable.
+        resolution = await resolve_x_handle(query, live_lookup=None)
+    except XHandleParseError as exc:
+        logger.info(
+            "source_search_x_unparseable",
+            kind="x_account",
+            error_message=exc.message,
+            fix_suggestion=exc.fix_suggestion,
+        )
+        return []
+
+    return [
+        SourceSearchResult(
+            source_name=resolution.display_name,
+            external_id=resolution.external_id,
+            content_source_type="x_account",
+            thumbnail_url=resolution.profile_image_url,
+            description=f"@{resolution.handle}",
+            subscriber_count=None,
+            is_pending=resolution.is_pending,
+        )
+    ]
+
+
+@app.post("/api/sources/search")
+async def post_source_search(request: SourceSearchRequest) -> SourceSearchResponse:
+    """Live "add anyone" source search across the worker-searchable axes.
+
+    Dispatches by ``kind``: YouTube channels (2-step Data API), podcasts (iTunes),
+    or an X handle (build-fresh resolver → pending free-text follow). Every
+    provider failure degrades to an empty, ``search_ok=False`` envelope and logs a
+    typed error with ``fix_suggestion`` — never a 5xx (matches the worker's
+    graceful-failure posture; Rule 12 keeps it honest via the ``search_ok`` flag).
+    ``is_already_added`` is annotated client-side (the worker has no per-user
+    follow context).
+
+    Args:
+        request: The :class:`SourceSearchRequest` body (``query`` + ``kind``).
+
+    Returns:
+        A :class:`SourceSearchResponse` with the addable results and ``search_ok``.
+    """
+    logger.info(
+        "source_search_request_received",
+        kind=request.kind,
+        query_length=len(request.query),
+    )
+    try:
+        if request.kind == "youtube_channel":
+            results = await _search_youtube_channels(request.query)
+        elif request.kind == "podcast":
+            results = await _search_podcasts(request.query)
+        else:  # x_account — the Literal type makes this exhaustive
+            results = await _search_x_account(request.query)
+    except _SourceSearchUnavailable:
+        # Reason: the search could not RUN (missing key / upstream error) — already
+        # logged at the failure site. Return the honest "unavailable" envelope so
+        # the client shows "search unavailable", not a misleading empty "no matches".
+        return SourceSearchResponse(results=[], search_ok=False)
+    except Exception as exc:  # noqa: BLE001 — boundary: never 5xx; honest search_ok=False
+        _log_source_search_error(
+            error_code="source_search_unexpected",
+            error_message=str(exc)[:200],
+            kind=request.kind,
+            fix_suggestion="Unexpected source-search error; check upstream provider reachability.",
+        )
+        return SourceSearchResponse(results=[], search_ok=False)
+
+    logger.info("source_search_completed", kind=request.kind, result_count=len(results))
+    return SourceSearchResponse(results=results, search_ok=True)

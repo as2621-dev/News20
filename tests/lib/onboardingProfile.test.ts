@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { InterestSelection } from "@/components/onboarding/InterestChips";
 import {
   ENTITY_FOLLOW_WEIGHT_BY_SOURCE,
+  isSourceOnboardingComplete,
+  markSourceOnboardingComplete,
   PROFILE_WEIGHT_BY_DEPTH,
   persistInterestProfile,
   persistPickerFollows,
@@ -396,5 +398,57 @@ describe("persistPickerFollows", () => {
     expect(result.profile_count).toBe(0);
     expect(result.unpersisted).toEqual(["Quantum Basket Weaving"]);
     expect(upserts.find((u) => u.table === "user_interest_profile")).toBeUndefined();
+  });
+});
+
+/**
+ * A minimal in-memory localStorage stub for the marker tests (mirrors
+ * tests/lib/signals.test.ts). The jsdom/node build's native localStorage lacks a
+ * usable `.clear()`, so we stub `globalThis.localStorage` (= `window.localStorage`
+ * in jsdom) for deterministic, isolated per-test state.
+ */
+function installLocalStorageStub(): void {
+  const store = new Map<string, string>();
+  const stub = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+  Object.defineProperty(globalThis, "localStorage", { value: stub, configurable: true, writable: true });
+}
+
+describe("source-onboarding-complete marker (Phase 5c SP4a)", () => {
+  // WHY these tests exist (Rule 9): the marker is the returning-user-skip gate the
+  // future flow wiring reads to send a returning user straight to the reel instead
+  // of re-walking the source screens. If set+read don't round-trip, the skip is
+  // broken (every visit re-shows the screens) or worse, traps a new user.
+  beforeEach(() => {
+    installLocalStorageStub();
+  });
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("reads FALSE before the step is marked complete (a new user sees the source screens)", () => {
+    expect(isSourceOnboardingComplete()).toBe(false);
+  });
+
+  it("round-trips: after marking complete, the gate reads TRUE (returning user skips)", () => {
+    markSourceOnboardingComplete();
+    expect(isSourceOnboardingComplete()).toBe(true);
+  });
+
+  it("reads FALSE for an unrelated/garbage stored value (only the exact marker counts — edge case)", () => {
+    // WHY: a stale/garbage value must not be misread as "complete" and silently
+    // skip a user who never finished the source step.
+    window.localStorage.setItem("n20-source-onboarding-complete", "garbage");
+    expect(isSourceOnboardingComplete()).toBe(false);
   });
 });

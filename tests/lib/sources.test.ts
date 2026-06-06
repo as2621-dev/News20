@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { followSource, getUserSources, listSourcesByArchetype, setSourcePriority, unfollowSource } from "@/lib/sources";
-import type { ContentSource, UserContentSource } from "@/types/source";
+import {
+  followSource,
+  getArchetypes,
+  getUserSources,
+  listSourcesByArchetype,
+  setSourcePriority,
+  unfollowSource,
+  upsertUserAddedSource,
+} from "@/lib/sources";
+import type { Archetype, ContentSource, UserContentSource } from "@/types/source";
 
 /**
  * Phase 5b SP4 — content-source data layer at the Supabase client boundary.
@@ -327,5 +335,209 @@ describe("unfollowSource (owner-scoped delete)", () => {
     });
 
     await expect(unfollowSource(SOURCE_ID, client)).rejects.toThrow(/Failed to unfollow source/i);
+  });
+});
+
+/** Fake client for the public-read archetypes browse: `.from().select().returns()`. */
+function makeArchetypesClient(result: { data: unknown; error: unknown }) {
+  const returns = vi.fn().mockResolvedValue(result);
+  const select = vi.fn().mockReturnValue({ returns });
+  const from = vi.fn().mockReturnValue({ select });
+  return { client: { from } as never, from, select };
+}
+
+describe("getArchetypes (public-read reference catalog)", () => {
+  it("reads the archetypes table and returns the typed rows for the matcher (SP1 hand-off)", async () => {
+    // WHY: mapToArchetype is pure — SOMETHING must load the candidate archetype
+    // rows it scores against. A dropped/mistyped read would starve the matcher and
+    // every user would fall back to balanced-generalist (silent miscategorization).
+    const rows: Archetype[] = [
+      {
+        archetype_id: "a1",
+        archetype_slug: "ai-frontier-tech",
+        archetype_label: "AI & Frontier Tech",
+        archetype_vector: { ai: 0.4286, tech: 0.4286, business: 0.1429 },
+      },
+    ];
+    const { client, from } = makeArchetypesClient({ data: rows, error: null });
+
+    const result = await getArchetypes(client);
+
+    expect(from).toHaveBeenCalledWith("archetypes");
+    expect(result).toHaveLength(1);
+    expect(result[0].archetype_slug).toBe("ai-frontier-tech");
+  });
+
+  it("throws when the archetypes read errors (surface, never swallow — Rule 12)", async () => {
+    const { client } = makeArchetypesClient({ data: null, error: { message: "permission denied" } });
+
+    await expect(getArchetypes(client)).rejects.toThrow(/Failed to read archetypes/i);
+  });
+});
+
+/**
+ * Fake client for the upsert-then-follow path. Captures the content_sources upsert
+ * payload (so a test can assert is_curated=false / pending marker / dedup conflict)
+ * and the follow upsert (so the follow is asserted). `auth.getUser()` is wired for
+ * both the upsert's auth check and the inner followSource's auth check.
+ */
+function makeUpsertAddClient(options: {
+  user: { id: string } | null;
+  upsertReturnId?: string;
+  upsertError?: { message: string };
+  upsertReturnsNull?: boolean;
+}) {
+  const getUser = vi.fn().mockResolvedValue({ data: { user: options.user }, error: null });
+
+  let contentSourceUpsertPayload: Record<string, unknown> | null = null;
+  let contentSourceConflict: unknown = null;
+  let followUpsertPayload: Record<string, unknown> | null = null;
+
+  function from(table: string) {
+    if (table === "content_sources") {
+      return {
+        upsert: (payload: Record<string, unknown>, opts: { onConflict?: string }) => {
+          contentSourceUpsertPayload = payload;
+          contentSourceConflict = opts?.onConflict ?? null;
+          return {
+            select: () => ({
+              single: () =>
+                Promise.resolve(
+                  options.upsertError
+                    ? { data: null, error: options.upsertError }
+                    : {
+                        data: options.upsertReturnsNull ? null : { source_id: options.upsertReturnId ?? "src-new-1" },
+                        error: null,
+                      },
+                ),
+            }),
+          };
+        },
+      };
+    }
+    // user_content_sources (the inner followSource upsert).
+    return {
+      upsert: (payload: Record<string, unknown>) => {
+        followUpsertPayload = payload;
+        return Promise.resolve({ error: null });
+      },
+    };
+  }
+
+  const client = { auth: { getUser }, from } as never;
+  return {
+    client,
+    getUser,
+    getContentSourceUpsert: () => contentSourceUpsertPayload,
+    getContentSourceConflict: () => contentSourceConflict,
+    getFollowUpsert: () => followUpsertPayload,
+  };
+}
+
+describe("upsertUserAddedSource (search-add → catalog upsert → follow, SP3a hand-off)", () => {
+  it("upserts a NON-curated row dedup-keyed on (type, external_id), then follows the resolved source_id", async () => {
+    // WHY: search results carry only external_id, but followSource needs a catalog
+    // source_id. This bridges it: a NON-curated upsert (5c grids read curated rows
+    // only), dedup-keyed so a re-add resolves the existing row (idempotent), then a
+    // follow on the recovered id. A wrong conflict key would DUPLICATE on re-add.
+    const { client, getContentSourceUpsert, getContentSourceConflict, getFollowUpsert } = makeUpsertAddClient({
+      user: { id: AUTHED_USER_ID },
+      upsertReturnId: "src-added-1",
+    });
+
+    const result = await upsertUserAddedSource(
+      {
+        content_source_type: "youtube_channel",
+        external_id: "UC_indie",
+        source_name: "Some Indie Channel",
+      },
+      undefined,
+      client,
+    );
+
+    const upsert = getContentSourceUpsert();
+    expect(upsert).toMatchObject({
+      content_source_type: "youtube_channel",
+      external_id: "UC_indie",
+      source_name: "Some Indie Channel",
+      is_curated: false,
+    });
+    // Dedup on the unique constraint → no duplicate row on re-add.
+    expect(getContentSourceConflict()).toBe("content_source_type,external_id");
+    // The recovered source_id is followed, owner-scoped.
+    expect(getFollowUpsert()).toMatchObject({ user_id: AUTHED_USER_ID, source_id: "src-added-1" });
+    expect(result.source_id).toBe("src-added-1");
+  });
+
+  it("persists platform_metadata.is_pending=true for an unresolved @handle (SP3a gap #2 — Phase 5d enrichment)", async () => {
+    // WHY: an @handle the live X resolver couldn't resolve must be stored PENDING
+    // so Phase 5d can find + enrich it. The marker is the only signal of that — if
+    // it's dropped, the handle is silently orphaned and never gets ingested.
+    const { client, getContentSourceUpsert } = makeUpsertAddClient({
+      user: { id: AUTHED_USER_ID },
+      upsertReturnId: "src-pending-x",
+    });
+
+    await upsertUserAddedSource(
+      {
+        content_source_type: "x_account",
+        external_id: "@somehandle",
+        source_name: "@somehandle",
+        is_pending: true,
+      },
+      undefined,
+      client,
+    );
+
+    expect(getContentSourceUpsert()).toMatchObject({ platform_metadata: { is_pending: true } });
+  });
+
+  it("writes NULL platform_metadata for a NON-pending source (no spurious marker)", async () => {
+    // WHY: only genuinely-pending sources carry the marker; a resolved source must
+    // not look pending to Phase 5d's enrichment scan.
+    const { client, getContentSourceUpsert } = makeUpsertAddClient({
+      user: { id: AUTHED_USER_ID },
+      upsertReturnId: "src-resolved",
+    });
+
+    await upsertUserAddedSource(
+      {
+        content_source_type: "youtube_channel",
+        external_id: "UC_resolved",
+        source_name: "Resolved Channel",
+      },
+      undefined,
+      client,
+    );
+
+    expect(getContentSourceUpsert()).toMatchObject({ platform_metadata: null });
+  });
+
+  it("throws when signed out — never writes a catalog row or follow anon (Rule 12)", async () => {
+    const { client, getContentSourceUpsert } = makeUpsertAddClient({ user: null });
+
+    await expect(
+      upsertUserAddedSource(
+        { content_source_type: "youtube_channel", external_id: "UC_x", source_name: "X" },
+        undefined,
+        client,
+      ),
+    ).rejects.toThrow(/signed out/i);
+    expect(getContentSourceUpsert()).toBeNull();
+  });
+
+  it("throws when the catalog upsert errors (surface, never swallow — Rule 12)", async () => {
+    const { client } = makeUpsertAddClient({
+      user: { id: AUTHED_USER_ID },
+      upsertError: { message: "permission denied" },
+    });
+
+    await expect(
+      upsertUserAddedSource(
+        { content_source_type: "youtube_channel", external_id: "UC_x", source_name: "X" },
+        undefined,
+        client,
+      ),
+    ).rejects.toThrow(/Failed to upsert user-added source/i);
   });
 });
