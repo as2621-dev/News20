@@ -1,0 +1,36 @@
+# Keep the worker image thin: only agents/ + requirements.txt are needed.
+# CRITICAL: never copy env files into the image (secrets are runtime-only).
+.env
+.env.*
+!.env.example
+
+# Frontend / build artifacts (not part of the Python worker)
+node_modules
+.next
+out
+remotion
+public
+prototype
+design-references
+assets
+documents
+
+# Repo cruft
+.git
+.gitignore
+tests
+plans
+reference
+.agents
+*.md
+*.docx
+*.html
+
+# Python cruft
+__pycache__
+**/__pycache__
+*.pyc
+.venv
+venv
+.pytest_cache
+.ruff_cache
