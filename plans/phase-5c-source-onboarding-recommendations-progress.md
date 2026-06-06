@@ -25,8 +25,18 @@
 - ⚠ Scope-violation caught + reverted: SP3a edited plans/phase-5d-source-ingestion.md (out of scope) baking an unverified "probe confirmed" X-API/Grok + Gemini decision into a future plan → REVERTED. X API stays open Q3 for the user.
 - **Phase-level DoD: PARTIAL** — logic PASS; the user-facing flow (3 screens, picker→sources→reel, skippable) is DEFERRED to the UI pass (user supplies HTML/CSS).
 
-## UI pass (part 2) — TODO when user provides HTML/CSS
-- Re-skin SP2 SourceArtwork/SourceCard to the supplied HTML (keep onError fallback, kind→shape, aria-pressed).
-- Build SP3b SourceSearchModal + FollowButton (300ms debounce, optimistic follow + toast rollback, Add/Adding/Added) against sourceSearch.ts contract; render search_ok===false as "unavailable".
-- Build SP4b SourceRecScreen + wire OnboardingFlow/onboarding/page.tsx: picker→YouTube→X/personalities→podcasts→reel, each skippable; returning user skips via isSourceOnboardingComplete().
-- Then final phase-level DoD + commit (part 2).
+## UI pass (part 2) — IN PROGRESS (user supplied design: Blip "Source Swipe")
+**Design supersedes the planned grid+search UI.** User handoff bundle = a dark "Blip" flow; the locked source-onboarding direction is a **Tinder-style swipe deck** (`Source Swipe - Final.html` / `blip-sources.js`), confirmed in chat transcripts. Scope = **source-swipe stage only** (picker/build-30/reel are other phases). Built by fresh sub-agent.
+- Design source files (extracted): `/tmp/blip_design/blip/project/News20 Prototype/{blip-sources.js, blip-flow.css, Blip Flow.html}` (tarball `/tmp/blip_design_root.out`).
+- Palette: dark `blip-flow.css` (`--bg:#020617`, `--accent:#EF4444`, `--hi:#FACC15`; Inter/Playfair/JetBrains Mono). SUPERSEDES the cream onboarding palette for this screen.
+- 4 passes: YouTube → Podcasts → X → People (personalities). Curtain intro (~6s, skippable) → swipe deck → per-set auto-advance handoff (~1.7s) → final "You're all set" → onDone → reel.
+- Wires to logic: rollUpInterestVector→mapToArchetype→getArchetypes→getRecommendedSources (cards); archetype score→% match; followSource/upsertUserAddedSource (swipe-right persist + undo); markSourceOnboardingComplete→route reel.
+- DROPPED from onboarding: in-flow search-add modal (no search in the swipe design). sourceSearch.ts + worker endpoint retained for a later 5e "add a source" surface (not wasted).
+- [x] UI-A: SourceSwipe deck + card + curtain + styles + data hook — SHIPPED (8 tests; tsc clean). Files: src/components/sources/{SourceSwipe,SourceSwipeCard,ProfileCurtain,SignalOrb,sourceSwipeGlyphs}.tsx, src/lib/sourceSwipeData.ts, globals.css swipe/orb styles, 2 tests. Wires rollUpInterestVector→mapToArchetype→getArchetypes→getRecommendedSources; archetype score→%match (60–99); optimistic followSource + undo-unfollow; portraitBg fallback; markSourceOnboardingComplete→reel.
+- [ ] UI-B: flow wiring (OnboardingFlow.tsx) — **DEFERRED / ENTANGLED.** ⚠ A CONCURRENT process (separate session) ran phase-5d ingestion + a topic-tree/blip redesign in this same tree. OnboardingFlow.tsx is co-edited: foreign OnboardingPicker→TopicTree swap + my sources-step wiring share hunks, and it imports the still-UNTRACKED TopicTree. My wiring (sources step + handleSourcesDone + isSourceOnboardingComplete gate) is correct and sits in the working tree, but is NOT independently committable — it must land WITH the topic-tree commit. Not committed by me to avoid dragging in / breaking foreign work.
+
+## CONCURRENCY INCIDENT (2026-06-06)
+During the UI sub-agent run, other agent sessions wrote phase-5d (agents/ingestion/*, trigger/*, requirements.txt) and a topic-tree/blip redesign (TopicTree.tsx, src/components/blip/, src/lib/treeSelection.ts, src/styles/, archived the cream picker) into THIS working tree. HEAD stayed 614aa6d (no foreign commit). I committed ONLY the self-contained phase-5c UI; all foreign work + the entangled OnboardingFlow.tsx left uncommitted for their owners. Hand-off: whoever commits the topic-tree work should include OnboardingFlow.tsx (it carries my sources wiring).
+
+## Open hand-off (personalities)
+The "People" pass reads content_sources rows of kind 'personality' + followSource (uniform with the 3 axes), NOT the separate personalities/user_personalities tables. If the seed only fills personalities (not content_sources personality rows), the People deck renders empty (graceful). Decide: seed personality rows into content_sources, or add a personalities-specific recommend+follow path.
