@@ -26,6 +26,13 @@
  */
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+// The Stage-4 reel + ask sheets + article layer render with the vendored Blip
+// class vocabulary (.reel/.top/.head/.sheet/.layer-article …). That styling lives
+// in the shared blip-flow.css, which until now was only side-loaded by the
+// onboarding components (TopicTree/BuildYour30); a direct load of "/" (the reel)
+// shipped without it, leaving every blip-flow-classed surface unstyled. Import it
+// here in the reel's root client component so the reel is self-sufficient.
+import "@/styles/blip-flow.css";
 import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
 import { ArticleLayer } from "@/components/blip/reel/ArticleLayer";
 import { AskSheet, type AskSheetMode } from "@/components/blip/reel/AskSheet";
