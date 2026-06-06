@@ -26,7 +26,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // inside act() and the "not configured to support act" warning is silenced.
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-import { FollowSet } from "@/components/onboarding/FollowSet";
+import { FollowSet } from "@/components/onboarding/_archive/FollowSet";
 import type { EntityResult } from "@/lib/entities";
 import { listEntities, searchEntities } from "@/lib/entities";
 import { createSelectionStore, PICKER_TREE } from "@/lib/followSets";

@@ -12,13 +12,20 @@
  *      `onAuthStateChange` and moves to `picker` once a session exists. If the user
  *      is ALREADY signed in when they reach `email` (re-onboarding), we skip
  *      straight to `picker`.
- *   3. `picker`   — {@link OnboardingPicker}; the recursive follow-set picker. It is
- *      **skippable** (spec §10/§11) — NO "pick ≥1" gate; Continue/Skip is always
- *      enabled and hands back `store.all()` (an empty array on a skip).
+ *   3. `picker`   — {@link TopicTree}; the dark-editorial Blip topic-tree picker
+ *      (replaces the archived `OnboardingPicker`). It is **skippable** (spec §10/§11)
+ *      — NO "pick ≥1" gate; Done is always enabled and hands back `store.all()`
+ *      (an empty array on a skip).
  *   4. `loading`  — calls {@link persistPickerFollows} (scoped to the session user).
- *      On success → `router.push("/")` (the reel). Any unpersisted follows (free-text
- *      customs / unmatched topics) are surfaced inline (Rule 12 — not silently dropped).
- *      A zero-follow completion persists nothing (no error) and still routes to the reel.
+ *      On success → the `sources` step (the source swipe deck). Any unpersisted
+ *      follows (free-text customs / unmatched topics) are surfaced inline (Rule 12 —
+ *      not silently dropped). A zero-follow completion persists nothing (no error)
+ *      and still advances to the source swipe.
+ *   5. `sources`  — {@link SourceSwipe}; the Tinder-style source-onboarding deck
+ *      (Phase 5c). On its final "You're all set." it marks the source step complete
+ *      ({@link markSourceOnboardingComplete}) and routes to the reel (`router.push("/")`).
+ *      A returning user who already completed the source step skips it (gated in
+ *      `onboarding/page.tsx` via {@link isSourceOnboardingComplete}).
  *
  * Static-export safe: client-only (`"use client"`), `window`-guarded, no
  * `useSearchParams` (the magic link uses the URL hash, handled in `/callback`).
@@ -27,16 +34,21 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmailSignIn } from "@/components/onboarding/EmailSignIn";
-import { OnboardingPicker } from "@/components/onboarding/OnboardingPicker";
 import { OnboardingSplash } from "@/components/onboarding/OnboardingSplash";
+import { TopicTree } from "@/components/onboarding/TopicTree";
+import { SourceSwipe } from "@/components/sources/SourceSwipe";
 import { logger } from "@/lib/logger";
-import { persistPickerFollows } from "@/lib/onboardingProfile";
+import {
+  isSourceOnboardingComplete,
+  markSourceOnboardingComplete,
+  persistPickerFollows,
+} from "@/lib/onboardingProfile";
 import { getCurrentSession } from "@/lib/supabase/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { FollowSelection } from "@/types/picker";
 
 /** The ordered onboarding steps (phase DoD names this exact sequence). */
-type OnboardingStep = "splash" | "email" | "wait_session" | "picker" | "loading";
+type OnboardingStep = "splash" | "email" | "wait_session" | "picker" | "loading" | "sources";
 
 /**
  * Render the onboarding flow state machine.
@@ -95,7 +107,7 @@ export function OnboardingFlow() {
     setStep("wait_session");
   }, []);
 
-  /** Complete the picker: persist topic + entity follows, then route to the reel. */
+  /** Complete the picker: persist topic + entity follows, then advance to the source swipe. */
   const handleComplete = useCallback(
     async (selections: FollowSelection[]) => {
       const userId = sessionUserIdRef.current;
@@ -121,7 +133,13 @@ export function OnboardingFlow() {
           entity_follow_count: result.entity_follow_count,
           unpersisted_count: result.unpersisted.length,
         });
-        router.push("/");
+        // A returning user who already finished the source swipe skips straight to the
+        // reel; everyone else runs the source swipe before the reel.
+        if (isSourceOnboardingComplete()) {
+          router.push("/");
+        } else {
+          setStep("sources");
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Couldn't save your follows.";
         logger.error("onboarding_persist_failed", {
@@ -131,6 +149,16 @@ export function OnboardingFlow() {
         setPersistError(message);
         setStep("picker");
       }
+    },
+    [router],
+  );
+
+  /** Complete the source swipe: mark the source step done, then route to the reel. */
+  const handleSourcesDone = useCallback(
+    (total: number) => {
+      logger.info("source_onboarding_completed", { total_followed: total });
+      markSourceOnboardingComplete();
+      router.push("/");
     },
     [router],
   );
@@ -158,7 +186,7 @@ export function OnboardingFlow() {
               {persistError}
             </p>
           ) : null}
-          <OnboardingPicker onComplete={(selections) => void handleComplete(selections)} />
+          <TopicTree onComplete={(selections) => void handleComplete(selections)} />
         </div>
       ) : null}
 
@@ -173,6 +201,8 @@ export function OnboardingFlow() {
           ) : null}
         </section>
       ) : null}
+
+      {step === "sources" ? <SourceSwipe onDone={handleSourcesDone} /> : null}
     </main>
   );
 }

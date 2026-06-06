@@ -26,7 +26,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Tell React this is an act() environment so state updates flush synchronously.
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-import { OnboardingPicker } from "@/components/onboarding/OnboardingPicker";
+import { OnboardingPicker } from "@/components/onboarding/_archive/OnboardingPicker";
 import { listEntities, searchEntities } from "@/lib/entities";
 import { PICKER_TREE } from "@/lib/followSets";
 import type { FollowSelection } from "@/types/picker";

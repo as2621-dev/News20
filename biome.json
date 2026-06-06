@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**", "tests/lib/**", "trigger/**", "*.ts", "*.mjs"]
+    "includes": ["src/**", "tests/lib/**", "trigger/**", "*.ts", "*.mjs", "!src/styles/blip-flow.css"]
   },
   "formatter": {
     "enabled": true,

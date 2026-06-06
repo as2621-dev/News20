@@ -52,6 +52,19 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${inter.variable} ${playfairDisplay.variable} ${jetBrainsMono.variable}`}>
+      <head>
+        {/* Reason: the Blip Flow stylesheet (src/styles/blip-flow.css) references fonts
+            by LITERAL family name ("Inter" / "Playfair Display" / "JetBrains Mono").
+            next/font self-hosts them under hashed names exposed only via CSS variables,
+            so these Google Fonts <link>s (copied verbatim from Blip Flow.html) register
+            the literal family names the verbatim CSS needs. Static-export safe. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="bg-background text-text-primary font-sans">{children}</body>
     </html>
   );

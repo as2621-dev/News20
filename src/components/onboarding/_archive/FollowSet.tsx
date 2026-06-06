@@ -15,7 +15,7 @@
  */
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { FollowChip } from "@/components/onboarding/FollowChip";
+import { FollowChip } from "@/components/onboarding/_archive/FollowChip";
 import { type EntityResult, listEntities, searchEntities } from "@/lib/entities";
 import { selectionFromEntity, selectionFromFreeText, selectionFromNode } from "@/lib/followSets";
 import { logger } from "@/lib/logger";

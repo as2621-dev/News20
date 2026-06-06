@@ -17,8 +17,8 @@
  */
 
 import { type CSSProperties, useRef, useState, useSyncExternalStore } from "react";
-import { FollowSet } from "@/components/onboarding/FollowSet";
-import { SelectionTray } from "@/components/onboarding/SelectionTray";
+import { FollowSet } from "@/components/onboarding/_archive/FollowSet";
+import { SelectionTray } from "@/components/onboarding/_archive/SelectionTray";
 import { createSelectionStore, PICKER_TREE } from "@/lib/followSets";
 import type { FollowSelection, PickerCategory, SelectionStore } from "@/types/picker";
 
