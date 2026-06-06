@@ -12,7 +12,12 @@ rank) and upserts each entry into Supabase via the service-role client:
   - ``x.{archetype}.json``             → stored as ``content_sources``
     (``'x_account'``) WITHOUT live resolution (no resolver until 5c/5d) —
     ``external_id`` is the handle, no thumbnail fetch.
-  - ``personalities.{archetype}.json`` → Wikipedia photo lookup → ``personalities``.
+  - ``personalities.{archetype}.json`` → Wikipedia photo lookup → BOTH
+    ``personalities`` (the donor catalog, read by 5d's cross-mention spotlights)
+    AND ``content_sources`` (``content_source_type='personality'``) — the latter
+    is what the 5c People swipe deck reads (uniform with the other 3 axes, via
+    ``getRecommendedSources``/``listSourcesByArchetype`` + ``user_content_sources``
+    follows); without it the People grid renders empty.
 
 Each row is tagged with the UNION of the archetype ``personas`` it appears under
 across files (cross-archetype overlap collapses at upsert time), the 8-category
@@ -157,7 +162,9 @@ class SeedSummary(BaseModel):
         channels_upserted: ``content_sources`` rows upserted as youtube_channel.
         podcasts_upserted: ``content_sources`` rows upserted as podcast.
         x_accounts_upserted: ``content_sources`` rows upserted as x_account.
-        personalities_upserted: ``personalities`` rows upserted.
+        personalities_upserted: ``personalities`` rows upserted (donor catalog).
+        personality_content_sources_upserted: ``content_sources`` rows upserted as
+            ``personality`` — the rows the 5c People swipe deck actually reads.
         channels_unresolved: Channel entries YouTube could not resolve (skipped).
         podcasts_unresolved: Podcast entries iTunes could not resolve (skipped).
 
@@ -170,6 +177,7 @@ class SeedSummary(BaseModel):
     podcasts_upserted: int = Field(default=0, ge=0)
     x_accounts_upserted: int = Field(default=0, ge=0)
     personalities_upserted: int = Field(default=0, ge=0)
+    personality_content_sources_upserted: int = Field(default=0, ge=0)
     channels_unresolved: int = Field(default=0, ge=0)
     podcasts_unresolved: int = Field(default=0, ge=0)
 
@@ -591,6 +599,49 @@ def build_personality_row(entry: CatalogEntry, photo_url: str | None) -> dict[st
     }
 
 
+def build_personality_content_source_row(
+    entry: CatalogEntry, photo_url: str | None
+) -> dict[str, Any]:
+    """Build a ``content_sources`` upsert row for a personality (the People axis).
+
+    The 5c source-swipe People deck reads the SAME uniform catalog path as the
+    other three axes — ``content_sources`` filtered to
+    ``content_source_type='personality'`` (``listSourcesByArchetype`` persona
+    overlap), then followed via ``user_content_sources`` — NOT the donor-ported
+    ``personalities`` / ``user_personalities`` tables (those feed 5d's
+    cross-mention spotlights RPC). So a seeded personality must ALSO exist as a
+    ``content_sources`` row or the People grid renders empty. The resolved
+    Wikipedia photo doubles as the card avatar (else the app's initials fallback);
+    people carry no follower count, so ``subscriber_count`` is null (the deck then
+    shows no count label).
+
+    ``external_id`` is the stable Wikipedia slug when present, else the cross-file
+    dedup key (lowercased display name) — both unique per person under the
+    ``(content_source_type, external_id)`` upsert key, so the same person curated
+    under two archetype files collapses to one row.
+
+    Args:
+        entry: The merged catalog entry (personas / topic_tags / popularity).
+        photo_url: The resolved Wikipedia photo URL (None → app avatar fallback).
+
+    Returns:
+        The column payload for an upsert on ``(content_source_type, external_id)``.
+    """
+    payload = entry.payload
+    return {
+        "content_source_type": "personality",
+        "external_id": payload.get("wikipedia_slug") or entry.dedup_key,
+        "source_name": payload["display_name"],
+        "source_description": payload.get("bio"),
+        "thumbnail_url": photo_url or payload.get("photo_url"),
+        "subscriber_count": None,
+        "personas": entry.personas,
+        "topic_tags": entry.topic_tags,
+        "popularity_score": entry.popularity_score,
+        "is_curated": True,
+    }
+
+
 # ── Upsert helpers (boundary to Supabase) ─────────────────────────────────────
 
 
@@ -758,7 +809,13 @@ async def seed_personalities(
     dry_run: bool,
     summary: SeedSummary,
 ) -> None:
-    """Resolve personality photos via Wikipedia and upsert the rows."""
+    """Resolve personality photos via Wikipedia and upsert the rows.
+
+    Writes each resolved person to BOTH catalogs from the same photo lookup: the
+    donor ``personalities`` table (5d cross-mention spotlights) AND a uniform
+    ``content_sources`` ``personality`` row (what the 5c People swipe deck reads),
+    so the People axis populates exactly like the other three.
+    """
     if not entries:
         return
     photos = await asyncio.gather(
@@ -771,11 +828,18 @@ async def seed_personalities(
             for entry in entries
         )
     )
-    rows = [
+    personality_rows = [
         build_personality_row(entry, photo) for entry, photo in zip(entries, photos)
     ]
     summary.personalities_upserted = _upsert_personalities(
-        supabase_client, rows, dry_run=dry_run
+        supabase_client, personality_rows, dry_run=dry_run
+    )
+    content_source_rows = [
+        build_personality_content_source_row(entry, photo)
+        for entry, photo in zip(entries, photos)
+    ]
+    summary.personality_content_sources_upserted = _upsert_content_sources(
+        supabase_client, content_source_rows, dry_run=dry_run
     )
 
 
@@ -854,6 +918,7 @@ async def run_seed(
         podcasts_upserted=summary.podcasts_upserted,
         x_accounts_upserted=summary.x_accounts_upserted,
         personalities_upserted=summary.personalities_upserted,
+        personality_content_sources_upserted=summary.personality_content_sources_upserted,
         channels_unresolved=summary.channels_unresolved,
         podcasts_unresolved=summary.podcasts_unresolved,
     )

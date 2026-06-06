@@ -305,6 +305,47 @@ def test_overlapping_source_unions_personas_across_archetype_files(
     assert set(altman["personas"]) >= {"ai-frontier-tech", "startup-operator"}
 
 
+# ── DoD: personalities ALSO land in content_sources (the People swipe deck) ───
+
+
+def test_personalities_also_seeded_as_content_sources_for_people_deck(
+    supabase: FakeSupabaseClient, http: FakeHttpClient
+) -> None:
+    """WHY: the 5c People swipe deck reads ``content_sources`` rows of
+    ``content_source_type='personality'`` (uniform with the other 3 axes), NOT the
+    donor ``personalities`` table. Without these rows ``listSourcesByArchetype``
+    returns nothing and the People grid renders empty — the exact bug this seeds
+    away. The persona tags must be present (the deck filters on persona overlap)
+    and the Wikipedia photo must carry over as the card avatar."""
+    summary = _run(supabase, http)
+
+    people = [
+        r
+        for r in supabase.upserted_rows("content_sources")
+        if r["content_source_type"] == "personality"
+    ]
+    assert people, (
+        "no content_sources personality rows — the People swipe deck reads these; "
+        "seeding only the personalities table leaves the grid empty"
+    )
+    assert summary.personality_content_sources_upserted == len(people)
+    # One content_sources row per DISTINCT person — the same count as the donor
+    # personalities table (Sam Altman is in two files → unioned to a single row).
+    assert len(people) == len(supabase.upserted_rows("personalities"))
+    for row in people:
+        # listSourcesByArchetype filters `personas && [archetype]` — an empty
+        # personas array can never overlap, so the card would be invisible.
+        assert row["personas"], f"{row['source_name']} has no personas → invisible"
+        for persona in row["personas"]:
+            assert persona in seed_catalog.ALLOWED_ARCHETYPES
+        # the resolved Wikipedia photo is the People card's avatar
+        assert row["thumbnail_url"] and row["thumbnail_url"].startswith(
+            "https://wiki.test/"
+        )
+        # people have no follower count → the deck renders no count label
+        assert row["subscriber_count"] is None
+
+
 # ── DoD: idempotency — re-run yields the same distinct row set ────────────────
 
 
