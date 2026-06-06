@@ -130,12 +130,12 @@ Source of truth: `prototype/` (runnable prototype + `ui-design-decisions.md` + `
 - [Phase 5b](phase-5b-source-data-model-catalog.md) — Source data model (`content_sources`/`personalities`/`archetypes`, **migration 0009** — renumbered, `0008` claimed by 5a) + per-archetype catalog seed (port TLDW `seed_catalog`).
 - [Phase 5c](phase-5c-source-onboarding-recommendations.md) — Archetype mapping + 3 recommendation screens (YouTube / X+personalities / podcasts): avatar+name+follow+search-add (port TLDW UI; build-fresh X resolver via the worker).
 - [Phase 5d](phase-5d-source-ingestion.md) — Ingestion of followed sources into the 30-story pool (port YouTube/podcast adapters + cadence + v4 cron; build-fresh X adapter). *(Unblocks the `youtube`/`x` allocation categories stubbed-empty in 5a.)*
-- [Phase 5e](phase-5e-control-surface.md) — ~~Control surface: master dial + per-source priority + 30-cell ribbon + pinned-sources-fill-first~~ **SUPERSEDED by Phase 5a** (owner replaced master-dial+ribbon with the "Build your 30, in order" screen, 2026-06-05). Per-source 3-state priority, if still wanted, folds into a later sources-settings slice.
+- ~~Phase 5e — Control surface: master dial + per-source priority + 30-cell ribbon + pinned-sources-fill-first~~ **REMOVED 2026-06-06** (plan file deleted). Superseded by Phase 5a + the Blip Flow "Build your 30, in order" Stage 3; the master-dial/ribbon design is dead. Per-source 3-state priority, if still wanted, folds into a later sources-settings slice.
 - _Suggested order: **Phase 5 ∥ Phase 5b** (independent), then **Phase 5a** (needs 5's entity registry; ships the allocator backend), then **Phase 5c ∥ Phase 5d** (both need 5b; 5d unblocks 5a's source categories). Static-export reality: registry/recommendation reads are client-side Supabase; external-API search runs on the FastAPI worker; ingestion/agents are server-side._
 
-### M6 — Discovery agent & learned ordering
-- [Phase 6](phase-6-discovery-research-agent.md) — Community-signal research agent (build-fresh; crawl→extract→resolve→idempotent upsert into `content_sources`/`personalities`; v4 cron). *(needs Phase 5b.)*
-- [Phase 6b](phase-6b-learned-ordering.md) — Learned ordering from watch-completion + questions + follow/unfollow (**not** gestures — C2); applied after pinned-first allocation; cold-start fallback + diversity floor. *(needs Phase 5e.)*
+### M6 — Discovery agent & learned ordering — **CUT 2026-06-06** (both phase files deleted)
+- ~~Phase 6 — Community-signal research agent (crawl→extract→resolve→idempotent upsert into `content_sources`/`personalities`; v4 cron)~~ **CUT** — owner wants curated, profile-keyed recs + cross-medium people-tracking (a Phase 5d ingestion concern), not a Reddit/X rising-source crawler.
+- ~~Phase 6b — Learned ordering from watch-completion + questions + follow/unfollow~~ **CUT** — "Build your 30, in order" is deliberately manual; within-bucket story ranking already comes from 5a's entity-aware Score. (Also depended on the now-removed Phase 5e.)
 
 ## Riskiest assumption (from brief) and how we test it
 
