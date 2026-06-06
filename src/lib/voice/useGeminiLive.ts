@@ -409,7 +409,11 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     try {
       // Reason (gotcha 1): the worker mints the token; the API key never reaches
       // the client. We only ever hold the opaque `auth_tokens/...` name.
-      const tokenResponse = await fetch(MINT_TOKEN_PATH, { method: "POST" });
+      // Reason (4b-SP3): prepend the deployed worker origin (same env Q&A uses) —
+      // the static Capacitor/export build has no same-origin server, so a bare
+      // relative path would 404. Empty env → same-origin (dev proxy) as before.
+      const tokenBaseUrl = (process.env.NEXT_PUBLIC_QA_API_BASE_URL ?? "").replace(/\/+$/, "");
+      const tokenResponse = await fetch(`${tokenBaseUrl}${MINT_TOKEN_PATH}`, { method: "POST" });
       if (!tokenResponse.ok) {
         throw new Error(`token mint returned HTTP ${tokenResponse.status}`);
       }
