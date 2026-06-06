@@ -52,6 +52,7 @@ import { type OrbState, VoiceOrb } from "@/components/voice/VoiceOrb";
 import { Waveform } from "@/components/voice/Waveform";
 import { logger } from "@/lib/logger";
 import { getVoiceQuotaState, recordVoiceSignal, startVoiceQuotaHeartbeat } from "@/lib/signals";
+import { buildGreetingNudge, buildInNewsSystemInstruction } from "@/lib/voice/storyVoicePrompts";
 import {
   GEMINI_LIVE_DEFAULT_VOICE,
   type GeminiLiveStatus,
@@ -61,58 +62,10 @@ import {
 } from "@/lib/voice/useGeminiLive";
 import type { Story } from "@/types/feed";
 
-/**
- * Build the in-news Voice system instruction for one story.
- *
- * PURE + exported so the AUDIO/Charon/story-scope contract is assertable without a
- * socket (Rule 9), and so SP3 can extend the grounding clause without forking the
- * base persona. The instruction scopes the model to the SINGLE active story, tells
- * it to answer ONLY from that story's sources, and to refuse cleanly otherwise —
- * the trust contract (Decision #5) the SP3 tool will then enforce mechanically.
- *
- * @param story_headline - The active story's headline, naming the scope to the model.
- * @param story_id - The active story's id (logged into the instruction for scope clarity).
- * @param tool_grounding_clause - Optional clause SP3 appends to FORBID answering
- *   without calling the grounded-answer tool. Omitted in SP2 (no tool yet); the
- *   base instruction already leans refusal-safe so the tool-less state can't invent.
- * @returns The system-instruction string for the `setup` frame.
- *
- * @example
- * buildInNewsSystemInstruction("Ceasefire talks stall", "s1");
- * // "You are blip, a calm hands-free news companion… about exactly one story…"
- */
-export function buildInNewsSystemInstruction(
-  story_headline: string,
-  story_id: string,
-  tool_grounding_clause?: string,
-): string {
-  const base = [
-    "You are blip, a calm, concise, hands-free news companion speaking aloud to a commuter.",
-    `You are scoped to exactly ONE story (id ${story_id}): "${story_headline}".`,
-    "Answer ONLY using that story's own reported sources. Stay strictly on this story.",
-    "If the sources do not support an answer — or the question is off this story — say so plainly and briefly, e.g. \"I can't answer that from this story's sources.\" Never guess, never invent facts, never fill gaps with outside knowledge.",
-    "Keep replies short and spoken-natural (one or two sentences). No markdown, no lists, no citations read aloud.",
-  ].join(" ");
-  // Reason: SP3 appends the hard tool-forcing clause; until then the base already
-  // forbids ungrounded answers so the intermediate state stays safe (Rule 12).
-  return tool_grounding_clause ? `${base} ${tool_grounding_clause}` : base;
-}
-
-/**
- * Build the story-specific greeting nudge (gotcha 4 — forces the model's first
- * line, since auto-VAD otherwise waits for user audio). PURE + exported so the
- * "greeting is about THIS story" contract is testable.
- *
- * @param story_headline - The active story's headline.
- * @returns A short spoken-greeting instruction naming this story.
- *
- * @example
- * buildGreetingNudge("Ceasefire talks stall");
- * // "Greet me in one short sentence and invite me to ask about this story: …"
- */
-export function buildGreetingNudge(story_headline: string): string {
-  return `Greet me in one short, friendly sentence and invite me to ask anything about this story: "${story_headline}". Do not summarize it yet.`;
-}
+// Re-exported so existing test importers (`tests/_archive/voice/*`) keep resolving
+// these PURE prompt builders from their original home after the move to
+// `@/lib/voice/storyVoicePrompts` (their real source of truth).
+export { buildGreetingNudge, buildInNewsSystemInstruction } from "@/lib/voice/storyVoicePrompts";
 
 /**
  * Map the {@link useGeminiLive} connection status to a {@link VoiceOrb} state.

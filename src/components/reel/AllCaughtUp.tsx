@@ -18,7 +18,7 @@
  * prototype's `.fade-up` class isn't in SP1's globals.css, so we drive it here).
  */
 import { motion, useReducedMotion } from "framer-motion";
-import { FEED_TOTAL } from "@/components/reel/ReelChrome";
+import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 
 export interface AllCaughtUpProps {
   /** Restart the briefing from the first story (scroll to 0 + replay digest-1). */

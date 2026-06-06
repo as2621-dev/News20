@@ -16,7 +16,7 @@
  * (matching the prototype, which disabled the shimmer under that query).
  */
 import { BlipLogo } from "@/components/BlipLogo";
-import { FEED_START_INDEX, FEED_TOTAL } from "@/components/reel/ReelChrome";
+import { FEED_START_INDEX, FEED_TOTAL } from "@/lib/reel/feedBriefing";
 
 /** One pulsing skeleton block (poster/caption stand-in). */
 function SkeletonBlock({ className }: { className: string }) {

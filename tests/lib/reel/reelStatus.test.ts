@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextReelStatus, type ReelEvent, type ReelStatus } from "@/components/reel/Reel";
+import { nextReelStatus, type ReelEvent, type ReelStatus } from "@/lib/reel/reelStatus";
 
 /**
  * Unit tests for the reel's status state machine.

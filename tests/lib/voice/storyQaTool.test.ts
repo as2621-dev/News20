@@ -34,7 +34,6 @@ vi.mock("@/lib/qa/askQuestion", () => ({
   askQuestion: vi.fn(),
 }));
 
-import { buildInNewsSystemInstruction } from "@/components/voice/VoiceConversation";
 // Imported AFTER the mock so the tool picks up the spied client.
 import { askQuestion } from "@/lib/qa/askQuestion";
 import {
@@ -43,6 +42,7 @@ import {
   buildAskAboutStoryHandler,
   STORY_QA_TOOL_GROUNDING_CLAUSE,
 } from "@/lib/voice/storyQaTool";
+import { buildInNewsSystemInstruction } from "@/lib/voice/storyVoicePrompts";
 import type { GeminiToolCall } from "@/lib/voice/useGeminiLive";
 
 const askQuestionMock = vi.mocked(askQuestion);

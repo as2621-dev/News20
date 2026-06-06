@@ -38,7 +38,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
-import { buildGreetingNudge, buildInNewsSystemInstruction } from "@/components/voice/VoiceConversation";
 import { logger } from "@/lib/logger";
 import { getMicPermissionState, requestMicPermission } from "@/lib/voice/micPermission";
 import {
@@ -46,6 +45,7 @@ import {
   buildAskAboutStoryHandler,
   STORY_QA_TOOL_GROUNDING_CLAUSE,
 } from "@/lib/voice/storyQaTool";
+import { buildGreetingNudge, buildInNewsSystemInstruction } from "@/lib/voice/storyVoicePrompts";
 import { GEMINI_LIVE_DEFAULT_VOICE, useGeminiLive } from "@/lib/voice/useGeminiLive";
 import type { Story } from "@/types/feed";
 

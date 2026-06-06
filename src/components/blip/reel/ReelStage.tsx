@@ -33,6 +33,7 @@ import { BlipLogo } from "@/components/BlipLogo";
 import { ic } from "@/components/blip/reel/icons";
 import { KaraokeCaption } from "@/components/reel/KaraokeCaption";
 import { captionStateAtTime } from "@/lib/captions/captionState";
+import { FEED_START_INDEX, FEED_TOTAL } from "@/lib/reel/feedBriefing";
 import { type NextReelState, useReelAudio } from "@/lib/reel/useReelAudio";
 import type { AnchorSpeaker, Story } from "@/types/feed";
 
@@ -41,13 +42,6 @@ type AccentStyle = CSSProperties & { "--accent": string };
 
 /** Legacy iOS Safari inline-audio attribute (forwarded verbatim by React). */
 const IOS_INLINE_AUDIO_ATTRS: Record<string, string> = { "webkit-playsinline": "true" };
-
-// Finite-bar provenance (prototype `data.js`): the 5 detailed digests sit at the
-// END of a 30-story briefing so the counter reads 26/30 … 30/30 and the finish
-// line is reachable in-demo. FEED_TOTAL = stories in the day's briefing;
-// FEED_START_INDEX = 0-based feed position of the FIRST fixture story.
-const FEED_TOTAL = 30;
-const FEED_START_INDEX = 25;
 
 /** Fixed anchor identity colours (NOT segment accents) — prototype `app.js`. */
 const SPEAKER_IDENTITY_COLOR: Record<AnchorSpeaker, string> = {
