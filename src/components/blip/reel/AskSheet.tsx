@@ -2,18 +2,23 @@
 
 /**
  * AskSheet — the bottom sheet that rises over the paused, dimmed reel for asking
- * about the active story (prototype `blip-reel.js` ask sheet). It carries the
- * shared header (`ask-head`: accent dot + story headline + close) and a body that
- * switches on {@link AskSheetMode}: TYPE (composer + suggested questions + on-
- * screen keyboard, wired to grounded Q&A in Sub-phase 4b) and VOICE (permission →
- * listening → responding, wired to Gemini Live in Sub-phase 4c).
+ * about the active story (prototype `blip-reel.js` ask sheet). It owns the SHARED
+ * header (`sheet-grab` + `ask-head`: accent dot + story headline + close) and
+ * delegates the body to one of two disjoint modules so they can be built
+ * independently:
+ *   - TYPE  → {@link AskSheetType}  (composer + suggested questions + on-screen
+ *             keyboard, wired to grounded Q&A — Sub-phase 4b).
+ *   - VOICE → {@link AskSheetVoice} (permission → listening → responding orb,
+ *             wired to Gemini Live — Sub-phase 4c).
  *
- * **4a scope.** The open/close/dim/pause PLUMBING is live (this renders inside the
- * `.sheet` singleton that {@link BlipReel} slides up). The bodies are the real
- * grounded-source copy but non-interactive; 4b/4c replace them with the wired
- * composer and voice orb. The `--accent` cascade is supplied by the `.sheet`
- * wrapper in {@link BlipReel}, so the header dot reads the active story's accent.
+ * The `--accent` cascade is supplied by the `.sheet` wrapper in {@link BlipReel},
+ * so the header dot reads the active story's accent. The body components mount
+ * only while the sheet is the active overlay (BlipReel renders AskSheet then), so
+ * their hook lifecycles (Q&A fetch, Gemini Live connect/disconnect) bind to the
+ * sheet's open/close.
  */
+import { AskSheetType } from "@/components/blip/reel/AskSheetType";
+import { AskSheetVoice } from "@/components/blip/reel/AskSheetVoice";
 import { ic } from "@/components/blip/reel/icons";
 import type { Story } from "@/types/feed";
 
@@ -27,15 +32,16 @@ export interface AskSheetProps {
   mode: AskSheetMode;
   /** Close the sheet (restores the reel + resumes narration if it was playing). */
   onClose: () => void;
-  /** Hand off to the full-article layer ("read the full story"). Used by 4b/4c answers. */
+  /** Hand off to the full-article layer ("read the full story"). */
   onOpenArticle: () => void;
 }
 
 /**
- * Render the ask sheet for the active story. Returns the sheet's INNER content;
- * the sliding `.sheet` container + scrim are owned by {@link BlipReel}.
+ * Render the ask sheet for the active story: the shared header plus the
+ * mode-specific body. Returns the sheet's INNER content; the sliding `.sheet`
+ * container + scrim are owned by {@link BlipReel}.
  */
-export function AskSheet({ story, mode, onClose }: AskSheetProps) {
+export function AskSheet({ story, mode, onClose, onOpenArticle }: AskSheetProps) {
   return (
     <>
       <div className="sheet-grab" />
@@ -48,13 +54,11 @@ export function AskSheet({ story, mode, onClose }: AskSheetProps) {
           {ic("close")}
         </button>
       </div>
-      <div className="sheet-body" style={{ alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-        <p style={{ color: "rgba(255,255,255,.72)", fontSize: "14.5px", lineHeight: 1.5, maxWidth: "300px" }}>
-          {mode === "voice"
-            ? "Ask out loud, hands-free — answers stay grounded in this story’s source."
-            : "Ask anything about this story — answers stay grounded in its source."}
-        </p>
-      </div>
+      {mode === "voice" ? (
+        <AskSheetVoice story={story} onClose={onClose} onOpenArticle={onOpenArticle} />
+      ) : (
+        <AskSheetType story={story} onClose={onClose} onOpenArticle={onOpenArticle} />
+      )}
     </>
   );
 }

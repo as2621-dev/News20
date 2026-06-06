@@ -288,7 +288,7 @@ export function BlipReel() {
       </div>
       <div className={`layer-article${overlay?.kind === "article" ? " on" : ""}`} style={accentStyle}>
         {overlay?.kind === "article" && currentStory ? (
-          <ArticleLayer story={currentStory} onClose={closeOverlay} />
+          <ArticleLayer story={currentStory} onClose={closeOverlay} onOpenType={openType} onOpenVoice={openVoice} />
         ) : null}
       </div>
 

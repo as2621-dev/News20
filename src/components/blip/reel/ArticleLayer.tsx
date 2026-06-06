@@ -21,6 +21,14 @@ export interface ArticleLayerProps {
   story: Story;
   /** Close the article and return to the reel. */
   onClose: () => void;
+  /**
+   * Open the type-ask sheet from the article's own ask bar (Sub-phase 4d). Swaps
+   * the single overlay (the article slides down, the sheet slides up). Optional so
+   * the 4a/scaffold article renders without it.
+   */
+  onOpenType?: () => void;
+  /** Open the voice-ask sheet from the article's own ask bar (Sub-phase 4d). */
+  onOpenVoice?: () => void;
 }
 
 /**
