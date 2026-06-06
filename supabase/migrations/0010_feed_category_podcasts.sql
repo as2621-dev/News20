@@ -1,0 +1,29 @@
+-- Migration 0010 — Add 'podcasts' to the feed_category enum (Blip Flow Stage 3)
+--
+-- Source of truth: the Blip "Build your 30, in order" screen (Stage 3 of the source-
+-- onboarding flow) draws NINE allocation buckets — the 8 from 0008 PLUS a third SOURCE
+-- bucket, Podcasts, alongside YouTube and X. 0008 shipped the feed_category enum with
+-- only the 8 keys known at the time; this migration adds the 9th so the screen's
+-- Podcasts allocation can persist to user_feed_allocation.allocation_category.
+--
+-- ADDITIVE / forward-only. Applies cleanly ON TOP OF 0008 (which created the
+-- feed_category enum + user_feed_allocation table). It adds ONE enum value and nothing
+-- else — no new table, index, or policy; the existing user_feed_allocation table and its
+-- owner-all RLS already accept the new value the moment the enum carries it.
+--
+-- ⚠ IRREVERSIBLE — no down migration. PostgreSQL CANNOT drop a value from an enum type
+-- (there is no `ALTER TYPE … DROP VALUE`); the only "rollback" is to recreate the type
+-- and rewrite every dependent column on a disposable/backed-up DB. Treat this as
+-- permanent (same forward-only posture as 0008's enum + 0007/0009 additive objects).
+--
+-- IDEMPOTENT: `ADD VALUE IF NOT EXISTS` is a no-op when 'podcasts' already exists, so the
+-- migration is safe to re-run.
+--
+-- DESIGN NOTE (Rule 7): 'podcasts' is the snake_case machine key; the human label
+-- ("Podcasts") lives in the frontend (src/lib/feedBuckets.ts), matching 0008 §1 — the
+-- enum stores machine ids only, never display strings. The design bucket id is also
+-- 'podcasts' (no rename needed, unlike world→world_politics / tech→tech_science), so the
+-- DESIGN_BUCKET_TO_ENUM map is the identity for this value.
+
+-- ── Enum value — feed_category += 'podcasts' (the 3rd source axis) ────────────
+alter type feed_category add value if not exists 'podcasts';

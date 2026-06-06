@@ -23,9 +23,15 @@
  *      and still advances to the source swipe.
  *   5. `sources`  — {@link SourceSwipe}; the Tinder-style source-onboarding deck
  *      (Phase 5c). On its final "You're all set." it marks the source step complete
- *      ({@link markSourceOnboardingComplete}) and routes to the reel (`router.push("/")`).
+ *      ({@link markSourceOnboardingComplete}) and advances to the `build` step.
  *      A returning user who already completed the source step skips it (gated in
  *      `onboarding/page.tsx` via {@link isSourceOnboardingComplete}).
+ *   6. `build`    — {@link BuildYour30}; the Blip Flow Stage 3 "Build your 30, in order"
+ *      feed-allocation screen. On "Save this order →" it persists the allocation
+ *      ({@link saveUserFeedAllocation}, inside the component) and routes to the reel
+ *      (`router.push("/")`). It is **skippable** — "I'll do this later" routes to the
+ *      reel WITHOUT saving (the Python allocator has a balanced default for users with
+ *      no allocation — phase-5a).
  *
  * Static-export safe: client-only (`"use client"`), `window`-guarded, no
  * `useSearchParams` (the magic link uses the URL hash, handled in `/callback`).
@@ -33,6 +39,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BuildYour30, type BuildYour30Segment } from "@/components/onboarding/BuildYour30";
 import { EmailSignIn } from "@/components/onboarding/EmailSignIn";
 import { OnboardingSplash } from "@/components/onboarding/OnboardingSplash";
 import { TopicTree } from "@/components/onboarding/TopicTree";
@@ -48,7 +55,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { FollowSelection } from "@/types/picker";
 
 /** The ordered onboarding steps (phase DoD names this exact sequence). */
-type OnboardingStep = "splash" | "email" | "wait_session" | "picker" | "loading" | "sources";
+type OnboardingStep = "splash" | "email" | "wait_session" | "picker" | "loading" | "sources" | "build";
 
 /**
  * Render the onboarding flow state machine.
@@ -153,15 +160,30 @@ export function OnboardingFlow() {
     [router],
   );
 
-  /** Complete the source swipe: mark the source step done, then route to the reel. */
-  const handleSourcesDone = useCallback(
-    (total: number) => {
-      logger.info("source_onboarding_completed", { total_followed: total });
-      markSourceOnboardingComplete();
+  /** Complete the source swipe: mark the source step done, then advance to "Build your 30". */
+  const handleSourcesDone = useCallback((total: number) => {
+    logger.info("source_onboarding_completed", { total_followed: total });
+    markSourceOnboardingComplete();
+    setStep("build");
+  }, []);
+
+  /** Complete "Build your 30": the allocation is already persisted in the component — route to the reel. */
+  const handleBuildDone = useCallback(
+    (segments: BuildYour30Segment[]) => {
+      logger.info("build_your_30_completed", {
+        segment_count: segments.length,
+        total_slots: segments.reduce((runningTotal, segment) => runningTotal + segment.count, 0),
+      });
       router.push("/");
     },
     [router],
   );
+
+  /** Skip "Build your 30": route to the reel WITHOUT saving (the allocator has a balanced default). */
+  const handleBuildSkip = useCallback(() => {
+    logger.info("build_your_30_skipped", {});
+    router.push("/");
+  }, [router]);
 
   return (
     <main className="flex min-h-dvh w-full flex-col bg-background text-text-primary">
@@ -203,6 +225,8 @@ export function OnboardingFlow() {
       ) : null}
 
       {step === "sources" ? <SourceSwipe onDone={handleSourcesDone} /> : null}
+
+      {step === "build" ? <BuildYour30 onDone={handleBuildDone} onSkip={handleBuildSkip} /> : null}
     </main>
   );
 }
