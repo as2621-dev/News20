@@ -166,3 +166,51 @@ export async function getFeed(client: SupabaseClient = getSupabaseBrowserClient(
 
   return (data ?? []).map(mapStoryRow);
 }
+
+/** A `daily_feeds` row with its embedded story (the same {@link StoryRow} shape). */
+interface DailyFeedRow {
+  feed_position: number;
+  stories: StoryRow | StoryRow[];
+}
+
+/**
+ * Fetch a single user's personalized feed for one day (Phase 4b SP1).
+ *
+ * Reads `daily_feeds` (the per-user, ranked + allocated ~30-slot window written
+ * by the daily pipeline) for `(feed_user_id, feed_date)`, embedding each slot's
+ * story with the SAME `stories ⋈ segments ⋈ digests ⋈ captions` shape `getFeed`
+ * uses, ordered by `feed_position`. Returns `[]` when the user has no rows for
+ * that date (the selector then falls back to the global seeded feed) — the RLS
+ * `daily_feeds_owner_select` policy scopes every row to the authed user.
+ *
+ * @param userId - The authed `users.user_id` (= `auth.uid()`).
+ * @param feedDate - The `feed_date` to read (ISO `YYYY-MM-DD`).
+ * @param client - Optional Supabase client (injected in tests).
+ * @returns The user's stories ordered by `feed_position` ( `[]` when unallocated).
+ * @throws If the query itself fails (not when it is merely empty).
+ *
+ * @example
+ * const feed = await getDailyFeed(session.user.id, "2026-06-06");
+ */
+export async function getDailyFeed(
+  userId: string,
+  feedDate: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<Story[]> {
+  const { data, error } = await client
+    .from("daily_feeds")
+    .select(`feed_position,stories!inner(${FEED_SELECT})`)
+    .eq("feed_user_id", userId)
+    .eq("feed_date", feedDate)
+    .order("feed_position", { ascending: true })
+    .returns<DailyFeedRow[]>();
+
+  if (error) {
+    throw new Error(
+      `Failed to load daily feed from Supabase: ${error.message}. ` +
+        "fix_suggestion: confirm daily_feeds is populated and RLS allows the authed SELECT.",
+    );
+  }
+
+  return (data ?? []).map((row) => mapStoryRow(Array.isArray(row.stories) ? row.stories[0] : row.stories));
+}

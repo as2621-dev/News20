@@ -41,7 +41,7 @@ import { AllCaughtUp } from "@/components/reel/AllCaughtUp";
 import { LoadingSkeleton } from "@/components/reel/LoadingSkeleton";
 import { ReelError } from "@/components/reel/ReelError";
 import { TapToStart } from "@/components/reel/TapToStart";
-import { getFeed } from "@/lib/feed/fixtureFeed";
+import { getReelFeed } from "@/lib/feed";
 import { getFollowedStoryIds, toggleFollow } from "@/lib/follows";
 import { logger } from "@/lib/logger";
 import { useActiveStoryObserver } from "@/lib/reel/gestures";
@@ -88,7 +88,7 @@ export function BlipReel() {
   /** Load (or reload) the feed. Success → `tapstart`; failure → `error`. */
   const loadFeed = useCallback((): (() => void) => {
     let isMounted = true;
-    getFeed()
+    getReelFeed()
       .then((loadedStories) => {
         if (!isMounted) {
           return;
@@ -102,7 +102,7 @@ export function BlipReel() {
         }
         logger.error("reel_feed_load_failed", {
           error_message: feedError instanceof Error ? feedError.message : "unknown",
-          fix_suggestion: "Verify getFeed() fixtures bundle (caption JSON imports + public/fixtures assets).",
+          fix_suggestion: "Verify the feed provider (getReelFeed → Supabase live feed / daily_feeds, or fixtures in dev).",
         });
         setReelStatus((current) => nextReelStatus(current, "feed_failed"));
       });
