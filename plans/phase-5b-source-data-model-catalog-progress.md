@@ -29,4 +29,6 @@
 - [x] 3a Phase-level DoD — PASS (seeder + data layer fully green; migration schema+RLS static-PASS, **live apply DEFERRED-offline** — no local DB, same constraint 5/5A shipped under)
 - [x] 3b Slop scan — PASS (no TODO/console.log/any-casts/dead-code/hardcoded-secrets; iTunes None is counted+logged at call site, not swallowed)
 - [x] 3c CSO lite — PASS (RLS owner-scoped via auth.uid(), public-read no-write; no new deps; key stripped from logs). 1 LOW logged: youtube_api_key → SecretStr (.agents/cso-findings/phase-5b-source-data-model-catalog.md)
-- [ ] Single atomic commit
+- [x] Single atomic commit — `15531a4` (28 files, 3679 insertions)
+
+**STATUS: COMPLETE** (2026-06-05)
