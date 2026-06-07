@@ -19,7 +19,7 @@ records what actually shipped, the live facts, and the environment gotchas.
 | 4a-SP2 | CORS + rate-limit worker | ✅ DONE (in code + env-configured) |
 | 4a-SP3 | Live batch (enrichment ON) | ⏸️ DEFERRED → runs on Railway cron (4a-SP4) |
 | 4a-SP4 | Deploy Trigger.dev daily cron | ⬜ NOT started — **runs the real batch** |
-| 4b | Wire SPA to live | 🔄 SP1+SP3 done; **SP2 (auth gate) pending** |
+| 4b | Wire SPA to live | ✅ SP1+SP2+SP3 done (SP4 moot); **SP2 auth gate shipped** |
 | 4c-SP1 | Capacitor scaffold (simulator) | ⬜ NOT started |
 | 5d | Source ingestion (YT/podcast/xAI-X) | ⬜ NOT started (in v1) |
 | 4c-SP2..4 | Signing + device + TestFlight | ⛔ BLOCKED on Apple enrollment |
@@ -110,10 +110,11 @@ belong to concurrent sessions.
 
 ## Next steps (priority order)
 1. **(Owner)** Finish Apple Developer enrollment — unblocks the whole iOS tail.
-2. **4b-SP2 — auth/onboarding gate on `/`**: signed-out → email sign-in; authed +
-   `users.user_onboarded_at` null → interest chips; else → reel. No reel flash.
-   Primitives exist: `getCurrentSession()` (`src/lib/supabase/auth.ts`),
-   `src/lib/onboardingProfile.ts`, routes `src/app/(auth)/callback`, `src/app/(onboarding)/onboarding`.
+2. ~~**4b-SP2 — auth/onboarding gate on `/`**~~ ✅ **SHIPPED.** `src/lib/auth/routeGuard.ts`
+   (`resolveRootGate` → `sign_in|onboarding|reel`, DB-error degrades to onboarding) +
+   `src/components/AppRouter.tsx` (reel never mounts until gate clears → no flash) + `page.tsx`
+   now mounts `<AppRouter/>`. Signed-out / un-onboarded → `router.replace("/onboarding")`
+   (OnboardingFlow handles both). Tests: `tests/lib/auth/routeGuard.test.ts` (3 cases + degrade).
 3. **4c-SP1 — Capacitor scaffold** (simulator-buildable, no signing): `capacitor.config.ts`
    (`webDir:"out"`), `build:ios` script, generate `ios/`. Pins: `reference/stack-notes.md`.
 4. **4a-SP4 — Trigger.dev daily cron** on Railway (runs the real `run_live_batch`

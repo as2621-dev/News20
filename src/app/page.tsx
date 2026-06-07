@@ -1,24 +1,20 @@
-import { BlipReel } from "@/components/blip/reel/BlipReel";
-import { PhoneShell } from "@/components/PhoneShell";
+import { AppRouter } from "@/components/AppRouter";
 
 /**
- * Home route — the Blip Flow Stage-4 audio-first karaoke reel is the app's home
- * (port-map §1; the route the onboarding flow lands on via `router.push("/")`).
+ * Home route (`/`) — the app's gated entry (Phase 4b SP2).
  *
- * Composes, outermost-in: the iPhone dev frame ({@link PhoneShell}, dropped in the
- * Capacitor build) → {@link BlipReel}. BlipReel owns its own ask sheet + article
- * overlays as root singletons (the Stage-4 unified model), so the legacy
- * {@link LayerStack} Detail/Voice lateral-layer shell is no longer composed here.
+ * Delegates to {@link AppRouter}, which resolves the auth/onboarding gate before
+ * mounting anything: a signed-in onboarded user gets the Blip Flow Stage-4 reel
+ * (wrapped in the {@link PhoneShell} dev frame, dropped in the Capacitor build);
+ * everyone else is routed to `/onboarding`. The reel is never mounted until the
+ * gate clears, so there is no flash of the reel for a signed-out / un-onboarded
+ * visitor.
  *
- * Static-export friendly: the reel is a client component (`"use client"`); this
- * server-component page just composes it. (Kept as `page.tsx` at `/` — a
- * `(reel)/page.tsx` route group would also resolve to `/` and collide with this
- * file, a build error documented in Phase 1e.)
+ * Static-export friendly: this server-component page just composes the client
+ * {@link AppRouter}; the gate itself resolves in the browser. (Kept as `page.tsx`
+ * at `/` — a `(reel)/page.tsx` route group would also resolve to `/` and collide
+ * with this file, a build error documented in Phase 1e.)
  */
 export default function HomePage() {
-  return (
-    <PhoneShell>
-      <BlipReel />
-    </PhoneShell>
-  );
+  return <AppRouter />;
 }
