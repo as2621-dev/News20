@@ -20,7 +20,7 @@ records what actually shipped, the live facts, and the environment gotchas.
 | 4a-SP3 | Live batch (enrichment ON) | ⏸️ DEFERRED → runs on Railway cron (4a-SP4) |
 | 4a-SP4 | Deploy Trigger.dev daily cron | ⬜ NOT started — **runs the real batch** |
 | 4b | Wire SPA to live | ✅ SP1+SP2+SP3 done (SP4 moot); **SP2 auth gate shipped** |
-| 4c-SP1 | Capacitor scaffold (simulator) | ⬜ NOT started |
+| 4c-SP1 | Capacitor scaffold (simulator) | 🔄 config half done; **`ios/` gen + `xcodebuild` need a Mac w/ Xcode** |
 | 5d | Source ingestion (YT/podcast/xAI-X) | ⬜ NOT started (in v1) |
 | 4c-SP2..4 | Signing + device + TestFlight | ⛔ BLOCKED on Apple enrollment |
 | review | App Store review pack + submit | ⬜ NOT started |
@@ -115,8 +115,14 @@ belong to concurrent sessions.
    `src/components/AppRouter.tsx` (reel never mounts until gate clears → no flash) + `page.tsx`
    now mounts `<AppRouter/>`. Signed-out / un-onboarded → `router.replace("/onboarding")`
    (OnboardingFlow handles both). Tests: `tests/lib/auth/routeGuard.test.ts` (3 cases + degrade).
-3. **4c-SP1 — Capacitor scaffold** (simulator-buildable, no signing): `capacitor.config.ts`
-   (`webDir:"out"`), `build:ios` script, generate `ios/`. Pins: `reference/stack-notes.md`.
+3. **4c-SP1 — Capacitor scaffold** — config half ✅ SHIPPED: `@capacitor/core|ios|cli` 8.4.0,
+   `capacitor.config.ts` (`appId:"com.blip.app"`, `appName:"Blip"`, `webDir:"out"`), `build:ios`
+   = `next build && cap sync ios`, `.gitignore` iOS artifacts. `npm run build` → `out/` verified
+   (the `/` static shell bakes `LOADING…`, zero reel markers — confirms no reel flash).
+   ⛔ **REMAINING — needs a Mac w/ full Xcode + CocoaPods** (this machine has only CLT + Ruby 2.6,
+   no `pod`): `npx cap add ios` (generates `ios/`, runs `pod install`) → `npx cap sync ios` →
+   `xcodebuild -scheme App -sdk iphonesimulator build`. Then commit the generated `ios/`. Pins:
+   `reference/stack-notes.md` (note: stack-notes pins "Capacitor 6.x+"; installed latest **8.4.0**).
 4. **4a-SP4 — Trigger.dev daily cron** on Railway (runs the real `run_live_batch`
    logic w/ enrichment ON, from a clean IP+DNS). Add the GDELT 429 retry here.
    Verify/apply migration `0010`.

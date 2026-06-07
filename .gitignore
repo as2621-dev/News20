@@ -2,6 +2,11 @@
 .env
 .env.*
 !.env.example
+# Google service-account / cloud credential JSON keys (NEVER commit).
+# Matches the GCP keyfile format <project>-<num>-<12-hex-keyid>.json.
+*-????????????.json
+service-account*.json
+gcp-*.json
 
 # ─── OS / editor cruft ────────────────────────────────────
 .DS_Store
@@ -53,3 +58,13 @@ CLAUDE.md
 # ─── Supabase CLI local artifacts ─────────────────────────
 supabase/.temp/
 supabase/.branches/
+
+# ─── Capacitor iOS native build artifacts (Phase 4c) ──────
+# The `ios/` project itself IS committed (generated on the build Mac via
+# `npx cap add ios`), but its heavy/derived artifacts are not.
+ios/App/Pods/
+ios/App/App/public/
+ios/App/build/
+ios/DerivedData/
+ios/.gradle/
+*.xcuserstate
