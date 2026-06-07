@@ -51,6 +51,15 @@ _DEFAULT_TIMEOUT_SECONDS = 30.0
 _MIN_TIMESPAN_DAYS = 1
 _MAX_TIMESPAN_DAYS = 3
 
+# Reason: GDELT blanket-rate-limits a busy IP (HTTP 429) and also throttles bursts
+# with an HTTP-200 "Please limit requests" notice. On either signal — or a transient
+# transport/timeout/5xx — we back off and retry instead of failing the whole query
+# (the 4a cloud cron's resilience). Base backoff >= the 5s window so the first retry
+# clears a fresh slot; capped to bound the worst-case batch latency.
+_GDELT_RETRY_MAX_ATTEMPTS = 3
+_GDELT_RETRY_BASE_BACKOFF_SECONDS = 5.0
+_GDELT_RETRY_BACKOFF_CAP_SECONDS = 30.0
+
 
 class GdeltDocAdapter(BaseNewsAdapter):
     """News adapter backed by the keyless GDELT DOC 2.0 article index.
@@ -70,11 +79,17 @@ class GdeltDocAdapter(BaseNewsAdapter):
         max_records: int = _DEFAULT_MAX_RECORDS,
         min_request_interval_seconds: float = _GDELT_MIN_REQUEST_INTERVAL_SECONDS,
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        retry_max_attempts: int = _GDELT_RETRY_MAX_ATTEMPTS,
+        retry_base_backoff_seconds: float = _GDELT_RETRY_BASE_BACKOFF_SECONDS,
     ) -> None:
         self._http_client = http_client
         self.max_records = max(1, min(max_records, _GDELT_MAX_RECORDS_CEILING))
         self.min_request_interval_seconds = min_request_interval_seconds
         self.timeout_seconds = timeout_seconds
+        # Reason: bounded backoff-retry on GDELT rate-limits / transient errors.
+        # Tests inject 0.0 backoff so the retry paths run instantly.
+        self.retry_max_attempts = max(1, retry_max_attempts)
+        self.retry_base_backoff_seconds = retry_base_backoff_seconds
         # Reason: serialize GDELT calls so concurrent per-interest searches still
         # honor the shared 5s rate limit. monotonic() avoids wall-clock jumps.
         self._throttle_lock = asyncio.Lock()
@@ -212,7 +227,27 @@ class GdeltDocAdapter(BaseNewsAdapter):
         return f"{days}d"
 
     async def _throttled_get(self, params: dict[str, str], search_query: str) -> str:
-        """GET the GDELT endpoint, honoring the >=5s spacing, returning raw text."""
+        """GET the GDELT endpoint with >=5s spacing + bounded backoff-retry.
+
+        GDELT throttles aggressively: it answers HTTP 429, or an HTTP-200 plaintext
+        "Please limit requests" notice, when called faster than ~1/5s, and can
+        blanket-rate-limit a busy IP (the 4a cloud run's risk). On any rate-limit
+        signal (429 / the notice), a 5xx, or a transient transport/timeout error,
+        we wait an exponential backoff (>= the 5s window) and retry, up to
+        ``retry_max_attempts`` total. A non-retryable 4xx, or exhausted retries,
+        raises AdapterFetchError (the pipeline catches it per-interest, so one
+        throttled query does not abort the whole batch).
+
+        Args:
+            params: The GDELT DOC query parameters.
+            search_query: The query string (for log context only).
+
+        Returns:
+            The raw response body text (parsed downstream by ``_parse_articles``).
+
+        Raises:
+            AdapterFetchError: On a non-retryable HTTP error or exhausted retries.
+        """
         owns_client = self._http_client is None
         client = self._http_client
         try:
@@ -220,37 +255,94 @@ class GdeltDocAdapter(BaseNewsAdapter):
                 client = httpx.AsyncClient(
                     timeout=self.timeout_seconds, follow_redirects=True
                 )
-            async with self._throttle_lock:
-                await self._await_rate_limit()
-                try:
-                    response = await client.get(
-                        _GDELT_DOC_ENDPOINT,
-                        params=params,
-                        headers={"User-Agent": _GDELT_USER_AGENT},
-                    )
-                    self._last_request_monotonic = time.monotonic()
-                    response.raise_for_status()
-                    return response.text
-                except (
-                    httpx.HTTPStatusError,
-                    httpx.TimeoutException,
-                    httpx.TransportError,
-                ) as exc:
+            last_error_summary = "unknown"
+            for attempt in range(1, self.retry_max_attempts + 1):
+                retry_reason: str | None = None
+                async with self._throttle_lock:
+                    await self._await_rate_limit()
+                    try:
+                        response = await client.get(
+                            _GDELT_DOC_ENDPOINT,
+                            params=params,
+                            headers={"User-Agent": _GDELT_USER_AGENT},
+                        )
+                        self._last_request_monotonic = time.monotonic()
+                    except (httpx.TimeoutException, httpx.TransportError) as exc:
+                        # Transient network error → retryable.
+                        retry_reason = type(exc).__name__
+                        last_error_summary = f"{retry_reason}: {str(exc)[:200]}"
+                    else:
+                        status = response.status_code
+                        if status == 429 or status >= 500:
+                            retry_reason = f"HTTP {status}"
+                            last_error_summary = retry_reason
+                        elif _GDELT_RATE_LIMIT_MARKER in response.text[:200]:
+                            # GDELT's HTTP-200 "Please limit requests" throttle notice.
+                            retry_reason = "rate_limit_notice"
+                            last_error_summary = "HTTP 200 rate-limit notice"
+                        elif status >= 400:
+                            # Non-retryable client error (e.g. a bad query) — fail fast.
+                            logger.warning(
+                                "gdelt_http_error",
+                                search_query=search_query[:120],
+                                status_code=status,
+                                fix_suggestion="Non-retryable GDELT client error; check the query syntax",
+                            )
+                            raise AdapterFetchError(
+                                message=f"GDELT request failed: HTTP {status}",
+                                adapter_name=_ADAPTER_NAME,
+                                fix_suggestion="Check the query syntax and request parameters",
+                            )
+                        else:
+                            return response.text
+                # Only reached when this attempt hit a retryable condition. Back off
+                # OUTSIDE the throttle lock so other interest queries aren't blocked.
+                if attempt < self.retry_max_attempts:
+                    backoff_seconds = self._retry_backoff_seconds(attempt)
                     logger.warning(
-                        "gdelt_http_error",
+                        "gdelt_rate_limited_retrying",
                         search_query=search_query[:120],
-                        error_type=type(exc).__name__,
-                        error_message=str(exc)[:300],
-                        fix_suggestion="Check GDELT availability and the request rate (<=1/5s)",
+                        attempt=attempt,
+                        max_attempts=self.retry_max_attempts,
+                        retry_reason=retry_reason,
+                        backoff_seconds=backoff_seconds,
+                        fix_suggestion="GDELT throttled the request; backing off (>=5s window) and retrying",
                     )
-                    raise AdapterFetchError(
-                        message=f"GDELT request failed: {type(exc).__name__}",
-                        adapter_name=_ADAPTER_NAME,
-                        fix_suggestion="Check GDELT availability and the request rate (<=1/5s)",
-                    ) from exc
+                    await asyncio.sleep(backoff_seconds)
+            # Every attempt hit a retryable condition — give up loudly (Rule 12).
+            logger.warning(
+                "gdelt_rate_limit_exhausted",
+                search_query=search_query[:120],
+                attempts=self.retry_max_attempts,
+                last_error=last_error_summary,
+                fix_suggestion="GDELT kept throttling; run from a fresh IP or lower the request rate",
+            )
+            raise AdapterFetchError(
+                message=(
+                    f"GDELT request failed after {self.retry_max_attempts} attempts: "
+                    f"{last_error_summary}"
+                ),
+                adapter_name=_ADAPTER_NAME,
+                fix_suggestion="GDELT kept rate-limiting; reduce the request rate or run from a different IP",
+            )
         finally:
             if owns_client and client is not None:
                 await client.aclose()
+
+    def _retry_backoff_seconds(self, attempt: int) -> float:
+        """Exponential backoff (seconds) for a 1-based retry ``attempt``, capped.
+
+        ``attempt`` 1 → base, 2 → base*2, … capped at the ceiling. The base is the
+        GDELT 5s window so the first retry already clears a fresh rate-limit slot.
+
+        Args:
+            attempt: The 1-based attempt number that just failed.
+
+        Returns:
+            The seconds to sleep before the next attempt.
+        """
+        backoff = self.retry_base_backoff_seconds * (2 ** (attempt - 1))
+        return min(backoff, _GDELT_RETRY_BACKOFF_CAP_SECONDS)
 
     async def _await_rate_limit(self) -> None:
         """Sleep just enough to keep GDELT calls >= the minimum interval apart."""

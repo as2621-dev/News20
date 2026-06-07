@@ -85,8 +85,10 @@ from the Railway cron in 4a-SP4.
      → DNS). This ALSO blocks the **in-browser** reel feed test until fixed.
 2. **GDELT rate-limits this IP (HTTP 429).** Hit it too many times today; live ingest
    fails *from this laptop*. Resolves from a fresh IP → that's why the real batch runs
-   on **Railway** (4a-SP4). Don't keep probing GDELT. The adapter has NO 429 retry —
-   **add a backoff-retry to `agents/ingestion/adapters/gdelt_doc.py` in 4a-SP4**.
+   on **Railway** (4a-SP4). Don't keep probing GDELT. ✅ **Backoff-retry now SHIPPED** in
+   `agents/ingestion/adapters/gdelt_doc.py` (`_throttled_get`): bounded exponential
+   backoff (base 5s, cap 30s, 3 attempts) on 429 / the 200 "Please limit requests"
+   notice / 5xx / transient transport errors; non-retryable 4xx still fails fast.
 3. **Background `Bash` commands have flaky network/DNS here**; foreground is reliable.
    Run network-dependent commands in the foreground.
 4. **No passwordless sudo** (can't edit `/etc/hosts`).
@@ -124,8 +126,10 @@ belong to concurrent sessions.
    `xcodebuild -scheme App -sdk iphonesimulator build`. Then commit the generated `ios/`. Pins:
    `reference/stack-notes.md` (note: stack-notes pins "Capacitor 6.x+"; installed latest **8.4.0**).
 4. **4a-SP4 — Trigger.dev daily cron** on Railway (runs the real `run_live_batch`
-   logic w/ enrichment ON, from a clean IP+DNS). Add the GDELT 429 retry here.
-   Verify/apply migration `0010`.
+   logic w/ enrichment ON, from a clean IP+DNS). GDELT 429 retry ✅ already done (gotcha #2).
+   Verify/apply migration `0010`. **Open decision:** the TS→Python seam — `trigger/` is
+   scaffolded but `loadGatedStoryIds` is a stub returning `[]`; pick HTTP-into-Railway-worker
+   vs `@trigger.dev/python` build extension, then deploy (a paid run — needs owner OK).
 5. **5d — source ingestion** (YouTube + podcast + xAI-for-X) — plan: `plans/phase-5d-source-ingestion.md`.
 6. **Apple-gated:** 4c-SP2..4 (signing → device smoke → TestFlight), then the review
    pack (privacy policy, screenshots, accuracy/guardrail review) → submit.

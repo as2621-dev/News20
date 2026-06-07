@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 
 from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter
@@ -23,8 +24,17 @@ _SINCE = datetime(2026, 5, 30, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _adapter(http_client: AsyncMock) -> GdeltDocAdapter:
-    """Build an adapter with the injected client and no throttle delay (tests)."""
-    return GdeltDocAdapter(http_client=http_client, min_request_interval_seconds=0.0)
+    """Build an adapter with the injected client, no throttle delay, no backoff sleep.
+
+    ``min_request_interval_seconds=0`` skips inter-call spacing and
+    ``retry_base_backoff_seconds=0`` makes the backoff-retry paths run instantly,
+    so retry behaviour is asserted without real sleeps.
+    """
+    return GdeltDocAdapter(
+        http_client=http_client,
+        min_request_interval_seconds=0.0,
+        retry_base_backoff_seconds=0.0,
+    )
 
 
 class TestGdeltSearchParsing:
@@ -106,6 +116,118 @@ class TestGdeltSearchFailures:
 
         with pytest.raises(AdapterFetchError):
             await adapter.search("Arsenal FC", _SINCE)
+
+
+class TestGdeltRetry:
+    """_throttled_get backs off and retries on GDELT rate-limits / transient errors.
+
+    WHY this matters: GDELT blanket-rate-limits a busy IP (the 4a cloud cron's
+    failure mode the handoff hit). Without retry, a single 429/notice fails the
+    whole per-interest query and silently shrinks the day's feed. These tests
+    encode that a transient throttle is survived, that retries are bounded, and
+    that a genuine client error still fails fast (no pointless retry storm).
+    """
+
+    @pytest.mark.asyncio
+    async def test_http_429_then_success_returns_candidates(
+        self, mock_http_client, make_gdelt_response, gdelt_articles_json
+    ) -> None:
+        """A 429 on the first call is retried; the second call's JSON parses.
+
+        Fails if 429 is treated as fatal (the old behaviour) instead of retried.
+        """
+        mock_http_client.get = AsyncMock(
+            side_effect=[
+                make_gdelt_response("", status_code=429),
+                make_gdelt_response(gdelt_articles_json),
+            ]
+        )
+        adapter = _adapter(mock_http_client)
+
+        candidates = await adapter.search("Arsenal FC", _SINCE)
+
+        assert len(candidates) == 2
+        assert mock_http_client.get.call_count == 2  # one retry, then success
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_notice_then_success_returns_candidates(
+        self, mock_http_client, make_gdelt_response, gdelt_articles_json
+    ) -> None:
+        """The HTTP-200 'Please limit requests' notice is retried, not surfaced.
+
+        Fails if the 200+notice throttle is parsed as a fatal error before retry.
+        """
+        notice = "Please limit requests to one every 5 seconds or contact ...\n\n"
+        mock_http_client.get = AsyncMock(
+            side_effect=[
+                make_gdelt_response(notice),
+                make_gdelt_response(gdelt_articles_json),
+            ]
+        )
+        adapter = _adapter(mock_http_client)
+
+        candidates = await adapter.search("Arsenal FC", _SINCE)
+
+        assert len(candidates) == 2
+        assert mock_http_client.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_transient_transport_error_then_success(
+        self, mock_http_client, make_gdelt_response, gdelt_articles_json
+    ) -> None:
+        """A transient transport error is retried (not a permanent failure).
+
+        Fails if a one-off network blip aborts the whole query instead of retrying.
+        """
+        mock_http_client.get = AsyncMock(
+            side_effect=[
+                httpx.ConnectError("connection reset"),
+                make_gdelt_response(gdelt_articles_json),
+            ]
+        )
+        adapter = _adapter(mock_http_client)
+
+        candidates = await adapter.search("Arsenal FC", _SINCE)
+
+        assert len(candidates) == 2
+        assert mock_http_client.get.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_persistent_429_exhausts_retries_and_raises(
+        self, mock_http_client, make_gdelt_response
+    ) -> None:
+        """A sustained 429 is retried exactly retry_max_attempts times, then raises.
+
+        Encodes the BOUND: retries are capped so a hard-rate-limited IP fails loudly
+        instead of looping forever. Fails if the cap is removed or off-by-one.
+        """
+        mock_http_client.get = AsyncMock(
+            return_value=make_gdelt_response("", status_code=429)
+        )
+        adapter = _adapter(mock_http_client)
+
+        with pytest.raises(AdapterFetchError):
+            await adapter.search("Arsenal FC", _SINCE)
+        assert mock_http_client.get.call_count == adapter.retry_max_attempts
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_4xx_fails_fast_without_retry(
+        self, mock_http_client, make_gdelt_response
+    ) -> None:
+        """A 400 (bad query) is NOT retried — it fails on the first call.
+
+        Encodes the edge: only rate-limit/transient/5xx conditions retry; a genuine
+        client error must not trigger a wasteful retry storm. Fails if every 4xx is
+        treated as retryable.
+        """
+        mock_http_client.get = AsyncMock(
+            return_value=make_gdelt_response("bad request", status_code=400)
+        )
+        adapter = _adapter(mock_http_client)
+
+        with pytest.raises(AdapterFetchError):
+            await adapter.search("Arsenal FC", _SINCE)
+        assert mock_http_client.get.call_count == 1  # no retry on a client error
 
 
 class TestGdeltExtractBody:
