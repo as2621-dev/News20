@@ -18,6 +18,10 @@ SAFETY (this run costs real paid Gemini calls):
   * ``MAX_PRODUCE`` caps the paid render fan-out for a safe first run (default 8).
     Set ``MAX_PRODUCE=0`` for uncapped full scale.
   * ``LOOKBACK_DAYS`` (default 2) bounds GDELT recency.
+  * ``INGEST_SOURCE`` (default ``doc``) — set ``bigquery`` to ingest AND run the
+    Phase-2c coverage census via the unthrottled GDELT BigQuery dataset instead of
+    the rate-limited DOC API (needs ``GOOGLE_APPLICATION_CREDENTIALS``; optional
+    ``GCP_BILLING_PROJECT``).
 
 Run (dry preflight, free):
     .venv/bin/python scripts/run_live_batch.py
@@ -42,6 +46,9 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from agents.ingestion.adapters.gdelt_bigquery import (  # noqa: E402
+    GdeltBigQueryAdapter,
+)
 from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter  # noqa: E402
 from agents.ingestion.interest_keyed_pipeline import (  # noqa: E402
     ingest_active_interests,
@@ -116,9 +123,7 @@ def build_interest_segment_lookup(rows: list[dict[str, Any]]) -> dict[str, str]:
     return lookup
 
 
-def _seed_demo_users(
-    supabase: Any, interest_rows: list[dict[str, Any]]
-) -> list[str]:
+def _seed_demo_users(supabase: Any, interest_rows: list[dict[str, Any]]) -> list[str]:
     """Create 2 demo users with DISTINCT ingestible interests (validation only).
 
     Production users onboard via the app (magic-link → Blip interest picker); this
@@ -231,8 +236,10 @@ async def _run() -> int:
     target = date.today()
 
     print(f"\n=== LIVE BATCH (4a-SP3) — feed_date={target.isoformat()} ===")
-    print(f"mode={'PAID' if paid else 'DRY-RUN (free)'}  "
-          f"max_produce={max_produce or 'uncapped'}  lookback_days={lookback_days}")
+    print(
+        f"mode={'PAID' if paid else 'DRY-RUN (free)'}  "
+        f"max_produce={max_produce or 'uncapped'}  lookback_days={lookback_days}"
+    )
 
     # ── Taxonomy + enrichment segment lookup ──────────────────────────────────
     interest_rows = (
@@ -268,9 +275,24 @@ async def _run() -> int:
 
     # ── Phase-2c enrichment lookups (loaded once per batch) ───────────────────
     outlets_lookup = load_outlets_lookup(supabase)
-    gdelt_adapter = GdeltDocAdapter()
+    # Ingest source: the SAME adapter instance feeds BOTH the interest ingest and
+    # the Phase-2c coverage census (passed as ingest_fn's adapter AND
+    # run_daily_pipeline(gdelt_adapter=…)), so this one flag migrates both off the
+    # rate-limited DOC API onto unthrottled BigQuery. Default DOC for safety.
+    ingest_source = os.environ.get("INGEST_SOURCE", "doc").strip().lower()
+    if ingest_source == "bigquery":
+        gdelt_adapter: Any = GdeltBigQueryAdapter(
+            billing_project=os.environ.get("GCP_BILLING_PROJECT") or None
+        )
+    else:
+        ingest_source = "doc"
+        gdelt_adapter = GdeltDocAdapter()
 
     print("\n--- PREFLIGHT ---")
+    print(
+        f"  ingest source ................. {ingest_source} "
+        f"({'BigQuery (unthrottled)' if ingest_source == 'bigquery' else 'DOC API (rate-limited)'})"
+    )
     print(f"  interests in taxonomy ......... {len(interest_nodes)}")
     print(f"  interest→segment lookup ....... {len(interest_segment_lookup)}")
     print(f"  active users (profiles) ....... {len(active_user_ids)}")
@@ -278,13 +300,17 @@ async def _run() -> int:
     print(f"  outlets bias lookup ........... {len(outlets_lookup)}")
 
     if not active_user_ids or not followed_ids:
-        print("\nFAIL preflight: no active users / followed interests to ingest for.\n"
-              "Seed ≥2 users with user_interest_profile rows (onboarding) first.")
+        print(
+            "\nFAIL preflight: no active users / followed interests to ingest for.\n"
+            "Seed ≥2 users with user_interest_profile rows (onboarding) first."
+        )
         return 1
 
     if not paid:
-        print("\nDRY-RUN complete — no paid calls made. "
-              "Re-run with RUN_LIVE_BATCH=1 to produce.\n")
+        print(
+            "\nDRY-RUN complete — no paid calls made. "
+            "Re-run with RUN_LIVE_BATCH=1 to produce.\n"
+        )
         return 0
 
     # ── PAID clients ──────────────────────────────────────────────────────────
@@ -304,8 +330,10 @@ async def _run() -> int:
         )
         stories = result.canonical_stories
         tags = result.story_interest_tags
-        print(f"  ingest: {result.total_candidates_fetched} candidates → "
-              f"{len(stories)} canonical stories")
+        print(
+            f"  ingest: {result.total_candidates_fetched} candidates → "
+            f"{len(stories)} canonical stories"
+        )
         # Cost ceiling for a safe first run: cap the produced pool.
         if max_produce > 0 and len(stories) > max_produce:
             stories = stories[:max_produce]
@@ -365,12 +393,17 @@ async def _run() -> int:
     distinct_feeds = len({frozenset(s) for s in feeds_by_user.values()})
     print("\n--- DoD CHECKS ---")
     checks = [
-        ("≥1 story produced this run", result.produced_story_count >= 1,
-         f"produced={result.produced_story_count}"),
-        ("daily_feeds written for ≥2 users", len(feeds_by_user) >= 2,
-         f"users={len(feeds_by_user)}"),
-        ("≥2 DISTINCT user feeds", distinct_feeds >= 2,
-         f"distinct={distinct_feeds}"),
+        (
+            "≥1 story produced this run",
+            result.produced_story_count >= 1,
+            f"produced={result.produced_story_count}",
+        ),
+        (
+            "daily_feeds written for ≥2 users",
+            len(feeds_by_user) >= 2,
+            f"users={len(feeds_by_user)}",
+        ),
+        ("≥2 DISTINCT user feeds", distinct_feeds >= 2, f"distinct={distinct_feeds}"),
         ("story_analytics non-empty", len(analytics) >= 1, f"rows={len(analytics)}"),
         ("detail_key_points non-empty", len(keypoints) >= 1, f"rows={len(keypoints)}"),
     ]

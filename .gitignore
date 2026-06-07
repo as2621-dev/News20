@@ -68,3 +68,8 @@ ios/App/build/
 ios/DerivedData/
 ios/.gradle/
 *.xcuserstate
+
+# ─── GCP service-account keys — NEVER commit (live credentials) ───
+reference/blip-*.json
+*.iam.gserviceaccount.com.json
+gcp-*-key.json

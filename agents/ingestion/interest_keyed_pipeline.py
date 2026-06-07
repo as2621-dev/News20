@@ -179,28 +179,50 @@ async def ingest_active_interests(
 
     active = build_active_interest_set(followed_interest_ids, interest_nodes)
 
-    # --- Fan out one search per active interest; stamp the matched interest ---
+    # --- Fan out searches; stamp each candidate's matched interest ---
+    # Adapters exposing search_active_interests (e.g. GdeltBigQueryAdapter) ingest
+    # the WHOLE active-interest set in ONE call and return pre-stamped candidates
+    # (no per-IP throttle, no 250-record cap); others fall back to one query per
+    # interest (the DOC path), stamping the matched interest after each fetch.
     all_candidates = []
     failed_interests = 0
-    for active_interest in active:
+    batch_search = getattr(adapter, "search_active_interests", None)
+    if callable(batch_search):
         try:
-            candidates = await adapter.search(
-                active_interest.interest_search_query, since
-            )
+            all_candidates = await batch_search(active, since)
         except AdapterFetchError as exc:
-            # Reason: one interest's source failure must not abort the whole batch.
-            failed_interests += 1
+            # Reason: the batched call is all-or-nothing — a failure skips the run,
+            # not one interest, so mark the whole set failed (fail loud, not silent).
+            failed_interests = len(active)
             logger.warning(
-                "ingest_interest_search_failed",
-                interest_slug=active_interest.interest_slug,
+                "ingest_batch_search_failed",
+                active_interests=len(active),
                 error_message=str(exc)[:300],
-                fix_suggestion="Source query failed; this interest is skipped this run",
+                fix_suggestion="Batched source query failed; the whole batch is skipped this run",
             )
-            continue
-        for candidate in candidates:
-            candidate.candidate_matched_interest_id = active_interest.interest_id
-            candidate.candidate_matched_interest_slug = active_interest.interest_slug
-        all_candidates.extend(candidates)
+            all_candidates = []
+    else:
+        for active_interest in active:
+            try:
+                candidates = await adapter.search(
+                    active_interest.interest_search_query, since
+                )
+            except AdapterFetchError as exc:
+                # Reason: one interest's source failure must not abort the whole batch.
+                failed_interests += 1
+                logger.warning(
+                    "ingest_interest_search_failed",
+                    interest_slug=active_interest.interest_slug,
+                    error_message=str(exc)[:300],
+                    fix_suggestion="Source query failed; this interest is skipped this run",
+                )
+                continue
+            for candidate in candidates:
+                candidate.candidate_matched_interest_id = active_interest.interest_id
+                candidate.candidate_matched_interest_slug = (
+                    active_interest.interest_slug
+                )
+            all_candidates.extend(candidates)
 
     total_candidates = len(all_candidates)
 

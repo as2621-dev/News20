@@ -170,3 +170,66 @@ def mock_http_client() -> AsyncMock:
     client = AsyncMock()
     client.aclose = AsyncMock()
     return client
+
+
+@pytest.fixture
+def make_bq_row():
+    """Factory for a GKG BigQuery result row (a plain dict; the adapter calls
+    ``dict(row.items())``, which a dict satisfies — no fake Row class needed)."""
+
+    def _make(
+        url: str,
+        title: str,
+        outlet: str,
+        *,
+        gkg_date: int = 20260531101500,
+        interest_id: str = "int-x",
+        interest_slug: str = "slug-x",
+        sharing_image: str | None = None,
+        match_count: int = 1,
+        title_match_count: int = 1,
+    ) -> dict:
+        return {
+            "url": url,
+            "outlet": outlet,
+            "gkg_date": gkg_date,
+            "sharing_image": sharing_image,
+            "title": title,
+            "interest_id": interest_id,
+            "interest_slug": interest_slug,
+            "match_count": match_count,
+            "title_match_count": title_match_count,
+        }
+
+    return _make
+
+
+@pytest.fixture
+def make_fake_bq_client():
+    """Factory for a fake BigQuery client (mocks ``.query(sql, job_config=).result()``).
+
+    Captures the last call's SQL + job_config on ``client.captured`` so tests can
+    assert the query parameters (struct array + scalars) without hitting BigQuery.
+    Pass ``raise_exc`` to simulate a BigQuery failure on ``.query()``.
+    """
+
+    def _make(
+        rows: list | None = None, raise_exc: Exception | None = None
+    ) -> MagicMock:
+        client = MagicMock()
+        captured: dict = {}
+
+        def _query(sql, job_config=None):
+            captured["sql"] = sql
+            captured["job_config"] = job_config
+            if raise_exc is not None:
+                raise raise_exc
+            job = MagicMock()
+            job.result.return_value = list(rows or [])
+            return job
+
+        client.query.side_effect = _query
+        client.captured = captured
+        return client
+
+    return _make
