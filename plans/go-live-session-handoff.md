@@ -4,6 +4,60 @@
 `plans/phase-4-m4-go-live-and-testflight.md` (4a/4b/4c sub-phase DoDs). This note
 records what actually shipped, the live facts, and the environment gotchas.
 
+---
+
+## ▶ RESUME HERE (updated 2026-06-07) — finish 4c-SP1, then it's enrollment-gated
+
+**Where the last session stopped:** mid-4c-SP1. Xcode is now installed and the
+native `ios/` project has just been **generated** (`npx cap add ios --packagemanager
+SPM`). It has NOT yet been synced, compiled, or verified. Resume with these 4 steps:
+
+```bash
+# 0. (sanity) confirm the toolchain — should print Xcode 26.3 + iphonesimulator26.2
+xcodebuild -version && xcodebuild -showsdks | grep iphonesimulator
+
+# 1. sync the fresh web export into the native shell (SPM project, NO CocoaPods)
+npm run build && npx cap sync ios
+
+# 2. compile for the simulator — SPM means App.xcodeproj, there is NO .xcworkspace.
+#    First build resolves Swift packages (brief network). No signing needed for sim.
+xcodebuild -project ios/App/App.xcodeproj -scheme App \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
+
+# 3. on a clean BUILD SUCCEEDED, commit the generated project (heavy bits gitignored)
+git add ios && git commit -m "build(ios): generate native iOS project + simulator build (4c-SP1)"
+```
+
+- The `ios/` dir is **already committed as a WIP checkpoint** (see this session's
+  commit) so it's durable — step 3 above only re-commits if `cap sync`/the build
+  changes tracked files. If the build is clean as-is, just flip 4c-SP1 to ✅ here.
+- **Build command note:** SPM generated `ios/App/App.xcodeproj` (+ `ios/App/CapApp-SPM`).
+  There is **no `.xcworkspace`** (that's a CocoaPods artifact). Use `-project … App.xcodeproj`.
+- `.gitignore` already swallows the heavy native artifacts (`ios/App/App/public`,
+  `ios/App/build`, `ios/DerivedData`, `*.xcuserstate`); `git add ios` stages ~19 files.
+
+**After 4c-SP1 is green, what's blocked vs not:**
+- **4c-SP2 (signing) / SP3 (device) / SP4 (TestFlight)** — BLOCKED on Apple Developer
+  **enrollment** (submitted 2026-06-06, pending 24–48h → expect ~06-07/06-08). A
+  *simulator* build needs none of this; a *device/TestFlight* build does.
+- **Not iOS-blocked, do anytime:** **4a-SP4** (Trigger.dev cron — the `trigger/` shell
+  exists but `loadGatedStoryIds` is a stub; pick the TS→Python seam = HTTP-into-Railway-
+  worker vs `@trigger.dev/python`, then a paid deploy needs owner OK) and **5d** (source
+  ingestion). GDELT 429 backoff-retry is ✅ already shipped (gotcha #2).
+
+**Toolchain facts (this machine, 2026-06-07):** Xcode **26.3** at `/Applications/Xcode.app`,
+selected + licensed; SDK `iphonesimulator26.2`. `xcodes` 1.6.2 + `aria2` installed at
+`/opt/homebrew/bin` (note: `xcodes install` 403'd because it pulls from the *developer
+portal* which needs the pending agreement — Xcode came from the **App Store** instead).
+Capacitor `@capacitor/core|ios|cli` **8.4.0**, `appId: com.blip.app`, `webDir: out`.
+
+**Git state at handoff:** branch `main` == `origin/main` (all of 4b-SP2 / 4c-SP1-config /
+GDELT-retry already pushed — a concurrent session's `774d5f4` carried them up). Multiple
+sessions share this tree — **commit only your own paths**; foreign dirty files (e.g.
+`assets/m0/cand-*`) belong to other sessions.
+
+---
+
 ## Goal & locked decisions
 - **Goal:** ship to the App Store ASAP (owner: "go live today").
 - **Reality:** public App Store ≈ **4–7 days** — gated on Apple, not us (enrollment
@@ -20,7 +74,7 @@ records what actually shipped, the live facts, and the environment gotchas.
 | 4a-SP3 | Live batch (enrichment ON) | ⏸️ DEFERRED → runs on Railway cron (4a-SP4) |
 | 4a-SP4 | Deploy Trigger.dev daily cron | ⬜ NOT started — **runs the real batch** |
 | 4b | Wire SPA to live | ✅ SP1+SP2+SP3 done (SP4 moot); **SP2 auth gate shipped** |
-| 4c-SP1 | Capacitor scaffold (simulator) | 🔄 config half done; **`ios/` gen + `xcodebuild` need a Mac w/ Xcode** |
+| 4c-SP1 | Capacitor scaffold (simulator) | 🔄 config ✅ + Xcode 26.3 in + `ios/` generated; **`cap sync`+`xcodebuild` verify pending** (see RESUME HERE) |
 | 5d | Source ingestion (YT/podcast/xAI-X) | ⬜ NOT started (in v1) |
 | 4c-SP2..4 | Signing + device + TestFlight | ⛔ BLOCKED on Apple enrollment |
 | review | App Store review pack + submit | ⬜ NOT started |
