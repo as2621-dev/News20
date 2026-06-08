@@ -1,0 +1,621 @@
+[
+  {
+    "handle": "@elonmusk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Elon Musk"
+  },
+  {
+    "handle": "@MKBHD",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Marques Brownlee"
+  },
+  {
+    "handle": "@verge",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "The Verge"
+  },
+  {
+    "handle": "@TechCrunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "TechCrunch"
+  },
+  {
+    "handle": "@WIRED",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "WIRED"
+  },
+  {
+    "handle": "@tim_cook",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Tim Cook"
+  },
+  {
+    "handle": "@karaswisher",
+    "topic_tags": [
+      "tech",
+      "business",
+      "politics"
+    ],
+    "source_name": "Kara Swisher"
+  },
+  {
+    "handle": "@AndrewYNg",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Andrew Ng"
+  },
+  {
+    "handle": "@sama",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "source_name": "Sam Altman"
+  },
+  {
+    "handle": "@LinusTech",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Linus Tech Tips"
+  },
+  {
+    "handle": "@reckless",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Nilay Patel"
+  },
+  {
+    "handle": "@satyanadella",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Satya Nadella"
+  },
+  {
+    "handle": "@sundarpichai",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Sundar Pichai"
+  },
+  {
+    "handle": "@arstechnica",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Ars Technica"
+  },
+  {
+    "handle": "@nytimestech",
+    "topic_tags": [
+      "tech",
+      "business",
+      "politics"
+    ],
+    "source_name": "NYT Tech"
+  },
+  {
+    "handle": "@WSJTech",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "WSJ Tech"
+  },
+  {
+    "handle": "@technology",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Bloomberg Technology"
+  },
+  {
+    "handle": "@profgalloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Scott Galloway"
+  },
+  {
+    "handle": "@benedictevans",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Benedict Evans"
+  },
+  {
+    "handle": "@gruber",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "John Gruber"
+  },
+  {
+    "handle": "@ijustine",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "iJustine"
+  },
+  {
+    "handle": "@austinnotduncan",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Austin Evans"
+  },
+  {
+    "handle": "@Dave2D",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Dave Lee"
+  },
+  {
+    "handle": "@demishassabis",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Demis Hassabis"
+  },
+  {
+    "handle": "@ylecun",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Yann LeCun"
+  },
+  {
+    "handle": "@lexfridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Lex Fridman"
+  },
+  {
+    "handle": "@paulg",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Paul Graham"
+  },
+  {
+    "handle": "@pmarca",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Marc Andreessen"
+  },
+  {
+    "handle": "@a16z",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Andreessen Horowitz"
+  },
+  {
+    "handle": "@sequoia",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Sequoia Capital"
+  },
+  {
+    "handle": "@theinformation",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "The Information"
+  },
+  {
+    "handle": "@benthompson",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Ben Thompson"
+  },
+  {
+    "handle": "@CaseyNewton",
+    "topic_tags": [
+      "tech",
+      "politics"
+    ],
+    "source_name": "Casey Newton"
+  },
+  {
+    "handle": "@JoannaStern",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Joanna Stern"
+  },
+  {
+    "handle": "@geoffreyhinton",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Geoffrey Hinton"
+  },
+  {
+    "handle": "@GaryMarcus",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Gary Marcus"
+  },
+  {
+    "handle": "@briankrebs",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Brian Krebs"
+  },
+  {
+    "handle": "@om",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Om Malik"
+  },
+  {
+    "handle": "@anildash",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Anil Dash"
+  },
+  {
+    "handle": "@reneritchie",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Rene Ritchie"
+  },
+  {
+    "handle": "@MishaalRahman",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Mishaal Rahman"
+  },
+  {
+    "handle": "@guardiantech",
+    "topic_tags": [
+      "tech",
+      "politics"
+    ],
+    "source_name": "The Guardian Tech"
+  },
+  {
+    "handle": "@BBCTech",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "BBC Technology"
+  },
+  {
+    "handle": "@FTTech",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Financial Times Tech"
+  },
+  {
+    "handle": "@NikkeiAsia",
+    "topic_tags": [
+      "business",
+      "geopolitics",
+      "tech"
+    ],
+    "source_name": "Nikkei Asia"
+  },
+  {
+    "handle": "@restofworld",
+    "topic_tags": [
+      "tech",
+      "geopolitics",
+      "business"
+    ],
+    "source_name": "Rest of World"
+  },
+  {
+    "handle": "@CNET",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "CNET"
+  },
+  {
+    "handle": "@engadget",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Engadget"
+  },
+  {
+    "handle": "@Gizmodo",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Gizmodo"
+  },
+  {
+    "handle": "@thenextweb",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "The Next Web"
+  },
+  {
+    "handle": "@VentureBeat",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "VentureBeat"
+  },
+  {
+    "handle": "@ZDNet",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "ZDNet"
+  },
+  {
+    "handle": "@TheRegister",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "The Register"
+  },
+  {
+    "handle": "@techradar",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "TechRadar"
+  },
+  {
+    "handle": "@digitalfoundry",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Digital Foundry"
+  },
+  {
+    "handle": "@Mrwhosetheboss",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Arun Maini"
+  },
+  {
+    "handle": "@UnboxTherapy",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Lewis Hilsenteger"
+  },
+  {
+    "handle": "@ZacksJerryRig",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Zack Nelson"
+  },
+  {
+    "handle": "@techreview",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "MIT Technology Review"
+  },
+  {
+    "handle": "@IEEESpectrum",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "IEEE Spectrum"
+  },
+  {
+    "handle": "@TheEconomistTech",
+    "topic_tags": [
+      "business",
+      "tech",
+      "geopolitics"
+    ],
+    "source_name": "The Economist Technology"
+  },
+  {
+    "handle": "@shirao",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Shira Ovide"
+  },
+  {
+    "handle": "@kevinroose",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "politics"
+    ],
+    "source_name": "Kevin Roose"
+  },
+  {
+    "handle": "@Kantrowitz",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Alex Kantrowitz"
+  },
+  {
+    "handle": "@markgurman",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Mark Gurman"
+  },
+  {
+    "handle": "@mingchikuo",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Ming-Chi Kuo"
+  },
+  {
+    "handle": "@jon_prosser",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Jon Prosser"
+  },
+  {
+    "handle": "@TechLinked",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "TechLinked"
+  },
+  {
+    "handle": "@anandtech",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "AnandTech"
+  },
+  {
+    "handle": "@PCMag",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "PCMag"
+  },
+  {
+    "handle": "@tomshardware",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Tom's Hardware"
+  },
+  {
+    "handle": "@axiosprotech",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Axios Pro Tech"
+  },
+  {
+    "handle": "@davey_burke",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Dave Burke"
+  },
+  {
+    "handle": "@lockheimer",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Hiroshi Lockheimer"
+  },
+  {
+    "handle": "@caro_milanesi",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Carolina Milanesi"
+  },
+  {
+    "handle": "@BenBajarin",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Ben Bajarin"
+  },
+  {
+    "handle": "@PatrickMoorhead",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Patrick Moorhead"
+  },
+  {
+    "handle": "@vladsavov",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Vlad Savov"
+  },
+  {
+    "handle": "@backlon",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Dieter Bohn"
+  },
+  {
+    "handle": "@evleaks",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Evan Blass"
+  }
+]

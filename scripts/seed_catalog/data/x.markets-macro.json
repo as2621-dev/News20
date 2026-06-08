@@ -1,0 +1,592 @@
+[
+  {
+    "handle": "@Bloomberg",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Bloomberg"
+  },
+  {
+    "handle": "@WSJ",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "The Wall Street Journal"
+  },
+  {
+    "handle": "@FinancialTimes",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Financial Times"
+  },
+  {
+    "handle": "@TheEconomist",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "The Economist"
+  },
+  {
+    "handle": "@Reuters",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Reuters"
+  },
+  {
+    "handle": "@CNBC",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "CNBC"
+  },
+  {
+    "handle": "@markets",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Bloomberg Markets"
+  },
+  {
+    "handle": "@FTMarkets",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "FT Markets"
+  },
+  {
+    "handle": "@federalreserve",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Federal Reserve"
+  },
+  {
+    "handle": "@ecb",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "European Central Bank"
+  },
+  {
+    "handle": "@IMFNews",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "International Monetary Fund (IMF)"
+  },
+  {
+    "handle": "@RayDalio",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Ray Dalio"
+  },
+  {
+    "handle": "@paulkrugman",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Paul Krugman"
+  },
+  {
+    "handle": "@elerianm",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Mohamed El-Erian"
+  },
+  {
+    "handle": "@LHSummers",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Lawrence H. Summers"
+  },
+  {
+    "handle": "@BlackRock",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "BlackRock"
+  },
+  {
+    "handle": "@GoldmanSachs",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Goldman Sachs"
+  },
+  {
+    "handle": "@jpmorgan",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "JPMorgan Chase"
+  },
+  {
+    "handle": "@andrewrsorkin",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Andrew Ross Sorkin"
+  },
+  {
+    "handle": "@LizAnnSonders",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Liz Ann Sonders"
+  },
+  {
+    "handle": "@jimcramer",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Jim Cramer"
+  },
+  {
+    "handle": "@Nouriel",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Nouriel Roubini"
+  },
+  {
+    "handle": "@CathieDWood",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Cathie Wood"
+  },
+  {
+    "handle": "@profgalloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Scott Galloway"
+  },
+  {
+    "handle": "@Matt_Levine",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Matt Levine"
+  },
+  {
+    "handle": "@stlouisfed",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "St. Louis Fed"
+  },
+  {
+    "handle": "@BIS_org",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Bank for International Settlements (BIS)"
+  },
+  {
+    "handle": "@WorldBank",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "World Bank"
+  },
+  {
+    "handle": "@USTreasury",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "US Treasury Dept"
+  },
+  {
+    "handle": "@BankofEngland",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Bank of England"
+  },
+  {
+    "handle": "@NikkeiAsia",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Nikkei Asia"
+  },
+  {
+    "handle": "@CaixinGlobal",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Caixin Global"
+  },
+  {
+    "handle": "@PeterSchiff",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Peter Schiff"
+  },
+  {
+    "handle": "@RaoulGMI",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Raoul Pal"
+  },
+  {
+    "handle": "@LynAldenContact",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Lyn Alden"
+  },
+  {
+    "handle": "@DiMartinoBooth",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Danielle DiMartino Booth"
+  },
+  {
+    "handle": "@biancoresearch",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Jim Bianco"
+  },
+  {
+    "handle": "@Schuldensuehner",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Holger Zschaepitz"
+  },
+  {
+    "handle": "@RobinBrooksIIF",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Robin Brooks"
+  },
+  {
+    "handle": "@adam_tooze",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Adam Tooze"
+  },
+  {
+    "handle": "@ProfJeremySiegel",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Jeremy Siegel"
+  },
+  {
+    "handle": "@StephanieKelton",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Stephanie Kelton"
+  },
+  {
+    "handle": "@MorganStanley",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Morgan Stanley"
+  },
+  {
+    "handle": "@Vanguard_Group",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Vanguard"
+  },
+  {
+    "handle": "@FactSet",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "FactSet"
+  },
+  {
+    "handle": "@SPGlobal",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "S&P Global"
+  },
+  {
+    "handle": "@JoeWeisenthal",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Joe Weisenthal"
+  },
+  {
+    "handle": "@ErikSDavis",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Erik Schatzker"
+  },
+  {
+    "handle": "@steve_sedgwick",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Steve Sedgwick"
+  },
+  {
+    "handle": "@SaraEisen",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Sara Eisen"
+  },
+  {
+    "handle": "@BeckyQuick",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Becky Quick"
+  },
+  {
+    "handle": "@CarlQuintanilla",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Carl Quintanilla"
+  },
+  {
+    "handle": "@NickTimiraos",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Nick Timiraos"
+  },
+  {
+    "handle": "@jeannasmialek",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Jeanna Smialek"
+  },
+  {
+    "handle": "@GregDaco",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Gregory Daco"
+  },
+  {
+    "handle": "@JavierBlas",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Javier Blas"
+  },
+  {
+    "handle": "@Katie_Martin_FX",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Katie Martin"
+  },
+  {
+    "handle": "@RobinWigg",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Robin Wigglesworth"
+  },
+  {
+    "handle": "@Isabella_Kamal",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Isabella Kaminska"
+  },
+  {
+    "handle": "@M_C_Klein",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Matthew C. Klein"
+  },
+  {
+    "handle": "@SamRo",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Sam Ro"
+  },
+  {
+    "handle": "@TaviCosta",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Tavi Costa"
+  },
+  {
+    "handle": "@LukeGromen",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Luke Gromen"
+  },
+  {
+    "handle": "@NorthmanTrader",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Sven Henrich"
+  },
+  {
+    "handle": "@MacroAlf",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Alfonso Peccatiello"
+  },
+  {
+    "handle": "@MacroVoices",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "MacroVoices Podcast"
+  },
+  {
+    "handle": "@CrescatCapital",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Crescat Capital"
+  },
+  {
+    "handle": "@SantiagoAuFund",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Santiago Capital"
+  },
+  {
+    "handle": "@dlacalle_IA",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Daniel Lacalle"
+  },
+  {
+    "handle": "@DanielaCambone",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Daniela Cambone"
+  },
+  {
+    "handle": "@greg_ip",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Greg Ip"
+  },
+  {
+    "handle": "@jasonfurman",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Jason Furman"
+  },
+  {
+    "handle": "@TorstenSlok",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Torsten Slok"
+  },
+  {
+    "handle": "@Brad_DeLong",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "source_name": "Brad DeLong"
+  },
+  {
+    "handle": "@BethanyMcLean",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Bethany McLean"
+  },
+  {
+    "handle": "@VildanaHajric",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Vildana Hajric"
+  },
+  {
+    "handle": "@FTLex",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "FT Lex"
+  },
+  {
+    "handle": "@WSJmarkets",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "WSJ Markets"
+  },
+  {
+    "handle": "@ReutersBiz",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Reuters Business"
+  },
+  {
+    "handle": "@CNBCi",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "CNBC International"
+  }
+]

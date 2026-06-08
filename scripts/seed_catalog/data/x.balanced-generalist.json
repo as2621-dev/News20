@@ -1,0 +1,643 @@
+[
+  {
+    "handle": "@nytimes",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "arts"
+    ],
+    "source_name": "The New York Times"
+  },
+  {
+    "handle": "@BBCWorld",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "arts"
+    ],
+    "source_name": "BBC News (World)"
+  },
+  {
+    "handle": "@Reuters",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "source_name": "Reuters"
+  },
+  {
+    "handle": "@AP",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Associated Press"
+  },
+  {
+    "handle": "@CNN",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "CNN"
+  },
+  {
+    "handle": "@WSJ",
+    "topic_tags": [
+      "business",
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Wall Street Journal"
+  },
+  {
+    "handle": "@TheEconomist",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ],
+    "source_name": "The Economist"
+  },
+  {
+    "handle": "@FinancialTimes",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Financial Times"
+  },
+  {
+    "handle": "@washingtonpost",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "business"
+    ],
+    "source_name": "The Washington Post"
+  },
+  {
+    "handle": "@guardian",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ],
+    "source_name": "The Guardian"
+  },
+  {
+    "handle": "@AlJazeera",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Al Jazeera English"
+  },
+  {
+    "handle": "@Bloomberg",
+    "topic_tags": [
+      "business",
+      "geopolitics",
+      "tech"
+    ],
+    "source_name": "Bloomberg"
+  },
+  {
+    "handle": "@TIME",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "arts"
+    ],
+    "source_name": "TIME"
+  },
+  {
+    "handle": "@NPR",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "arts"
+    ],
+    "source_name": "NPR"
+  },
+  {
+    "handle": "@FoxNews",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "Fox News"
+  },
+  {
+    "handle": "@WIRED",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "WIRED"
+  },
+  {
+    "handle": "@NASA",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "NASA"
+  },
+  {
+    "handle": "@NatGeo",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ],
+    "source_name": "National Geographic"
+  },
+  {
+    "handle": "@CNBC",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "CNBC"
+  },
+  {
+    "handle": "@business",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Bloomberg Business"
+  },
+  {
+    "handle": "@verge",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "The Verge"
+  },
+  {
+    "handle": "@TechReview",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "MIT Technology Review"
+  },
+  {
+    "handle": "@OpenAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "OpenAI"
+  },
+  {
+    "handle": "@DeepMind",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "DeepMind"
+  },
+  {
+    "handle": "@GoogleAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Google AI"
+  },
+  {
+    "handle": "@elonmusk",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Elon Musk"
+  },
+  {
+    "handle": "@BillGates",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ],
+    "source_name": "Bill Gates"
+  },
+  {
+    "handle": "@WHO",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "WHO"
+  },
+  {
+    "handle": "@UN",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ],
+    "source_name": "United Nations"
+  },
+  {
+    "handle": "@NATO",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "NATO"
+  },
+  {
+    "handle": "@EU_Commission",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "European Commission"
+  },
+  {
+    "handle": "@WhiteHouse",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "The White House"
+  },
+  {
+    "handle": "@FareedZakaria",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Fareed Zakaria"
+  },
+  {
+    "handle": "@ChristianeAmanpour",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Christiane Amanpour"
+  },
+  {
+    "handle": "@ezraklein",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ],
+    "source_name": "Ezra Klein"
+  },
+  {
+    "handle": "@finkd",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Andrew Ross Sorkin"
+  },
+  {
+    "handle": "@karpathy",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Andrej Karpathy"
+  },
+  {
+    "handle": "@sama",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "source_name": "Sam Altman"
+  },
+  {
+    "handle": "@pmarca",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Marc Andreessen"
+  },
+  {
+    "handle": "@BenedictEvans",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Benedict Evans"
+  },
+  {
+    "handle": "@geoffreyhinton",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Geoffrey Hinton"
+  },
+  {
+    "handle": "@ylecun",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Yann LeCun"
+  },
+  {
+    "handle": "@AndrewYNg",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Andrew Ng"
+  },
+  {
+    "handle": "@lexfridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Lex Fridman"
+  },
+  {
+    "handle": "@MKBHD",
+    "topic_tags": [
+      "tech"
+    ],
+    "source_name": "Marques Brownlee"
+  },
+  {
+    "handle": "@sciam",
+    "topic_tags": [
+      "environment"
+    ],
+    "source_name": "Scientific American"
+  },
+  {
+    "handle": "@Nature",
+    "topic_tags": [
+      "environment"
+    ],
+    "source_name": "Nature"
+  },
+  {
+    "handle": "@ScienceMagazine",
+    "topic_tags": [
+      "environment"
+    ],
+    "source_name": "Science Magazine"
+  },
+  {
+    "handle": "@UNEP",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "UN Environment Programme"
+  },
+  {
+    "handle": "@GretaThunberg",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Greta Thunberg"
+  },
+  {
+    "handle": "@IPCC_CH",
+    "topic_tags": [
+      "environment"
+    ],
+    "source_name": "IPCC"
+  },
+  {
+    "handle": "@TheAcademy",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The Academy"
+  },
+  {
+    "handle": "@TEDTalks",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "TED Talks"
+  },
+  {
+    "handle": "@MuseumModernArt",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "MoMA"
+  },
+  {
+    "handle": "@Vogue",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Vogue Magazine"
+  },
+  {
+    "handle": "@RollingStone",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Rolling Stone"
+  },
+  {
+    "handle": "@THR",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "The Hollywood Reporter"
+  },
+  {
+    "handle": "@Variety",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Variety"
+  },
+  {
+    "handle": "@ESPN",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "ESPN"
+  },
+  {
+    "handle": "@FIFAWorldCup",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "FIFA World Cup"
+  },
+  {
+    "handle": "@Olympics",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Olympics"
+  },
+  {
+    "handle": "@Forbes",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Forbes"
+  },
+  {
+    "handle": "@Inc",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Inc."
+  },
+  {
+    "handle": "@TechCrunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "TechCrunch"
+  },
+  {
+    "handle": "@FastCompany",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Fast Company"
+  },
+  {
+    "handle": "@Recode",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Recode"
+  },
+  {
+    "handle": "@HarvardBiz",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Harvard Business Review"
+  },
+  {
+    "handle": "@axios",
+    "topic_tags": [
+      "politics",
+      "business",
+      "tech"
+    ],
+    "source_name": "Axios"
+  },
+  {
+    "handle": "@politico",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "POLITICO"
+  },
+  {
+    "handle": "@SkyNews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Sky News"
+  },
+  {
+    "handle": "@CBCNews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "CBC News"
+  },
+  {
+    "handle": "@FRANCE24",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "FRANCE 24 English"
+  },
+  {
+    "handle": "@dwnews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "DW News"
+  },
+  {
+    "handle": "@IndyCen",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Independent"
+  },
+  {
+    "handle": "@latimes",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "arts"
+    ],
+    "source_name": "Los Angeles Times"
+  },
+  {
+    "handle": "@globeandmail",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ],
+    "source_name": "The Globe and Mail"
+  },
+  {
+    "handle": "@japantimes",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "arts"
+    ],
+    "source_name": "The Japan Times"
+  },
+  {
+    "handle": "@SCMPNews",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "source_name": "South China Morning Post"
+  },
+  {
+    "handle": "@TheHindu",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Hindu"
+  },
+  {
+    "handle": "@ANI",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Asian News International"
+  }
+]

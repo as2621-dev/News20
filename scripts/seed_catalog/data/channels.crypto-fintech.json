@@ -1,0 +1,653 @@
+[
+  {
+    "youtube_handle": "CoinBureau",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AltcoinDaily",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "cryptobantergroup",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "BenjaminCowen",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Pomp",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "RealVision",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "RealVisionFinance",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "aantonop",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Bankless",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Finematics",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "WhiteboardCrypto",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "CoinDesk",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Blockworks",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheDefiant",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "UnchainedPodcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "LynAlden",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "MichaelSaylor",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "PeterSchiff",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "CNBCTelevision",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergTechnology",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergMarketsandFinance",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "wsj",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "FinancialTimes",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "Cointelegraph",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CryptoRUs",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "DigitalAssetNews",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "WhatBitcoinDid",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "ToneVays",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TraderUniversity",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "CharlesHoskinson",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "GavinWoodOfficial",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "PolygonOfficial",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Solana",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "BinanceAcademy",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "KuCoinOfficial",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "BybitOfficial",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "OKXOfficial",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "cryptocom",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "LedgerOfficial",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "TrezorOfficial",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "TheBlockCrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "MessariCrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheModernInvestor",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CryptoDaily",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheCryptoLark",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CryptoZombie",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Boxmining",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Hashoshi4",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "ColdFusionTV",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "PatrickBoyleOnFinance",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "MacroVoices",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "TheInvestorsPodcastNetwork",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "RealVisionCrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CoinGecko",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CryptoSlate",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheBitcoinStandard",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "JeffBooth",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "PrestonPysh",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "WillyWoo",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "PlanB_StockToFlow",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheBitcoinLayer",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "LayerZero_Labs",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "chainlinkofficial",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "PolkadotOfficial",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Avalancheavax",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "CosmosNetwork",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Hedera",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Ripple",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CardanoFoundation",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "InputOutputGlobal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "WorldEconomicForum",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "IMF",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "BIS_org",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "FidelityDigitalAssets",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GrayscaleInvestments",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ARKInvest",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TechCrunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "WIRED",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheVerge",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GrahamStephan",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "AndreiJikh",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "HumphreyYang",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Investopedia",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "WallStreetMillennial",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "BitcoinMagazine",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CryptoJebb",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CryptoCapitalVenture",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "DigitalAssetInvestor",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "EllioTradesCrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "InvestAnswers",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheMoonCarl",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "MMCrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "DataDash",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "RanNeuner",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "BitBoyCrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  }
+]

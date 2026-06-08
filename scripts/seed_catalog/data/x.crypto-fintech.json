@@ -1,0 +1,642 @@
+[
+  {
+    "handle": "@VitalikButerin",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Vitalik Buterin"
+  },
+  {
+    "handle": "@cz_binance",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "CZ 🔶 BNB"
+  },
+  {
+    "handle": "@brian_armstrong",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Brian Armstrong"
+  },
+  {
+    "handle": "@saylor",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Michael Saylor⚡️"
+  },
+  {
+    "handle": "@CathieDWood",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Cathie Wood"
+  },
+  {
+    "handle": "@RaoulGMI",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Raoul Pal"
+  },
+  {
+    "handle": "@jack",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "jack"
+  },
+  {
+    "handle": "@GaryGensler",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "Gary Gensler"
+  },
+  {
+    "handle": "@CoinDesk",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "CoinDesk"
+  },
+  {
+    "handle": "@TheBlock__",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "The Block"
+  },
+  {
+    "handle": "@MessariCrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Messari"
+  },
+  {
+    "handle": "@a16zcrypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "a16z crypto"
+  },
+  {
+    "handle": "@paradigm",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Paradigm"
+  },
+  {
+    "handle": "@APompliano",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Pomp 🌪"
+  },
+  {
+    "handle": "@LauraShin",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Laura Shin"
+  },
+  {
+    "handle": "@gavofyork",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Gavin Wood"
+  },
+  {
+    "handle": "@bgarlinghouse",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Brad Garlinghouse"
+  },
+  {
+    "handle": "@aeyakovenko",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Anatoly Yakovenko"
+  },
+  {
+    "handle": "@sandeepnailwal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Sandeep | Polygon"
+  },
+  {
+    "handle": "@StaniKulechov",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Stani Kulechov"
+  },
+  {
+    "handle": "@haydenzadams",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Hayden Adams 🦄"
+  },
+  {
+    "handle": "@jerallaire",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Jeremy Allaire"
+  },
+  {
+    "handle": "@paoloardoino",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Paolo Ardoino"
+  },
+  {
+    "handle": "@novogratz",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Mike Novogratz"
+  },
+  {
+    "handle": "@cdixon",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Chris Dixon"
+  },
+  {
+    "handle": "@balajis",
+    "topic_tags": [
+      "tech",
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Balaji Srinivasan"
+  },
+  {
+    "handle": "@aantonop",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Andreas M. Antonopoulos"
+  },
+  {
+    "handle": "@LynAldenContact",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Lyn Alden"
+  },
+  {
+    "handle": "@woonomic",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Willy Woo"
+  },
+  {
+    "handle": "@100trillionUSD",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "PlanB"
+  },
+  {
+    "handle": "@nic__carter",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Nic Carter"
+  },
+  {
+    "handle": "@Melt_Dem",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Meltem Demirors"
+  },
+  {
+    "handle": "@CaitlinLong_",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Caitlin Long"
+  },
+  {
+    "handle": "@Grayscale",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Grayscale"
+  },
+  {
+    "handle": "@FidelityDA",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Fidelity Digital Assets"
+  },
+  {
+    "handle": "@BlackRock",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "BlackRock"
+  },
+  {
+    "handle": "@crypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Bloomberg Crypto"
+  },
+  {
+    "handle": "@coingecko",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "CoinGecko"
+  },
+  {
+    "handle": "@CoinMarketCap",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "CoinMarketCap"
+  },
+  {
+    "handle": "@DefiLlama",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "DeFi Llama"
+  },
+  {
+    "handle": "@BanklessHQ",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Bankless"
+  },
+  {
+    "handle": "@Unchained_pod",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Unchained Podcast"
+  },
+  {
+    "handle": "@Blockworks_",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Blockworks"
+  },
+  {
+    "handle": "@decryptmedia",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Decrypt"
+  },
+  {
+    "handle": "@Cointelegraph",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Cointelegraph"
+  },
+  {
+    "handle": "@WuBlockchain",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Wu Blockchain"
+  },
+  {
+    "handle": "@CryptoHayes",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Arthur Hayes"
+  },
+  {
+    "handle": "@hasufl",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Hasu"
+  },
+  {
+    "handle": "@sassal0x",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "sassal.eth 🦇🔊"
+  },
+  {
+    "handle": "@RyanSAdams",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Ryan Sean Adams"
+  },
+  {
+    "handle": "@cburniske",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Chris Burniske"
+  },
+  {
+    "handle": "@danheld",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Dan Held"
+  },
+  {
+    "handle": "@PeterMcCormack",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Peter McCormack"
+  },
+  {
+    "handle": "@gladstein",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ],
+    "source_name": "Alex Gladstein 🌋"
+  },
+  {
+    "handle": "@el33th4xor",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Emin Gün Sirer"
+  },
+  {
+    "handle": "@SergeyNazarov",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Sergey Nazarov"
+  },
+  {
+    "handle": "@juanbenet",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Juan Benet"
+  },
+  {
+    "handle": "@gaborgurbacs",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Gabor Gurbacs"
+  },
+  {
+    "handle": "@frankchaparro",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Frank Chaparro"
+  },
+  {
+    "handle": "@jeffjohnroberts",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Jeff Roberts"
+  },
+  {
+    "handle": "@TrustlessState",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "David Hoffman"
+  },
+  {
+    "handle": "@twobitidiot",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Ryan Selkis"
+  },
+  {
+    "handle": "@a16z",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Andreessen Horowitz"
+  },
+  {
+    "handle": "@coinbase",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Coinbase"
+  },
+  {
+    "handle": "@binance",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Binance"
+  },
+  {
+    "handle": "@krakenfx",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Kraken Exchange"
+  },
+  {
+    "handle": "@Gemini",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Gemini"
+  },
+  {
+    "handle": "@bitfinex",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Bitfinex"
+  },
+  {
+    "handle": "@Ledger",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Ledger"
+  },
+  {
+    "handle": "@Trezor",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Trezor"
+  },
+  {
+    "handle": "@MetaMask",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "MetaMask 🦊💙"
+  },
+  {
+    "handle": "@Uniswap",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Uniswap Labs 🦄"
+  },
+  {
+    "handle": "@AaveAave",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Aave"
+  },
+  {
+    "handle": "@compoundfinance",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Compound Finance"
+  },
+  {
+    "handle": "@MakerDAO",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "MakerDAO"
+  },
+  {
+    "handle": "@chainlink",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Chainlink"
+  },
+  {
+    "handle": "@solana",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Solana"
+  },
+  {
+    "handle": "@0xPolygonLabs",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Polygon Labs"
+  },
+  {
+    "handle": "@arbitrum",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Arbitrum"
+  },
+  {
+    "handle": "@optimismFND",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Optimism"
+  }
+]

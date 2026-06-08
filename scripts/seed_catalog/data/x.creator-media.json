@@ -1,0 +1,641 @@
+[
+  {
+    "handle": "@MrBeast",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "MrBeast"
+  },
+  {
+    "handle": "@MKBHD",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Marques Brownlee"
+  },
+  {
+    "handle": "@pewdiepie",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "PewDiePie"
+  },
+  {
+    "handle": "@LinusTech",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Linus Tech Tips"
+  },
+  {
+    "handle": "@emmachamberlain",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Emma Chamberlain"
+  },
+  {
+    "handle": "@Mythical",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Rhett & Link"
+  },
+  {
+    "handle": "@AliAbdaal",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Ali Abdaal"
+  },
+  {
+    "handle": "@GrahamStephan",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Graham Stephan"
+  },
+  {
+    "handle": "@CaseyNeistat",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Casey Neistat"
+  },
+  {
+    "handle": "@Vsauce",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Vsauce"
+  },
+  {
+    "handle": "@Kurz_Gesagt",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Kurzgesagt – In a Nutshell"
+  },
+  {
+    "handle": "@veritasium",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Veritasium"
+  },
+  {
+    "handle": "@smartereveryday",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "SmarterEveryDay"
+  },
+  {
+    "handle": "@markiplier",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Markiplier"
+  },
+  {
+    "handle": "@Jack_Septic_Eye",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Jacksepticeye"
+  },
+  {
+    "handle": "@Valkyrae",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Valkyrae"
+  },
+  {
+    "handle": "@pokimanelol",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Pokimane"
+  },
+  {
+    "handle": "@Ninja",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Ninja"
+  },
+  {
+    "handle": "@loganpaul",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Logan Paul"
+  },
+  {
+    "handle": "@jakepaul",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Jake Paul"
+  },
+  {
+    "handle": "@PhillyD",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ],
+    "source_name": "Philip DeFranco"
+  },
+  {
+    "handle": "@hasanthehun",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ],
+    "source_name": "Hasan Piker"
+  },
+  {
+    "handle": "@LudwigAhgren",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Ludwig Ahgren"
+  },
+  {
+    "handle": "@Sykkuno",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Sykkuno"
+  },
+  {
+    "handle": "@DrDisrespect",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Dr Disrespect"
+  },
+  {
+    "handle": "@colinandsamir",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Colin and Samir"
+  },
+  {
+    "handle": "@ljin18",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Li Jin"
+  },
+  {
+    "handle": "@jackconte",
+    "topic_tags": [
+      "business",
+      "arts"
+    ],
+    "source_name": "Jack Conte"
+  },
+  {
+    "handle": "@ashchanchlani",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Ashish Chanchlani"
+  },
+  {
+    "handle": "@CarryMinati",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "CarryMinati"
+  },
+  {
+    "handle": "@LuisitoComunica",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Luisito Comunica"
+  },
+  {
+    "handle": "@Rubiu5",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "El Rubius"
+  },
+  {
+    "handle": "@xSqueezie",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Squeezie"
+  },
+  {
+    "handle": "@hikakin",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "HikakinTV"
+  },
+  {
+    "handle": "@whindersson",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Whindersson Nunes"
+  },
+  {
+    "handle": "@felipeneto",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ],
+    "source_name": "Felipe Neto"
+  },
+  {
+    "handle": "@yuyacst",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Yuya"
+  },
+  {
+    "handle": "@technicalguruji",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Technical Guruji"
+  },
+  {
+    "handle": "@ijustine",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "iJustine"
+  },
+  {
+    "handle": "@austinnotduncan",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Austin Evans"
+  },
+  {
+    "handle": "@Mrwhosetheboss",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Mrwhosetheboss"
+  },
+  {
+    "handle": "@petermckinnon",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Peter McKinnon"
+  },
+  {
+    "handle": "@sam_kolder",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Sam Kolder"
+  },
+  {
+    "handle": "@DavidDobrik",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "David Dobrik"
+  },
+  {
+    "handle": "@lizakoshy",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Liza Koshy"
+  },
+  {
+    "handle": "@Lilly",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Lilly Singh"
+  },
+  {
+    "handle": "@DudePerfect",
+    "topic_tags": [
+      "sport",
+      "arts"
+    ],
+    "source_name": "Dude Perfect"
+  },
+  {
+    "handle": "@BingingWBabish",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Binging with Babish"
+  },
+  {
+    "handle": "@JoshuaWeissman",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Joshua Weissman"
+  },
+  {
+    "handle": "@TheOdd1sOut",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "TheOdd1sOut"
+  },
+  {
+    "handle": "@JaidenAnimation",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Jaiden Animations"
+  },
+  {
+    "handle": "@hankgreen",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Hank Green"
+  },
+  {
+    "handle": "@johngreen",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ],
+    "source_name": "John Green"
+  },
+  {
+    "handle": "@DJSnM",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Scott Manley"
+  },
+  {
+    "handle": "@fcain",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Fraser Cain"
+  },
+  {
+    "handle": "@robertoblake",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Roberto Blake"
+  },
+  {
+    "handle": "@DrKripke",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Dr. K - HealthyGamerGG"
+  },
+  {
+    "handle": "@neiltyson",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Neil deGrasse Tyson"
+  },
+  {
+    "handle": "@billnye",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Bill Nye"
+  },
+  {
+    "handle": "@AdamSavage",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Adam Savage"
+  },
+  {
+    "handle": "@SimoneGiertz",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Simone Giertz"
+  },
+  {
+    "handle": "@TomScott",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Tom Scott"
+  },
+  {
+    "handle": "@Wendoverprod",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Wendover Productions"
+  },
+  {
+    "handle": "@Dave2D",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Dave Lee"
+  },
+  {
+    "handle": "@UnboxTherapy",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "Unbox Therapy"
+  },
+  {
+    "handle": "@JerryRigEverything",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "source_name": "JerryRigEverything"
+  },
+  {
+    "handle": "@ColdFusion_TV",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "ColdFusion"
+  },
+  {
+    "handle": "@xQc",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "xQc"
+  },
+  {
+    "handle": "@shroud",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Shroud"
+  },
+  {
+    "handle": "@summit1g",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "summit1g"
+  },
+  {
+    "handle": "@Amouranth",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Amouranth"
+  },
+  {
+    "handle": "@IbaiLlanos",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Ibai Llanos"
+  },
+  {
+    "handle": "@AuronPlay",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "AuronPlay"
+  },
+  {
+    "handle": "@Dream",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Dream"
+  },
+  {
+    "handle": "@SafiyaNygaard",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Safiya Nygaard"
+  },
+  {
+    "handle": "@Gusbuckets",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Gus Johnson"
+  },
+  {
+    "handle": "@drewisgooden",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Drew Gooden"
+  },
+  {
+    "handle": "@DannyGonzalez",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Danny Gonzalez"
+  },
+  {
+    "handle": "@JFlaMusic",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "J.Fla"
+  },
+  {
+    "handle": "@ChrisStokelWalker",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Chris Stokel-Walker"
+  }
+]

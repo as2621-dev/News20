@@ -9,9 +9,10 @@ rank) and upserts each entry into Supabase via the service-role client:
     → ``content_sources`` (``content_source_type='youtube_channel'``).
   - ``podcasts.{archetype}.json``      → resolve via iTunes search (``feed_url``
     captured into ``platform_metadata``) → ``content_sources`` (``'podcast'``).
-  - ``x.{archetype}.json``             → stored as ``content_sources``
-    (``'x_account'``) WITHOUT live resolution (no resolver until 5c/5d) —
-    ``external_id`` is the handle, no thumbnail fetch.
+  - ``x.{archetype}.json``             → avatar resolved via unavatar.io
+    (``x_resolve``) → ``content_sources`` (``'x_account'``); ``external_id`` is the
+    bare handle, ``thumbnail_url`` the unavatar URL (null on a soft miss). No
+    follower count (no live X API in 5f, taxonomy Q2).
   - ``personalities.{archetype}.json`` → Wikipedia photo lookup → BOTH
     ``personalities`` (the donor catalog, read by 5d's cross-mention spotlights)
     AND ``content_sources`` (``content_source_type='personality'``) — the latter
@@ -31,7 +32,8 @@ Idempotent: re-running upserts on the 0009 unique keys
 Divergences from the donor (Rule 7): table ``sources`` → ``content_sources`` and
 column ``source_type`` → ``content_source_type`` (News20 naming-collision guard);
 the donor's 6 personas re-authored to News20's 12 SP2 archetype slugs; a new
-``x_account`` type stored without a resolver; the donor's ``personality_sources``
+``x_account`` type resolved via unavatar (avatar only, no follower count); the
+donor's ``personality_sources``
 linking pass is dropped (5d owns appearance linking).
 
 Usage:
@@ -57,7 +59,7 @@ from pydantic import BaseModel, Field
 
 from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
-from scripts.seed_catalog import itunes_resolve, youtube_resolve
+from scripts.seed_catalog import itunes_resolve, x_resolve, youtube_resolve
 
 logger = get_logger("seed_catalog.seed_catalog")
 
@@ -110,6 +112,17 @@ POPULARITY_FLOOR = 10.0
 WIKIPEDIA_API_BASE = "https://en.wikipedia.org/api/rest_v1"
 WIKIPEDIA_USER_AGENT = "News20-SeedCatalog/1.0 (+https://news20.app)"
 WIKIPEDIA_TIMEOUT_SECONDS = 10.0
+# Bound simultaneous Wikipedia photo lookups. An unbounded ``gather`` over a full
+# 80-entry cell opened 80 sockets at once and, under the concurrent multi-axis
+# seed, exhausted connections → empty-body errors → silently tanked photo
+# coverage. A small ceiling keeps coverage high (Wikipedia has no hard daily cap,
+# only a courtesy limit) while still resolving a cell in a few seconds.
+WIKIPEDIA_PHOTO_CONCURRENCY = 4
+# Backoff schedule (seconds) for a TRANSIENT Wikipedia photo-fetch failure
+# (connection reset / courtesy 429). First attempt is immediate; a couple of
+# short retries recover the blips that otherwise drop a real photo. A 404 /
+# image-less article is NOT retried (it is a genuine miss, not transient).
+WIKIPEDIA_RETRY_DELAYS_SECONDS: tuple[float, ...] = (0.0, 1.0, 3.0)
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -167,6 +180,8 @@ class SeedSummary(BaseModel):
             ``personality`` — the rows the 5c People swipe deck actually reads.
         channels_unresolved: Channel entries YouTube could not resolve (skipped).
         podcasts_unresolved: Podcast entries iTunes could not resolve (skipped).
+        x_accounts_no_avatar: X rows kept with a null thumbnail because unavatar
+            had no real avatar for the handle (soft miss; still counted/upserted).
 
     Example:
         >>> SeedSummary(channels_upserted=12).channels_upserted
@@ -180,6 +195,11 @@ class SeedSummary(BaseModel):
     personality_content_sources_upserted: int = Field(default=0, ge=0)
     channels_unresolved: int = Field(default=0, ge=0)
     podcasts_unresolved: int = Field(default=0, ge=0)
+    x_accounts_no_avatar: int = Field(
+        default=0,
+        ge=0,
+        description="X rows kept but with no real unavatar avatar (null thumbnail).",
+    )
 
 
 # ── Supabase client (live path only) ──────────────────────────────────────────
@@ -463,22 +483,36 @@ async def _wikipedia_summary_image(
 
     encoded = urllib.parse.quote(slug, safe="")
     url = f"{WIKIPEDIA_API_BASE}/page/summary/{encoded}"
-    try:
-        response = await client.get(url, timeout=WIKIPEDIA_TIMEOUT_SECONDS)
-    except httpx.HTTPError as exc:
-        logger.warning(
-            "wikipedia_photo_http_error",
-            slug=slug,
-            error_message=str(exc),
-            fix_suggestion="Inspect Wikipedia REST connectivity; the row keeps its avatar fallback.",
-        )
-        return None
-    if response.status_code != 200:
-        return None
-    payload: dict[str, Any] = response.json()
-    original = (payload.get("originalimage") or {}).get("source")
-    thumbnail = (payload.get("thumbnail") or {}).get("source")
-    return original or thumbnail
+    # Bounded retry on TRANSIENT failures only. Under the bulk seed, a few
+    # concurrent fetches hit connection resets / a courtesy 429; without a retry
+    # those silently dropped real photos and tanked coverage (a slug with a
+    # genuine image was lost to a transient blip, not a missing image). A 404 /
+    # 200-without-image is NOT transient — return immediately, never retry.
+    last_error: str | None = None
+    for backoff_seconds in WIKIPEDIA_RETRY_DELAYS_SECONDS:
+        if backoff_seconds:
+            await asyncio.sleep(backoff_seconds)
+        try:
+            response = await client.get(url, timeout=WIKIPEDIA_TIMEOUT_SECONDS)
+        except httpx.HTTPError as exc:
+            last_error = str(exc)
+            continue  # transient transport error — retry with the next backoff
+        if response.status_code == 429:
+            last_error = "HTTP 429 (Wikipedia courtesy limit)"
+            continue  # transient rate limit — retry with the next backoff
+        if response.status_code != 200:
+            return None  # 404 / other → genuine miss, do not retry
+        payload: dict[str, Any] = response.json()
+        original = (payload.get("originalimage") or {}).get("source")
+        thumbnail = (payload.get("thumbnail") or {}).get("source")
+        return original or thumbnail
+    logger.warning(
+        "wikipedia_photo_http_error",
+        slug=slug,
+        error_message=last_error or "exhausted retries",
+        fix_suggestion="Wikipedia transient errors every attempt; the row keeps its avatar fallback.",
+    )
+    return None
 
 
 # ── Row builders (typed upsert payloads) ──────────────────────────────────────
@@ -547,15 +581,19 @@ def build_podcast_row(
     }
 
 
-def build_x_account_row(entry: CatalogEntry) -> dict[str, Any]:
-    """Build a ``content_sources`` upsert row for an X handle (NO live resolution).
+def build_x_account_row(
+    entry: CatalogEntry, avatar_url: str | None = None
+) -> dict[str, Any]:
+    """Build a ``content_sources`` upsert row for an X handle.
 
-    The handle is the ``external_id`` verbatim; no thumbnail / follower fetch
-    happens here — the X resolver is built in Phase 5c/5d. ``last_fetched_at``
-    stays null so 5d knows the row is unresolved.
+    The bare handle is the ``external_id``. There is still no live X API in 5f
+    (taxonomy Q2), so ``subscriber_count`` stays null; the avatar comes from the
+    unavatar probe (``x_resolve.resolve_avatar``) — a ``200`` yields a renderable
+    URL, a ``404`` / error yields ``None`` (the app's initials fallback covers it).
 
     Args:
         entry: The merged catalog entry (``payload['handle']`` is the X handle).
+        avatar_url: The unavatar-resolved avatar URL, or None on a soft miss.
 
     Returns:
         The column payload for an upsert on ``(content_source_type, external_id)``.
@@ -566,7 +604,7 @@ def build_x_account_row(entry: CatalogEntry) -> dict[str, Any]:
         "external_id": handle,
         "source_name": entry.payload.get("source_name") or f"@{handle}",
         "source_description": entry.payload.get("bio"),
-        "thumbnail_url": None,
+        "thumbnail_url": avatar_url,
         "subscriber_count": None,
         "personas": entry.personas,
         "topic_tags": entry.topic_tags,
@@ -783,19 +821,37 @@ def _podcast_search_term(entry: CatalogEntry) -> str:
     return entry.payload.get("search_term") or entry.payload.get("source_name") or ""
 
 
-def seed_x_accounts(
+async def seed_x_accounts(
     entries: list[CatalogEntry],
     *,
     supabase_client: Any,
+    http_client: httpx.AsyncClient,
     dry_run: bool,
     summary: SeedSummary,
 ) -> None:
-    """Upsert X-account entries WITHOUT live resolution (handle = external_id)."""
+    """Resolve X-account avatars via unavatar and upsert the rows.
+
+    Each handle is probed against unavatar (``x_resolve.resolve_many``): a real
+    avatar yields a renderable ``thumbnail_url`` (and confirms the handle exists),
+    a soft miss yields a null thumbnail (the row is still kept + counted). The
+    bare handle is the ``external_id``; there is no follower count (no live X API
+    in 5f, taxonomy Q2). Mirrors ``seed_podcasts``' resolve-then-build structure.
+    """
     if not entries:
         return
-    rows = [
-        build_x_account_row(entry) for entry in entries if entry.payload.get("handle")
-    ]
+    tagged = [entry for entry in entries if entry.payload.get("handle")]
+    if not tagged:
+        return
+    avatars = await x_resolve.resolve_many(
+        [str(entry.payload["handle"]) for entry in tagged], client=http_client
+    )
+    rows: list[dict[str, Any]] = []
+    for entry in tagged:
+        key = str(entry.payload["handle"]).strip().lstrip("@").strip().lower()
+        avatar_url = avatars.get(key)
+        if avatar_url is None:
+            summary.x_accounts_no_avatar += 1
+        rows.append(build_x_account_row(entry, avatar_url))
     summary.x_accounts_upserted = _upsert_content_sources(
         supabase_client, rows, dry_run=dry_run
     )
@@ -818,16 +874,17 @@ async def seed_personalities(
     """
     if not entries:
         return
-    photos = await asyncio.gather(
-        *(
-            fetch_wikipedia_photo(
+    semaphore = asyncio.Semaphore(WIKIPEDIA_PHOTO_CONCURRENCY)
+
+    async def _photo_for(entry: CatalogEntry) -> str | None:
+        async with semaphore:
+            return await fetch_wikipedia_photo(
                 slug=entry.payload.get("wikipedia_slug"),
                 display_name=entry.payload["display_name"],
                 client=http_client,
             )
-            for entry in entries
-        )
-    )
+
+    photos = await asyncio.gather(*(_photo_for(entry) for entry in entries))
     personality_rows = [
         build_personality_row(entry, photo) for entry, photo in zip(entries, photos)
     ]
@@ -897,9 +954,10 @@ async def run_seed(
             summary=summary,
         )
     if entries_by_type.get("x"):
-        seed_x_accounts(
+        await seed_x_accounts(
             entries_by_type["x"],
             supabase_client=supabase_client,
+            http_client=http_client,
             dry_run=dry_run,
             summary=summary,
         )
@@ -921,6 +979,7 @@ async def run_seed(
         personality_content_sources_upserted=summary.personality_content_sources_upserted,
         channels_unresolved=summary.channels_unresolved,
         podcasts_unresolved=summary.podcasts_unresolved,
+        x_accounts_no_avatar=summary.x_accounts_no_avatar,
     )
     return summary
 
@@ -942,6 +1001,11 @@ async def _main_async(args: argparse.Namespace) -> None:
             "YOUTUBE_API_KEY is required to resolve channels. "
             "fix_suggestion: export YOUTUBE_API_KEY, or pass --dry-run / --type podcasts."
         )
+
+    # Pace iTunes requests under its per-IP rate limit for the live (non-test)
+    # bulk seed. Unit tests call run_seed() directly and stay unpaced (interval 0).
+    if not args.dry_run and args.type in (None, "podcasts"):
+        itunes_resolve.set_pace_interval(itunes_resolve.BULK_REQUEST_INTERVAL_SECONDS)
 
     supabase_client = None if args.dry_run else make_admin_client()
     async with httpx.AsyncClient(

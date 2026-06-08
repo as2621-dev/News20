@@ -1,0 +1,655 @@
+[
+  {
+    "youtube_handle": "ycombinator",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AcquiredFM",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AllInPodcast",
+    "topic_tags": [
+      "business",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "lexfridman",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "jason",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheTwentyMinuteVC",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "SaaStr",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TechCrunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "a16z",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "SequoiaCapital",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "LightspeedVP",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "FirstRoundCapital",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "KleinerPerkins",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GreylockPartners",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "OpenAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GoogleforStartups",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AWSStartups",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "MicrosoftforStartups",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "HubSpot",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "garyvee",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Valuetainment",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "GrahamStephan",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "TheFutur",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "ColdFusion",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "CNBCMakeIt",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergTechnology",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "WSJ",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "HarvardBusinessReview",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "StanfordGSB",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "MITSloan",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "WhartonSchool",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "SlushHQ",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "websummit",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "StationFParis",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AtomicoVC",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Seedcamp",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Tech.eu",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "StartupGrindGlobal",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "eFounders",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "BaldertonCapital",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "PointNineCapital",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "YourStoryTV",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Inc42Media",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "PeakXVPartners",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "BlumeVentures",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "LightspeedIndiaPartners",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AccelIndia",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TechinAsia",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "MonksHillVentures",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "JungleVentures",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GoldenGateVentures",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "QuestVentures",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Latitud_HQ",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "MagmaPartners",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "KaszekVentures",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ValorCapitalGroup",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Canary_BR",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "DistritoBR",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TechCabal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "AfriLabs",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "PartechAfrica",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TLcomCapital",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "VenturesPlatform",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "DisruptAfrica",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "FutureAfrica",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TED",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TEDxTalks",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Entrepreneur",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "IncMagazine",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "FoundersFund",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GeneralCatalyst",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "InsightPartners",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Accel",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Techstars",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "500Global",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "PlugandPlayTechCenter",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "SeedstarsWorld",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ProductHunt",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "TheVerge",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "mkbhd",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CNBC",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "Bloomberg",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "TheEconomist",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "FinancialTimes",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "Foundr",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Mixergy",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "timferriss",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ModernWisdom",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "MyFirstMillion",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "SahilBloom",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "LennysPodcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "hubermanlab",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "aliabdaal",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "JustinWelsh",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "AlexHormozi",
+    "topic_tags": [
+      "business"
+    ]
+  }
+]

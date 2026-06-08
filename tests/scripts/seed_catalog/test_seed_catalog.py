@@ -38,9 +38,12 @@ from scripts.seed_catalog.youtube_resolve import ChannelMeta
 class FakeResponse:
     """A minimal stand-in for an ``httpx.Response`` carrying canned JSON."""
 
-    def __init__(self, status_code: int, payload: Any) -> None:
+    def __init__(
+        self, status_code: int, payload: Any, headers: dict[str, str] | None = None
+    ) -> None:
         self.status_code = status_code
         self._payload = payload
+        self.headers = headers or {}
 
     def json(self) -> Any:
         return self._payload
@@ -58,7 +61,11 @@ class FakeHttpClient:
         self.calls: list[str] = []
 
     async def get(
-        self, url: str, params: dict[str, Any] | None = None, timeout: float = 0.0
+        self,
+        url: str,
+        params: dict[str, Any] | None = None,
+        timeout: float = 0.0,
+        follow_redirects: bool = False,
     ):
         self.calls.append(url)
         if "youtube" in url:
@@ -67,7 +74,15 @@ class FakeHttpClient:
             return self._itunes(params or {})
         if "wikipedia" in url:
             return self._wikipedia(url)
+        if "unavatar" in url:
+            return self._unavatar(url)
         return FakeResponse(404, {})
+
+    def _unavatar(self, url: str) -> FakeResponse:
+        # Reason: unavatar returns 200 with an image content-type for a real
+        # cached avatar; the resolver hot-links the URL on a verified image, so
+        # the image content-type drives the ≥90% coverage path.
+        return FakeResponse(200, b"", headers={"content-type": "image/jpeg"})
 
     def _youtube(self, params: dict[str, Any]) -> FakeResponse:
         handle = params.get("forHandle") or params.get("id") or "unknown"
@@ -369,10 +384,16 @@ def test_re_running_is_idempotent_no_duplicate_rows(
 # ── X accounts stored WITHOUT resolution ──────────────────────────────────────
 
 
-def test_x_accounts_stored_without_live_resolution(
+def test_x_accounts_resolve_avatar_via_unavatar(
     supabase: FakeSupabaseClient, http: FakeHttpClient
 ) -> None:
-    """WHY: no X resolver exists until 5c/5d — handle is the external_id, no thumbnail."""
+    """WHY: the X axis must hit ≥90% thumbnail coverage for the People/X swipe deck.
+
+    A handle whose unavatar probe returns 200 (a real avatar exists) must store
+    the renderable ``unavatar.io/x/<handle>`` URL — WITHOUT the ``fallback=false``
+    probe flag, so the app always renders something. The external_id stays the
+    bare handle (the 0009 unique key), never the @-prefixed form.
+    """
     _run(supabase, http)
     x_rows = [
         r
@@ -384,8 +405,12 @@ def test_x_accounts_stored_without_live_resolution(
         assert not row["external_id"].startswith("@"), (
             "x external_id is the bare handle"
         )
-        assert row["thumbnail_url"] is None, (
-            "no thumbnail fetch for x_account (resolver is 5c/5d)"
+        # The fake unavatar always 200s, so every handle resolves a real avatar.
+        # The stored URL lowercases the handle (unavatar is case-insensitive); the
+        # external_id preserves the curator's original casing.
+        expected = f"https://unavatar.io/x/{row['external_id'].lower()}"
+        assert row["thumbnail_url"] == expected, (
+            "a resolved X handle stores the renderable unavatar URL (no fallback flag)"
         )
 
 

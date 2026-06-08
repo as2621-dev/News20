@@ -37,8 +37,68 @@ logger = get_logger("seed_catalog.itunes_resolve")
 ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
 USER_AGENT = "News20-SeedCatalog/1.0 (+https://news20.app)"
 REQUEST_TIMEOUT_SECONDS = 10.0
-RESOLVE_CONCURRENCY = 2
-RETRY_DELAYS_SECONDS: tuple[float, ...] = (0.0, 1.5, 4.0)
+# iTunes Search hard-rate-limits at ~20 rpm per IP and, at bulk-seed scale,
+# returns HTTP 429 (not just an empty 200 body). Resolution stays polite via the
+# shared pace gate below (one request every ~3.2s); concurrency only lets each
+# request's network round-trip overlap the gate wait — the gate, not concurrency,
+# is the rate limiter, so a few workers are safe and back off on the rare 429.
+RESOLVE_CONCURRENCY = 5
+# Longer, 429-aware backoff schedule (seconds). The first attempt is immediate;
+# subsequent attempts wait progressively so a throttled IP recovers between tries.
+RETRY_DELAYS_SECONDS: tuple[float, ...] = (0.0, 3.0, 8.0, 20.0)
+# Honoured when iTunes returns a 429 with a Retry-After header (seconds), capped
+# so one hostile value cannot stall the whole run.
+RETRY_AFTER_CAP_SECONDS = 30.0
+# Recommended seconds between successive iTunes requests for a BULK seed: pacing
+# UNDER the ~20 rpm/IP limit (one request every ~3.2s) keeps a 1,000+ term run
+# below the throttle threshold so it resolves steadily instead of bursting into
+# 429s and wasting the rate budget on retries. The live seed opts in via
+# ``set_pace_interval``; the default is 0.0 so unit tests (mocked client) are not
+# slowed by real sleeps.
+BULK_REQUEST_INTERVAL_SECONDS = 3.2
+
+
+class _PaceGate:
+    """A process-wide minimum-interval gate shared by every iTunes request.
+
+    Serializes the *timing* (not the concurrency) of outbound calls so they are
+    spaced at least ``min_interval`` apart. Set to a positive interval (via
+    :func:`set_pace_interval`) for a bulk seed to stay under iTunes's per-IP rate
+    limit; left at 0 (the default) it is a no-op so unit tests run instantly.
+    """
+
+    def __init__(self, min_interval_seconds: float) -> None:
+        self.min_interval = min_interval_seconds
+        self._lock = asyncio.Lock()
+        self._next_allowed_at = 0.0
+
+    async def wait_turn(self) -> None:
+        """Block until enough time has elapsed since the previous request."""
+        if self.min_interval <= 0:
+            return
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            now = loop.time()
+            sleep_for = self._next_allowed_at - now
+            if sleep_for > 0:
+                await asyncio.sleep(sleep_for)
+                now = loop.time()
+            self._next_allowed_at = now + self.min_interval
+
+
+_PACE_GATE = _PaceGate(0.0)
+
+
+def set_pace_interval(seconds: float) -> None:
+    """Set the shared inter-request pacing interval (seconds).
+
+    Call this once before a bulk seed (e.g. ``set_pace_interval(BULK_REQUEST_INTERVAL_SECONDS)``)
+    to throttle under iTunes's per-IP rate limit. Unit tests leave it at 0.
+
+    Args:
+        seconds: Minimum spacing between successive iTunes requests; 0 disables pacing.
+    """
+    _PACE_GATE.min_interval = seconds
 
 
 class PodcastMeta(BaseModel):
@@ -116,34 +176,49 @@ def _podcast_meta_from_entry(entry: dict[str, Any]) -> PodcastMeta | None:
     )
 
 
+# Sentinel signalling "iTunes throttled this attempt (429 / empty body) — retry",
+# distinct from a genuine "no such podcast" miss (a plain None, do not over-retry).
+THROTTLED = object()
+
+
 async def _itunes_search_one(
     cleaned: str, *, client: httpx.AsyncClient
-) -> PodcastMeta | None:
-    """One iTunes Search attempt. Returns None on miss / any error.
+) -> PodcastMeta | None | object:
+    """One iTunes Search attempt.
 
-    iTunes signals a soft rate-limit with an empty 200 body (``.json()`` raises),
-    which is treated as a miss so the caller can retry with backoff.
+    iTunes throttles in two ways under bulk load: a hard ``429 Too Many Requests``
+    (sometimes with a ``Retry-After`` header) and a soft empty ``200`` body
+    (``.json()`` raises). Both are transient and are reported as :data:`THROTTLED`
+    so the caller keeps retrying with a longer backoff. A genuine no-results miss
+    returns ``None`` so the caller can stop early. A resolved match returns the
+    :class:`PodcastMeta`.
 
     Args:
         cleaned: The (already-stripped) search term.
         client: An injected ``httpx.AsyncClient``.
 
     Returns:
-        The top podcast match, or None on miss / transport error / empty body.
+        The top :class:`PodcastMeta` on a hit, ``None`` on a genuine miss /
+        transport error, or :data:`THROTTLED` when iTunes rate-limited the call.
     """
     params = {"term": cleaned, "media": "podcast", "entity": "podcast", "limit": 1}
+    # Pace every outbound call under the per-IP rate limit (shared across resolves).
+    await _PACE_GATE.wait_turn()
     try:
         response = await client.get(
             ITUNES_SEARCH_URL, params=params, timeout=REQUEST_TIMEOUT_SECONDS
         )
     except httpx.HTTPError:
         return None
+    if response.status_code == 429:
+        return THROTTLED
     if response.status_code != 200:
         return None
     try:
         payload: dict[str, Any] = response.json()
     except ValueError:
-        return None
+        # Empty 200 body == soft rate-limit; ask the caller to retry.
+        return THROTTLED
     results = payload.get("results") or []
     if not results:
         return None
@@ -173,14 +248,18 @@ async def resolve_podcast(
         if delay:
             await asyncio.sleep(delay)
         result = await _itunes_search_one(cleaned, client=client)
-        if result is not None:
+        if isinstance(result, PodcastMeta):
             return result
+        if result is None:
+            # Genuine no-results miss — retrying will not help; stop early.
+            return None
+        # result is THROTTLED: keep retrying with the next (longer) backoff.
         if attempt == len(RETRY_DELAYS_SECONDS) - 1:
             logger.warning(
                 "itunes_resolve_giving_up",
                 name=cleaned,
                 attempts=attempt + 1,
-                fix_suggestion="Try a less specific search term, or skip — iTunes may lack this title.",
+                fix_suggestion="iTunes rate-limited every attempt; lower concurrency or re-run this cell later.",
             )
     return None
 

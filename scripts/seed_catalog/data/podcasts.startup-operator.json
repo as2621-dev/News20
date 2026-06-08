@@ -1,0 +1,816 @@
+[
+  {
+    "search_term": "Acquired",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "How I Built This with Guy Raz",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Masters of Scale with Reid Hoffman",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The All-In Podcast",
+    "topic_tags": [
+      "business",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "My First Million",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Lenny's Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "a16z Podcast",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Twenty Minute VC (20VC)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Invest Like the Best with Patrick O'Shaughnessy",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Tim Ferriss Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Prof G Show with Scott Galloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Pivot",
+    "topic_tags": [
+      "tech",
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "This Week in Startups",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Pomp Podcast",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Founder's Journal",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "SaaStr Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Indie Hackers Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Y Combinator Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Greymatter",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Pitch",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Venture Stories by NFX",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Startup Playbook Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Bootstrapped Founder",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Mixergy - Startup Stories with Andrew Warner",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Product Hunt Radio",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "This is Product Management",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Product Thinking with Melissa Perri",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Product Podcast by Product School",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Growth Marketing Today",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Growth Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The SaaS Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The SaaS Marketing Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Startup Chat with Steli and Hiten",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Angel Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Build Your SaaS",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Software Engineering Daily",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Art of Product",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Masters of Product Management",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Business of Software",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The SaaS Revolution Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Founder Hustle",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Startup Story",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Entrepreneur's Playbook",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Startup Grind Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The VentureFizz Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Founder Hour",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Equity",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Vergecast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Hard Fork",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Journal.",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Technology",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Odd Lots",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Economist: Babbage",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Economist: Money Talks",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "FT News Briefing",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "WSJ Tech News Briefing",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Lex Fridman Podcast",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The TWIML AI Podcast (formerly This Week in Machine Learning & AI)",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Practical AI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "AI in Business Podcast",
+    "topic_tags": [
+      "ai",
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Gradient Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future of Life Institute Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Everyone Hates Marketers",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Product-Led Growth Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Product Experience",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Product Love",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Product Talk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Growth TLDR Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The SaaS Growth Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Sifted Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Tech.eu Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Seedcamp Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The European Startup Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Business of Tech",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The French Tech Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "German Startup Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Nordic Startup Ventures",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Startup Portugal Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Startup Spain Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Matrix Moments",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Indian Dream",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "SeedToScale Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Startup India Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "YourStory Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Founders Unfiltered",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Desi VC",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Startup Operator Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Tech in Asia Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "e27 Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Monk's Hill Ventures Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Jungle Ventures Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The SEA Startup Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future of Southeast Asia by Grab",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Latam Startup Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Contxto Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "LAVCA Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Startupeando",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Café con VC",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Latitud Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "African Tech Roundup",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Flip",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Future Africa Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Techpoint Africa Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Disrupt Africa Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Startup Africa Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The SaaS Playbook",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Product Strategy Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Growth Hacking Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Startup Life Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Founder and the Force",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Venture Capital Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Future of Everything",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Knowledge Project with Shane Parrish",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Daily",
+    "topic_tags": [
+      "politics",
+      "business",
+      "tech"
+    ]
+  }
+]

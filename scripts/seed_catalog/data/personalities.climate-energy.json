@@ -1,0 +1,681 @@
+[
+  {
+    "display_name": "Greta Thunberg",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Greta_Thunberg",
+    "aliases": [
+      "Greta"
+    ]
+  },
+  {
+    "display_name": "Bill Gates",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Bill_Gates",
+    "aliases": [
+      "Bill"
+    ]
+  },
+  {
+    "display_name": "Al Gore",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Al_Gore"
+  },
+  {
+    "display_name": "Katharine Hayhoe",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Katharine_Hayhoe"
+  },
+  {
+    "display_name": "Michael E. Mann",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Michael_E._Mann",
+    "aliases": [
+      "Michael Mann"
+    ]
+  },
+  {
+    "display_name": "Naomi Klein",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Naomi_Klein"
+  },
+  {
+    "display_name": "David Attenborough",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ],
+    "wikipedia_slug": "David_Attenborough"
+  },
+  {
+    "display_name": "Elon Musk",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ],
+    "wikipedia_slug": "Elon_Musk"
+  },
+  {
+    "display_name": "Mark Carney",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Mark_Carney"
+  },
+  {
+    "display_name": "Christiana Figueres",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Christiana_Figueres"
+  },
+  {
+    "display_name": "Fatih Birol",
+    "topic_tags": [
+      "business",
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Fatih_Birol"
+  },
+  {
+    "display_name": "António Guterres",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "António_Guterres"
+  },
+  {
+    "display_name": "Ursula von der Leyen",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Ursula_von_der_Leyen"
+  },
+  {
+    "display_name": "John Kerry",
+    "topic_tags": [
+      "politics",
+      "environment",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "John_Kerry"
+  },
+  {
+    "display_name": "Vandana Shiva",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Vandana_Shiva"
+  },
+  {
+    "display_name": "Naomi Oreskes",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Naomi_Oreskes"
+  },
+  {
+    "display_name": "James Hansen",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "James_Hansen"
+  },
+  {
+    "display_name": "Bill McKibben",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Bill_McKibben"
+  },
+  {
+    "display_name": "Paul Polman",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "wikipedia_slug": "Paul_Polman"
+  },
+  {
+    "display_name": "Johan Rockström",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Johan_Rockström"
+  },
+  {
+    "display_name": "Mary Robinson",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Mary_Robinson"
+  },
+  {
+    "display_name": "Vanessa Nakate",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Vanessa_Nakate"
+  },
+  {
+    "display_name": "Amory Lovins",
+    "topic_tags": [
+      "environment",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Amory_Lovins"
+  },
+  {
+    "display_name": "Kate Raworth",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "wikipedia_slug": "Kate_Raworth"
+  },
+  {
+    "display_name": "Nicholas Stern",
+    "topic_tags": [
+      "business",
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Nicholas_Stern",
+    "aliases": [
+      "Lord Stern"
+    ]
+  },
+  {
+    "display_name": "Gina McCarthy",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Gina_McCarthy"
+  },
+  {
+    "display_name": "Jennifer Granholm",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Jennifer_Granholm"
+  },
+  {
+    "display_name": "Xie Zhenhua",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Xie_Zhenhua"
+  },
+  {
+    "display_name": "Mia Mottley",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Mia_Mottley"
+  },
+  {
+    "display_name": "Justin Trudeau",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Justin_Trudeau"
+  },
+  {
+    "display_name": "Emmanuel Macron",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Emmanuel_Macron"
+  },
+  {
+    "display_name": "Angela Merkel",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Angela_Merkel"
+  },
+  {
+    "display_name": "Xi Jinping",
+    "topic_tags": [
+      "politics",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Xi_Jinping"
+  },
+  {
+    "display_name": "Jeffrey Sachs",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Jeffrey_Sachs"
+  },
+  {
+    "display_name": "Rebecca Henderson",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "wikipedia_slug": "Rebecca_Henderson"
+  },
+  {
+    "display_name": "Andrew Forrest",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "wikipedia_slug": "Andrew_Forrest"
+  },
+  {
+    "display_name": "Laurence Tubiana",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Laurence_Tubiana"
+  },
+  {
+    "display_name": "Carlos Lopes",
+    "topic_tags": [
+      "geopolitics",
+      "environment",
+      "business"
+    ],
+    "wikipedia_slug": "Carlos_Lopes_(economist)"
+  },
+  {
+    "display_name": "Alexandria Ocasio-Cortez",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Alexandria_Ocasio-Cortez",
+    "aliases": [
+      "AOC"
+    ]
+  },
+  {
+    "display_name": "Rhiana Gunn-Wright",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Rhiana_Gunn-Wright"
+  },
+  {
+    "display_name": "Ayana Elizabeth Johnson",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Ayana_Elizabeth_Johnson"
+  },
+  {
+    "display_name": "Leah Stokes",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Leah_Stokes"
+  },
+  {
+    "display_name": "Elizabeth Kolbert",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ],
+    "wikipedia_slug": "Elizabeth_Kolbert"
+  },
+  {
+    "display_name": "David Wallace-Wells",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ],
+    "wikipedia_slug": "David_Wallace-Wells"
+  },
+  {
+    "display_name": "George Monbiot",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "George_Monbiot"
+  },
+  {
+    "display_name": "Kim Stanley Robinson",
+    "topic_tags": [
+      "arts",
+      "environment"
+    ],
+    "wikipedia_slug": "Kim_Stanley_Robinson"
+  },
+  {
+    "display_name": "Amitav Ghosh",
+    "topic_tags": [
+      "arts",
+      "environment"
+    ],
+    "wikipedia_slug": "Amitav_Ghosh"
+  },
+  {
+    "display_name": "Saleemul Huq",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Saleemul_Huq"
+  },
+  {
+    "display_name": "Simon Stiell",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Simon_Stiell"
+  },
+  {
+    "display_name": "Patricia Espinosa Cantellano",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Patricia_Espinosa_Cantellano"
+  },
+  {
+    "display_name": "Hindou Oumarou Ibrahim",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Hindou_Oumarou_Ibrahim"
+  },
+  {
+    "display_name": "Wanjira Mathai",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Wanjira_Mathai"
+  },
+  {
+    "display_name": "Yolanda Kakabadse",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Yolanda_Kakabadse"
+  },
+  {
+    "display_name": "Carlos Alvarado Quesada",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Carlos_Alvarado_Quesada"
+  },
+  {
+    "display_name": "Enric Sala",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Enric_Sala"
+  },
+  {
+    "display_name": "Rebecca Solnit",
+    "topic_tags": [
+      "arts",
+      "environment"
+    ],
+    "wikipedia_slug": "Rebecca_Solnit"
+  },
+  {
+    "display_name": "Ezra Klein",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Ezra_Klein"
+  },
+  {
+    "display_name": "Andrew Revkin",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ],
+    "wikipedia_slug": "Andrew_Revkin"
+  },
+  {
+    "display_name": "Kate Marvel",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Kate_Marvel"
+  },
+  {
+    "display_name": "Gavin Schmidt",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Gavin_Schmidt"
+  },
+  {
+    "display_name": "Stefan Rahmstorf",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Stefan_Rahmstorf"
+  },
+  {
+    "display_name": "Hans Joachim Schellnhuber",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "wikipedia_slug": "Hans_Joachim_Schellnhuber"
+  },
+  {
+    "display_name": "Ottmar Edenhofer",
+    "topic_tags": [
+      "environment",
+      "business"
+    ],
+    "wikipedia_slug": "Ottmar_Edenhofer"
+  },
+  {
+    "display_name": "John Gummer",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "John_Gummer",
+    "aliases": [
+      "Lord Deben"
+    ]
+  },
+  {
+    "display_name": "Dale Vince",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "wikipedia_slug": "Dale_Vince"
+  },
+  {
+    "display_name": "Mike Cannon-Brookes",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ],
+    "wikipedia_slug": "Mike_Cannon-Brookes"
+  },
+  {
+    "display_name": "Daniel Yergin",
+    "topic_tags": [
+      "business",
+      "geopolitics",
+      "environment"
+    ],
+    "wikipedia_slug": "Daniel_Yergin"
+  },
+  {
+    "display_name": "Leah Thomas",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Leah_Thomas_(activist)"
+  },
+  {
+    "display_name": "Jamie Margolin",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Jamie_Margolin"
+  },
+  {
+    "display_name": "Autumn Peltier",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Autumn_Peltier"
+  },
+  {
+    "display_name": "Winona LaDuke",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Winona_LaDuke"
+  },
+  {
+    "display_name": "David Suzuki",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ],
+    "wikipedia_slug": "David_Suzuki"
+  },
+  {
+    "display_name": "Elizabeth May",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Elizabeth_May"
+  },
+  {
+    "display_name": "Catherine McKenna",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Catherine_McKenna"
+  },
+  {
+    "display_name": "Yeb Saño",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "wikipedia_slug": "Yeb_Saño"
+  },
+  {
+    "display_name": "Ramez Naam",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ],
+    "wikipedia_slug": "Ramez_Naam"
+  },
+  {
+    "display_name": "Jigar Shah",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ],
+    "wikipedia_slug": "Jigar_Shah"
+  },
+  {
+    "display_name": "Lynn Good",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "wikipedia_slug": "Lynn_Good"
+  },
+  {
+    "display_name": "Patrick Pouyanné",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "wikipedia_slug": "Patrick_Pouyanné"
+  },
+  {
+    "display_name": "Vaclav Smil",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ],
+    "wikipedia_slug": "Vaclav_Smil"
+  }
+]

@@ -1,0 +1,630 @@
+[
+  {
+    "display_name": "Lionel Messi",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Lionel_Messi",
+    "aliases": [
+      "Messi"
+    ]
+  },
+  {
+    "display_name": "Cristiano Ronaldo",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Cristiano_Ronaldo",
+    "aliases": [
+      "Ronaldo"
+    ]
+  },
+  {
+    "display_name": "LeBron James",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "LeBron_James",
+    "aliases": [
+      "King James"
+    ]
+  },
+  {
+    "display_name": "Roger Federer",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Roger_Federer",
+    "aliases": [
+      "FedEx"
+    ]
+  },
+  {
+    "display_name": "Rafael Nadal",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Rafael_Nadal",
+    "aliases": [
+      "Rafa"
+    ]
+  },
+  {
+    "display_name": "Novak Djokovic",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Novak_Djokovic",
+    "aliases": [
+      "Nole"
+    ]
+  },
+  {
+    "display_name": "Serena Williams",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Serena_Williams"
+  },
+  {
+    "display_name": "Lewis Hamilton",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Lewis_Hamilton"
+  },
+  {
+    "display_name": "Virat Kohli",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Virat_Kohli"
+  },
+  {
+    "display_name": "Kylian Mbappé",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Kylian_Mbappé"
+  },
+  {
+    "display_name": "Stephen Curry",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Stephen_Curry",
+    "aliases": [
+      "Steph"
+    ]
+  },
+  {
+    "display_name": "Tiger Woods",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Tiger_Woods"
+  },
+  {
+    "display_name": "Usain Bolt",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Usain_Bolt"
+  },
+  {
+    "display_name": "Max Verstappen",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Max_Verstappen"
+  },
+  {
+    "display_name": "Neymar",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Neymar"
+  },
+  {
+    "display_name": "Erling Haaland",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Erling_Haaland"
+  },
+  {
+    "display_name": "Giannis Antetokounmpo",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Giannis_Antetokounmpo",
+    "aliases": [
+      "The Greek Freak"
+    ]
+  },
+  {
+    "display_name": "Nikola Jokić",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Nikola_Jokić",
+    "aliases": [
+      "The Joker"
+    ]
+  },
+  {
+    "display_name": "Simone Biles",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Simone_Biles"
+  },
+  {
+    "display_name": "Megan Rapinoe",
+    "topic_tags": [
+      "sport",
+      "politics"
+    ],
+    "wikipedia_slug": "Megan_Rapinoe"
+  },
+  {
+    "display_name": "Alex Morgan",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Alex_Morgan"
+  },
+  {
+    "display_name": "Sachin Tendulkar",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Sachin_Tendulkar",
+    "aliases": [
+      "Little Master"
+    ]
+  },
+  {
+    "display_name": "MS Dhoni",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "MS_Dhoni",
+    "aliases": [
+      "Mahi"
+    ]
+  },
+  {
+    "display_name": "Ben Stokes",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Ben_Stokes"
+  },
+  {
+    "display_name": "Iga Świątek",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Iga_Świątek"
+  },
+  {
+    "display_name": "Carlos Alcaraz",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Carlos_Alcaraz"
+  },
+  {
+    "display_name": "Conor McGregor",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Conor_McGregor",
+    "aliases": [
+      "The Notorious"
+    ]
+  },
+  {
+    "display_name": "Tom Brady",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Tom_Brady"
+  },
+  {
+    "display_name": "Patrick Mahomes",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Patrick_Mahomes"
+  },
+  {
+    "display_name": "David Beckham",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "David_Beckham"
+  },
+  {
+    "display_name": "Zinedine Zidane",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Zinedine_Zidane",
+    "aliases": [
+      "Zizou"
+    ]
+  },
+  {
+    "display_name": "Pep Guardiola",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Pep_Guardiola"
+  },
+  {
+    "display_name": "Jürgen Klopp",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Jürgen_Klopp"
+  },
+  {
+    "display_name": "Michael Jordan",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Michael_Jordan",
+    "aliases": [
+      "MJ"
+    ]
+  },
+  {
+    "display_name": "Pelé",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Pelé"
+  },
+  {
+    "display_name": "Diego Maradona",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Diego_Maradona"
+  },
+  {
+    "display_name": "Michael Schumacher",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Michael_Schumacher"
+  },
+  {
+    "display_name": "Muhammad Ali",
+    "topic_tags": [
+      "sport",
+      "politics"
+    ],
+    "wikipedia_slug": "Muhammad_Ali"
+  },
+  {
+    "display_name": "Shaquille O'Neal",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Shaquille_O'Neal",
+    "aliases": [
+      "Shaq"
+    ]
+  },
+  {
+    "display_name": "Magic Johnson",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Magic_Johnson"
+  },
+  {
+    "display_name": "Kevin Durant",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Kevin_Durant",
+    "aliases": [
+      "KD"
+    ]
+  },
+  {
+    "display_name": "Rory McIlroy",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Rory_McIlroy"
+  },
+  {
+    "display_name": "Jack Nicklaus",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Jack_Nicklaus",
+    "aliases": [
+      "The Golden Bear"
+    ]
+  },
+  {
+    "display_name": "Floyd Mayweather Jr.",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Floyd_Mayweather_Jr.",
+    "aliases": [
+      "Money"
+    ]
+  },
+  {
+    "display_name": "Mike Tyson",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Mike_Tyson",
+    "aliases": [
+      "Iron Mike"
+    ]
+  },
+  {
+    "display_name": "Venus Williams",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Venus_Williams"
+  },
+  {
+    "display_name": "Naomi Osaka",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Naomi_Osaka"
+  },
+  {
+    "display_name": "Coco Gauff",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Coco_Gauff"
+  },
+  {
+    "display_name": "Mikaela Shiffrin",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Mikaela_Shiffrin"
+  },
+  {
+    "display_name": "Katie Ledecky",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Katie_Ledecky"
+  },
+  {
+    "display_name": "Ellyse Perry",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Ellyse_Perry"
+  },
+  {
+    "display_name": "Rohit Sharma",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Rohit_Sharma"
+  },
+  {
+    "display_name": "Ricky Ponting",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Ricky_Ponting"
+  },
+  {
+    "display_name": "Shane Warne",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Shane_Warne"
+  },
+  {
+    "display_name": "Fernando Alonso",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Fernando_Alonso"
+  },
+  {
+    "display_name": "Ayrton Senna",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Ayrton_Senna"
+  },
+  {
+    "display_name": "Toto Wolff",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Toto_Wolff"
+  },
+  {
+    "display_name": "Adam Silver",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Adam_Silver"
+  },
+  {
+    "display_name": "Gianni Infantino",
+    "topic_tags": [
+      "sport",
+      "politics"
+    ],
+    "wikipedia_slug": "Gianni_Infantino"
+  },
+  {
+    "display_name": "Thomas Bach",
+    "topic_tags": [
+      "sport",
+      "politics"
+    ],
+    "wikipedia_slug": "Thomas_Bach"
+  },
+  {
+    "display_name": "Bill Simmons",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Bill_Simmons"
+  },
+  {
+    "display_name": "Stephen A. Smith",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Stephen_A._Smith"
+  },
+  {
+    "display_name": "Pat McAfee",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Pat_McAfee"
+  },
+  {
+    "display_name": "Gary Lineker",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Gary_Lineker"
+  },
+  {
+    "display_name": "Rio Ferdinand",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Rio_Ferdinand"
+  },
+  {
+    "display_name": "Thierry Henry",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Thierry_Henry"
+  },
+  {
+    "display_name": "Ian Wright",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Ian_Wright"
+  },
+  {
+    "display_name": "Nasser Hussain",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Nasser_Hussain"
+  },
+  {
+    "display_name": "Sunil Gavaskar",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Sunil_Gavaskar"
+  },
+  {
+    "display_name": "Arsène Wenger",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Arsène_Wenger"
+  },
+  {
+    "display_name": "Sir Alex Ferguson",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Alex_Ferguson"
+  },
+  {
+    "display_name": "Billie Jean King",
+    "topic_tags": [
+      "sport",
+      "politics"
+    ],
+    "wikipedia_slug": "Billie_Jean_King"
+  },
+  {
+    "display_name": "Martina Navratilova",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Martina_Navratilova"
+  },
+  {
+    "display_name": "Sue Bird",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Sue_Bird"
+  },
+  {
+    "display_name": "Candace Parker",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Candace_Parker"
+  },
+  {
+    "display_name": "Lindsey Vonn",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Lindsey_Vonn"
+  },
+  {
+    "display_name": "Michael Phelps",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Michael_Phelps"
+  },
+  {
+    "display_name": "Roger Milla",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Roger_Milla"
+  },
+  {
+    "display_name": "Didier Drogba",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Didier_Drogba"
+  },
+  {
+    "display_name": "Usman Khawaja",
+    "topic_tags": [
+      "sport"
+    ],
+    "wikipedia_slug": "Usman_Khawaja"
+  }
+]

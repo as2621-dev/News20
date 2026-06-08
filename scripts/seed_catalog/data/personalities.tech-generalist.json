@@ -1,0 +1,672 @@
+[
+  {
+    "display_name": "Elon Musk",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Elon_Musk"
+  },
+  {
+    "display_name": "Bill Gates",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Bill_Gates"
+  },
+  {
+    "display_name": "Jeff Bezos",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Jeff_Bezos"
+  },
+  {
+    "display_name": "Mark Zuckerberg",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Mark_Zuckerberg"
+  },
+  {
+    "display_name": "Tim Cook",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Tim_Cook"
+  },
+  {
+    "display_name": "Satya Nadella",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Satya_Nadella"
+  },
+  {
+    "display_name": "Sundar Pichai",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Sundar_Pichai"
+  },
+  {
+    "display_name": "Sam Altman",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Sam_Altman"
+  },
+  {
+    "display_name": "Jensen Huang",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "wikipedia_slug": "Jensen_Huang"
+  },
+  {
+    "display_name": "Lisa Su",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Lisa_Su"
+  },
+  {
+    "display_name": "Kara Swisher",
+    "topic_tags": [
+      "tech",
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Kara_Swisher"
+  },
+  {
+    "display_name": "Marques Brownlee",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Marques_Brownlee",
+    "aliases": [
+      "MKBHD"
+    ]
+  },
+  {
+    "display_name": "Walt Mossberg",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Walt_Mossberg"
+  },
+  {
+    "display_name": "Linus Sebastian",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Linus_Sebastian",
+    "aliases": [
+      "Linus Tech Tips"
+    ]
+  },
+  {
+    "display_name": "Jony Ive",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Jony_Ive"
+  },
+  {
+    "display_name": "Steve Wozniak",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Steve_Wozniak",
+    "aliases": [
+      "Woz"
+    ]
+  },
+  {
+    "display_name": "Geoffrey Hinton",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Geoffrey_Hinton"
+  },
+  {
+    "display_name": "Andrew Ng",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Andrew_Ng"
+  },
+  {
+    "display_name": "Yann LeCun",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Yann_LeCun"
+  },
+  {
+    "display_name": "Demis Hassabis",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Demis_Hassabis"
+  },
+  {
+    "display_name": "Jack Dorsey",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Jack_Dorsey"
+  },
+  {
+    "display_name": "Susan Wojcicki",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Susan_Wojcicki"
+  },
+  {
+    "display_name": "Sheryl Sandberg",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Sheryl_Sandberg"
+  },
+  {
+    "display_name": "Marc Andreessen",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Marc_Andreessen"
+  },
+  {
+    "display_name": "Reid Hoffman",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Reid_Hoffman"
+  },
+  {
+    "display_name": "Scott Galloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Scott_Galloway",
+    "aliases": [
+      "Prof G"
+    ]
+  },
+  {
+    "display_name": "Ben Thompson",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Ben_Thompson"
+  },
+  {
+    "display_name": "Nilay Patel",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Nilay_Patel"
+  },
+  {
+    "display_name": "John Gruber",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "John_Gruber"
+  },
+  {
+    "display_name": "Casey Neistat",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Casey_Neistat"
+  },
+  {
+    "display_name": "David Pogue",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "David_Pogue"
+  },
+  {
+    "display_name": "Steven Levy",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Steven_Levy"
+  },
+  {
+    "display_name": "Joanna Stern",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Joanna_Stern"
+  },
+  {
+    "display_name": "Molly Wood",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Molly_Wood"
+  },
+  {
+    "display_name": "Tim Wu",
+    "topic_tags": [
+      "politics",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Tim_Wu"
+  },
+  {
+    "display_name": "Shoshana Zuboff",
+    "topic_tags": [
+      "tech",
+      "politics",
+      "business"
+    ],
+    "wikipedia_slug": "Shoshana_Zuboff"
+  },
+  {
+    "display_name": "Mary Meeker",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Mary_Meeker"
+  },
+  {
+    "display_name": "Benedict Evans",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Benedict_Evans"
+  },
+  {
+    "display_name": "Om Malik",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Om_Malik"
+  },
+  {
+    "display_name": "Brad Stone",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Brad_Stone"
+  },
+  {
+    "display_name": "Ashlee Vance",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Ashlee_Vance"
+  },
+  {
+    "display_name": "Emily Chang",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Emily_Chang"
+  },
+  {
+    "display_name": "Lex Fridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Lex_Fridman"
+  },
+  {
+    "display_name": "Yuval Noah Harari",
+    "topic_tags": [
+      "ai",
+      "politics",
+      "tech"
+    ],
+    "wikipedia_slug": "Yuval_Noah_Harari"
+  },
+  {
+    "display_name": "Ray Kurzweil",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Ray_Kurzweil"
+  },
+  {
+    "display_name": "Michio Kaku",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Michio_Kaku"
+  },
+  {
+    "display_name": "Neil deGrasse Tyson",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Neil_deGrasse_Tyson"
+  },
+  {
+    "display_name": "Derek Muller",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Derek_Muller",
+    "aliases": [
+      "Veritasium"
+    ]
+  },
+  {
+    "display_name": "Destin Sandlin",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Destin_Sandlin",
+    "aliases": [
+      "SmarterEveryDay"
+    ]
+  },
+  {
+    "display_name": "Justine Ezarik",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Justine_Ezarik",
+    "aliases": [
+      "iJustine"
+    ]
+  },
+  {
+    "display_name": "Lewis Hilsenteger",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Lewis_Hilsenteger",
+    "aliases": [
+      "Unbox Therapy"
+    ]
+  },
+  {
+    "display_name": "Kyle Wiens",
+    "topic_tags": [
+      "tech",
+      "politics"
+    ],
+    "wikipedia_slug": "Kyle_Wiens",
+    "aliases": [
+      "iFixit"
+    ]
+  },
+  {
+    "display_name": "Patrick Collison",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Patrick_Collison"
+  },
+  {
+    "display_name": "John Collison",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "John_Collison"
+  },
+  {
+    "display_name": "Brian Chesky",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Brian_Chesky"
+  },
+  {
+    "display_name": "Dara Khosrowshahi",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Dara_Khosrowshahi"
+  },
+  {
+    "display_name": "Daniel Ek",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Daniel_Ek"
+  },
+  {
+    "display_name": "Reed Hastings",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Reed_Hastings"
+  },
+  {
+    "display_name": "Kevin Systrom",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Kevin_Systrom"
+  },
+  {
+    "display_name": "Mike Krieger",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Mike_Krieger"
+  },
+  {
+    "display_name": "Evan Spiegel",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Evan_Spiegel"
+  },
+  {
+    "display_name": "Bobby Murphy",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Bobby_Murphy"
+  },
+  {
+    "display_name": "Travis Kalanick",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Travis_Kalanick"
+  },
+  {
+    "display_name": "Tony Fadell",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Tony_Fadell"
+  },
+  {
+    "display_name": "Kevin Kelly",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Kevin_Kelly_(editor)"
+  },
+  {
+    "display_name": "Chris Anderson",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Chris_Anderson_(journalist)"
+  },
+  {
+    "display_name": "Stewart Brand",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "arts"
+    ],
+    "wikipedia_slug": "Stewart_Brand"
+  },
+  {
+    "display_name": "Esther Dyson",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Esther_Dyson"
+  },
+  {
+    "display_name": "Jason Snell",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Jason_Snell"
+  },
+  {
+    "display_name": "Anand Lal Shimpi",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Anand_Lal_Shimpi"
+  },
+  {
+    "display_name": "Gabe Newell",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Gabe_Newell",
+    "aliases": [
+      "Gaben"
+    ]
+  },
+  {
+    "display_name": "Palmer Luckey",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Palmer_Luckey"
+  },
+  {
+    "display_name": "Brendan Iribe",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Brendan_Iribe"
+  },
+  {
+    "display_name": "John Carmack",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "John_Carmack"
+  },
+  {
+    "display_name": "Michael Dell",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Michael_Dell"
+  },
+  {
+    "display_name": "Larry Ellison",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Larry_Ellison"
+  },
+  {
+    "display_name": "Richard Stallman",
+    "topic_tags": [
+      "tech",
+      "politics"
+    ],
+    "wikipedia_slug": "Richard_Stallman"
+  },
+  {
+    "display_name": "Linus Torvalds",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Linus_Torvalds"
+  },
+  {
+    "display_name": "Vitalik Buterin",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Vitalik_Buterin"
+  },
+  {
+    "display_name": "Changpeng Zhao",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Changpeng_Zhao",
+    "aliases": [
+      "CZ"
+    ]
+  }
+]

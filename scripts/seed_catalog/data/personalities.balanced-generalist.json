@@ -1,0 +1,683 @@
+[
+  {
+    "display_name": "Elon Musk",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Elon_Musk"
+  },
+  {
+    "display_name": "Barack Obama",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Barack_Obama",
+    "aliases": [
+      "Obama"
+    ]
+  },
+  {
+    "display_name": "Bill Gates",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ],
+    "wikipedia_slug": "Bill_Gates"
+  },
+  {
+    "display_name": "Jeff Bezos",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Jeff_Bezos"
+  },
+  {
+    "display_name": "Joe Biden",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Joe_Biden",
+    "aliases": [
+      "Biden"
+    ]
+  },
+  {
+    "display_name": "Oprah Winfrey",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "wikipedia_slug": "Oprah_Winfrey",
+    "aliases": [
+      "Oprah"
+    ]
+  },
+  {
+    "display_name": "Satya Nadella",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Satya_Nadella"
+  },
+  {
+    "display_name": "Tim Cook",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Tim_Cook"
+  },
+  {
+    "display_name": "Sundar Pichai",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Sundar_Pichai"
+  },
+  {
+    "display_name": "Warren Buffett",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Warren_Buffett"
+  },
+  {
+    "display_name": "Volodymyr Zelenskyy",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Volodymyr_Zelenskyy",
+    "aliases": [
+      "Zelenskyy"
+    ]
+  },
+  {
+    "display_name": "Emmanuel Macron",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Emmanuel_Macron",
+    "aliases": [
+      "Macron"
+    ]
+  },
+  {
+    "display_name": "Angela Merkel",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Angela_Merkel",
+    "aliases": [
+      "Merkel"
+    ]
+  },
+  {
+    "display_name": "Narendra Modi",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Narendra_Modi",
+    "aliases": [
+      "Modi"
+    ]
+  },
+  {
+    "display_name": "Justin Trudeau",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Justin_Trudeau",
+    "aliases": [
+      "Trudeau"
+    ]
+  },
+  {
+    "display_name": "Hillary Clinton",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Hillary_Clinton",
+    "aliases": [
+      "Hillary"
+    ]
+  },
+  {
+    "display_name": "Christine Lagarde",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Christine_Lagarde"
+  },
+  {
+    "display_name": "Janet Yellen",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Janet_Yellen"
+  },
+  {
+    "display_name": "Sam Altman",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Sam_Altman"
+  },
+  {
+    "display_name": "Jensen Huang",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Jensen_Huang"
+  },
+  {
+    "display_name": "Greta Thunberg",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Greta_Thunberg"
+  },
+  {
+    "display_name": "David Attenborough",
+    "topic_tags": [
+      "environment"
+    ],
+    "wikipedia_slug": "David_Attenborough"
+  },
+  {
+    "display_name": "Yuval Noah Harari",
+    "topic_tags": [
+      "geopolitics",
+      "arts"
+    ],
+    "wikipedia_slug": "Yuval_Noah_Harari"
+  },
+  {
+    "display_name": "Fareed Zakaria",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Fareed_Zakaria"
+  },
+  {
+    "display_name": "Thomas L. Friedman",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Thomas_L._Friedman",
+    "aliases": [
+      "Thomas Friedman"
+    ]
+  },
+  {
+    "display_name": "Neil deGrasse Tyson",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Neil_deGrasse_Tyson"
+  },
+  {
+    "display_name": "Michio Kaku",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Michio_Kaku"
+  },
+  {
+    "display_name": "Michelle Obama",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ],
+    "wikipedia_slug": "Michelle_Obama"
+  },
+  {
+    "display_name": "LeBron James",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "LeBron_James",
+    "aliases": [
+      "LeBron"
+    ]
+  },
+  {
+    "display_name": "Serena Williams",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Serena_Williams",
+    "aliases": [
+      "Serena"
+    ]
+  },
+  {
+    "display_name": "Lionel Messi",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Lionel_Messi",
+    "aliases": [
+      "Messi"
+    ]
+  },
+  {
+    "display_name": "Cristiano Ronaldo",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Cristiano_Ronaldo",
+    "aliases": [
+      "Ronaldo"
+    ]
+  },
+  {
+    "display_name": "Malala Yousafzai",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ],
+    "wikipedia_slug": "Malala_Yousafzai",
+    "aliases": [
+      "Malala"
+    ]
+  },
+  {
+    "display_name": "Bono",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ],
+    "wikipedia_slug": "Bono"
+  },
+  {
+    "display_name": "Angelina Jolie",
+    "topic_tags": [
+      "arts",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Angelina_Jolie"
+  },
+  {
+    "display_name": "George Clooney",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ],
+    "wikipedia_slug": "George_Clooney"
+  },
+  {
+    "display_name": "Paul Krugman",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Paul_Krugman"
+  },
+  {
+    "display_name": "Jamie Dimon",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Jamie_Dimon"
+  },
+  {
+    "display_name": "Ray Dalio",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Ray_Dalio"
+  },
+  {
+    "display_name": "Ngozi Okonjo-Iweala",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Ngozi_Okonjo-Iweala"
+  },
+  {
+    "display_name": "Ursula von der Leyen",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Ursula_von_der_Leyen"
+  },
+  {
+    "display_name": "Rishi Sunak",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Rishi_Sunak"
+  },
+  {
+    "display_name": "Jacinda Ardern",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Jacinda_Ardern"
+  },
+  {
+    "display_name": "Al Gore",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "wikipedia_slug": "Al_Gore"
+  },
+  {
+    "display_name": "Jane Goodall",
+    "topic_tags": [
+      "environment"
+    ],
+    "wikipedia_slug": "Jane_Goodall"
+  },
+  {
+    "display_name": "Brené Brown",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Brené_Brown"
+  },
+  {
+    "display_name": "Malcolm Gladwell",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Malcolm_Gladwell"
+  },
+  {
+    "display_name": "Steven Pinker",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Steven_Pinker"
+  },
+  {
+    "display_name": "Geoffrey Hinton",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Geoffrey_Hinton"
+  },
+  {
+    "display_name": "Yann LeCun",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Yann_LeCun"
+  },
+  {
+    "display_name": "Andrew Ng",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Andrew_Ng"
+  },
+  {
+    "display_name": "Demis Hassabis",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Demis_Hassabis"
+  },
+  {
+    "display_name": "Fei-Fei Li",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Fei-Fei_Li"
+  },
+  {
+    "display_name": "Kate Crawford",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Kate_Crawford"
+  },
+  {
+    "display_name": "Max Tegmark",
+    "topic_tags": [
+      "ai"
+    ],
+    "wikipedia_slug": "Max_Tegmark"
+  },
+  {
+    "display_name": "Stuart Russell",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Stuart_J._Russell"
+  },
+  {
+    "display_name": "Eric Schmidt",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Eric_Schmidt"
+  },
+  {
+    "display_name": "Vint Cerf",
+    "topic_tags": [
+      "tech"
+    ],
+    "wikipedia_slug": "Vint_Cerf"
+  },
+  {
+    "display_name": "Marc Andreessen",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Marc_Andreessen"
+  },
+  {
+    "display_name": "Reid Hoffman",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Reid_Hoffman"
+  },
+  {
+    "display_name": "Jaron Lanier",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ],
+    "wikipedia_slug": "Jaron_Lanier"
+  },
+  {
+    "display_name": "Ray Kurzweil",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Ray_Kurzweil"
+  },
+  {
+    "display_name": "Bill Nye",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Bill_Nye",
+    "aliases": [
+      "Bill Nye the Science Guy"
+    ]
+  },
+  {
+    "display_name": "Brian Cox",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Brian_Cox"
+  },
+  {
+    "display_name": "Chimamanda Ngozi Adichie",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ],
+    "wikipedia_slug": "Chimamanda_Ngozi_Adichie"
+  },
+  {
+    "display_name": "Shonda Rhimes",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Shonda_Rhimes"
+  },
+  {
+    "display_name": "Stephen King",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Stephen_King"
+  },
+  {
+    "display_name": "J. K. Rowling",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "J._K._Rowling",
+    "aliases": [
+      "J.K. Rowling"
+    ]
+  },
+  {
+    "display_name": "Ken Burns",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Ken_Burns"
+  },
+  {
+    "display_name": "Larry Fink",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Larry_Fink"
+  },
+  {
+    "display_name": "Mary Barra",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Mary_Barra"
+  },
+  {
+    "display_name": "Ginni Rometty",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Ginni_Rometty"
+  },
+  {
+    "display_name": "Adena Friedman",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Adena_Friedman"
+  },
+  {
+    "display_name": "Shashi Tharoor",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Shashi_Tharoor"
+  },
+  {
+    "display_name": "Condoleezza Rice",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Condoleezza_Rice"
+  },
+  {
+    "display_name": "Samantha Power",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Samantha_Power"
+  },
+  {
+    "display_name": "António Guterres",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "António_Guterres"
+  },
+  {
+    "display_name": "Tony Blair",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Tony_Blair"
+  },
+  {
+    "display_name": "Adam Tooze",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Adam_Tooze"
+  },
+  {
+    "display_name": "Roger Federer",
+    "topic_tags": [
+      "sport",
+      "business"
+    ],
+    "wikipedia_slug": "Roger_Federer",
+    "aliases": [
+      "Federer"
+    ]
+  }
+]

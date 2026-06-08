@@ -1,8 +1,675 @@
 [
-  {"display_name": "Andrej Karpathy", "wikipedia_slug": "Andrej_Karpathy", "aliases": ["Karpathy"], "topic_tags": ["ai", "tech"]},
-  {"display_name": "Demis Hassabis", "wikipedia_slug": "Demis_Hassabis", "topic_tags": ["ai"]},
-  {"display_name": "Yann LeCun", "wikipedia_slug": "Yann_LeCun", "topic_tags": ["ai"]},
-  {"display_name": "Fei-Fei Li", "wikipedia_slug": "Fei-Fei_Li", "topic_tags": ["ai"]},
-  {"display_name": "Sam Altman", "wikipedia_slug": "Sam_Altman", "topic_tags": ["ai", "tech"]},
-  {"display_name": "Geoffrey Hinton", "wikipedia_slug": "Geoffrey_Hinton", "topic_tags": ["ai"]}
+  {
+    "display_name": "Andrej Karpathy",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Andrej_Karpathy",
+    "aliases": [
+      "Karpathy"
+    ]
+  },
+  {
+    "display_name": "Demis Hassabis",
+    "topic_tags": [
+      "ai"
+    ],
+    "wikipedia_slug": "Demis_Hassabis"
+  },
+  {
+    "display_name": "Yann LeCun",
+    "topic_tags": [
+      "ai"
+    ],
+    "wikipedia_slug": "Yann_LeCun"
+  },
+  {
+    "display_name": "Fei-Fei Li",
+    "topic_tags": [
+      "ai"
+    ],
+    "wikipedia_slug": "Fei-Fei_Li"
+  },
+  {
+    "display_name": "Sam Altman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Sam_Altman"
+  },
+  {
+    "display_name": "Geoffrey Hinton",
+    "topic_tags": [
+      "ai"
+    ],
+    "wikipedia_slug": "Geoffrey_Hinton"
+  },
+  {
+    "display_name": "Elon Musk",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Elon_Musk"
+  },
+  {
+    "display_name": "Sundar Pichai",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Sundar_Pichai"
+  },
+  {
+    "display_name": "Satya Nadella",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Satya_Nadella"
+  },
+  {
+    "display_name": "Jensen Huang",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Jensen_Huang"
+  },
+  {
+    "display_name": "Mark Zuckerberg",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Mark_Zuckerberg"
+  },
+  {
+    "display_name": "Yoshua Bengio",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Yoshua_Bengio"
+  },
+  {
+    "display_name": "Andrew Ng",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Andrew_Ng"
+  },
+  {
+    "display_name": "Mustafa Suleyman",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Mustafa_Suleyman"
+  },
+  {
+    "display_name": "Dario Amodei",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Dario_Amodei"
+  },
+  {
+    "display_name": "Ilya Sutskever",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Ilya_Sutskever"
+  },
+  {
+    "display_name": "Mira Murati",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Mira_Murati"
+  },
+  {
+    "display_name": "Lisa Su",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Lisa_Su"
+  },
+  {
+    "display_name": "Pat Gelsinger",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Pat_Gelsinger"
+  },
+  {
+    "display_name": "Kai-Fu Lee",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Kai-Fu_Lee"
+  },
+  {
+    "display_name": "Jeff Bezos",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Jeff_Bezos"
+  },
+  {
+    "display_name": "Sergey Brin",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Sergey_Brin"
+  },
+  {
+    "display_name": "Larry Page",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Larry_Page"
+  },
+  {
+    "display_name": "Jeff Dean",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Jeff_Dean"
+  },
+  {
+    "display_name": "Ian Goodfellow",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Ian_Goodfellow"
+  },
+  {
+    "display_name": "François Chollet",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "François_Chollet"
+  },
+  {
+    "display_name": "Jürgen Schmidhuber",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Jürgen_Schmidhuber"
+  },
+  {
+    "display_name": "David Silver",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "David_Silver_(computer_scientist)"
+  },
+  {
+    "display_name": "Shane Legg",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Shane_Legg"
+  },
+  {
+    "display_name": "Oriol Vinyals",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Oriol_Vinyals"
+  },
+  {
+    "display_name": "Richard Sutton",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Richard_Sutton"
+  },
+  {
+    "display_name": "Chris Lattner",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Chris_Lattner"
+  },
+  {
+    "display_name": "Anima Anandkumar",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Anima_Anandkumar"
+  },
+  {
+    "display_name": "Soumith Chintala",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Soumith_Chintala"
+  },
+  {
+    "display_name": "Li Deng",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Li_Deng_(computer_scientist)"
+  },
+  {
+    "display_name": "Yejin Choi",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Yejin_Choi"
+  },
+  {
+    "display_name": "Joelle Pineau",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Joelle_Pineau"
+  },
+  {
+    "display_name": "Daniela Rus",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Daniela_Rus"
+  },
+  {
+    "display_name": "Rodney Brooks",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Rodney_Brooks"
+  },
+  {
+    "display_name": "Pieter Abbeel",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Pieter_Abbeel"
+  },
+  {
+    "display_name": "Sergey Levine",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Sergey_Levine"
+  },
+  {
+    "display_name": "Marc Raibert",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Marc_Raibert"
+  },
+  {
+    "display_name": "Vijay Kumar",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Vijay_Kumar_(robotics_researcher)"
+  },
+  {
+    "display_name": "Ken Goldberg",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Ken_Goldberg"
+  },
+  {
+    "display_name": "Hod Lipson",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Hod_Lipson"
+  },
+  {
+    "display_name": "Manuela Veloso",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Manuela_Veloso"
+  },
+  {
+    "display_name": "Zoubin Ghahramani",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Zoubin_Ghahramani"
+  },
+  {
+    "display_name": "Doina Precup",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Doina_Precup"
+  },
+  {
+    "display_name": "Reid Hoffman",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Reid_Hoffman"
+  },
+  {
+    "display_name": "Marc Andreessen",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Marc_Andreessen"
+  },
+  {
+    "display_name": "Peter Thiel",
+    "topic_tags": [
+      "business",
+      "tech",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Peter_Thiel"
+  },
+  {
+    "display_name": "Vinod Khosla",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Vinod_Khosla"
+  },
+  {
+    "display_name": "Naval Ravikant",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Naval_Ravikant"
+  },
+  {
+    "display_name": "Balaji Srinivasan",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Balaji_Srinivasan"
+  },
+  {
+    "display_name": "Eric Schmidt",
+    "topic_tags": [
+      "tech",
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Eric_Schmidt"
+  },
+  {
+    "display_name": "Brad Smith",
+    "topic_tags": [
+      "tech",
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Brad_Smith_(lawyer)"
+  },
+  {
+    "display_name": "Kevin Scott",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "wikipedia_slug": "Kevin_Scott_(businessman)"
+  },
+  {
+    "display_name": "Ginni Rometty",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Ginni_Rometty"
+  },
+  {
+    "display_name": "Arvind Krishna",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "wikipedia_slug": "Arvind_Krishna"
+  },
+  {
+    "display_name": "Dario Gil",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "wikipedia_slug": "Dario_Gil"
+  },
+  {
+    "display_name": "Daphne Koller",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Daphne_Koller"
+  },
+  {
+    "display_name": "Clément Delangue",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Clément_Delangue"
+  },
+  {
+    "display_name": "Alex Karp",
+    "topic_tags": [
+      "tech",
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Alex_Karp"
+  },
+  {
+    "display_name": "George Hotz",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "George_Hotz"
+  },
+  {
+    "display_name": "Lex Fridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Lex_Fridman"
+  },
+  {
+    "display_name": "Ray Kurzweil",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Ray_Kurzweil"
+  },
+  {
+    "display_name": "Kevin Kelly",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Kevin_Kelly_(editor)"
+  },
+  {
+    "display_name": "Yuval Noah Harari",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "wikipedia_slug": "Yuval_Noah_Harari"
+  },
+  {
+    "display_name": "Nick Bostrom",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Nick_Bostrom"
+  },
+  {
+    "display_name": "Stuart Russell",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Stuart_J._Russell"
+  },
+  {
+    "display_name": "Max Tegmark",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Max_Tegmark"
+  },
+  {
+    "display_name": "Gary Marcus",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Gary_Marcus"
+  },
+  {
+    "display_name": "Erik Brynjolfsson",
+    "topic_tags": [
+      "ai",
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Erik_Brynjolfsson"
+  },
+  {
+    "display_name": "Andrew McAfee",
+    "topic_tags": [
+      "ai",
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Andrew_McAfee"
+  },
+  {
+    "display_name": "Martin Ford",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "wikipedia_slug": "Martin_Ford"
+  },
+  {
+    "display_name": "Amy Webb",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "wikipedia_slug": "Amy_Webb"
+  },
+  {
+    "display_name": "Joy Buolamwini",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Joy_Buolamwini"
+  },
+  {
+    "display_name": "Kate Crawford",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Kate_Crawford"
+  },
+  {
+    "display_name": "Timnit Gebru",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Timnit_Gebru"
+  },
+  {
+    "display_name": "Meredith Whittaker",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "wikipedia_slug": "Meredith_Whittaker"
+  }
 ]

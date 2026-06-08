@@ -1,9 +1,629 @@
 [
-  {"youtube_handle": "lexfridman", "topic_tags": ["ai", "tech"]},
-  {"youtube_handle": "AndrejKarpathy", "topic_tags": ["ai", "tech"]},
-  {"youtube_handle": "TwoMinutePapers", "topic_tags": ["ai"]},
-  {"youtube_handle": "YannicKilcher", "topic_tags": ["ai"]},
-  {"youtube_handle": "DwarkeshPatel", "topic_tags": ["ai", "tech"]},
-  {"youtube_handle": "MachineLearningStreetTalk", "topic_tags": ["ai"]},
-  {"youtube_handle": "DeepLearningAI", "topic_tags": ["ai", "tech"]}
+  {
+    "youtube_handle": "lexfridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AndrejKarpathy",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TwoMinutePapers",
+    "topic_tags": [
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "YannicKilcher",
+    "topic_tags": [
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "DwarkeshPatel",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "MachineLearningStreetTalk",
+    "topic_tags": [
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "DeepLearningAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GoogleAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "DeepMind",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "MITCSAIL",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "StanfordAILab",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "openai",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "MetaAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "NVIDIA",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "BostonDynamics",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TheVerge",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "WIRED",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "kurzgesagt",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "veritasium",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "smartereveryday",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "mkbhd",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "ColdFusion",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "ArxivInsights",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "RobertMilesAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "yannlecun",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "freecodecamp",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "a16z",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ycombinator",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "IEEESpectrum",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "Robohub",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "intel",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "AMDOfficial",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "LinusTechTips",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "JayzTwoCents",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "MooresLawIsDead",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "FutureofLifeInstitute",
+    "topic_tags": [
+      "ai",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "3blue1brown",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "Computerphile",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "googledevelopers",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "tensorflow",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "pytorch",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "DeepLearningTV",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "sentdex",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "statquest",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "WeightsAndBiases",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AssemblyAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "HuggingFace",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheAIGuys",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AICoffeeBreak",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheGradient",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AIEplained",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "mattwolfe",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "FutureHouseAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "AIJason",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "WesRoth",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Fireship",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TechLead",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergTechnology",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CNBCTechnology",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "wsj",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheEconomist",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "FinancialTimes",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "WorldEconomicForum",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TED",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TEDxTalks",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "SingularityU",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TechCrunch",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "VentureBeat",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ZDNet",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "Gartner",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "IDC",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheNextWeb",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "DigitalFoundry",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "Techquickie",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "Wendoverproductions",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "RealEngineering",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "MarkRober",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "tested",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "CGPGrey",
+    "topic_tags": [
+      "tech",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "CodeWithHarry",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "Simplilearn",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TheAIEpiphany",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "EdinburghRobotics",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "ETHZurichRobotics",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "FraunhoferGesellschaft",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TsinghuaUniversity",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "PekingUniversity",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "Huawei",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "TencentOfficial",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "AlibabaGroup",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  }
 ]

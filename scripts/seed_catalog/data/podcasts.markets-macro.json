@@ -1,8 +1,481 @@
 [
-  {"search_term": "The Journal Wall Street Journal", "topic_tags": ["business"]},
-  {"search_term": "Odd Lots", "topic_tags": ["business"]},
-  {"search_term": "Macro Voices", "topic_tags": ["business"]},
-  {"search_term": "The Compound and Friends", "topic_tags": ["business"]},
-  {"search_term": "Bloomberg Surveillance", "topic_tags": ["business", "politics"]},
-  {"search_term": "Capital Allocators", "topic_tags": ["business"]}
+  {
+    "search_term": "The Journal Wall Street Journal",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Odd Lots",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Macro Voices",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Compound and Friends",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Surveillance",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Capital Allocators",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Masters in Business",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Journal.",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Planet Money",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Invest Like the Best with Patrick O'Shaughnessy",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "We Study Billionaires - The Investor's Podcast Network",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Indicator from Planet Money",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "FT News Briefing",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The Economist: Money Talks",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Animal Spirits",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Meb Faber Show",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Exchanges at Goldman Sachs",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "J.P. Morgan's 'Eye on the Market'",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Morgan Stanley Ideas",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Prof G Show with Scott Galloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Pivot",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Freakonomics Radio",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "EconTalk",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Macro Trading Floor",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Forward Guidance",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Grant Williams Podcast",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Behind the Money",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Money Clinic with Claer Barrett",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Your Money Briefing",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Marketplace",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Make Me Smart",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Pomp Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The European Central Bank Podcast",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Bank of England Podcast",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "IMF Podcasts",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "World Bank Podcasts",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The Curious Investor",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Daybreak: Americas",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Daybreak: Europe",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Daybreak: Asia",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Businessweek",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "What's News",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Daily Briefing: Real Vision",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Raoul Pal's Global Macro Investor",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Grant's Interest Rate Observer Podcast",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The End Game",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Things That Make You Go Hmmm...",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Money Show with Bruce Whitfield",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Business Standard Podcast",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Caixin-Sinica Podcast",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Nikkei Asia Review Podcast",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The Bond Buyer Podcast",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Cato Daily Podcast",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Hoover Institution: Uncommon Knowledge",
+    "topic_tags": [
+      "politics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The World Next Week",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Economist Asks",
+    "topic_tags": [
+      "politics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Exchange",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Goldman Sachs Exchanges: Great Investors",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Financial Times: The Rachman Review",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Financial Times: Alphaville",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Financial Times: The Week Ahead",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Wall Street Journal: Tech News Briefing",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Wall Street Journal: Opinion: Potomac Watch",
+    "topic_tags": [
+      "politics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Wall Street Journal: The Future of Everything",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Opinion",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Wall Street Week",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Stephanomics",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Globalist",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "MoneywebNOW with Simon Brown",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Daily Briefing from TheStreet",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Compound Show",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Long View",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Morningstar Investment Management Podcast",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Value Perspective",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Contrarian Investor Podcast",
+    "topic_tags": [
+      "business"
+    ]
+  }
 ]

@@ -1,0 +1,698 @@
+[
+  {
+    "youtube_handle": "kurzgesagt",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TED",
+    "topic_tags": [
+      "environment",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "veritasium",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "smartereveryday",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "OurWorldInData",
+    "topic_tags": [
+      "environment",
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "FullyChargedShow",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "UndecidedMF",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "RealEngineering",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergGreen",
+    "topic_tags": [
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "TheEconomist",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "worldeconomicforum",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "UNClimateChange",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BillGates",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "natgeo",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "PBSTerra",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "SciShow",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "MinuteEarth",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "climateadam",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "JustHaveAThink",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ClimateTown",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "CarbonBrief",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "ProjectDrawdown",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "GreenpeaceVideo",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "WWFInternational",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "IEA",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "IRENAOfficial",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "RethinkX",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "tonyseba",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "CleanTechnica",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "ElectrekCo",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "InsideEVs",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "YaleClimateConnections",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "Grist",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "InsideClimateNews",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "CarbonTracker",
+    "topic_tags": [
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "AgoraEnergiewende",
+    "topic_tags": [
+      "politics",
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheClimateCouncil",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "ChinaDialogue",
+    "topic_tags": [
+      "geopolitics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "GreenTVIndia",
+    "topic_tags": [
+      "environment",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "aljazeeraenglish",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "dwdocumentary",
+    "topic_tags": [
+      "politics",
+      "environment",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "WIONews",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "trtworld",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "cgtnofficial",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "theguardian",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "nytimes",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "washingtonpost",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergTV",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "cnbc",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BBCNews",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "skynews",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "france24english",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "dwenglish",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "vox",
+    "topic_tags": [
+      "politics",
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "vicenews",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "johnnyharris",
+    "topic_tags": [
+      "politics",
+      "environment",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "Wendoverproductions",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "HalfasInteresting",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "AdamSomething",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "TechnologyConnections",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "EngineeringExplained",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "kylehill",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "Seeker",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "itsokaytobesmart",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "PhysicsGirl",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "potholer54",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "ClimateReality",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "TheClimateGroup",
+    "topic_tags": [
+      "business",
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "CleanEnergyWire",
+    "topic_tags": [
+      "environment",
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "RenewableEnergyWorld",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "SolarPowerEurope",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "WindEurope",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "USEnergyInformationAdministration",
+    "topic_tags": [
+      "business",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "WorldNuclearAssociation",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BreakthroughInstitute",
+    "topic_tags": [
+      "environment",
+      "politics",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "RockyMountainInstitute",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CanaryMedia",
+    "topic_tags": [
+      "environment",
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "StanfordEnergy",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "MITEnergyInitiative",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BerkeleyLab",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "NRELvideo",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "ARPAE",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "TheB1M",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "ColdFusionTV",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "theverge",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "engadget",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "cnet",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergTechnology",
+    "topic_tags": [
+      "business",
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "EVANNEX",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "TheDrivenAU",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "ClimateRealityCanada",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "ndtv",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "ThePrintIndia",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "ClimateCentral",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "IPCC_CH",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  }
+]

@@ -1,0 +1,577 @@
+[
+  {
+    "handle": "@TheAcademy",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The Academy"
+  },
+  {
+    "handle": "@RecordingAcad",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Recording Academy / GRAMMYs"
+  },
+  {
+    "handle": "@PulitzerPrizes",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The Pulitzer Prizes"
+  },
+  {
+    "handle": "@TheBookerPrizes",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The Booker Prizes"
+  },
+  {
+    "handle": "@THR",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "The Hollywood Reporter"
+  },
+  {
+    "handle": "@Variety",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Variety"
+  },
+  {
+    "handle": "@RollingStone",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Rolling Stone"
+  },
+  {
+    "handle": "@pitchfork",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Pitchfork"
+  },
+  {
+    "handle": "@nytimesarts",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "NYT Arts"
+  },
+  {
+    "handle": "@guardianculture",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Guardian Culture"
+  },
+  {
+    "handle": "@BBC_Culture",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "BBC Culture"
+  },
+  {
+    "handle": "@TheNewYorker",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The New Yorker"
+  },
+  {
+    "handle": "@netflix",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Netflix"
+  },
+  {
+    "handle": "@Spotify",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Spotify"
+  },
+  {
+    "handle": "@AppleMusic",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ],
+    "source_name": "Apple Music"
+  },
+  {
+    "handle": "@IMDb",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "IMDb"
+  },
+  {
+    "handle": "@RottenTomatoes",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Rotten Tomatoes"
+  },
+  {
+    "handle": "@IndieWire",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "IndieWire"
+  },
+  {
+    "handle": "@A24",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "A24"
+  },
+  {
+    "handle": "@MarvelStudios",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Marvel Studios"
+  },
+  {
+    "handle": "@DisneyStudios",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Walt Disney Studios"
+  },
+  {
+    "handle": "@BFI",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "BFI"
+  },
+  {
+    "handle": "@Cannes_Festival",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Festival de Cannes"
+  },
+  {
+    "handle": "@berlinale",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Berlinale"
+  },
+  {
+    "handle": "@Venice_FilmFest",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Venice Film Festival"
+  },
+  {
+    "handle": "@MuseumModernArt",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "MoMA"
+  },
+  {
+    "handle": "@metmuseum",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The Metropolitan Museum of Art"
+  },
+  {
+    "handle": "@Tate",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Tate"
+  },
+  {
+    "handle": "@LouvreMuseum",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Musée du Louvre"
+  },
+  {
+    "handle": "@britishmuseum",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The British Museum"
+  },
+  {
+    "handle": "@Guggenheim",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Guggenheim Museums"
+  },
+  {
+    "handle": "@Artforum",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Artforum"
+  },
+  {
+    "handle": "@Hyperallergic",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Hyperallergic"
+  },
+  {
+    "handle": "@artnet",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "artnet"
+  },
+  {
+    "handle": "@friezeofficial",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Frieze"
+  },
+  {
+    "handle": "@PENamerica",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ],
+    "source_name": "PEN America"
+  },
+  {
+    "handle": "@nytimesbooks",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "NYT Books"
+  },
+  {
+    "handle": "@guardianbooks",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Guardian Books"
+  },
+  {
+    "handle": "@LRB",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "London Review of Books"
+  },
+  {
+    "handle": "@ParisReview",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "The Paris Review"
+  },
+  {
+    "handle": "@GrantaMag",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Granta Magazine"
+  },
+  {
+    "handle": "@OprahsBookClub",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Oprah's Book Club"
+  },
+  {
+    "handle": "@MargaretAtwood",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Margaret E. Atwood"
+  },
+  {
+    "handle": "@neilhimself",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Neil Gaiman"
+  },
+  {
+    "handle": "@SalmanRushdie",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ],
+    "source_name": "Salman Rushdie"
+  },
+  {
+    "handle": "@ChimamandaReal",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ],
+    "source_name": "Chimamanda Ngozi Adichie"
+  },
+  {
+    "handle": "@PenguinRandom",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Penguin Random House"
+  },
+  {
+    "handle": "@FaberBooks",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Faber & Faber"
+  },
+  {
+    "handle": "@BloomsburyBooks",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Bloomsbury Publishing"
+  },
+  {
+    "handle": "@LitHub",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Literary Hub"
+  },
+  {
+    "handle": "@ElectricLit",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Electric Literature"
+  },
+  {
+    "handle": "@PoetryFound",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Poetry Foundation"
+  },
+  {
+    "handle": "@iamsrk",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Shah Rukh Khan"
+  },
+  {
+    "handle": "@SrBachchan",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Amitabh Bachchan"
+  },
+  {
+    "handle": "@priyankachopra",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Priyanka"
+  },
+  {
+    "handle": "@deepikapadukone",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Deepika Padukone"
+  },
+  {
+    "handle": "@karanjohar",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Karan Johar"
+  },
+  {
+    "handle": "@yrf",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Yash Raj Films"
+  },
+  {
+    "handle": "@DharmaMovies",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Dharma Productions"
+  },
+  {
+    "handle": "@anupama_chopra",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Anupama Chopra"
+  },
+  {
+    "handle": "@filmfare",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Filmfare"
+  },
+  {
+    "handle": "@CJENM_official",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "CJ ENM"
+  },
+  {
+    "handle": "@GhibliOfficial",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "スタジオジブリ STUDIO GHIBLI"
+  },
+  {
+    "handle": "@Almodovar_ofic",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Pedro Almodóvar"
+  },
+  {
+    "handle": "@NollywoodOnline",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Nollywood Online"
+  },
+  {
+    "handle": "@Beyonce",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Beyoncé"
+  },
+  {
+    "handle": "@taylorswift13",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Taylor Swift"
+  },
+  {
+    "handle": "@Drake",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Drake"
+  },
+  {
+    "handle": "@BTS_twt",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "BTS_official"
+  },
+  {
+    "handle": "@BLACKPINK",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "BLACKPINKOFFICIAL"
+  },
+  {
+    "handle": "@coldplay",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Coldplay"
+  },
+  {
+    "handle": "@Adele",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Adele"
+  },
+  {
+    "handle": "@eltonofficial",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Elton John"
+  },
+  {
+    "handle": "@PaulMcCartney",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Paul McCartney"
+  },
+  {
+    "handle": "@rihanna",
+    "topic_tags": [
+      "arts",
+      "business"
+    ],
+    "source_name": "Rihanna"
+  },
+  {
+    "handle": "@Shakira",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Shakira"
+  },
+  {
+    "handle": "@NPRMusic",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "NPR Music"
+  },
+  {
+    "handle": "@WOMADfestival",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "WOMAD Festival"
+  },
+  {
+    "handle": "@WorldMusicNet",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "World Music Network"
+  },
+  {
+    "handle": "@VogueMagazine",
+    "topic_tags": [
+      "arts"
+    ],
+    "source_name": "Vogue Magazine"
+  }
+]

@@ -1,0 +1,632 @@
+[
+  {
+    "youtube_handle": "BBCNews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "nytimes",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "CNN",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "AlJazeeraEnglish",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "dwnews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "TheEconomist",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "Vox",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "veritasium",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "kurzgesagt",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "Vsauce",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "MKBHD",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "LinusTechTips",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TED",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Bloomberg",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "wsj",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "CNBC",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "lexfridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "NatGeo",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "vicenews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "wired",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TheVerge",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TomScottGo",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "SmarterEveryDay",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ColdFusion",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "CNA938",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "france24english",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "skynews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "TheGuardian",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "FinancialTimes",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "GrahamStephan",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "AndreiJikh",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "theschooloflife",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "ArtofManliness",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "SmithsonianChannel",
+    "topic_tags": [
+      "arts",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "vogue",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "TwoMinutePapers",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "RobertMilesAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "OurPlanet",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "WWFInternational",
+    "topic_tags": [
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "ndtv",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "WIONews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "CGTNOfficial",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "RT_com",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "trtworld",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "DWDocumentary",
+    "topic_tags": [
+      "geopolitics",
+      "environment",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "TEDEd",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "crashcourse",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "khanacademy",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "NatGeoWild",
+    "topic_tags": [
+      "environment",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "Discovery",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "HISTORY",
+    "topic_tags": [
+      "arts",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "ScienceChannel",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TechCrunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "CNET",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "engadget",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ArsTechnicaVideos",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "TheB1M",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "RealEngineering",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Wendoverproductions",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "HalfasInteresting",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "johnnyharris",
+    "topic_tags": [
+      "geopolitics",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "PolyMatter",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "EconomicsExplained",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "VisualPolitik",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "AtlasPro1",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TheAtlantic",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "nymag",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "NewYorker",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "60Minutes",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "frontlinepbs",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "VICE",
+    "topic_tags": [
+      "arts",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "Insider",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "BusinessInsider",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "BloombergTechnology",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "CNBCMakeIt",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "TheDailyShow",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "LastWeekTonight",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "colbertlateshow",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "jimmykimmellive",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "FallonTonight",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "TheInfographicsShow",
+    "topic_tags": [
+      "tech",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "brightside",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "NatGeoTravel",
+    "topic_tags": [
+      "arts",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "DiscoveryUK",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "youtube_handle": "BBCEarth",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "NASA",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "esa",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "CERN",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "mitocw",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "stanford",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "harvard",
+    "topic_tags": [
+      "politics",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "YaleCourses",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "youtube_handle": "wef",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  }
+]

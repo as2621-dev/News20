@@ -1,0 +1,665 @@
+[
+  {
+    "handle": "@GretaThunberg",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Greta Thunberg"
+  },
+  {
+    "handle": "@BillGates",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ],
+    "source_name": "Bill Gates"
+  },
+  {
+    "handle": "@IEA",
+    "topic_tags": [
+      "environment",
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "International Energy Agency (IEA)"
+  },
+  {
+    "handle": "@UNFCCC",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "UN Climate Change"
+  },
+  {
+    "handle": "@IPCC_CH",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "IPCC"
+  },
+  {
+    "handle": "@AlGore",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "source_name": "Al Gore"
+  },
+  {
+    "handle": "@KHayhoe",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Katharine Hayhoe"
+  },
+  {
+    "handle": "@MichaelEMann",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Michael E. Mann"
+  },
+  {
+    "handle": "@DrFatihBirol",
+    "topic_tags": [
+      "environment",
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Fatih Birol"
+  },
+  {
+    "handle": "@ChristianaFig",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Christiana Figueres"
+  },
+  {
+    "handle": "@TheEconomist",
+    "topic_tags": [
+      "business",
+      "geopolitics",
+      "environment"
+    ],
+    "source_name": "The Economist"
+  },
+  {
+    "handle": "@nytimesclimate",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "NYT Climate"
+  },
+  {
+    "handle": "@guardianeco",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Guardian Environment"
+  },
+  {
+    "handle": "@BloombergGreen",
+    "topic_tags": [
+      "environment",
+      "business"
+    ],
+    "source_name": "Bloomberg Green"
+  },
+  {
+    "handle": "@CarbonBrief",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Carbon Brief"
+  },
+  {
+    "handle": "@DavidRoberts",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "David Roberts (Volts)"
+  },
+  {
+    "handle": "@RMI_Clipper",
+    "topic_tags": [
+      "environment",
+      "business",
+      "tech"
+    ],
+    "source_name": "Rocky Mountain Institute (RMI)"
+  },
+  {
+    "handle": "@WRI_Climate",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "WRI Climate"
+  },
+  {
+    "handle": "@IRENA",
+    "topic_tags": [
+      "environment",
+      "business",
+      "tech"
+    ],
+    "source_name": "IRENA"
+  },
+  {
+    "handle": "@JohanRockstrom",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Johan Rockström"
+  },
+  {
+    "handle": "@NaomiOreskes",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Naomi Oreskes"
+  },
+  {
+    "handle": "@JesseJenkins",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Jesse Jenkins"
+  },
+  {
+    "handle": "@LeahStokes",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "source_name": "Leah Stokes"
+  },
+  {
+    "handle": "@AkshatRathi",
+    "topic_tags": [
+      "environment",
+      "business"
+    ],
+    "source_name": "Akshat Rathi"
+  },
+  {
+    "handle": "@RobinsonMeyer",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Robinson Meyer"
+  },
+  {
+    "handle": "@EmilyAtkin",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Emily Atkin (HEATED)"
+  },
+  {
+    "handle": "@BillMcKibben",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Bill McKibben"
+  },
+  {
+    "handle": "@350",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "350.org"
+  },
+  {
+    "handle": "@SierraClub",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Sierra Club"
+  },
+  {
+    "handle": "@NRDC",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "NRDC"
+  },
+  {
+    "handle": "@EDF",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Environmental Defense Fund"
+  },
+  {
+    "handle": "@CanaryMediaInc",
+    "topic_tags": [
+      "environment",
+      "tech",
+      "business"
+    ],
+    "source_name": "Canary Media"
+  },
+  {
+    "handle": "@ElectrekCo",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ],
+    "source_name": "Electrek"
+  },
+  {
+    "handle": "@InsideClimate",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Inside Climate News"
+  },
+  {
+    "handle": "@Grist",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Grist"
+  },
+  {
+    "handle": "@EandENews",
+    "topic_tags": [
+      "environment",
+      "politics",
+      "business"
+    ],
+    "source_name": "E&E News"
+  },
+  {
+    "handle": "@GavinSchmidt",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Gavin Schmidt"
+  },
+  {
+    "handle": "@rahmstorf",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Stefan Rahmstorf"
+  },
+  {
+    "handle": "@friederikeotto",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Friederike Otto"
+  },
+  {
+    "handle": "@PeterK_SF",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Peter Kalmus"
+  },
+  {
+    "handle": "@SaleemulHuq",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Saleemul Huq (ICCCAD)"
+  },
+  {
+    "handle": "@MaryRobinsonCtR",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "source_name": "Mary Robinson"
+  },
+  {
+    "handle": "@VanessaNakate",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Vanessa Nakate"
+  },
+  {
+    "handle": "@WanjiraMathai",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Wanjira Mathai"
+  },
+  {
+    "handle": "@MohamedAdow",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Mohamed Adow"
+  },
+  {
+    "handle": "@SunitaNarain",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Sunita Narain"
+  },
+  {
+    "handle": "@VandanaShiva",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Vandana Shiva"
+  },
+  {
+    "handle": "@CarlosNobreECS",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ],
+    "source_name": "Carlos Nobre"
+  },
+  {
+    "handle": "@YoubaSokona",
+    "topic_tags": [
+      "environment",
+      "politics",
+      "tech"
+    ],
+    "source_name": "Youba Sokona"
+  },
+  {
+    "handle": "@MiaMottley",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "source_name": "Mia Mottley"
+  },
+  {
+    "handle": "@LaurenceTubiana",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "source_name": "Laurence Tubiana"
+  },
+  {
+    "handle": "@Rachel_Kyte",
+    "topic_tags": [
+      "environment",
+      "politics",
+      "business"
+    ],
+    "source_name": "Rachel Kyte"
+  },
+  {
+    "handle": "@KingsmillBond",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Kingsmill Bond"
+  },
+  {
+    "handle": "@Ramez",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ],
+    "source_name": "Ramez Naam"
+  },
+  {
+    "handle": "@mzjacobson",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ],
+    "source_name": "Mark Z. Jacobson"
+  },
+  {
+    "handle": "@AmoryLovins",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ],
+    "source_name": "Amory Lovins"
+  },
+  {
+    "handle": "@Saul_Griffith",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ],
+    "source_name": "Saul Griffith"
+  },
+  {
+    "handle": "@EmberClimate",
+    "topic_tags": [
+      "environment",
+      "tech",
+      "business"
+    ],
+    "source_name": "Ember"
+  },
+  {
+    "handle": "@BloombergNEF",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "BloombergNEF"
+  },
+  {
+    "handle": "@WoodMackenzie",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Wood Mackenzie"
+  },
+  {
+    "handle": "@DanYergin",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "environment"
+    ],
+    "source_name": "Daniel Yergin"
+  },
+  {
+    "handle": "@Breakthrough",
+    "topic_tags": [
+      "tech",
+      "environment",
+      "business"
+    ],
+    "source_name": "Breakthrough Energy"
+  },
+  {
+    "handle": "@TotalEnergies",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "source_name": "TotalEnergies"
+  },
+  {
+    "handle": "@Oxy",
+    "topic_tags": [
+      "business",
+      "environment"
+    ],
+    "source_name": "Occidental Petroleum"
+  },
+  {
+    "handle": "@FortescueFuture",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Fortescue Future Industries"
+  },
+  {
+    "handle": "@Orsted",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Ørsted"
+  },
+  {
+    "handle": "@Vestas",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Vestas"
+  },
+  {
+    "handle": "@SiemensGamesa",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Siemens Gamesa"
+  },
+  {
+    "handle": "@EnelGreenPower",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Enel Green Power"
+  },
+  {
+    "handle": "@NextEraEnergy",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "NextEra Energy"
+  },
+  {
+    "handle": "@Sunrun",
+    "topic_tags": [
+      "business",
+      "environment",
+      "tech"
+    ],
+    "source_name": "Sunrun"
+  },
+  {
+    "handle": "@CATL_official",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ],
+    "source_name": "CATL"
+  },
+  {
+    "handle": "@BYDCompany",
+    "topic_tags": [
+      "tech",
+      "business",
+      "environment"
+    ],
+    "source_name": "BYD"
+  },
+  {
+    "handle": "@UNEP",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "UN Environment Programme"
+  },
+  {
+    "handle": "@ClimateGroup",
+    "topic_tags": [
+      "environment",
+      "business",
+      "politics"
+    ],
+    "source_name": "The Climate Group"
+  },
+  {
+    "handle": "@ClimateActionNet",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Climate Action Network Int."
+  },
+  {
+    "handle": "@WEF",
+    "topic_tags": [
+      "business",
+      "geopolitics",
+      "environment"
+    ],
+    "source_name": "World Economic Forum"
+  },
+  {
+    "handle": "@ExtinctionR",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ],
+    "source_name": "Extinction Rebellion"
+  },
+  {
+    "handle": "@ClimatePower",
+    "topic_tags": [
+      "politics",
+      "environment"
+    ],
+    "source_name": "Climate Power"
+  }
+]

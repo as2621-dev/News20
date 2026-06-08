@@ -1,0 +1,574 @@
+[
+  {
+    "display_name": "Rachel Maddow",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Rachel_Maddow"
+  },
+  {
+    "display_name": "Sean Hannity",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Sean_Hannity"
+  },
+  {
+    "display_name": "Jake Tapper",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jake_Tapper"
+  },
+  {
+    "display_name": "Anderson Cooper",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Anderson_Cooper"
+  },
+  {
+    "display_name": "George Stephanopoulos",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "George_Stephanopoulos"
+  },
+  {
+    "display_name": "Bret Baier",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Bret_Baier"
+  },
+  {
+    "display_name": "Maggie Haberman",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Maggie_Haberman"
+  },
+  {
+    "display_name": "Ezra Klein",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Ezra_Klein"
+  },
+  {
+    "display_name": "Ben Shapiro",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Ben_Shapiro"
+  },
+  {
+    "display_name": "Laura Ingraham",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Laura_Ingraham"
+  },
+  {
+    "display_name": "Chris Hayes",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Chris_Hayes"
+  },
+  {
+    "display_name": "Dana Perino",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Dana_Perino"
+  },
+  {
+    "display_name": "Paul Krugman",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "wikipedia_slug": "Paul_Krugman"
+  },
+  {
+    "display_name": "Thomas Friedman",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Thomas_Friedman"
+  },
+  {
+    "display_name": "Lester Holt",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Lester_Holt"
+  },
+  {
+    "display_name": "Norah O'Donnell",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Norah_O'Donnell"
+  },
+  {
+    "display_name": "Martha MacCallum",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Martha_MacCallum"
+  },
+  {
+    "display_name": "Kristen Welker",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Kristen_Welker"
+  },
+  {
+    "display_name": "Chuck Todd",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Chuck_Todd"
+  },
+  {
+    "display_name": "Margaret Brennan",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Margaret_Brennan"
+  },
+  {
+    "display_name": "John King",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "John_King_(journalist)"
+  },
+  {
+    "display_name": "Wolf Blitzer",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Wolf_Blitzer"
+  },
+  {
+    "display_name": "Jonathan Karl",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jonathan_Karl"
+  },
+  {
+    "display_name": "Yamiche Alcindor",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Yamiche_Alcindor"
+  },
+  {
+    "display_name": "David Brooks",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "David_Brooks_(journalist)"
+  },
+  {
+    "display_name": "Michelle Goldberg",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Michelle_Goldberg"
+  },
+  {
+    "display_name": "Charles M. Blow",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Charles_M._Blow"
+  },
+  {
+    "display_name": "Peggy Noonan",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Peggy_Noonan"
+  },
+  {
+    "display_name": "George Will",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "George_Will"
+  },
+  {
+    "display_name": "David Ignatius",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "David_Ignatius"
+  },
+  {
+    "display_name": "Anne Applebaum",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Anne_Applebaum"
+  },
+  {
+    "display_name": "Jeffrey Goldberg",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Jeffrey_Goldberg"
+  },
+  {
+    "display_name": "Jonah Goldberg",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jonah_Goldberg"
+  },
+  {
+    "display_name": "David Frum",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "David_Frum"
+  },
+  {
+    "display_name": "E. J. Dionne Jr.",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "E._J._Dionne",
+    "aliases": [
+      "E.J. Dionne"
+    ]
+  },
+  {
+    "display_name": "Jennifer Rubin",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jennifer_Rubin"
+  },
+  {
+    "display_name": "Jonathan Swan",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jonathan_Swan"
+  },
+  {
+    "display_name": "Peter Baker",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Peter_Baker_(journalist)"
+  },
+  {
+    "display_name": "Carl Hulse",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Carl_Hulse"
+  },
+  {
+    "display_name": "Amy Walter",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Amy_Walter"
+  },
+  {
+    "display_name": "Charlie Cook",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Charlie_Cook_(political_analyst)"
+  },
+  {
+    "display_name": "Nate Silver",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ],
+    "wikipedia_slug": "Nate_Silver"
+  },
+  {
+    "display_name": "Joy Reid",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Joy_Reid"
+  },
+  {
+    "display_name": "Lawrence O'Donnell",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Lawrence_O'Donnell"
+  },
+  {
+    "display_name": "Jesse Watters",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jesse_Watters"
+  },
+  {
+    "display_name": "Greg Gutfeld",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ],
+    "wikipedia_slug": "Greg_Gutfeld"
+  },
+  {
+    "display_name": "Van Jones",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Van_Jones"
+  },
+  {
+    "display_name": "Ana Navarro",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Ana_Navarro"
+  },
+  {
+    "display_name": "Symone Sanders-Townsend",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Symone_Sanders-Townsend"
+  },
+  {
+    "display_name": "Michael Steele",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Michael_Steele"
+  },
+  {
+    "display_name": "Nicolle Wallace",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Nicolle_Wallace"
+  },
+  {
+    "display_name": "Megyn Kelly",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Megyn_Kelly"
+  },
+  {
+    "display_name": "Glenn Beck",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Glenn_Beck"
+  },
+  {
+    "display_name": "Mark Levin",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Mark_Levin"
+  },
+  {
+    "display_name": "Hugh Hewitt",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Hugh_Hewitt"
+  },
+  {
+    "display_name": "Victor Davis Hanson",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Victor_Davis_Hanson"
+  },
+  {
+    "display_name": "Mollie Hemingway",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Mollie_Hemingway"
+  },
+  {
+    "display_name": "David French",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "David_French_(journalist)"
+  },
+  {
+    "display_name": "Bill Kristol",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Bill_Kristol"
+  },
+  {
+    "display_name": "Sarah Longwell",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Sarah_Longwell"
+  },
+  {
+    "display_name": "Jeffrey Toobin",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jeffrey_Toobin"
+  },
+  {
+    "display_name": "Laurence Tribe",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Laurence_Tribe"
+  },
+  {
+    "display_name": "Jill Wine-Banks",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jill_Wine-Banks"
+  },
+  {
+    "display_name": "Michael Beschloss",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Michael_Beschloss"
+  },
+  {
+    "display_name": "Doris Kearns Goodwin",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Doris_Kearns_Goodwin"
+  },
+  {
+    "display_name": "Jon Meacham",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jon_Meacham"
+  },
+  {
+    "display_name": "Heather Cox Richardson",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Heather_Cox_Richardson"
+  },
+  {
+    "display_name": "Larry Sabato",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Larry_Sabato"
+  },
+  {
+    "display_name": "Kyle Kondik",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Kyle_Kondik"
+  },
+  {
+    "display_name": "Harry Enten",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Harry_Enten"
+  },
+  {
+    "display_name": "Abby Phillip",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Abby_Phillip"
+  },
+  {
+    "display_name": "Kaitlan Collins",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Kaitlan_Collins"
+  },
+  {
+    "display_name": "Manu Raju",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Manu_Raju"
+  },
+  {
+    "display_name": "Robert Costa",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Robert_Costa"
+  },
+  {
+    "display_name": "Amy Gardner",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Amy_Gardner"
+  },
+  {
+    "display_name": "Josh Dawsey",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Josh_Dawsey"
+  },
+  {
+    "display_name": "Jonathan Chait",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Jonathan_Chait"
+  },
+  {
+    "display_name": "Matt Taibbi",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Matt_Taibbi"
+  },
+  {
+    "display_name": "Glenn Greenwald",
+    "topic_tags": [
+      "politics"
+    ],
+    "wikipedia_slug": "Glenn_Greenwald"
+  },
+  {
+    "display_name": "David Leonhardt",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "wikipedia_slug": "David_Leonhardt"
+  }
+]

@@ -1,0 +1,644 @@
+[
+  {
+    "handle": "@elonmusk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Elon Musk"
+  },
+  {
+    "handle": "@sama",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Sam Altman"
+  },
+  {
+    "handle": "@paulg",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Paul Graham"
+  },
+  {
+    "handle": "@naval",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Naval Ravikant"
+  },
+  {
+    "handle": "@pmarca",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Marc Andreessen"
+  },
+  {
+    "handle": "@bhorowitz",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Ben Horowitz"
+  },
+  {
+    "handle": "@reidhoffman",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Reid Hoffman"
+  },
+  {
+    "handle": "@patrickc",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Patrick Collison"
+  },
+  {
+    "handle": "@brianchesky",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Brian Chesky"
+  },
+  {
+    "handle": "@rabois",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Keith Rabois"
+  },
+  {
+    "handle": "@davidsacks",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "David Sacks"
+  },
+  {
+    "handle": "@cdixon",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "Chris Dixon"
+  },
+  {
+    "handle": "@balajis",
+    "topic_tags": [
+      "tech",
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Balaji Srinivasan"
+  },
+  {
+    "handle": "@garrytan",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Garry Tan"
+  },
+  {
+    "handle": "@jason",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Jason Calacanis"
+  },
+  {
+    "handle": "@shl",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Sahil Lavingia"
+  },
+  {
+    "handle": "@lennysan",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Lenny Rachitsky"
+  },
+  {
+    "handle": "@shreyas",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Shreyas Doshi"
+  },
+  {
+    "handle": "@joulee",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Julie Zhuo"
+  },
+  {
+    "handle": "@ericries",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Eric Ries"
+  },
+  {
+    "handle": "@karaswisher",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Kara Swisher"
+  },
+  {
+    "handle": "@packymccormick",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Packy McCormick"
+  },
+  {
+    "handle": "@stratechery",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Ben Thompson"
+  },
+  {
+    "handle": "@harrystebbings",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Harry Stebbings"
+  },
+  {
+    "handle": "@ycombinator",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Y Combinator"
+  },
+  {
+    "handle": "@a16z",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Andreessen Horowitz"
+  },
+  {
+    "handle": "@sequoia",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Sequoia Capital"
+  },
+  {
+    "handle": "@TechCrunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "TechCrunch"
+  },
+  {
+    "handle": "@theinformation",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "The Information"
+  },
+  {
+    "handle": "@bgurley",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Bill Gurley"
+  },
+  {
+    "handle": "@fredwilson",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Fred Wilson"
+  },
+  {
+    "handle": "@bfeld",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Brad Feld"
+  },
+  {
+    "handle": "@sarahtavel",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Sarah Tavel"
+  },
+  {
+    "handle": "@anutosh",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Anu Hariharan"
+  },
+  {
+    "handle": "@sriramk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Sriram Krishnan"
+  },
+  {
+    "handle": "@aarthir",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Aarthi Ramamurthy"
+  },
+  {
+    "handle": "@vkhosla",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Vinod Khosla"
+  },
+  {
+    "handle": "@taavet",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Taavet Hinrikus"
+  },
+  {
+    "handle": "@niklaszennstrom",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Niklas Zennström"
+  },
+  {
+    "handle": "@eldsjal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Daniel Ek"
+  },
+  {
+    "handle": "@reshmasohoni",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Reshma Sohoni"
+  },
+  {
+    "handle": "@chrisjanz",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Christoph Janz"
+  },
+  {
+    "handle": "@lucianalix",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Luciana Lixandru"
+  },
+  {
+    "handle": "@kunalb11",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Kunal Shah"
+  },
+  {
+    "handle": "@vijayshekhar",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Vijay Shekhar Sharma"
+  },
+  {
+    "handle": "@deepigoyal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Deepinder Goyal"
+  },
+  {
+    "handle": "@anandmahindra",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "source_name": "Anand Mahindra"
+  },
+  {
+    "handle": "@vanikola",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Vani Kola"
+  },
+  {
+    "handle": "@rajananandan",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Rajan Anandan"
+  },
+  {
+    "handle": "@NandanNilekani",
+    "topic_tags": [
+      "tech",
+      "business",
+      "politics"
+    ],
+    "source_name": "Nandan Nilekani"
+  },
+  {
+    "handle": "@anthonytan",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Anthony Tan"
+  },
+  {
+    "handle": "@minliangtan",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Min-Liang Tan"
+  },
+  {
+    "handle": "@khaileeng",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Khailee Ng"
+  },
+  {
+    "handle": "@willsoncuaca",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Willson Cuaca"
+  },
+  {
+    "handle": "@davidvelez",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "David Vélez"
+  },
+  {
+    "handle": "@crisjunqueira",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Cristina Junqueira"
+  },
+  {
+    "handle": "@hernankazah",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Hernan Kazah"
+  },
+  {
+    "handle": "@nicolas_szekasy",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Nicolas Szekasy"
+  },
+  {
+    "handle": "@fabricegrinda",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Fabrice Grinda"
+  },
+  {
+    "handle": "@JasonNjoku",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Jason Njoku"
+  },
+  {
+    "handle": "@mayahorgan",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Maya Horgan Famodu"
+  },
+  {
+    "handle": "@iaboyeji",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Iyinoluwa Aboyeji"
+  },
+  {
+    "handle": "@africatechie",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Rebecca Enonchong"
+  },
+  {
+    "handle": "@TechProd_Arch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Olugbenga Agboola"
+  },
+  {
+    "handle": "@brenthoberman",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Brent Hoberman"
+  },
+  {
+    "handle": "@cee",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Carlos Eduardo Espinal"
+  },
+  {
+    "handle": "@bhavishagarwal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Bhavish Aggarwal"
+  },
+  {
+    "handle": "@binnybansal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Binny Bansal"
+  },
+  {
+    "handle": "@sachinbansal",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Sachin Bansal"
+  },
+  {
+    "handle": "@forrestli",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Forrest Li"
+  },
+  {
+    "handle": "@patrickgrove",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Patrick Grove"
+  },
+  {
+    "handle": "@brianrequarth",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Brian Requarth"
+  },
+  {
+    "handle": "@marianadias_",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Mariana Dias"
+  },
+  {
+    "handle": "@EghosaOmoigui",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Eghosa Omoigui"
+  },
+  {
+    "handle": "@tidjanedeme",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Tidjane Deme"
+  },
+  {
+    "handle": "@adammgrant",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "Adam Grant"
+  },
+  {
+    "handle": "@jamesclear",
+    "topic_tags": [
+      "business"
+    ],
+    "source_name": "James Clear"
+  },
+  {
+    "handle": "@caseynewton",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Casey Newton"
+  },
+  {
+    "handle": "@ProductHunt",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "Product Hunt"
+  },
+  {
+    "handle": "@SaaSGrowthHacks",
+    "topic_tags": [
+      "tech",
+      "business"
+    ],
+    "source_name": "SaaS Growth Hacks"
+  }
+]

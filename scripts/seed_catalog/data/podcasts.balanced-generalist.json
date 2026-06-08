@@ -1,0 +1,757 @@
+[
+  {
+    "search_term": "The Daily",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Up First",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The Joe Rogan Experience",
+    "topic_tags": [
+      "arts",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Lex Fridman Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Huberman Lab",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Journal.",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Ezra Klein Show",
+    "topic_tags": [
+      "politics",
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Intelligence",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Freakonomics Radio",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Planet Money",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "This American Life",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Radiolab",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Stuff You Should Know",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Dan Carlin's Hardcore History",
+    "topic_tags": [
+      "geopolitics",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Revisionist History",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Pod Save America",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Tim Ferriss Show",
+    "topic_tags": [
+      "business",
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Masters of Scale with Reid Hoffman",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Acquired",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "All-In Podcast",
+    "topic_tags": [
+      "business",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Prof G Show with Scott Galloway",
+    "topic_tags": [
+      "business",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "On With Kara Swisher",
+    "topic_tags": [
+      "tech",
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Vergecast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Decoder with Nilay Patel",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Darknet Diaries",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "StarTalk Radio with Neil deGrasse Tyson",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Sean Carroll's Mindscape",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Ologies with Alie Ward",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Ben Shapiro Show",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Jordan B. Peterson Podcast",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "SmartLess",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Armchair Expert with Dax Shepard",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Conan O'Brien Needs A Friend",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Bill Simmons Podcast",
+    "topic_tags": [
+      "sport",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Pardon My Take",
+    "topic_tags": [
+      "sport",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "ESPN Daily",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Lowe Post",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "Throughline",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Code Switch",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Daily Show With Trevor Noah: Ears Edition",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Problem With Jon Stewart",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Dollop",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Moth",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Snap Judgment",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Criminal",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Serial",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Dropout",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Indicator from Planet Money",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Recode Media",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "FiveThirtyEight Politics",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Argument",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Amicus with Dahlia Lithwick",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Weeds",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Fresh Air",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Wait Wait... Don't Tell Me!",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Bowery Boys: New York City History",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Stuff You Missed in History Class",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "You're Wrong About",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Maintenance Phase",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Rest Is Politics",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The News Agents",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The World Next Week",
+    "topic_tags": [
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Global Dispatches",
+    "topic_tags": [
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Sinica Podcast",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "BBC Business Daily",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "FT News Briefing",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Money Talks",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Squawk Pod",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Surveillance",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Odd Lots",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Masters in Business",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "How I Built This with Guy Raz",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Twenty Minute VC (20VC)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "A16z Podcast",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Equity",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Gradient Dissent",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Dwarkesh Patel Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Future of Life Institute Podcast",
+    "topic_tags": [
+      "ai"
+    ]
+  },
+  {
+    "search_term": "80,000 Hours Podcast",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ]
+  },
+  {
+    "search_term": "How to Save a Planet",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Outrage + Optimism",
+    "topic_tags": [
+      "environment",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Volts",
+    "topic_tags": [
+      "environment",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Art of Manliness",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Partially Examined Life",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Philosophize This!",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The History of Philosophy Without Any Gaps",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Happiness Lab with Dr. Laurie Santos",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Ten Percent Happier with Dan Harris",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Where Should We Begin? with Esther Perel",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Modern Love",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Pop Culture Happy Hour",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Rewatchables",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Big Picture",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Watch",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Still Processing",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The New Yorker Radio Hour",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "WTF with Marc Maron",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Adam Carolla Show",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "BBC Global News Podcast",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Today, Explained",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Hidden Brain",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Daily Wire",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Megyn Kelly Show",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Ringer NBA Show",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Ringer NFL Show",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Athletic Football Podcast",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Guardian Football Weekly",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Totally Football Show with James Richardson",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Daily Gwei",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Unchained",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bankless",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Pomp Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "EconTalk",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  }
+]

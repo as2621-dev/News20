@@ -1,0 +1,755 @@
+[
+  {
+    "search_term": "Waveform: The MKBHD Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Vergecast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Accidental Tech Podcast (ATP)",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Pivot",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Recode Media",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "This Week in Tech (TWiT)",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Hard Fork",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Acquired",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Lex Fridman Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Decoder with Nilay Patel",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Darknet Diaries",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Journal.",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "WSJ Tech News Briefing",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "How I Built This with Guy Raz",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Prof G Show with Scott Galloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Equity",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Mac Power Users",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Connected",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Upgrade",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Daily Tech News Show (DTNS)",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Techmeme Ride Home",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Talk Show With John Gruber",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "a16z Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Stack Overflow Podcast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Syntax - Tasty Web Development Treats",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Security Now!",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "This Week in Google",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "This Week in Enterprise Tech (TWiET)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "FLOSS Weekly",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "TechStuff",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Download",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Click",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Tech Tent",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Future of Everything",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Invest Like the Best with Patrick O'Shaughnessy",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Twenty Minute VC (20VC)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Founders Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Changelog",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Software Engineering Daily",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Data Skeptic",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Machine Learning Street Talk",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Practical AI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future of Tech",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Tech Policy Press Podcast",
+    "topic_tags": [
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Information's 411",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Information's Newcomer",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Internet of Things Podcast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Cloudcast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Linux Action News",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Destination Linux",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Tech Guy",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Tech News Weekly",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Security in 5",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Risky Business",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The CyberWire Daily Briefing",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Smashing Security",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Changelog Weekly",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Command Line Heroes",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Why'd You Push That Button?",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Tech Won't Save Us",
+    "topic_tags": [
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Planet Money",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Indicator from Planet Money",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future Tense",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Tech Talk with Nischal Shetty",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Rocket",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Clockwise",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Revolution",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Daily Crunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Found",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Chain Reaction",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Interface",
+    "topic_tags": [
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Freakonomics Radio",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Radiolab",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Science Friday",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "search_term": "This Week in Space",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "This Week in Computer Hardware",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "This Week in Law",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Triangulation",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "All About Android",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "iOS Today",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "MacBreak Weekly",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Windows Weekly",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Know How",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Download",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Future of Computing",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "JS Party",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Go Time",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Founders Talk",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The WAN Show",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Next Big Idea",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Economist: Babbage",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The New Stack Makers",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The ReadME Podcast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Code Story",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Developer Tea",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Full Stack Radio",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Software Defined Talk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Coder-Coder Podcast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Learn With Jason",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Shop Talk Show",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Amp Hour Electronics Podcast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Embedded.fm",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Stack",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Live",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "TechCrunch Disrupt",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: Startups",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: AI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: Climate",
+    "topic_tags": [
+      "tech",
+      "environment"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: International",
+    "topic_tags": [
+      "tech",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: European",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: Asian",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: African",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The TechCrunch Podcast: Latin American",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  }
+]

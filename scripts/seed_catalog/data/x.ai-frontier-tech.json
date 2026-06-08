@@ -1,6 +1,666 @@
 [
-  {"handle": "@karpathy", "source_name": "Andrej Karpathy", "topic_tags": ["ai", "tech"]},
-  {"handle": "@sama", "source_name": "Sam Altman", "topic_tags": ["ai", "tech"]},
-  {"handle": "@ylecun", "source_name": "Yann LeCun", "topic_tags": ["ai"]},
-  {"handle": "@DrJimFan", "source_name": "Jim Fan", "topic_tags": ["ai"]}
+  {
+    "handle": "@karpathy",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Andrej Karpathy"
+  },
+  {
+    "handle": "@sama",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Sam Altman"
+  },
+  {
+    "handle": "@ylecun",
+    "topic_tags": [
+      "ai"
+    ],
+    "source_name": "Yann LeCun"
+  },
+  {
+    "handle": "@DrJimFan",
+    "topic_tags": [
+      "ai"
+    ],
+    "source_name": "Jim Fan"
+  },
+  {
+    "handle": "@elonmusk",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "source_name": "Elon Musk"
+  },
+  {
+    "handle": "@jensenhuang",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "source_name": "Jensen Huang"
+  },
+  {
+    "handle": "@sundarpichai",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "source_name": "Sundar Pichai"
+  },
+  {
+    "handle": "@satyanadella",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "source_name": "Satya Nadella"
+  },
+  {
+    "handle": "@AndrewYNg",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Andrew Ng"
+  },
+  {
+    "handle": "@demishassabis",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Demis Hassabis"
+  },
+  {
+    "handle": "@drfeifei",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Fei-Fei Li"
+  },
+  {
+    "handle": "@mustafasuleyman",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "source_name": "Mustafa Suleyman"
+  },
+  {
+    "handle": "@OpenAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "OpenAI"
+  },
+  {
+    "handle": "@GoogleDeepMind",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Google DeepMind"
+  },
+  {
+    "handle": "@AnthropicAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Anthropic"
+  },
+  {
+    "handle": "@MetaAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Meta AI"
+  },
+  {
+    "handle": "@nvidia",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "source_name": "NVIDIA"
+  },
+  {
+    "handle": "@huggingface",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Hugging Face"
+  },
+  {
+    "handle": "@StabilityAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Stability AI"
+  },
+  {
+    "handle": "@BostonDynamics",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "Boston Dynamics"
+  },
+  {
+    "handle": "@Tesla_AI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Tesla AI"
+  },
+  {
+    "handle": "@pmarca",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Marc Andreessen"
+  },
+  {
+    "handle": "@a16z",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Andreessen Horowitz"
+  },
+  {
+    "handle": "@sequoia",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Sequoia Capital"
+  },
+  {
+    "handle": "@LisaSu",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Lisa Su"
+  },
+  {
+    "handle": "@intel",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Intel"
+  },
+  {
+    "handle": "@kevinroose",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ],
+    "source_name": "Kevin Roose"
+  },
+  {
+    "handle": "@CadeMetz",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "Cade Metz"
+  },
+  {
+    "handle": "@stratechery",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Ben Thompson"
+  },
+  {
+    "handle": "@jbryson",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Joanna Bryson"
+  },
+  {
+    "handle": "@emollick",
+    "topic_tags": [
+      "ai",
+      "business",
+      "tech"
+    ],
+    "source_name": "Ethan Mollick"
+  },
+  {
+    "handle": "@JeffDean",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Jeff Dean"
+  },
+  {
+    "handle": "@kaifulee",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "source_name": "Kai-Fu Lee"
+  },
+  {
+    "handle": "@GaryMarcus",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Gary Marcus"
+  },
+  {
+    "handle": "@lexfridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Lex Fridman"
+  },
+  {
+    "handle": "@fchollet",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "François Chollet"
+  },
+  {
+    "handle": "@soumithchintala",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Soumith Chintala"
+  },
+  {
+    "handle": "@DarioAmodei",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Dario Amodei"
+  },
+  {
+    "handle": "@ilyasut",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Ilya Sutskever"
+  },
+  {
+    "handle": "@geoffreyhinton",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Geoffrey Hinton"
+  },
+  {
+    "handle": "@yoshuabengio",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Yoshua Bengio"
+  },
+  {
+    "handle": "@Baidu_AI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Baidu AI"
+  },
+  {
+    "handle": "@SenseTime_AI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "SenseTime"
+  },
+  {
+    "handle": "@deeplearning_ai",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "DeepLearning.AI"
+  },
+  {
+    "handle": "@landing_ai",
+    "topic_tags": [
+      "ai",
+      "tech",
+      "business"
+    ],
+    "source_name": "Landing AI"
+  },
+  {
+    "handle": "@graphcoreai",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "Graphcore"
+  },
+  {
+    "handle": "@Arm",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Arm"
+  },
+  {
+    "handle": "@turinginst",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "The Alan Turing Institute"
+  },
+  {
+    "handle": "@element_ai",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Element AI"
+  },
+  {
+    "handle": "@Mila_Quebec",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Mila - Quebec AI Institute"
+  },
+  {
+    "handle": "@AISingapore",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "AI Singapore"
+  },
+  {
+    "handle": "@NandanNilekani",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Nandan Nilekani"
+  },
+  {
+    "handle": "@gauravgupta",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Gaurav Gupta"
+  },
+  {
+    "handle": "@PwC_AI",
+    "topic_tags": [
+      "business",
+      "ai",
+      "tech"
+    ],
+    "source_name": "PwC AI"
+  },
+  {
+    "handle": "@DeloitteAI",
+    "topic_tags": [
+      "business",
+      "ai",
+      "tech"
+    ],
+    "source_name": "Deloitte AI"
+  },
+  {
+    "handle": "@IBMResearchAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "IBM Research AI"
+  },
+  {
+    "handle": "@GoogleAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Google AI"
+  },
+  {
+    "handle": "@MicrosoftAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Microsoft AI"
+  },
+  {
+    "handle": "@open_phil",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Open Philanthropy"
+  },
+  {
+    "handle": "@80000hours",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "80,000 Hours"
+  },
+  {
+    "handle": "@Effective_Vent",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Effective Ventures"
+  },
+  {
+    "handle": "@FLI_org",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Future of Life Institute"
+  },
+  {
+    "handle": "@AISafetyOrg",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Center for AI Safety"
+  },
+  {
+    "handle": "@tegmark",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Max Tegmark"
+  },
+  {
+    "handle": "@StuartJRussell",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Stuart Russell"
+  },
+  {
+    "handle": "@rodneyabrooks",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "Rodney Brooks"
+  },
+  {
+    "handle": "@kahneman_daniel",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "Daniel Kahneman"
+  },
+  {
+    "handle": "@MelMitchellAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Melanie Mitchell"
+  },
+  {
+    "handle": "@GaryComstock",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Gary Comstock"
+  },
+  {
+    "handle": "@timnitGebru",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "Timnit Gebru"
+  },
+  {
+    "handle": "@DAIRInstitute",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "DAIR Institute"
+  },
+  {
+    "handle": "@azeem",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Azeem Azhar"
+  },
+  {
+    "handle": "@benedictevans",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "Benedict Evans"
+  },
+  {
+    "handle": "@matthewclifford",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Matt Clifford"
+  },
+  {
+    "handle": "@NathanBenaich",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ],
+    "source_name": "Nathan Benaich"
+  },
+  {
+    "handle": "@TheBatchAI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ],
+    "source_name": "The Batch (DeepLearning.AI)"
+  },
+  {
+    "handle": "@techreview",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "MIT Technology Review"
+  },
+  {
+    "handle": "@WIRED",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "WIRED"
+  },
+  {
+    "handle": "@verge",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ],
+    "source_name": "The Verge"
+  },
+  {
+    "handle": "@TechCrunch",
+    "topic_tags": [
+      "tech",
+      "business",
+      "ai"
+    ],
+    "source_name": "TechCrunch"
+  }
 ]

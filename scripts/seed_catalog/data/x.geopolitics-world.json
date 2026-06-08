@@ -1,0 +1,661 @@
+[
+  {
+    "handle": "@TheEconomist",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ],
+    "source_name": "The Economist"
+  },
+  {
+    "handle": "@FT",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ],
+    "source_name": "Financial Times"
+  },
+  {
+    "handle": "@Reuters",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "business"
+    ],
+    "source_name": "Reuters"
+  },
+  {
+    "handle": "@AP",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Associated Press"
+  },
+  {
+    "handle": "@BBCWorld",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "BBC News (World)"
+  },
+  {
+    "handle": "@nytimesworld",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The New York Times World"
+  },
+  {
+    "handle": "@WSJ",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ],
+    "source_name": "The Wall Street Journal"
+  },
+  {
+    "handle": "@AJEnglish",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Al Jazeera English"
+  },
+  {
+    "handle": "@CNN",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "CNN"
+  },
+  {
+    "handle": "@guardian",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Guardian"
+  },
+  {
+    "handle": "@ForeignAffairs",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Foreign Affairs"
+  },
+  {
+    "handle": "@CSIS",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "CSIS"
+  },
+  {
+    "handle": "@CFR_org",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Council on Foreign Relations"
+  },
+  {
+    "handle": "@AtlanticCouncil",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Atlantic Council"
+  },
+  {
+    "handle": "@ChathamHouse",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Chatham House"
+  },
+  {
+    "handle": "@IISS_org",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "IISS"
+  },
+  {
+    "handle": "@CarnegieEndow",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Carnegie Endowment"
+  },
+  {
+    "handle": "@BrookingsFP",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Brookings Foreign Policy"
+  },
+  {
+    "handle": "@RANDCorporation",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "RAND Corporation"
+  },
+  {
+    "handle": "@SIPRIorg",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ],
+    "source_name": "SIPRI"
+  },
+  {
+    "handle": "@UN",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ],
+    "source_name": "United Nations"
+  },
+  {
+    "handle": "@NATO",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "NATO"
+  },
+  {
+    "handle": "@EU_Commission",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "business"
+    ],
+    "source_name": "European Commission"
+  },
+  {
+    "handle": "@IAEAorg",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "tech"
+    ],
+    "source_name": "IAEA"
+  },
+  {
+    "handle": "@WorldBank",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "environment"
+    ],
+    "source_name": "World Bank"
+  },
+  {
+    "handle": "@IMFNews",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "source_name": "IMF"
+  },
+  {
+    "handle": "@StateDept",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "U.S. Department of State"
+  },
+  {
+    "handle": "@FCDOGovUK",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Foreign, Commonwealth & Development Office"
+  },
+  {
+    "handle": "@eu_eeas",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "European External Action Service"
+  },
+  {
+    "handle": "@FareedZakaria",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Fareed Zakaria"
+  },
+  {
+    "handle": "@ianbremmer",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "business"
+    ],
+    "source_name": "Ian Bremmer"
+  },
+  {
+    "handle": "@gideonrachman",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Gideon Rachman"
+  },
+  {
+    "handle": "@anneapplebaum",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Anne Applebaum"
+  },
+  {
+    "handle": "@camanpour",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Christiane Amanpour"
+  },
+  {
+    "handle": "@maxboot",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Max Boot"
+  },
+  {
+    "handle": "@McFaul",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Michael McFaul"
+  },
+  {
+    "handle": "@FionaHillDC",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Fiona Hill"
+  },
+  {
+    "handle": "@KoriSchake",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Kori Schake"
+  },
+  {
+    "handle": "@EliotACohen",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Eliot A. Cohen"
+  },
+  {
+    "handle": "@SamanthaJPower",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Samantha Power"
+  },
+  {
+    "handle": "@jakejsullivan",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Jake Sullivan"
+  },
+  {
+    "handle": "@SecBlinken",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Secretary Antony Blinken"
+  },
+  {
+    "handle": "@NikkeiAsia",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ],
+    "source_name": "Nikkei Asia"
+  },
+  {
+    "handle": "@SCMPNews",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "business"
+    ],
+    "source_name": "South China Morning Post"
+  },
+  {
+    "handle": "@TheDiplomat_RJI",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Diplomat"
+  },
+  {
+    "handle": "@Africa__News",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Africanews"
+  },
+  {
+    "handle": "@euronews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "euronews"
+  },
+  {
+    "handle": "@POLITICOEurope",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "POLITICO Europe"
+  },
+  {
+    "handle": "@FRANCE24",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "FRANCE 24 English"
+  },
+  {
+    "handle": "@dwnews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "DW News"
+  },
+  {
+    "handle": "@TRTWorld",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "TRT World"
+  },
+  {
+    "handle": "@Xinhua_News",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Xinhua News Agency"
+  },
+  {
+    "handle": "@MiddleEastEye",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Middle East Eye"
+  },
+  {
+    "handle": "@MEMRIReports",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "MEMRI"
+  },
+  {
+    "handle": "@CrisisGroup",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "International Crisis Group"
+  },
+  {
+    "handle": "@Stratfor",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Stratfor (now RANE)"
+  },
+  {
+    "handle": "@ForeignPolicy",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Foreign Policy"
+  },
+  {
+    "handle": "@ProjectSyndicate",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "business"
+    ],
+    "source_name": "Project Syndicate"
+  },
+  {
+    "handle": "@GlobalTimesNews",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Global Times"
+  },
+  {
+    "handle": "@RT_com",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "RT"
+  },
+  {
+    "handle": "@AlArabiya_Eng",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Al Arabiya English"
+  },
+  {
+    "handle": "@Haaretz",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Haaretz.com"
+  },
+  {
+    "handle": "@Jerusalem_Post",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Jerusalem Post"
+  },
+  {
+    "handle": "@spectatorindex",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "The Spectator Index"
+  },
+  {
+    "handle": "@BRICSinfo",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "politics"
+    ],
+    "source_name": "BRICS Information Portal"
+  },
+  {
+    "handle": "@UN_PGA",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "UN General Assembly President"
+  },
+  {
+    "handle": "@UN_News_Centre",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "UN News"
+  },
+  {
+    "handle": "@hrw",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ],
+    "source_name": "Human Rights Watch"
+  },
+  {
+    "handle": "@amnesty",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Amnesty International"
+  },
+  {
+    "handle": "@ICRC",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "ICRC"
+  },
+  {
+    "handle": "@NobelPrize",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "arts"
+    ],
+    "source_name": "The Nobel Prize"
+  },
+  {
+    "handle": "@CouncilofEurope",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Council of Europe"
+  },
+  {
+    "handle": "@OSCE",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "OSCE"
+  },
+  {
+    "handle": "@OAS_official",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "OAS"
+  },
+  {
+    "handle": "@ASEAN",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "business"
+    ],
+    "source_name": "ASEAN"
+  },
+  {
+    "handle": "@AU_Chairperson",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "African Union Chairperson"
+  },
+  {
+    "handle": "@ecowas_cedeao",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "ECOWAS"
+  },
+  {
+    "handle": "@UNOCHA",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ],
+    "source_name": "UN OCHA"
+  },
+  {
+    "handle": "@UNPeacekeeping",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "UN Peacekeeping"
+  },
+  {
+    "handle": "@UNHCR",
+    "topic_tags": [
+      "geopolitics",
+      "politics",
+      "environment"
+    ],
+    "source_name": "UNHCR"
+  }
+]

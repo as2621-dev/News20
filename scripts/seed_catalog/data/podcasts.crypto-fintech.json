@@ -1,0 +1,912 @@
+[
+  {
+    "search_term": "Bankless",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Unchained",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Pomp Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "What Bitcoin Did",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Breakdown with NLW",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Real Vision Daily Briefing",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "a16z Crypto Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Fintech Insider by 11:FS",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Scoop",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "On The Margin",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Crypto",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Odd Lots",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Stephan Livera Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Bitcoin Standard Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Tales from the Crypt",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Epicenter",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Blockcrunch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Delphi Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Empire",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Wolf Of All Streets",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Crypto Critics' Corner",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Money Movement with Circle",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Payments on Fire®",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Blueprint",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Decrypt Daily",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Defiant",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Conversation",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Hashing It Out",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Digital Asset Report",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Crypto 101",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Bad Crypto Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Street Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Bitcoin Podcast Network",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain Show",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Fintech Beat",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Leaders Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Times Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Finovate Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Founder Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Growth Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Revolution Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Startup Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Takeaway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Thought Leader Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Weekly",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech World Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintechist",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Edge",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Effect",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Files",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Forward Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Forum",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Frontier",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Future",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Game",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Global Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Growth Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Huddle",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Innovation Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Blockchain & Crypto Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain Life",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain Report",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain Revolution",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain Today Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain Wonk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Basic Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Chick Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto & Blockchain Talk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Show",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Current",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Daily Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Guys",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Rundown",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Investor Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Crypto Life",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto News Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Couch",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Capitalist",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Crypto Strategist",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Crypto Talk Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Odd Lots (Bloomberg)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "a16z Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Invest Like the Best with Patrick O'Shaughnessy",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "All-In Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Scoop (The Block)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Empire (Blockworks)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Blockworks Macro",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "On The Brink with Castle Island Ventures",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Money Reimagined",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Bitcoin Magazine Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Story (Bloomberg)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Future of Money (FT)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Money Movement with Jeremy Allaire",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Web3 Breakdowns (Colossus)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bell Curve (Blockworks)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Conversation (Brave New Coin)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockcrunch Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Flippening",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto 101 Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Fintech One-on-One",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Forward Guidance (Blockworks)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Bitcoin Layer",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Thinking Crypto",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain & Us",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Factor with Nick Saponaro & Joe Blackburn",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Fintech Podcast (Chris Gledhill)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future of Fintech (Wharton Business Daily)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Crypto Wire (The Wall Street Journal)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Crypto Report (Bloomberg)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Crypto Mom Podcast",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Bitcoin Audible",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "POV Crypto",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Lark",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Crypto Exchange",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Blockchain.com Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Chain Reaction (TechCrunch)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Modern Finance",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Around The Block (Coinbase)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Hashing It Out (CoinDesk)",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Markets Daily (CoinDesk)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Grant Williams Podcast",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Macro Voices",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "We Study Billionaires - The Investor's Podcast Network",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Meb Faber Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Compound and Friends",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Animal Spirits",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Capital Allocators",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Founders Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Lightspeed Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Fintech Marketing Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  }
+]

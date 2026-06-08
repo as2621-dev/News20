@@ -1,0 +1,594 @@
+[
+  {
+    "search_term": "The Joe Rogan Experience",
+    "topic_tags": [
+      "arts",
+      "politics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Lex Fridman Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Huberman Lab",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Tim Ferriss Show",
+    "topic_tags": [
+      "business",
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "My First Million",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "All-In Podcast",
+    "topic_tags": [
+      "business",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Modern Wisdom",
+    "topic_tags": [
+      "arts",
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Diary Of A CEO with Steven Bartlett",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Waveform: The MKBHD Podcast",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Colin and Samir Show",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The GaryVee Audio Experience",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The School of Greatness with Lewis Howes",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Impact Theory with Tom Bilyeu",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "SmartLess",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Armchair Expert with Dax Shepard",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Conan O'Brien Needs A Friend",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Call Her Daddy",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "H3 Podcast",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Impaulsive with Logan Paul",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Official Podcast",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Trash Taste Podcast",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Yard",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The WAN Show (Linus Tech Tips)",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Darknet Diaries",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Acquired",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Prof G Pod with Scott Galloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Pivot",
+    "topic_tags": [
+      "business",
+      "tech",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Decoder with Nilay Patel",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Vergecast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Stuff You Should Know",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Revisionist History",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Freakonomics Radio",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Planet Money",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Ezra Klein Show",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Making Sense with Sam Harris",
+    "topic_tags": [
+      "arts",
+      "politics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Jordan B. Peterson Podcast",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Ben Shapiro Show",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Michael Knowles Show",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Matt Walsh Show",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Pod Save America",
+    "topic_tags": [
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Chapo Trap House",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Adam Friedland Show",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Red Scare",
+    "topic_tags": [
+      "politics",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Your Mom's House with Tom Segura and Christina P.",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Flagrant with Andrew Schulz",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "This Past Weekend with Theo Von",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Distractible",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Create Unknown",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Futur with Chris Do",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Ground Up Show with Matt D'Avella",
+    "topic_tags": [
+      "arts",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Minimalists Podcast",
+    "topic_tags": [
+      "arts",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Art of Manliness",
+    "topic_tags": [
+      "arts",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Hardcore History",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Daily",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The Journal.",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Joe Budden Podcast",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Adam Carolla Show",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Pardon My Take",
+    "topic_tags": [
+      "sport",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Bill Simmons Podcast",
+    "topic_tags": [
+      "sport",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Pat McAfee Show 2.0",
+    "topic_tags": [
+      "sport",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Dave Ramsey Show",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "Ramit Sethi's I Will Teach You To Be Rich",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Ramsey Show",
+    "topic_tags": [
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Peter Schiff Show Podcast",
+    "topic_tags": [
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Mises Institute Podcast",
+    "topic_tags": [
+      "politics",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Dollop with Dave Anthony and Gareth Reynolds",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Lore",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "My Favorite Murder with Karen Kilgariff and Georgia Hardstark",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Crime Junkie",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Morbid: A True Crime Podcast",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Stuff You Missed in History Class",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Radiolab",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "This American Life",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Snap Judgment",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Wait Wait... Don't Tell Me!",
+    "topic_tags": [
+      "arts",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "Fresh Air",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "WTF with Marc Maron",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "You Made It Weird with Pete Holmes",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Office Ladies",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Pod Meets World",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Anna Faris Is Unqualified",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Always Sunny Podcast",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Rewatchables",
+    "topic_tags": [
+      "sport",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "Binge Mode: Harry Potter",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Ringer-Verse",
+    "topic_tags": [
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Ringer NBA Show",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Ringer NFL Show",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "search_term": "The Press Box",
+    "topic_tags": [
+      "sport",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Town with Matthew Belloni",
+    "topic_tags": [
+      "business",
+      "arts"
+    ]
+  },
+  {
+    "search_term": "The Watch",
+    "topic_tags": [
+      "arts"
+    ]
+  }
+]

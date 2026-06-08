@@ -1,0 +1,572 @@
+[
+  {
+    "youtube_handle": "ESPN",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NBA",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Formula1",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "PremierLeague",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NFL",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "UEFA",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "SkySports",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "FIFA",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "MLB",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "UFC",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ATPtour",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "WTA",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ICC",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NHL",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Olympics",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "RealMadrid",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "fcbarcelona",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ManchesterUnited",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "LiverpoolFC",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "BayernMunchen",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "PSG",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Juventus",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Arsenal",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ChelseaFC",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TottenhamHotspur",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ManCity",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "LaLiga",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Bundesliga",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "SerieA",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Ligue1UberEats",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Eredivisie",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "MLS",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "WorldRugby",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "SixNationsRugby",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "PGATOUR",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "DPWorldTour",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TheMasters",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "Wimbledon",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "rolandgarros",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "usopen",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "AustralianOpen",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ESPNFC",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "SkySportsFootball",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "SkySportsCricket",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "SkySportsF1",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TNTsports",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "CBSSports",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "FOXSports",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NBCSports",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "BleacherReport",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "HouseofHighlights",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ComplexSports",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "BarstoolSports",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TifoFootball",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TheAthletic",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TalkSPORT",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "beINSPORTSGlobal",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "DAZNBoxing",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TopRankBoxing",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "MatchroomBoxing",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "BellatorMMA",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ONEChampionship",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "WWE",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "AEW",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NFLFilms",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NBATV",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "MLBNetwork",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NHLNetwork",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "F1TV",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "MotoGP",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "WorldSBK",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "FIAWEC",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "IndyCar",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "NASCAR",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "FIAFormulaE",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "RedBullRacing",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "MercedesAMGF1",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ScuderiaFerrari",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "McLaren",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "AstonMartinF1",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "CricketAustralia",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "EnglandCricket",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ThePCBOfficial",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "BCCI",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "IPL",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "TheHundred",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "BigBashLeague",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "MajorLeagueCricket",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "FIBA",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "EuroLeague",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "FIBA3x3",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "WorldAthletics",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "WorldAquatics",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "bwf",
+    "topic_tags": [
+      "sport"
+    ]
+  },
+  {
+    "youtube_handle": "ITFtennis",
+    "topic_tags": [
+      "sport"
+    ]
+  }
+]

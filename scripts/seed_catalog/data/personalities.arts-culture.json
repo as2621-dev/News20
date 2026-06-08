@@ -1,0 +1,562 @@
+[
+  {
+    "display_name": "Steven Spielberg",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Steven_Spielberg"
+  },
+  {
+    "display_name": "Taylor Swift",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Taylor_Swift"
+  },
+  {
+    "display_name": "Beyoncé",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Beyoncé"
+  },
+  {
+    "display_name": "Tom Hanks",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Tom_Hanks"
+  },
+  {
+    "display_name": "Meryl Streep",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Meryl_Streep"
+  },
+  {
+    "display_name": "Leonardo DiCaprio",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Leonardo_DiCaprio"
+  },
+  {
+    "display_name": "Shah Rukh Khan",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Shah_Rukh_Khan"
+  },
+  {
+    "display_name": "Martin Scorsese",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Martin_Scorsese"
+  },
+  {
+    "display_name": "Quentin Tarantino",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Quentin_Tarantino"
+  },
+  {
+    "display_name": "Christopher Nolan",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Christopher_Nolan"
+  },
+  {
+    "display_name": "Adele",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Adele"
+  },
+  {
+    "display_name": "Ed Sheeran",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Ed_Sheeran"
+  },
+  {
+    "display_name": "Bad Bunny",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Bad_Bunny"
+  },
+  {
+    "display_name": "Margaret Atwood",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Margaret_Atwood"
+  },
+  {
+    "display_name": "Haruki Murakami",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Haruki_Murakami"
+  },
+  {
+    "display_name": "Chimamanda Ngozi Adichie",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Chimamanda_Ngozi_Adichie"
+  },
+  {
+    "display_name": "Salman Rushdie",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Salman_Rushdie"
+  },
+  {
+    "display_name": "J. K. Rowling",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "J._K._Rowling"
+  },
+  {
+    "display_name": "Viola Davis",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Viola_Davis"
+  },
+  {
+    "display_name": "Denzel Washington",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Denzel_Washington"
+  },
+  {
+    "display_name": "Cate Blanchett",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Cate_Blanchett"
+  },
+  {
+    "display_name": "Brad Pitt",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Brad_Pitt"
+  },
+  {
+    "display_name": "Angelina Jolie",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Angelina_Jolie"
+  },
+  {
+    "display_name": "Akira Kurosawa",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Akira_Kurosawa"
+  },
+  {
+    "display_name": "Satyajit Ray",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Satyajit_Ray"
+  },
+  {
+    "display_name": "Bong Joon-ho",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Bong_Joon-ho"
+  },
+  {
+    "display_name": "Pedro Almodóvar",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Pedro_Almodóvar"
+  },
+  {
+    "display_name": "Wong Kar-wai",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Wong_Kar-wai"
+  },
+  {
+    "display_name": "Guillermo del Toro",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Guillermo_del_Toro"
+  },
+  {
+    "display_name": "Alfonso Cuarón",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Alfonso_Cuarón"
+  },
+  {
+    "display_name": "Denis Villeneuve",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Denis_Villeneuve"
+  },
+  {
+    "display_name": "Hayao Miyazaki",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Hayao_Miyazaki"
+  },
+  {
+    "display_name": "Ava DuVernay",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Ava_DuVernay"
+  },
+  {
+    "display_name": "Spike Lee",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Spike_Lee"
+  },
+  {
+    "display_name": "Greta Gerwig",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Greta_Gerwig"
+  },
+  {
+    "display_name": "Jordan Peele",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Jordan_Peele"
+  },
+  {
+    "display_name": "Chloé Zhao",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Chloé_Zhao"
+  },
+  {
+    "display_name": "Wes Anderson",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Wes_Anderson"
+  },
+  {
+    "display_name": "Song Kang-ho",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Song_Kang-ho"
+  },
+  {
+    "display_name": "Isabelle Huppert",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Isabelle_Huppert"
+  },
+  {
+    "display_name": "Javier Bardem",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Javier_Bardem"
+  },
+  {
+    "display_name": "Penélope Cruz",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Penélope_Cruz"
+  },
+  {
+    "display_name": "Lupita Nyong'o",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Lupita_Nyong'o"
+  },
+  {
+    "display_name": "Idris Elba",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Idris_Elba"
+  },
+  {
+    "display_name": "Zendaya",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Zendaya"
+  },
+  {
+    "display_name": "Florence Pugh",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Florence_Pugh"
+  },
+  {
+    "display_name": "Margot Robbie",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Margot_Robbie"
+  },
+  {
+    "display_name": "Michelle Yeoh",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Michelle_Yeoh"
+  },
+  {
+    "display_name": "Cillian Murphy",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Cillian_Murphy"
+  },
+  {
+    "display_name": "Emma Stone",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Emma_Stone"
+  },
+  {
+    "display_name": "Timothée Chalamet",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Timothée_Chalamet"
+  },
+  {
+    "display_name": "Rihanna",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Rihanna"
+  },
+  {
+    "display_name": "Drake",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Drake"
+  },
+  {
+    "display_name": "Billie Eilish",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Billie_Eilish"
+  },
+  {
+    "display_name": "Dua Lipa",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Dua_Lipa"
+  },
+  {
+    "display_name": "Yo-Yo Ma",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Yo-Yo_Ma"
+  },
+  {
+    "display_name": "Hans Zimmer",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Hans_Zimmer"
+  },
+  {
+    "display_name": "A. R. Rahman",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "A._R._Rahman"
+  },
+  {
+    "display_name": "Angélique Kidjo",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Angélique_Kidjo"
+  },
+  {
+    "display_name": "Björk",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Björk"
+  },
+  {
+    "display_name": "Rosalía",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Rosalía"
+  },
+  {
+    "display_name": "Stromae",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Stromae"
+  },
+  {
+    "display_name": "Neil Gaiman",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Neil_Gaiman"
+  },
+  {
+    "display_name": "Kazuo Ishiguro",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Kazuo_Ishiguro"
+  },
+  {
+    "display_name": "Ocean Vuong",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Ocean_Vuong"
+  },
+  {
+    "display_name": "Zadie Smith",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Zadie_Smith"
+  },
+  {
+    "display_name": "Elena Ferrante",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Elena_Ferrante"
+  },
+  {
+    "display_name": "Viet Thanh Nguyen",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Viet_Thanh_Nguyen"
+  },
+  {
+    "display_name": "Colson Whitehead",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Colson_Whitehead"
+  },
+  {
+    "display_name": "Yōko Ogawa",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Yōko_Ogawa"
+  },
+  {
+    "display_name": "Bernardine Evaristo",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Bernardine_Evaristo"
+  },
+  {
+    "display_name": "Mohsin Hamid",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Mohsin_Hamid"
+  },
+  {
+    "display_name": "Olga Tokarczuk",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Olga_Tokarczuk"
+  },
+  {
+    "display_name": "Abdulrazak Gurnah",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Abdulrazak_Gurnah"
+  },
+  {
+    "display_name": "Annie Ernaux",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Annie_Ernaux"
+  },
+  {
+    "display_name": "Ai Weiwei",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Ai_Weiwei"
+  },
+  {
+    "display_name": "Yayoi Kusama",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Yayoi_Kusama"
+  },
+  {
+    "display_name": "Banksy",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Banksy"
+  },
+  {
+    "display_name": "Jeff Koons",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Jeff_Koons"
+  },
+  {
+    "display_name": "Marina Abramović",
+    "topic_tags": [
+      "arts"
+    ],
+    "wikipedia_slug": "Marina_Abramović"
+  }
+]

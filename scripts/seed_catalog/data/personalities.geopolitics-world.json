@@ -1,0 +1,766 @@
+[
+  {
+    "display_name": "Joe Biden",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Joe_Biden",
+    "aliases": [
+      "Biden"
+    ]
+  },
+  {
+    "display_name": "Xi Jinping",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Xi_Jinping",
+    "aliases": [
+      "Xi"
+    ]
+  },
+  {
+    "display_name": "Vladimir Putin",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Vladimir_Putin",
+    "aliases": [
+      "Putin"
+    ]
+  },
+  {
+    "display_name": "Emmanuel Macron",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Emmanuel_Macron",
+    "aliases": [
+      "Macron"
+    ]
+  },
+  {
+    "display_name": "Olaf Scholz",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Olaf_Scholz",
+    "aliases": [
+      "Scholz"
+    ]
+  },
+  {
+    "display_name": "Rishi Sunak",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Rishi_Sunak",
+    "aliases": [
+      "Sunak"
+    ]
+  },
+  {
+    "display_name": "Narendra Modi",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Narendra_Modi",
+    "aliases": [
+      "Modi"
+    ]
+  },
+  {
+    "display_name": "António Guterres",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "António_Guterres",
+    "aliases": [
+      "Guterres"
+    ]
+  },
+  {
+    "display_name": "Ursula von der Leyen",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Ursula_von_der_Leyen",
+    "aliases": [
+      "Von der Leyen"
+    ]
+  },
+  {
+    "display_name": "Jens Stoltenberg",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Jens_Stoltenberg",
+    "aliases": [
+      "Stoltenberg"
+    ]
+  },
+  {
+    "display_name": "Volodymyr Zelenskyy",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Volodymyr_Zelenskyy",
+    "aliases": [
+      "Zelenskyy"
+    ]
+  },
+  {
+    "display_name": "Antony Blinken",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Antony_Blinken",
+    "aliases": [
+      "Blinken"
+    ]
+  },
+  {
+    "display_name": "Sergei Lavrov",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Sergei_Lavrov",
+    "aliases": [
+      "Lavrov"
+    ]
+  },
+  {
+    "display_name": "S. Jaishankar",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "S._Jaishankar",
+    "aliases": [
+      "Jaishankar"
+    ]
+  },
+  {
+    "display_name": "Wang Yi",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Wang_Yi",
+    "aliases": [
+      "Wang Yi"
+    ]
+  },
+  {
+    "display_name": "Benjamin Netanyahu",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Benjamin_Netanyahu",
+    "aliases": [
+      "Netanyahu"
+    ]
+  },
+  {
+    "display_name": "Recep Tayyip Erdoğan",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Recep_Tayyip_Erdoğan",
+    "aliases": [
+      "Erdoğan"
+    ]
+  },
+  {
+    "display_name": "Mohammed bin Salman",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Mohammed_bin_Salman",
+    "aliases": [
+      "MBS"
+    ]
+  },
+  {
+    "display_name": "Luiz Inácio Lula da Silva",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Luiz_Inácio_Lula_da_Silva",
+    "aliases": [
+      "Lula"
+    ]
+  },
+  {
+    "display_name": "Cyril Ramaphosa",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Cyril_Ramaphosa",
+    "aliases": [
+      "Ramaphosa"
+    ]
+  },
+  {
+    "display_name": "Fumio Kishida",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Fumio_Kishida",
+    "aliases": [
+      "Kishida"
+    ]
+  },
+  {
+    "display_name": "Yoon Suk-yeol",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Yoon_Suk-yeol",
+    "aliases": [
+      "Yoon"
+    ]
+  },
+  {
+    "display_name": "Joko Widodo",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Joko_Widodo",
+    "aliases": [
+      "Jokowi"
+    ]
+  },
+  {
+    "display_name": "Anthony Albanese",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Anthony_Albanese",
+    "aliases": [
+      "Albanese"
+    ]
+  },
+  {
+    "display_name": "Justin Trudeau",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Justin_Trudeau",
+    "aliases": [
+      "Trudeau"
+    ]
+  },
+  {
+    "display_name": "Angela Merkel",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Angela_Merkel",
+    "aliases": [
+      "Merkel"
+    ]
+  },
+  {
+    "display_name": "Barack Obama",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Barack_Obama",
+    "aliases": [
+      "Obama"
+    ]
+  },
+  {
+    "display_name": "Hillary Clinton",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Hillary_Clinton",
+    "aliases": [
+      "Clinton"
+    ]
+  },
+  {
+    "display_name": "Henry Kissinger",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Henry_Kissinger",
+    "aliases": [
+      "Kissinger"
+    ]
+  },
+  {
+    "display_name": "John Mearsheimer",
+    "topic_tags": [
+      "geopolitics"
+    ],
+    "wikipedia_slug": "John_Mearsheimer"
+  },
+  {
+    "display_name": "Joseph Nye Jr.",
+    "topic_tags": [
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Joseph_Nye_Jr.",
+    "aliases": [
+      "Joseph Nye"
+    ]
+  },
+  {
+    "display_name": "Ian Bremmer",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "wikipedia_slug": "Ian_Bremmer"
+  },
+  {
+    "display_name": "Fareed Zakaria",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Fareed_Zakaria"
+  },
+  {
+    "display_name": "Thomas Friedman",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "wikipedia_slug": "Thomas_Friedman"
+  },
+  {
+    "display_name": "Anne Applebaum",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Anne_Applebaum"
+  },
+  {
+    "display_name": "Timothy Snyder",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Timothy_Snyder"
+  },
+  {
+    "display_name": "Gideon Rachman",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "wikipedia_slug": "Gideon_Rachman"
+  },
+  {
+    "display_name": "Niall Ferguson",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "wikipedia_slug": "Niall_Ferguson"
+  },
+  {
+    "display_name": "Yuval Noah Harari",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ],
+    "wikipedia_slug": "Yuval_Noah_Harari"
+  },
+  {
+    "display_name": "Graham T. Allison",
+    "topic_tags": [
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Graham_T._Allison",
+    "aliases": [
+      "Graham Allison"
+    ]
+  },
+  {
+    "display_name": "Robert D. Kaplan",
+    "topic_tags": [
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Robert_D._Kaplan"
+  },
+  {
+    "display_name": "Kishore Mahbubani",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Kishore_Mahbubani"
+  },
+  {
+    "display_name": "Parag Khanna",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "wikipedia_slug": "Parag_Khanna"
+  },
+  {
+    "display_name": "Minxin Pei",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Minxin_Pei"
+  },
+  {
+    "display_name": "Shashi Tharoor",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Shashi_Tharoor"
+  },
+  {
+    "display_name": "Madeleine Albright",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Madeleine_Albright",
+    "aliases": [
+      "Albright"
+    ]
+  },
+  {
+    "display_name": "Condoleezza Rice",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Condoleezza_Rice",
+    "aliases": [
+      "Rice"
+    ]
+  },
+  {
+    "display_name": "Francis Fukuyama",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Francis_Fukuyama"
+  },
+  {
+    "display_name": "Robert Kagan",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Robert_Kagan"
+  },
+  {
+    "display_name": "Vali Nasr",
+    "topic_tags": [
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Vali_Nasr"
+  },
+  {
+    "display_name": "Jake Sullivan",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Jake_Sullivan"
+  },
+  {
+    "display_name": "Christine Lagarde",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "wikipedia_slug": "Christine_Lagarde",
+    "aliases": [
+      "Lagarde"
+    ]
+  },
+  {
+    "display_name": "Mohamed bin Zayed Al Nahyan",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Mohamed_bin_Zayed_Al_Nahyan",
+    "aliases": [
+      "MBZ"
+    ]
+  },
+  {
+    "display_name": "Tamim bin Hamad Al Thani",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Tamim_bin_Hamad_Al_Thani"
+  },
+  {
+    "display_name": "Abdullah II of Jordan",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Abdullah_II_of_Jordan",
+    "aliases": [
+      "King Abdullah II"
+    ]
+  },
+  {
+    "display_name": "Abdel Fattah el-Sisi",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Abdel_Fattah_el-Sisi",
+    "aliases": [
+      "El-Sisi"
+    ]
+  },
+  {
+    "display_name": "Abiy Ahmed",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Abiy_Ahmed"
+  },
+  {
+    "display_name": "Paul Kagame",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Paul_Kagame"
+  },
+  {
+    "display_name": "Nana Akufo-Addo",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Nana_Akufo-Addo"
+  },
+  {
+    "display_name": "Bola Ahmed Tinubu",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Bola_Ahmed_Tinubu"
+  },
+  {
+    "display_name": "William Ruto",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "William_Ruto"
+  },
+  {
+    "display_name": "Samia Suluhu Hassan",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Samia_Suluhu_Hassan"
+  },
+  {
+    "display_name": "Gustavo Petro",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Gustavo_Petro"
+  },
+  {
+    "display_name": "Gabriel Boric",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Gabriel_Boric"
+  },
+  {
+    "display_name": "Andrés Manuel López Obrador",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Andrés_Manuel_López_Obrador",
+    "aliases": [
+      "AMLO"
+    ]
+  },
+  {
+    "display_name": "Pedro Sánchez",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Pedro_Sánchez"
+  },
+  {
+    "display_name": "Giorgia Meloni",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Giorgia_Meloni"
+  },
+  {
+    "display_name": "Viktor Orbán",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Viktor_Orbán",
+    "aliases": [
+      "Orbán"
+    ]
+  },
+  {
+    "display_name": "Alexander Lukashenka",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Alexander_Lukashenka",
+    "aliases": [
+      "Lukashenka"
+    ]
+  },
+  {
+    "display_name": "Bashar al-Assad",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Bashar_al-Assad",
+    "aliases": [
+      "Assad"
+    ]
+  },
+  {
+    "display_name": "Ali Khamenei",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Ali_Khamenei",
+    "aliases": [
+      "Khamenei"
+    ]
+  },
+  {
+    "display_name": "Ismail Haniyeh",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Ismail_Haniyeh"
+  },
+  {
+    "display_name": "Hassan Nasrallah",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Hassan_Nasrallah"
+  },
+  {
+    "display_name": "Mahmoud Abbas",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Mahmoud_Abbas"
+  },
+  {
+    "display_name": "Sheikh Hasina",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Sheikh_Hasina"
+  },
+  {
+    "display_name": "Lee Hsien Loong",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Lee_Hsien_Loong"
+  },
+  {
+    "display_name": "Ferdinand Marcos Jr.",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Ferdinand_Marcos_Jr.",
+    "aliases": [
+      "Bongbong Marcos"
+    ]
+  },
+  {
+    "display_name": "Michelle Bachelet",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Michelle_Bachelet"
+  },
+  {
+    "display_name": "Donald Tusk",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Donald_Tusk"
+  },
+  {
+    "display_name": "Kyriakos Mitsotakis",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "wikipedia_slug": "Kyriakos_Mitsotakis"
+  }
+]

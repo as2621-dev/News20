@@ -1,8 +1,605 @@
 [
-  {"youtube_handle": "Fireship", "topic_tags": ["tech"]},
-  {"youtube_handle": "lexfridman", "topic_tags": ["ai", "tech"]},
-  {"youtube_handle": "mkbhd", "topic_tags": ["tech"]},
-  {"youtube_handle": "ThePrimeagen", "topic_tags": ["tech"]},
-  {"youtube_handle": "TwoMinutePapers", "topic_tags": ["ai", "tech"]},
-  {"youtube_handle": "Computerphile", "topic_tags": ["tech"]}
+  {
+    "youtube_handle": "Fireship",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "lexfridman",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "mkbhd",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ThePrimeagen",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "TwoMinutePapers",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "Computerphile",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "linustechtips",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "mrwhosetheboss",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "dave2d",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "unboxtherapy",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "theverge",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "wired",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "cnet",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "engadget",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "austinevans",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "jerryrigeverything",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ijustine",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techquickie",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "shortcircuit",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "gamersnexus",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "hardwareunboxed",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "jayztwocents",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "digitalfoundry",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "coldfusion",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "louisrossmann",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "themrmobile",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "uravgconsumer",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "flossycarter",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "thetechchap",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "supersaf",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techspurt",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techtablets",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "gizmochina",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techradar",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "pcmag",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "androidauthority",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "appleexplained",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "9to5mac",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "androidpolice",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "makeuseof",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "digitaltrends",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "hardwarecanucks",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "optimumtech",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techsource",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "randomfrankp",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "twit",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "imore",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "androidcentral",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "pocketnow",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "pcworld",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techgumbo",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techmoan",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "tested",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "simonegiertz",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "electroboom",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "aiexplained",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "mattvidpro",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "theaiepiphany",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "arstechnicavideos",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techcrunch",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "bloombergtechnology",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "cnbctechnology",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "businessinsider",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "wsj",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "theeconomist",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "financialtimes",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "youtube_handle": "cnbc",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "bloomberg",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "ted",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "tedxtalks",
+    "topic_tags": [
+      "arts",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "googledevelopers",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "microsoftdeveloper",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "aws",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "intel",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "nvidia",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "youtube_handle": "samsung",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "apple",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "google",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "gamespot",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "ign",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "techlinked",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "techdeals",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "gregsalazar",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "technotice",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "veritasium",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "smartereveryday",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "kurzgesagt",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "markrober",
+    "topic_tags": [
+      "tech",
+      "arts"
+    ]
+  },
+  {
+    "youtube_handle": "3blue1brown",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "beneater",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "numberphile",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "wendoverproductions",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "youtube_handle": "realengineering",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "polymatter",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  },
+  {
+    "youtube_handle": "johnnyharris",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  }
 ]

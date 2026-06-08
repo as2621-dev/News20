@@ -29,6 +29,10 @@ pydub>=0.25
 # read keys via pydantic-settings, which already bundles dotenv).
 supabase>=2.0
 python-dotenv>=1.0
+# asyncpg: the catalog seeder (Phase 5f) writes via the IPv4 session pooler
+# (scripts/seed_catalog/seed_via_pooler.py) because the supabase-py REST host
+# is unreachable on IPv4-only networks (see memory news20-supabase-ddl-connection).
+asyncpg>=0.29
 
 # ──── Worker API: the server-side grounded Q&A endpoint (Phase 2b SP2) ────
 # The static-export SPA cannot hold the Gemini key / run verification client-side,

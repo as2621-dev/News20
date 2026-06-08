@@ -1,8 +1,810 @@
 [
-  {"search_term": "Lex Fridman Podcast", "topic_tags": ["ai", "tech"]},
-  {"search_term": "Dwarkesh Podcast", "topic_tags": ["ai", "tech"]},
-  {"search_term": "No Priors", "topic_tags": ["ai", "tech"]},
-  {"search_term": "Latent Space", "topic_tags": ["ai", "tech"]},
-  {"search_term": "The Cognitive Revolution", "topic_tags": ["ai"]},
-  {"search_term": "Odd Lots", "topic_tags": ["business", "tech"]}
+  {
+    "search_term": "Lex Fridman Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Dwarkesh Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "No Priors",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Latent Space",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Cognitive Revolution",
+    "topic_tags": [
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Odd Lots",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Acquired",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The TWIML AI Podcast (This Week in Machine Learning & AI)",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Gradient Dissent (Weights & Biases)",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Machine Learning Street Talk",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Data Skeptic",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Robot Brains Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "a16z Podcast",
+    "topic_tags": [
+      "business",
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Exponential View with Azeem Azhar",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "Pivot",
+    "topic_tags": [
+      "tech",
+      "business",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The Vergecast",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Decoder with Nilay Patel",
+    "topic_tags": [
+      "tech",
+      "ai",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Technology",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "WSJ Tech News Briefing",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "MIT Technology Review's 'TR Daily'",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "DeepMind: The Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "NVIDIA AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Google AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Future of Everything (WSJ)",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "AI in Business Podcast",
+    "topic_tags": [
+      "ai",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Practical AI",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Data Engineering Podcast",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "MLOps Community Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Towards Data Science Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Alan Turing Institute Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Ethics Podcast",
+    "topic_tags": [
+      "ai",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The AI Alignment Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Semiconductor Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Moore's Lobby",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The Robot Report Podcast",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Prof G Show with Scott Galloway",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Financial Times Tech Tonic",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The China Project (Sinica Podcast)",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Tech in Asia Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The European Startup Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Microsoft Research Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The NVIDIA Podcast",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Software Engineering Radio",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Tech Policy Podcast",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Lawfare Podcast",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The World Economic Forum Podcast",
+    "topic_tags": [
+      "geopolitics",
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future of Life Institute Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The 80,000 Hours Podcast",
+    "topic_tags": [
+      "ai",
+      "politics"
+    ]
+  },
+  {
+    "search_term": "The AI in Production Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Machine Learning Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Data Science Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The O'Reilly Data Show Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "AI Today Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Data Science News Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Changelog",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Software Engineering Daily",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Stack Overflow Podcast",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Future of Computing",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The EEVblog Podcast",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Embedded.fm",
+    "topic_tags": [
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Robotics Today",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Next Wave (MIT Technology Review)",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Economist: Babbage",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "The Journal. (WSJ)",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Bloomberg Surveillance",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The World Ahead (The Economist)",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "War on the Rocks",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Indian Startup Show",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Future of Work with Jacob Morgan",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "AI and You",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Singularity Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future of Humanity Institute Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Kaggle Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "AI Explained",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Show (Microsoft)",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Element (IBM)",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Google Cloud Podcast",
+    "topic_tags": [
+      "tech",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Salesforce AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Intel AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Amazon Science Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "TechNode China Tech Podcast",
+    "topic_tags": [
+      "tech",
+      "business",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "China Talk",
+    "topic_tags": [
+      "geopolitics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Tech.eu Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Sifted Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The Ken Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "YourStory Podcast",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "McKinsey on AI",
+    "topic_tags": [
+      "ai",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Deloitte On Tech",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "PwC's Tech Talk",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "KPMG's Future of Everything",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "EY's Tech Connect",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "BCG Henderson Institute",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Accenture's Built for Change",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Capgemini's Applied Innovation",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "TCS Perspectives",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Infosys Knowledge Institute",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Wipro's Digital Transformation",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "HCLTech's Tech Insights",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "The AI Podcast (Google)",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Podcast (DeepLearning.AI)",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "The AI Journal Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "AI for Good Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Digital Health Today",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Fintech Insider by 11:FS",
+    "topic_tags": [
+      "business",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Marketing AI Show",
+    "topic_tags": [
+      "ai",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Game Dev Unchained",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "Manufacturing Tomorrow",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "CyberWire Daily",
+    "topic_tags": [
+      "tech",
+      "geopolitics"
+    ]
+  },
+  {
+    "search_term": "The EdTech Podcast",
+    "topic_tags": [
+      "tech",
+      "business"
+    ]
+  },
+  {
+    "search_term": "LawNext",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Art & AI Podcast",
+    "topic_tags": [
+      "arts",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Music AI Podcast",
+    "topic_tags": [
+      "arts",
+      "ai"
+    ]
+  },
+  {
+    "search_term": "Sports Techie Podcast",
+    "topic_tags": [
+      "sport",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "Future of AI Podcast",
+    "topic_tags": [
+      "ai",
+      "tech"
+    ]
+  },
+  {
+    "search_term": "AI and Society Podcast",
+    "topic_tags": [
+      "ai",
+      "politics"
+    ]
+  }
 ]

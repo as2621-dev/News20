@@ -1,0 +1,555 @@
+[
+  {
+    "handle": "@Cristiano",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Cristiano Ronaldo"
+  },
+  {
+    "handle": "@TeamMessi",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Leo Messi"
+  },
+  {
+    "handle": "@NBA",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "NBA"
+  },
+  {
+    "handle": "@espn",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "ESPN"
+  },
+  {
+    "handle": "@FIFAWorldCup",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "FIFA World Cup"
+  },
+  {
+    "handle": "@premierleague",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Premier League"
+  },
+  {
+    "handle": "@KingJames",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "LeBron James"
+  },
+  {
+    "handle": "@F1",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Formula 1"
+  },
+  {
+    "handle": "@ChampionsLeague",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "UEFA Champions League"
+  },
+  {
+    "handle": "@imVkohli",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Virat Kohli"
+  },
+  {
+    "handle": "@BBCSport",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "BBC Sport"
+  },
+  {
+    "handle": "@SkySports",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Sky Sports"
+  },
+  {
+    "handle": "@realmadrid",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Real Madrid C.F."
+  },
+  {
+    "handle": "@FCBarcelona",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "FC Barcelona"
+  },
+  {
+    "handle": "@ManUtd",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Manchester United"
+  },
+  {
+    "handle": "@LFC",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Liverpool FC"
+  },
+  {
+    "handle": "@FabrizioRomano",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Fabrizio Romano"
+  },
+  {
+    "handle": "@StephenCurry30",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Stephen Curry"
+  },
+  {
+    "handle": "@neymarjr",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Neymar Jr"
+  },
+  {
+    "handle": "@KMbappe",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Kylian Mbappé"
+  },
+  {
+    "handle": "@LewisHamilton",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Lewis Hamilton"
+  },
+  {
+    "handle": "@ICC",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "ICC"
+  },
+  {
+    "handle": "@atptour",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "ATP Tour"
+  },
+  {
+    "handle": "@WTA",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "WTA"
+  },
+  {
+    "handle": "@DjokerNole",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Novak Djokovic"
+  },
+  {
+    "handle": "@RafaelNadal",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Rafael Nadal"
+  },
+  {
+    "handle": "@Max33Verstappen",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Max Verstappen"
+  },
+  {
+    "handle": "@wojespn",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Adrian Wojnarowski"
+  },
+  {
+    "handle": "@ShamsCharania",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Shams Charania"
+  },
+  {
+    "handle": "@LaLiga",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "LaLiga"
+  },
+  {
+    "handle": "@Bundesliga_EN",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Bundesliga"
+  },
+  {
+    "handle": "@SerieA_EN",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Serie A"
+  },
+  {
+    "handle": "@ESPNFC",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "ESPN FC"
+  },
+  {
+    "handle": "@BleacherReport",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Bleacher Report"
+  },
+  {
+    "handle": "@TheAthletic",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "The Athletic"
+  },
+  {
+    "handle": "@Giannis_An34",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Giannis Antetokounmpo"
+  },
+  {
+    "handle": "@KDTrey5",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Kevin Durant"
+  },
+  {
+    "handle": "@MoSalah",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Mohamed Salah"
+  },
+  {
+    "handle": "@ErlingHaaland",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Erling Haaland"
+  },
+  {
+    "handle": "@sachin_rt",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Sachin Tendulkar"
+  },
+  {
+    "handle": "@ImRo45",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Rohit Sharma"
+  },
+  {
+    "handle": "@benstokes38",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Ben Stokes"
+  },
+  {
+    "handle": "@msdhoni",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "MS Dhoni"
+  },
+  {
+    "handle": "@BCCI",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "BCCI"
+  },
+  {
+    "handle": "@Wimbledon",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Wimbledon"
+  },
+  {
+    "handle": "@rolandgarros",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Roland-Garros"
+  },
+  {
+    "handle": "@usopen",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "US Open Tennis"
+  },
+  {
+    "handle": "@AustralianOpen",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Australian Open"
+  },
+  {
+    "handle": "@ufc",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "UFC"
+  },
+  {
+    "handle": "@TheNotoriousMMA",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Conor McGregor"
+  },
+  {
+    "handle": "@TigerWoods",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Tiger Woods"
+  },
+  {
+    "handle": "@PGATOUR",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "PGA TOUR"
+  },
+  {
+    "handle": "@WorldAthletics",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "World Athletics"
+  },
+  {
+    "handle": "@usainbolt",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Usain Bolt"
+  },
+  {
+    "handle": "@WorldRugby",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "World Rugby"
+  },
+  {
+    "handle": "@AllBlacks",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "All Blacks"
+  },
+  {
+    "handle": "@Springboks",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Springboks"
+  },
+  {
+    "handle": "@GaryLineker",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Gary Lineker"
+  },
+  {
+    "handle": "@rioferdy5",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Rio Ferdinand"
+  },
+  {
+    "handle": "@Carra23",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Jamie Carragher"
+  },
+  {
+    "handle": "@bhogleharsha",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Harsha Bhogle"
+  },
+  {
+    "handle": "@isaguha",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Isa Guha"
+  },
+  {
+    "handle": "@Charles_Leclerc",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Charles Leclerc"
+  },
+  {
+    "handle": "@LandoNorris",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Lando Norris"
+  },
+  {
+    "handle": "@alo_oficial",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Fernando Alonso"
+  },
+  {
+    "handle": "@carlosalcaraz",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Carlos Alcaraz"
+  },
+  {
+    "handle": "@iga_swiatek",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Iga Świątek"
+  },
+  {
+    "handle": "@SabalenkaA",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Aryna Sabalenka"
+  },
+  {
+    "handle": "@CocoGauff",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Coco Gauff"
+  },
+  {
+    "handle": "@luka7doncic",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Luka Dončić"
+  },
+  {
+    "handle": "@JoelEmbiid",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Joel Embiid"
+  },
+  {
+    "handle": "@PSG_English",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Paris Saint-Germain"
+  },
+  {
+    "handle": "@FCBayernEN",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "FC Bayern Munich"
+  },
+  {
+    "handle": "@juventusfcen",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Juventus"
+  },
+  {
+    "handle": "@Arsenal",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Arsenal"
+  },
+  {
+    "handle": "@ChelseaFC",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Chelsea FC"
+  },
+  {
+    "handle": "@ManCity",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Manchester City"
+  },
+  {
+    "handle": "@ESPNcricinfo",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "ESPNcricinfo"
+  },
+  {
+    "handle": "@SkySportsF1",
+    "topic_tags": [
+      "sport"
+    ],
+    "source_name": "Sky Sports F1"
+  }
+]

@@ -1,0 +1,585 @@
+[
+  {
+    "handle": "@nytimes",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "The New York Times"
+  },
+  {
+    "handle": "@washingtonpost",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "The Washington Post"
+  },
+  {
+    "handle": "@CNN",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "CNN"
+  },
+  {
+    "handle": "@FoxNews",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "Fox News"
+  },
+  {
+    "handle": "@politico",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "POLITICO"
+  },
+  {
+    "handle": "@MSNBC",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "MSNBC"
+  },
+  {
+    "handle": "@thehill",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "The Hill"
+  },
+  {
+    "handle": "@axios",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "Axios"
+  },
+  {
+    "handle": "@NPR",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "NPR"
+  },
+  {
+    "handle": "@AP",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "The Associated Press"
+  },
+  {
+    "handle": "@Reuters",
+    "topic_tags": [
+      "politics",
+      "business",
+      "geopolitics"
+    ],
+    "source_name": "Reuters"
+  },
+  {
+    "handle": "@WSJ",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "The Wall Street Journal"
+  },
+  {
+    "handle": "@FiveThirtyEight",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "FiveThirtyEight"
+  },
+  {
+    "handle": "@jaketapper",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Jake Tapper"
+  },
+  {
+    "handle": "@maggieNYT",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Maggie Haberman"
+  },
+  {
+    "handle": "@BretBaier",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Bret Baier"
+  },
+  {
+    "handle": "@maddow",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Rachel Maddow"
+  },
+  {
+    "handle": "@seanhannity",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Sean Hannity"
+  },
+  {
+    "handle": "@jonathanvswan",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Jonathan Swan"
+  },
+  {
+    "handle": "@DanaBashCNN",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Dana Bash"
+  },
+  {
+    "handle": "@chucktodd",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Chuck Todd"
+  },
+  {
+    "handle": "@kaitlancollins",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Kaitlan Collins"
+  },
+  {
+    "handle": "@mkraju",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Manu Raju"
+  },
+  {
+    "handle": "@JakeSherman",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Jake Sherman"
+  },
+  {
+    "handle": "@apalmerdc",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Anna Palmer"
+  },
+  {
+    "handle": "@PunchbowlNews",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Punchbowl News"
+  },
+  {
+    "handle": "@semafor",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "Semafor"
+  },
+  {
+    "handle": "@ezraklein",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ],
+    "source_name": "Ezra Klein"
+  },
+  {
+    "handle": "@DavidAFrench",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "David French"
+  },
+  {
+    "handle": "@benshapiro",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Ben Shapiro"
+  },
+  {
+    "handle": "@TuckerCarlson",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Tucker Carlson"
+  },
+  {
+    "handle": "@BillKristol",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Bill Kristol"
+  },
+  {
+    "handle": "@JRubinBlogger",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Jennifer Rubin"
+  },
+  {
+    "handle": "@chrislhayes",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Chris Hayes"
+  },
+  {
+    "handle": "@VanJones68",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Van Jones"
+  },
+  {
+    "handle": "@ananavarro",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Ana Navarro-Cárdenas"
+  },
+  {
+    "handle": "@GeorgeWill",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "George Will"
+  },
+  {
+    "handle": "@krystalball",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Krystal Ball"
+  },
+  {
+    "handle": "@esaagar",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Saagar Enjeti"
+  },
+  {
+    "handle": "@Timcast",
+    "topic_tags": [
+      "politics",
+      "tech"
+    ],
+    "source_name": "Tim Pool"
+  },
+  {
+    "handle": "@ggreenwald",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "Glenn Greenwald"
+  },
+  {
+    "handle": "@mtaibbi",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Matt Taibbi"
+  },
+  {
+    "handle": "@NYTpolitics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "NYT Politics"
+  },
+  {
+    "handle": "@postpolitics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Washington Post Politics"
+  },
+  {
+    "handle": "@CNNPolitics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "CNN Politics"
+  },
+  {
+    "handle": "@FoxNewsPolitics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Fox News Politics"
+  },
+  {
+    "handle": "@NPRpolitics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "NPR Politics"
+  },
+  {
+    "handle": "@AP_Politics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "AP Politics"
+  },
+  {
+    "handle": "@ReutersPolitics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Reuters Politics"
+  },
+  {
+    "handle": "@WSJPolitics",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "WSJ Politics"
+  },
+  {
+    "handle": "@BloombergPolitics",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "Bloomberg Politics"
+  },
+  {
+    "handle": "@Yamiche",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Yamiche Alcindor"
+  },
+  {
+    "handle": "@costareports",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Robert Costa"
+  },
+  {
+    "handle": "@susanpglasser",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "Susan Glasser"
+  },
+  {
+    "handle": "@nytdavidbrooks",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "David Brooks"
+  },
+  {
+    "handle": "@jbouie",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Jamelle Bouie"
+  },
+  {
+    "handle": "@DouthatNYT",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Ross Douthat"
+  },
+  {
+    "handle": "@JoyAnnReid",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Joy-Ann Reid"
+  },
+  {
+    "handle": "@Bakari_Sellers",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Bakari Sellers"
+  },
+  {
+    "handle": "@ScottJenningsKY",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Scott Jennings"
+  },
+  {
+    "handle": "@JonahDispatch",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Jonah Goldberg"
+  },
+  {
+    "handle": "@SykesCharlie",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Charlie Sykes"
+  },
+  {
+    "handle": "@MichaelSteele",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Michael Steele"
+  },
+  {
+    "handle": "@NicolleDWallace",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Nicolle Wallace"
+  },
+  {
+    "handle": "@stephenfhayes",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Stephen Hayes"
+  },
+  {
+    "handle": "@monacharen",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Mona Charen"
+  },
+  {
+    "handle": "@AmyHolmes",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Amy Holmes"
+  },
+  {
+    "handle": "@BrookingsInst",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "Brookings Institution"
+  },
+  {
+    "handle": "@AEI",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "American Enterprise Institute"
+  },
+  {
+    "handle": "@Heritage",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "The Heritage Foundation"
+  },
+  {
+    "handle": "@amprog",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "Center for American Progress"
+  },
+  {
+    "handle": "@CatoInstitute",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "source_name": "Cato Institute"
+  },
+  {
+    "handle": "@pewresearch",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Pew Research Center"
+  },
+  {
+    "handle": "@NateSilver538",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Nate Silver"
+  },
+  {
+    "handle": "@FrankLuntz",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Frank Luntz"
+  },
+  {
+    "handle": "@KSoltisAnderson",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Kristen Soltis Anderson"
+  },
+  {
+    "handle": "@BrennanCenter",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Brennan Center for Justice"
+  },
+  {
+    "handle": "@HooverInst",
+    "topic_tags": [
+      "politics",
+      "geopolitics"
+    ],
+    "source_name": "Hoover Institution"
+  },
+  {
+    "handle": "@CFR_org",
+    "topic_tags": [
+      "geopolitics",
+      "politics"
+    ],
+    "source_name": "Council on Foreign Relations"
+  },
+  {
+    "handle": "@rollcall",
+    "topic_tags": [
+      "politics"
+    ],
+    "source_name": "Roll Call"
+  }
+]

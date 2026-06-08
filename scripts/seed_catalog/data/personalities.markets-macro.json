@@ -1,0 +1,816 @@
+[
+  {
+    "display_name": "Warren Buffett",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Warren_Buffett",
+    "aliases": [
+      "Buffett"
+    ]
+  },
+  {
+    "display_name": "Ray Dalio",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Ray_Dalio"
+  },
+  {
+    "display_name": "George Soros",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "George_Soros",
+    "aliases": [
+      "Soros"
+    ]
+  },
+  {
+    "display_name": "Jerome Powell",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Jerome_Powell",
+    "aliases": [
+      "Powell"
+    ]
+  },
+  {
+    "display_name": "Christine Lagarde",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Christine_Lagarde",
+    "aliases": [
+      "Lagarde"
+    ]
+  },
+  {
+    "display_name": "Janet Yellen",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Janet_Yellen",
+    "aliases": [
+      "Yellen"
+    ]
+  },
+  {
+    "display_name": "Paul Krugman",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Paul_Krugman",
+    "aliases": [
+      "Krugman"
+    ]
+  },
+  {
+    "display_name": "Mohamed A. El-Erian",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Mohamed_A._El-Erian",
+    "aliases": [
+      "Mohamed El-Erian"
+    ]
+  },
+  {
+    "display_name": "Lawrence Summers",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Lawrence_Summers",
+    "aliases": [
+      "Larry Summers"
+    ]
+  },
+  {
+    "display_name": "Ben Bernanke",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Ben_Bernanke",
+    "aliases": [
+      "Bernanke"
+    ]
+  },
+  {
+    "display_name": "Jamie Dimon",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Jamie_Dimon",
+    "aliases": [
+      "Dimon"
+    ]
+  },
+  {
+    "display_name": "Carl Icahn",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Carl_Icahn",
+    "aliases": [
+      "Icahn"
+    ]
+  },
+  {
+    "display_name": "Stanley Druckenmiller",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Stanley_Druckenmiller",
+    "aliases": [
+      "Druckenmiller"
+    ]
+  },
+  {
+    "display_name": "Bill Ackman",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Bill_Ackman",
+    "aliases": [
+      "Ackman"
+    ]
+  },
+  {
+    "display_name": "Cathie Wood",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Cathie_Wood",
+    "aliases": [
+      "Wood"
+    ]
+  },
+  {
+    "display_name": "Nouriel Roubini",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Nouriel_Roubini",
+    "aliases": [
+      "Dr. Doom"
+    ]
+  },
+  {
+    "display_name": "Gillian Tett",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Gillian_Tett"
+  },
+  {
+    "display_name": "Martin Wolf",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Martin_Wolf"
+  },
+  {
+    "display_name": "Andrew Ross Sorkin",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Andrew_Ross_Sorkin",
+    "aliases": [
+      "Sorkin"
+    ]
+  },
+  {
+    "display_name": "Jim Cramer",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Jim_Cramer",
+    "aliases": [
+      "Cramer"
+    ]
+  },
+  {
+    "display_name": "Becky Quick",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Becky_Quick"
+  },
+  {
+    "display_name": "Joe Kernen",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Joe_Kernen"
+  },
+  {
+    "display_name": "David Faber",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "David_Faber"
+  },
+  {
+    "display_name": "Maria Bartiromo",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Maria_Bartiromo"
+  },
+  {
+    "display_name": "Stephanie Ruhle",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Stephanie_Ruhle"
+  },
+  {
+    "display_name": "Bill Gross",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Bill_Gross",
+    "aliases": [
+      "Bond King"
+    ]
+  },
+  {
+    "display_name": "Jeffrey Gundlach",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Jeffrey_Gundlach",
+    "aliases": [
+      "Gundlach"
+    ]
+  },
+  {
+    "display_name": "Michael Burry",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Michael_Burry",
+    "aliases": [
+      "Burry"
+    ]
+  },
+  {
+    "display_name": "Jeremy Grantham",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Jeremy_Grantham",
+    "aliases": [
+      "Grantham"
+    ]
+  },
+  {
+    "display_name": "Howard Marks",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Howard_Marks",
+    "aliases": [
+      "Marks"
+    ]
+  },
+  {
+    "display_name": "Peter Schiff",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Peter_Schiff",
+    "aliases": [
+      "Schiff"
+    ]
+  },
+  {
+    "display_name": "Raghuram Rajan",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Raghuram_Rajan",
+    "aliases": [
+      "Rajan"
+    ]
+  },
+  {
+    "display_name": "Gita Gopinath",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Gita_Gopinath"
+  },
+  {
+    "display_name": "Mario Draghi",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Mario_Draghi",
+    "aliases": [
+      "Draghi"
+    ]
+  },
+  {
+    "display_name": "Mark Carney",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Mark_Carney",
+    "aliases": [
+      "Carney"
+    ]
+  },
+  {
+    "display_name": "Alan Greenspan",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Alan_Greenspan",
+    "aliases": [
+      "Greenspan"
+    ]
+  },
+  {
+    "display_name": "Lloyd Blankfein",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Lloyd_Blankfein"
+  },
+  {
+    "display_name": "David Solomon",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "David_Solomon"
+  },
+  {
+    "display_name": "Abigail Johnson",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Abigail_Johnson"
+  },
+  {
+    "display_name": "Mary Callahan Erdoes",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Mary_Callahan_Erdoes"
+  },
+  {
+    "display_name": "Adena Friedman",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Adena_Friedman"
+  },
+  {
+    "display_name": "Ngozi Okonjo-Iweala",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Ngozi_Okonjo-Iweala"
+  },
+  {
+    "display_name": "Tharman Shanmugaratnam",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Tharman_Shanmugaratnam"
+  },
+  {
+    "display_name": "Kenneth Rogoff",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Kenneth_Rogoff",
+    "aliases": [
+      "Rogoff"
+    ]
+  },
+  {
+    "display_name": "Carmen Reinhart",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Carmen_Reinhart"
+  },
+  {
+    "display_name": "Robert Shiller",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Robert_Shiller",
+    "aliases": [
+      "Shiller"
+    ]
+  },
+  {
+    "display_name": "Eugene Fama",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Eugene_Fama",
+    "aliases": [
+      "Fama"
+    ]
+  },
+  {
+    "display_name": "Richard Thaler",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Richard_Thaler",
+    "aliases": [
+      "Thaler"
+    ]
+  },
+  {
+    "display_name": "Daniel Kahneman",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Daniel_Kahneman",
+    "aliases": [
+      "Kahneman"
+    ]
+  },
+  {
+    "display_name": "Mohammed bin Salman",
+    "topic_tags": [
+      "geopolitics",
+      "business"
+    ],
+    "wikipedia_slug": "Mohammed_bin_Salman",
+    "aliases": [
+      "MBS"
+    ]
+  },
+  {
+    "display_name": "Christine Romans",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Christine_Romans"
+  },
+  {
+    "display_name": "Deirdre Bosa",
+    "topic_tags": [
+      "business",
+      "tech"
+    ],
+    "wikipedia_slug": "Deirdre_Bosa"
+  },
+  {
+    "display_name": "Sara Eisen",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Sara_Eisen"
+  },
+  {
+    "display_name": "Kelly Evans",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Kelly_Evans"
+  },
+  {
+    "display_name": "Steve Liesman",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Steve_Liesman"
+  },
+  {
+    "display_name": "Rick Santelli",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Rick_Santelli"
+  },
+  {
+    "display_name": "David Rubenstein",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "David_Rubenstein"
+  },
+  {
+    "display_name": "Stephen A. Schwarzman",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Stephen_A._Schwarzman",
+    "aliases": [
+      "Stephen Schwarzman"
+    ]
+  },
+  {
+    "display_name": "Ken Griffin",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Ken_Griffin"
+  },
+  {
+    "display_name": "Michael Bloomberg",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Michael_Bloomberg",
+    "aliases": [
+      "Bloomberg"
+    ]
+  },
+  {
+    "display_name": "Raymond McGuire",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Raymond_McGuire",
+    "aliases": [
+      "Ray McGuire"
+    ]
+  },
+  {
+    "display_name": "Ursula von der Leyen",
+    "topic_tags": [
+      "politics",
+      "business"
+    ],
+    "wikipedia_slug": "Ursula_von_der_Leyen"
+  },
+  {
+    "display_name": "Kristalina Georgieva",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Kristalina_Georgieva"
+  },
+  {
+    "display_name": "Shriti Vadera",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Shriti_Vadera"
+  },
+  {
+    "display_name": "Minouche Shafik",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Minouche_Shafik"
+  },
+  {
+    "display_name": "Andrew Bailey",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Andrew_Bailey_(banker)"
+  },
+  {
+    "display_name": "Isabel Schnabel",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Isabel_Schnabel"
+  },
+  {
+    "display_name": "Philip Lane",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Philip_Lane_(economist)"
+  },
+  {
+    "display_name": "Lael Brainard",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Lael_Brainard"
+  },
+  {
+    "display_name": "Cecilia Rouse",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Cecilia_Rouse"
+  },
+  {
+    "display_name": "Zhou Xiaochuan",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Zhou_Xiaochuan"
+  },
+  {
+    "display_name": "Haruhiko Kuroda",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Haruhiko_Kuroda"
+  },
+  {
+    "display_name": "Kazuo Ueda",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Kazuo_Ueda"
+  },
+  {
+    "display_name": "Dambisa Moyo",
+    "topic_tags": [
+      "business",
+      "geopolitics"
+    ],
+    "wikipedia_slug": "Dambisa_Moyo"
+  },
+  {
+    "display_name": "Rana Foroohar",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Rana_Foroohar"
+  },
+  {
+    "display_name": "Stanley Fischer",
+    "topic_tags": [
+      "business",
+      "politics"
+    ],
+    "wikipedia_slug": "Stanley_Fischer"
+  },
+  {
+    "display_name": "Jim Rogers",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Jim_Rogers"
+  },
+  {
+    "display_name": "Marc Faber",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Marc_Faber",
+    "aliases": [
+      "Dr. Doom"
+    ]
+  },
+  {
+    "display_name": "Daniel S. Loeb",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Daniel_S._Loeb",
+    "aliases": [
+      "Dan Loeb"
+    ]
+  },
+  {
+    "display_name": "Olivier Blanchard",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Olivier_Blanchard"
+  },
+  {
+    "display_name": "Larry Fink",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Larry_Fink"
+  },
+  {
+    "display_name": "Mohamed El-Erian",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Mohamed_El-Erian"
+  },
+  {
+    "display_name": "Seth Klarman",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Seth_Klarman"
+  },
+  {
+    "display_name": "Scott Wapner",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Scott_Wapner"
+  },
+  {
+    "display_name": "Jon Hilsenrath",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Jon_Hilsenrath"
+  },
+  {
+    "display_name": "Greg Ip",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Greg_Ip"
+  },
+  {
+    "display_name": "Matt Levine",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Matt_Levine"
+  },
+  {
+    "display_name": "Barry Ritholtz",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Barry_Ritholtz"
+  },
+  {
+    "display_name": "Josh Brown",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Josh_Brown_(financial_advisor)"
+  },
+  {
+    "display_name": "Michael Lewis",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Michael_Lewis"
+  },
+  {
+    "display_name": "Bethany McLean",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Bethany_McLean"
+  },
+  {
+    "display_name": "William D. Cohan",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "William_D._Cohan",
+    "aliases": [
+      "Bill Cohan"
+    ]
+  },
+  {
+    "display_name": "Felix Salmon",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Felix_Salmon"
+  },
+  {
+    "display_name": "John Authers",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "John_Authers"
+  },
+  {
+    "display_name": "Liz Ann Sonders",
+    "topic_tags": [
+      "business"
+    ],
+    "wikipedia_slug": "Liz_Ann_Sonders"
+  }
+]
