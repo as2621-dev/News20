@@ -397,7 +397,9 @@ def persist_digest(
 
     # ── 6. Insert detail_chunks ──
     detail_rows = build_detail_chunk_rows(
-        resolved_story_id, story.canonical_body_text or story.canonical_title
+        resolved_story_id,
+        story.canonical_body_text or story.canonical_title,
+        story_headline=story.canonical_title,
     )
     _insert_rows(
         supabase_client,

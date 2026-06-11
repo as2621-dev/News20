@@ -336,24 +336,51 @@ def build_caption_sentence_rows(
     return rows
 
 
-def build_detail_chunk_rows(story_id: str, body_text: str) -> list[dict[str, Any]]:
+# Reason: a "long" body that "\n\n" failed to split is almost certainly a
+# single-newline-separated article (trafilatura/candidate seeds emit those);
+# short single-line bodies stay one chunk.
+SINGLE_NEWLINE_FALLBACK_MIN_CHARS = 600
+
+
+def _normalize_for_headline_compare(text: str) -> str:
+    """Lowercase, collapse whitespace, and strip trailing punctuation for compare."""
+    return " ".join(text.lower().split()).rstrip(".!?:;,")
+
+
+def build_detail_chunk_rows(
+    story_id: str, body_text: str, story_headline: str | None = None
+) -> list[dict[str, Any]]:
     """Build ``detail_chunks`` rows by paragraph-splitting the source body.
 
     The swipe-right Detail body is the readable article text chunked by
     paragraph (reference/supabase-schema.md § detail_chunks). We split the
-    single-source body on blank lines; a body with no blank lines becomes one
-    chunk.
+    single-source body on blank lines; when that yields a single paragraph for
+    a long body we fall back to single-newline splitting (live source bodies
+    separate paragraphs with one ``\\n``). A leading paragraph that duplicates
+    the story headline is dropped (the Detail layer already renders the
+    headline as its own ``.art-h1``).
 
     Args:
         story_id: The ``stories.story_id``.
         body_text: The canonical source body text.
+        story_headline: Optional headline; a duplicate leading paragraph is
+            stripped when it matches (normalized).
 
     Returns:
-        Ordered ``detail_chunks`` row payloads.
+        Ordered ``detail_chunks`` row payloads (never empty for non-blank input).
     """
-    paragraphs = [para.strip() for para in body_text.split("\n\n") if para.strip()] or [
-        body_text.strip()
-    ]
+    paragraphs = [para.strip() for para in body_text.split("\n\n") if para.strip()]
+    if len(paragraphs) <= 1 and len(body_text) >= SINGLE_NEWLINE_FALLBACK_MIN_CHARS:
+        paragraphs = [para.strip() for para in body_text.split("\n") if para.strip()]
+    if not paragraphs:
+        paragraphs = [body_text.strip()]
+    if (
+        story_headline
+        and len(paragraphs) > 1
+        and _normalize_for_headline_compare(paragraphs[0])
+        == _normalize_for_headline_compare(story_headline)
+    ):
+        paragraphs = paragraphs[1:]
     return [
         {"detail_story_id": story_id, "chunk_index": index, "chunk_text": paragraph}
         for index, paragraph in enumerate(paragraphs)

@@ -460,3 +460,53 @@ class TestUploadToBucket:
         client.storage.from_.return_value = bucket
         with pytest.raises(PipelineStageError):
             upload_to_bucket(client, "digest-audio", "x", b"b", "audio/mpeg")
+
+
+class TestBuildDetailChunkRows:
+    """Bug-4 chunking: blank-line split, single-\\n fallback, headline strip."""
+
+    def test_blank_line_body_splits_into_one_row_per_paragraph(self) -> None:
+        from agents.pipeline.persist_helpers import build_detail_chunk_rows
+
+        rows = build_detail_chunk_rows("s1", "Para one.\n\nPara two.\n\nPara three.")
+        assert [row["chunk_text"] for row in rows] == [
+            "Para one.",
+            "Para two.",
+            "Para three.",
+        ]
+        assert [row["chunk_index"] for row in rows] == [0, 1, 2]
+
+    def test_long_single_newline_body_falls_back_to_newline_split(self) -> None:
+        from agents.pipeline.persist_helpers import build_detail_chunk_rows
+
+        paragraphs = [f"Paragraph number {index} " + "x" * 120 for index in range(6)]
+        body_text = "\n".join(paragraphs)
+        assert len(body_text) >= 600
+        rows = build_detail_chunk_rows("s1", body_text)
+        assert [row["chunk_text"] for row in rows] == paragraphs
+
+    def test_short_single_line_body_stays_one_chunk(self) -> None:
+        from agents.pipeline.persist_helpers import build_detail_chunk_rows
+
+        rows = build_detail_chunk_rows("s1", "Short line one.\nShort line two.")
+        assert len(rows) == 1
+        assert rows[0]["chunk_text"] == "Short line one.\nShort line two."
+
+    def test_leading_headline_duplicate_is_stripped(self) -> None:
+        from agents.pipeline.persist_helpers import build_detail_chunk_rows
+
+        headline = "Intel vs TSMC: The 2026 Outlook"
+        rows = build_detail_chunk_rows(
+            "s1",
+            f"  {headline.upper()}.  \n\nDek line.\n\nBody paragraph.",
+            story_headline=headline,
+        )
+        assert [row["chunk_text"] for row in rows] == ["Dek line.", "Body paragraph."]
+
+    def test_headline_only_body_never_returns_zero_rows(self) -> None:
+        from agents.pipeline.persist_helpers import build_detail_chunk_rows
+
+        headline = "Lone Headline"
+        rows = build_detail_chunk_rows("s1", headline, story_headline=headline)
+        assert len(rows) == 1
+        assert rows[0]["chunk_text"] == headline

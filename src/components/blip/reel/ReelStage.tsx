@@ -28,7 +28,7 @@
  */
 import { useReducedMotion } from "framer-motion";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BlipLogo } from "@/components/BlipLogo";
 import { ic } from "@/components/blip/reel/icons";
 import { KaraokeCaption } from "@/components/reel/KaraokeCaption";
@@ -124,6 +124,10 @@ export function ReelStage({
 }: ReelStageProps) {
   const prefersReducedMotion = useReducedMotion();
 
+  // Reason: a broken poster URL fails silently on <img>; track it so the reel
+  // falls back to the flat .reel-bg wash instead of an invisible broken image.
+  const [posterFailedToLoad, setPosterFailedToLoad] = useState<boolean>(false);
+
   const audioController = useReelAudio({ storyIndex, storyCount, isActive, onEnded: onAudioEnded });
 
   // Register this story's play handle while active so the TapToStart overlay can
@@ -192,16 +196,20 @@ export function ReelStage({
       style={reelStyle}
     >
       <div className={reelClassName}>
-        {/* background: flat wash + blurred drifting ambient poster + scrims + accent halo */}
+        {/* background: flat wash + visible drifting poster + legibility dim + scrims + accent halo */}
         <div className="reel-bg" aria-hidden="true" />
-        {/* biome-ignore lint/performance/noImgElement: decorative blurred backdrop in a static export; next/image is inappropriate here. */}
-        <img
-          src={story.poster_url}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-[-12%] z-0 h-[124%] w-[124%] object-cover opacity-35 blur-[44px]"
-          style={posterStyle}
-        />
+        {story.poster_url !== "" && !posterFailedToLoad ? (
+          // biome-ignore lint/performance/noImgElement: decorative full-bleed backdrop in a static export; next/image is inappropriate here.
+          <img
+            src={story.poster_url}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-[-4%] z-0 h-[108%] w-[108%] object-cover"
+            style={posterStyle}
+            onError={() => setPosterFailedToLoad(true)}
+          />
+        ) : null}
+        <div className="reel-poster-dim" aria-hidden="true" />
         <div className="reel-scrim-top" aria-hidden="true" />
         <div className="reel-halo" aria-hidden="true" />
         <div className="reel-scrim" aria-hidden="true" />

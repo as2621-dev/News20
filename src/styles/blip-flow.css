@@ -1858,20 +1858,29 @@ body {
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* Reason: the Stage-4 reel bg is live-client-rendered (see memory news20-poster-pipeline),
-     so the prototype's 3MB demo PNG is dropped to keep the static bundle lean — a flat dark
-     wash stands in until Stage 4 wires the real ambient poster wash. */
+  /* Reason: flat dark wash UNDER the per-story poster — and the whole bg when a
+     story has no poster (poster_url "") or its image fails to load. */
   background: var(--bg);
+}
+/* Flat legibility wash over the sharp poster — keeps the karaoke captions
+   readable on bright posters while leaving the image clearly visible. The 38%
+   mix is the single tuning knob if posters still fight the text. */
+.reel-poster-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--bg) 38%, transparent);
 }
 .reel-scrim-top {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
-  height: 30%;
+  height: 34%;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(to bottom, color-mix(in oklab, var(--bg) 80%, transparent), transparent);
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--bg) 88%, transparent), transparent);
 }
 .reel-scrim {
   position: absolute;

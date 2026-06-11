@@ -24,11 +24,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
-// Fixture-backed detail, mirroring the reel's fixture feed: a bare `next dev` has
-// no Supabase rows for the fixture digests, so the Supabase-direct fetch hangs on
-// "LOADING…". `fixtureStoryDetail` is the drop-in sibling of `fetchStoryDetail`
-// (same signature); Phase 1c/3 swaps this back to "@/lib/detail/fetchStoryDetail".
-import { fetchStoryDetail } from "@/lib/detail/fixtureStoryDetail";
+// Supabase-direct detail (go-live). The live feed's story ids (s1..s5, cand-*)
+// exist only in Supabase — never in the fixture map (digest-1..digest-5) — so the
+// fixture sibling "@/lib/detail/fixtureStoryDetail" (same signature) can NEVER
+// resolve them. Swap back to the fixture only for offline fixture-feed dev.
+import { fetchStoryDetail } from "@/lib/detail/fetchStoryDetail";
+import { splitChunkTextIntoParagraphs, stripLeadingHeadlineDuplicate } from "@/lib/detail/paragraphs";
 import { logger } from "@/lib/logger";
 import type {
   DetailChunk,
@@ -255,20 +256,46 @@ function Bullets({
 /**
  * Render the long-form body (chunks) + opposing-view card.
  *
+ * Each chunk is defensively split into paragraphs at render time
+ * ({@link splitChunkTextIntoParagraphs}) because older pipeline rows store a
+ * whole single-`\n`-separated article in ONE chunk; a leading paragraph that
+ * duplicates the headline (already rendered as `.art-h1`) is dropped.
+ *
  * @param chunks - All body paragraphs in chunk_index order.
  * @param opposingViewText - Opposing view quote, or null (omitted when absent).
+ * @param storyHeadline - The story headline, for duplicate-lead stripping.
  * @returns The full long-form block.
  *
  * @example
- * <LongForm chunks={detail.detail_chunks} opposingViewText={detail.trust_summary.opposing_view_text} />
+ * <LongForm chunks={detail.detail_chunks} opposingViewText={null} storyHeadline={story.headline} />
  */
-function LongForm({ chunks, opposingViewText }: { chunks: DetailChunk[]; opposingViewText: string | null }) {
+function LongForm({
+  chunks,
+  opposingViewText,
+  storyHeadline,
+}: {
+  chunks: DetailChunk[];
+  opposingViewText: string | null;
+  storyHeadline: string;
+}) {
+  const flattenedParagraphs = chunks.flatMap((chunk) =>
+    splitChunkTextIntoParagraphs(chunk.chunk_text).map((paragraph_text, paragraphIndex) => ({
+      paragraph_key: `${chunk.chunk_index}-${paragraphIndex}`,
+      paragraph_text,
+    })),
+  );
+  const headlineStrippedTexts = stripLeadingHeadlineDuplicate(
+    flattenedParagraphs.map((paragraph) => paragraph.paragraph_text),
+    storyHeadline,
+  );
+  const paragraphs =
+    headlineStrippedTexts.length === flattenedParagraphs.length ? flattenedParagraphs : flattenedParagraphs.slice(1);
   return (
     <>
       <div className="art-rule">FULL ARTICLE</div>
       <div className="art-body">
-        {chunks.map((chunk) => (
-          <p key={chunk.chunk_index}>{chunk.chunk_text}</p>
+        {paragraphs.map((paragraph) => (
+          <p key={paragraph.paragraph_key}>{paragraph.paragraph_text}</p>
         ))}
       </div>
       {opposingViewText !== null ? (
@@ -472,7 +499,11 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
 
             {/* ---- LONG-FORM BODY (revealed when expanded) -------------- */}
             {isExpanded ? (
-              <LongForm chunks={detail.detail_chunks} opposingViewText={detail.trust_summary.opposing_view_text} />
+              <LongForm
+                chunks={detail.detail_chunks}
+                opposingViewText={detail.trust_summary.opposing_view_text}
+                storyHeadline={story.headline}
+              />
             ) : null}
           </>
         )}
