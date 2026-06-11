@@ -207,3 +207,81 @@ def test_unexpected_answer_error_returns_http_200_refusal(
 
     assert response.status_code == 200
     assert response.json()["answer_is_grounded"] is False
+
+
+class TestConversationTurnsCacheBypass:
+    """Bug 3: conversation turns bypass the answer cache (read AND write)."""
+
+    _TURNS_BODY = {
+        "question_text": "What about its margins?",
+        "conversation_turns": [
+            {"role": "user", "text": "What is the current PE of TSMC?"},
+            {"role": "model", "text": "TSMC trades at approximately 24x forward earnings."},
+        ],
+    }
+
+    def test_turns_present_skips_cache_read_and_write_and_passes_turns(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With turns: no cache read/write; answer_question receives the turns."""
+        read_spy = AsyncMock()  # would explode if awaited; we assert not-called
+        monkeypatch.setattr(worker_main, "_read_cached_answer", read_spy)
+        write_spy = AsyncMock()
+        monkeypatch.setattr(worker_main, "_write_cached_answer", write_spy)
+        monkeypatch.setattr(
+            worker_main, "get_or_load_corpus", lambda **_kwargs: object()
+        )
+        answer_mock = AsyncMock(return_value=_grounded_answer())
+        monkeypatch.setattr(worker_main, "answer_question", answer_mock)
+
+        response = client.post(_QUESTION_PATH, json=self._TURNS_BODY)
+
+        assert response.status_code == 200
+        read_spy.assert_not_called()
+        write_spy.assert_not_called()
+        passed_turns = answer_mock.await_args.kwargs["conversation_turns"]
+        assert [turn.role for turn in passed_turns] == ["user", "model"]
+        assert passed_turns[0].text == "What is the current PE of TSMC?"
+
+    def test_no_turns_keeps_cache_read_and_write_path(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Without turns: cache is read and (on a live answer) written, as before."""
+        read_calls: list[str] = []
+
+        def _read_miss(_client: Any, _story_id: str, question_text: str) -> None:
+            read_calls.append(question_text)
+            return None
+
+        write_calls: list[str] = []
+
+        def _write(_client: Any, _story_id: str, question_text: str, _answer: Any) -> None:
+            write_calls.append(question_text)
+
+        monkeypatch.setattr(worker_main, "_read_cached_answer", _read_miss)
+        monkeypatch.setattr(worker_main, "_write_cached_answer", _write)
+        monkeypatch.setattr(
+            worker_main, "get_or_load_corpus", lambda **_kwargs: object()
+        )
+        monkeypatch.setattr(
+            worker_main, "answer_question", AsyncMock(return_value=_grounded_answer())
+        )
+
+        response = client.post(_QUESTION_PATH, json=_BODY)
+
+        assert response.status_code == 200
+        assert read_calls == [_BODY["question_text"]]
+        assert write_calls == [_BODY["question_text"]]
+
+    def test_invalid_turn_role_is_rejected_by_validation(
+        self, client: TestClient
+    ) -> None:
+        """A malformed turn role fails pydantic validation (422 — contract breach)."""
+        response = client.post(
+            _QUESTION_PATH,
+            json={
+                "question_text": "q",
+                "conversation_turns": [{"role": "narrator", "text": "x"}],
+            },
+        )
+        assert response.status_code == 422

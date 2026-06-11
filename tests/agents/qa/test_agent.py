@@ -204,3 +204,65 @@ class TestAnswererFailSafe:
 
         assert answer.answer_is_grounded is False
         assert answer.answer_citations == []
+
+
+class TestConversationThreading:
+    """Bug 3: prior turns reach the prompt's RECENT CONVERSATION block — and
+    ONLY as reference context (the grounding rule is restated beside it)."""
+
+    @pytest.mark.asyncio
+    async def test_turns_render_in_system_prompt(self, s1_corpus) -> None:
+        """Passed turns appear as Reader:/Assistant: lines in the system prompt."""
+        from agents.qa.models import ConversationTurn
+
+        client = _llm_client_returning(
+            _answer_response("Margins are discussed.", ["detail_chunk:0"], True),
+            _verification_response("supported"),
+        )
+        turns = [
+            ConversationTurn(role="user", text="What is the current PE of TSMC?"),
+            ConversationTurn(role="model", text="About 24x forward earnings."),
+        ]
+
+        await answer_question(
+            "What about its margins?", s1_corpus, client, conversation_turns=turns
+        )
+
+        system_prompt = client.call_gemini.await_args_list[0].kwargs["system"]
+        assert "Reader: What is the current PE of TSMC?" in system_prompt
+        assert "Assistant: About 24x forward earnings." in system_prompt
+
+    @pytest.mark.asyncio
+    async def test_no_turns_renders_first_question_marker(self, s1_corpus) -> None:
+        """Without turns the block states this is the first question."""
+        client = _llm_client_returning(
+            _answer_response("It matters.", ["detail_chunk:0"], True),
+            _verification_response("supported"),
+        )
+
+        await answer_question("Why does Hormuz matter?", s1_corpus, client)
+
+        system_prompt = client.call_gemini.await_args_list[0].kwargs["system"]
+        assert "(none — this is the first question)" in system_prompt
+
+    @pytest.mark.asyncio
+    async def test_only_last_six_turns_are_rendered(self, s1_corpus) -> None:
+        """The prompt is bounded: only the most recent 6 turns are included."""
+        from agents.qa.models import ConversationTurn
+
+        client = _llm_client_returning(
+            _answer_response("Bounded.", ["detail_chunk:0"], True),
+            _verification_response("supported"),
+        )
+        turns = [
+            ConversationTurn(role="user", text=f"question number {index}")
+            for index in range(8)
+        ]
+
+        await answer_question("Latest?", s1_corpus, client, conversation_turns=turns)
+
+        system_prompt = client.call_gemini.await_args_list[0].kwargs["system"]
+        assert "question number 0" not in system_prompt
+        assert "question number 1" not in system_prompt
+        assert "question number 2" in system_prompt
+        assert "question number 7" in system_prompt

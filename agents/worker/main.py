@@ -37,7 +37,7 @@ from agents.ingestion.adapters.x_resolver import XHandleParseError, resolve_x_ha
 from agents.pipeline.llm_clients import LLMClient
 from agents.qa.agent import answer_question, build_refusal_answer
 from agents.qa.corpus import load_grounding_corpus
-from agents.qa.models import QuestionAnswer, StoryQaCacheRow
+from agents.qa.models import ConversationTurn, QuestionAnswer, StoryQaCacheRow
 from agents.shared.exceptions import GroundingCorpusError
 from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
@@ -138,11 +138,20 @@ class QuestionRequest(BaseModel):
     Attributes:
         question_text: The reader's question.
         conversation_id: Optional multi-turn id (reserved for M3; unused in M2).
+        conversation_turns: Recent prior thread turns (most-recent-last) for
+            follow-up resolution — stateless multi-turn (Bug 3). Presence
+            bypasses the ``story_qa`` answer cache (a context-dependent answer
+            must not poison the ``(story, question)`` cache key).
     """
 
     question_text: str = Field(..., min_length=1, description="The reader's question.")
     conversation_id: str | None = Field(
         default=None, description="Reserved for M3 multi-turn; unused in M2."
+    )
+    conversation_turns: list[ConversationTurn] = Field(
+        default_factory=list,
+        max_length=12,
+        description="Recent prior thread turns, most-recent-last; empty on a first question.",
     )
 
 
@@ -344,11 +353,22 @@ async def post_story_question(
     # Reason: SP4 answer cache — a verified turn for this EXACT (story, question)
     # is served straight from story_qa, skipping the whole LLM + verification
     # round-trip. Layers ON TOP of the per-story corpus context cache below.
-    cached_answer = _read_cached_answer(
-        supabase_client, story_id, request.question_text
-    )
-    if cached_answer is not None:
-        return cached_answer
+    # BYPASSED (read AND write) when conversation turns are present: a follow-up's
+    # answer depends on the thread, so it must neither be served from nor poison
+    # the context-free (story, question) cache key.
+    has_conversation_context = bool(request.conversation_turns)
+    if has_conversation_context:
+        logger.info(
+            "qa_cache_bypassed_conversation",
+            story_id=story_id,
+            turn_count=len(request.conversation_turns),
+        )
+    else:
+        cached_answer = _read_cached_answer(
+            supabase_client, story_id, request.question_text
+        )
+        if cached_answer is not None:
+            return cached_answer
 
     try:
         # Reason: cached per-story so repeat questions about the same story skip
@@ -382,6 +402,7 @@ async def post_story_question(
             question_text=request.question_text,
             corpus=corpus,
             llm_client=LLMClient(),
+            conversation_turns=request.conversation_turns or None,
         )
     except Exception as exc:  # noqa: BLE001 — boundary: never 5xx
         _log_error_response(
@@ -395,7 +416,11 @@ async def post_story_question(
     # Reason: persist this verified turn (grounded OR refusal) so the identical
     # (story, question) is served from cache next time. Best-effort: a write
     # failure logs + returns the live answer (never breaks the HTTP-200 contract).
-    _write_cached_answer(supabase_client, story_id, request.question_text, live_answer)
+    # Context-dependent (conversation) answers are NOT cached — see bypass above.
+    if not has_conversation_context:
+        _write_cached_answer(
+            supabase_client, story_id, request.question_text, live_answer
+        )
     return live_answer
 
 

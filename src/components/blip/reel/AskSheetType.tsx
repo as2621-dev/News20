@@ -6,15 +6,18 @@
  * only the `.sheet-body` (+ composer footer / answer footer) — the shared
  * `sheet-grab` + `ask-head` header is rendered by the parent {@link AskSheet}.
  *
- * State machine (4 states):
- *   1. **empty** — suggested questions + composer + grounding note
- *   2. **thinking** — question bubble + animated typing indicator
- *   3. **answered** — question bubble + answer bubble + "Read the full story" + follow-up
- *   4. **refusal** — question bubble + refusal card + follow-up
+ * **Thread model (Bug 3).** The sheet holds the FULL conversation: every
+ * completed turn renders as a question bubble + answer bubble (or refusal
+ * card), with the in-flight question + typing dots appended while thinking.
+ * Each ask ships the recent prior turns to the worker
+ * (`askQuestion(..., conversation_turns)`) so follow-ups like "what about its
+ * margins?" resolve against the thread, not in isolation.
  *
- * Wired to the REAL grounded Q&A via {@link askQuestion}: calls
- * `askQuestion(story.digest_id, question_text)` and branches on
- * `answer_is_grounded`.
+ * **Persistence (Bug 5).** The thread + composer draft hydrate from and save to
+ * {@link loadQaThreadForStory}/{@link saveQaThreadForStory} (localStorage, per
+ * story) — closing the sheet, swiping stories, or restarting the app never
+ * loses the conversation. Saves happen on every completed turn and once on
+ * unmount (captures the latest draft without per-keystroke writes).
  *
  * **On-screen keyboard:** The prototype rendered a fake `keyboard()` / `.kbd-pane`
  * div because it is a web demo. This component uses a real, focusable `<input>`,
@@ -25,12 +28,13 @@
  * <AskSheetType story={activeStory} onClose={closeSheet} onOpenArticle={openArticle} />
  */
 
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
 import { logger } from "@/lib/logger";
 import { askQuestion } from "@/lib/qa/askQuestion";
+import { loadQaThreadForStory, saveQaThreadForStory } from "@/lib/qa/qaHistoryStore";
 import type { Story } from "@/types/feed";
-import type { QuestionAnswer } from "@/types/qa";
+import type { CompletedQaTurn, QaConversationTurn } from "@/types/qa";
 
 export interface AskSheetTypeProps {
   /** The active story to ground answers in (`story.digest_id` is the Q&A `story_id`). */
@@ -48,71 +52,124 @@ const SUGGESTED_QUESTIONS: readonly string[] = [
   "Who’s affected?",
 ] as const;
 
-/** The four states of the type-ask body (matches prototype composerEmpty/thinking/answerBody/refusalBody). */
-type AskState =
-  | { phase: "empty" }
-  | { phase: "thinking"; question_text: string }
-  | { phase: "answered"; question_text: string; answer: QuestionAnswer }
-  | { phase: "refusal"; question_text: string; answer: QuestionAnswer };
-
 /**
- * Run a question through grounded Q&A and transition the state machine.
- *
- * @param story_id - The `story.digest_id` used as the Q&A story key.
- * @param question_text - The trimmed user question.
- * @param setState - The AskState setter.
+ * Flatten completed turns into the wire-shape conversation turns
+ * (question → `user`, answer/refusal text → `model`), oldest first.
  */
-async function runAsk(story_id: string, question_text: string, setState: (state: AskState) => void): Promise<void> {
-  logger.info("type_ask_submitted", { story_id, question_length: question_text.length });
+function buildConversationTurns(completedTurns: CompletedQaTurn[]): QaConversationTurn[] {
+  return completedTurns.flatMap((turn): QaConversationTurn[] => [
+    { role: "user", text: turn.question_text },
+    { role: "model", text: turn.answer.answer_text },
+  ]);
+}
 
-  // Move to thinking immediately so the user sees the question bubble + dots.
-  setState({ phase: "thinking", question_text });
-
-  try {
-    const answer = await askQuestion(story_id, question_text);
-
-    if (answer.answer_is_grounded) {
-      logger.info("type_ask_answered", {
-        story_id,
-        answer_is_grounded: true,
-        citation_count: answer.answer_citations.length,
-      });
-      setState({ phase: "answered", question_text, answer });
-    } else {
-      logger.info("type_ask_refusal", {
-        story_id,
-        answer_is_grounded: false,
-        fix_suggestion: "Question was off-topic for this story; the refusal card is shown.",
-      });
-      setState({ phase: "refusal", question_text, answer });
-    }
-  } catch (error: unknown) {
-    // askQuestion already degrades to a safe refusal — this guard is belt-and-suspenders.
-    logger.error("type_ask_unexpected_error", {
-      story_id,
-      error_message: error instanceof Error ? error.message : "Unknown error",
-      fix_suggestion: "askQuestion should never reject — check askQuestion.ts for the safe refusal fallback.",
-    });
-    setState({
-      phase: "refusal",
-      question_text,
-      answer: {
-        answer_text:
-          "I can only answer from this story’s source — that isn’t available right now. Try a suggested question, or ask again in a moment.",
-        answer_citations: [],
-        answer_is_grounded: false,
-      },
-    });
-  }
+/** Render one completed turn: question bubble + answer bubble or refusal card. */
+function CompletedTurnRows({ turn }: { turn: CompletedQaTurn }) {
+  return (
+    <>
+      <div className="row-q">
+        <div className="bub-q">{turn.question_text}</div>
+      </div>
+      <div className="row-a">
+        {turn.answer.answer_is_grounded ? (
+          <div className="bub-a">
+            <p>{turn.answer.answer_text}</p>
+          </div>
+        ) : (
+          <div className="refusal">
+            <div className="rl">⌀ CAN&rsquo;T ANSWER FROM SOURCE</div>
+            <p>{turn.answer.answer_text}</p>
+          </div>
+        )}
+      </div>
+    </>
+  );
 }
 
 /** Render the type-ask body. */
 export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
-  const [askState, setAskState] = useState<AskState>({ phase: "empty" });
-  const [draftQuestion, setDraftQuestion] = useState<string>("");
+  // Hydrate the thread + draft from the per-story persisted history (Bug 5).
+  // Lazy initializers: one storage read per mount, captured for both states.
+  const [completedTurns, setCompletedTurns] = useState<CompletedQaTurn[]>(
+    () => loadQaThreadForStory(story.digest_id)?.completed_turns ?? [],
+  );
+  const [draftQuestion, setDraftQuestion] = useState<string>(
+    () => loadQaThreadForStory(story.digest_id)?.draft_question_text ?? "",
+  );
+  const [pendingQuestionText, setPendingQuestionText] = useState<string | null>(null);
   const followupInputRef = useRef<HTMLInputElement>(null);
+  const threadEndRef = useRef<HTMLDivElement>(null);
 
-  const isThinking = askState.phase === "thinking";
+  const isThinking = pendingQuestionText !== null;
+  const hasThread = completedTurns.length > 0 || isThinking;
+  const lastCompletedTurn = completedTurns.length > 0 ? completedTurns[completedTurns.length - 1] : null;
+
+  // Persist the latest thread + draft once on unmount (sheet close / story
+  // swipe) — catches the unsent draft without per-keystroke writes.
+  const latestThreadRef = useRef<{ completed_turns: CompletedQaTurn[]; draft_question_text: string }>({
+    completed_turns: completedTurns,
+    draft_question_text: draftQuestion,
+  });
+  latestThreadRef.current = { completed_turns: completedTurns, draft_question_text: draftQuestion };
+  useEffect(() => {
+    return () => {
+      saveQaThreadForStory(story.digest_id, latestThreadRef.current);
+    };
+  }, [story.digest_id]);
+
+  // Keep the newest bubbles in view as the thread grows.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on thread growth only.
+  useEffect(() => {
+    // Reason: guarded — scrollIntoView is missing in jsdom (tests) and some WebViews.
+    if (typeof threadEndRef.current?.scrollIntoView === "function") {
+      threadEndRef.current.scrollIntoView({ block: "end" });
+    }
+  }, [completedTurns.length, pendingQuestionText]);
+
+  /** Run a question through grounded Q&A and append the completed turn. */
+  async function runAsk(question_text: string): Promise<void> {
+    const story_id = story.digest_id;
+    logger.info("type_ask_submitted", {
+      story_id,
+      question_length: question_text.length,
+      turn_count: completedTurns.length,
+    });
+    setPendingQuestionText(question_text);
+
+    let answer: CompletedQaTurn["answer"];
+    try {
+      answer = await askQuestion(story_id, question_text, buildConversationTurns(completedTurns));
+      logger.info(answer.answer_is_grounded ? "type_ask_answered" : "type_ask_refusal", {
+        story_id,
+        answer_is_grounded: answer.answer_is_grounded,
+        citation_count: answer.answer_citations.length,
+      });
+    } catch (error: unknown) {
+      // askQuestion already degrades to a safe refusal — this guard is belt-and-suspenders.
+      logger.error("type_ask_unexpected_error", {
+        story_id,
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        fix_suggestion: "askQuestion should never reject — check askQuestion.ts for the safe refusal fallback.",
+      });
+      answer = {
+        answer_text:
+          "I can only answer from this story’s source — that isn’t available right now. Try a suggested question, or ask again in a moment.",
+        answer_citations: [],
+        answer_is_grounded: false,
+      };
+    }
+
+    setCompletedTurns((previousTurns) => {
+      const nextTurns = [...previousTurns, { question_text, answer }];
+      // Persist on every completed turn so a hard app kill loses nothing.
+      saveQaThreadForStory(story_id, {
+        completed_turns: nextTurns,
+        draft_question_text: latestThreadRef.current.draft_question_text,
+      });
+      return nextTurns;
+    });
+    setPendingQuestionText(null);
+  }
 
   /** Submit a question from either the composer or a follow-up input. */
   function submitQuestion(question_text: string): void {
@@ -121,7 +178,7 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
       return;
     }
     setDraftQuestion("");
-    void runAsk(story.digest_id, trimmed, setAskState);
+    void runAsk(trimmed);
   }
 
   /** Handle the main composer form submit. */
@@ -141,8 +198,32 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
 
   return (
     <>
-      {/* ── STATE: EMPTY / COMPOSER ── */}
-      {askState.phase === "empty" && (
+      {/* ── BODY: EMPTY (suggested questions) or the full THREAD ── */}
+      {hasThread ? (
+        <div className="sheet-body">
+          <div className="thread">
+            {completedTurns.map((turn, turnIndex) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: append-only thread; index IS the turn identity.
+              <CompletedTurnRows key={turnIndex} turn={turn} />
+            ))}
+            {isThinking ? (
+              <>
+                <div className="row-q">
+                  <div className="bub-q">{pendingQuestionText}</div>
+                </div>
+                <div className="row-a">
+                  <div className="bub-a typing">
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                </div>
+              </>
+            ) : null}
+            <div ref={threadEndRef} />
+          </div>
+        </div>
+      ) : (
         <div className="sheet-body">
           <div className="sq-label">{ic("spark")} TRY ASKING</div>
           <div className="sq-list">
@@ -161,59 +242,8 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
         </div>
       )}
 
-      {/* ── STATE: THINKING ── */}
-      {askState.phase === "thinking" && (
-        <div className="sheet-body">
-          <div className="thread">
-            <div className="row-q">
-              <div className="bub-q">{askState.question_text}</div>
-            </div>
-            <div className="row-a">
-              <div className="bub-a typing">
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── STATE: ANSWERED ── */}
-      {askState.phase === "answered" && (
-        <div className="sheet-body">
-          <div className="thread">
-            <div className="row-q">
-              <div className="bub-q">{askState.question_text}</div>
-            </div>
-            <div className="row-a">
-              <div className="bub-a">
-                <p>{askState.answer.answer_text}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── STATE: REFUSAL ── */}
-      {askState.phase === "refusal" && (
-        <div className="sheet-body">
-          <div className="thread">
-            <div className="row-q">
-              <div className="bub-q">{askState.question_text}</div>
-            </div>
-            <div className="row-a">
-              <div className="refusal">
-                <div className="rl">⌀ CAN&rsquo;T ANSWER FROM SOURCE</div>
-                <p>{askState.answer.answer_text}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── FOOTER: COMPOSER (empty state only) ── */}
-      {askState.phase === "empty" && (
+      {/* ── FOOTER: COMPOSER (no thread yet) ── */}
+      {!hasThread && (
         <form className="composer" onSubmit={handleComposerSubmit}>
           <div className="cbar">
             <input
@@ -235,20 +265,20 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
         </form>
       )}
 
-      {/* ── FOOTER: ANSWER FOOT (thinking / answered / refusal states) ── */}
-      {(askState.phase === "thinking" || askState.phase === "answered" || askState.phase === "refusal") && (
+      {/* ── FOOTER: ANSWER FOOT (thread view) ── */}
+      {hasThread && (
         <div className="ans-foot">
-          {/* "Read the full story" button — answered state only */}
-          {askState.phase === "answered" && (
+          {/* "Read the full story" button — last turn grounded only */}
+          {!isThinking && lastCompletedTurn?.answer.answer_is_grounded && (
             <button type="button" className="read-full" onClick={onOpenArticle}>
               {ic("doc")}Read the full story
             </button>
           )}
 
-          {/* Follow-up composer — thinking / answered / refusal */}
+          {/* Follow-up composer */}
           <form
             className="followup"
-            style={askState.phase === "answered" ? { marginTop: "10px" } : undefined}
+            style={!isThinking && lastCompletedTurn?.answer.answer_is_grounded ? { marginTop: "10px" } : undefined}
             onSubmit={handleFollowupSubmit}
           >
             <input

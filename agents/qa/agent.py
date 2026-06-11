@@ -29,7 +29,12 @@ from typing import Any
 
 from agents.pipeline.json_utils import extract_json_from_llm_response
 from agents.pipeline.llm_clients import LLMClient
-from agents.qa.models import AnswerCitation, GroundingCorpus, QuestionAnswer
+from agents.qa.models import (
+    AnswerCitation,
+    ConversationTurn,
+    GroundingCorpus,
+    QuestionAnswer,
+)
 from agents.qa.prompts import GROUNDED_ANSWER_PROMPT, REFUSAL_ANSWER_TEXT
 from agents.qa.verification import verify_answer_against_corpus
 from agents.shared.logger import get_logger
@@ -39,6 +44,38 @@ logger = get_logger("qa.agent")
 # Reason: a low temperature keeps grounded answers faithful to the corpus and
 # the refusal behaviour stable — mirrors the pipeline scripting/verification temps.
 ANSWER_TEMPERATURE = 0.2
+
+# Reason: bound the prompt's RECENT CONVERSATION block — older turns add tokens
+# without improving pronoun resolution. Matches the client's
+# MAX_CONVERSATION_TURNS_SENT (src/lib/qa/askQuestion.ts).
+MAX_CONVERSATION_TURNS_IN_PROMPT = 6
+
+
+def _render_conversation_block(
+    conversation_turns: list[ConversationTurn] | None,
+) -> str:
+    """Render the prompt's RECENT CONVERSATION block from prior thread turns.
+
+    Args:
+        conversation_turns: Prior turns, most-recent-last (or None/empty on a
+            first question).
+
+    Returns:
+        ``Reader:``/``Assistant:`` lines for the last
+        :data:`MAX_CONVERSATION_TURNS_IN_PROMPT` turns, or the explicit
+        first-question marker.
+
+    Example:
+        >>> _render_conversation_block(None)
+        '(none — this is the first question)'
+    """
+    if not conversation_turns:
+        return "(none — this is the first question)"
+    role_label = {"user": "Reader", "model": "Assistant"}
+    return "\n".join(
+        f"{role_label[turn.role]}: {turn.text}"
+        for turn in conversation_turns[-MAX_CONVERSATION_TURNS_IN_PROMPT:]
+    )
 
 
 def build_refusal_answer() -> QuestionAnswer:
@@ -140,6 +177,7 @@ async def answer_question(
     question_text: str,
     corpus: GroundingCorpus,
     llm_client: LLMClient,
+    conversation_turns: list[ConversationTurn] | None = None,
 ) -> QuestionAnswer:
     """Answer a question grounded ONLY in a story's in-context corpus.
 
@@ -153,6 +191,10 @@ async def answer_question(
         corpus: The story's loaded grounding corpus (SP1). The caller injects it
             (the endpoint loads + caches it per story).
         llm_client: An initialized ``LLMClient`` (mocked in tests).
+        conversation_turns: Prior thread turns (most-recent-last) woven into the
+            prompt's RECENT CONVERSATION block so follow-ups resolve pronouns;
+            None/empty on a first question. NOT source material — verification
+            still audits the answer against the corpus only.
 
     Returns:
         A grounded :class:`QuestionAnswer` with >=1 citation, or the refusal
@@ -170,11 +212,14 @@ async def answer_question(
         story_id=corpus.story_id,
         question_length=len(question_text),
         passage_count=len(corpus.passages),
+        conversation_turn_count=len(conversation_turns or []),
     )
 
-    system_prompt = GROUNDED_ANSWER_PROMPT.replace(
-        "{CONTEXT_BLOCK}", context_block
-    ).replace("{QUESTION}", question_text.strip())
+    system_prompt = (
+        GROUNDED_ANSWER_PROMPT.replace("{CONTEXT_BLOCK}", context_block)
+        .replace("{CONVERSATION_BLOCK}", _render_conversation_block(conversation_turns))
+        .replace("{QUESTION}", question_text.strip())
+    )
     user_prompt = (
         "Answer the QUESTION using only the CONTEXT passages. "
         "Output ONLY the JSON object with 'answer', 'citations', and 'is_grounded'."

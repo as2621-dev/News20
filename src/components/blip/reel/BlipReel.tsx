@@ -102,7 +102,8 @@ export function BlipReel() {
         }
         logger.error("reel_feed_load_failed", {
           error_message: feedError instanceof Error ? feedError.message : "unknown",
-          fix_suggestion: "Verify the feed provider (getReelFeed → Supabase live feed / daily_feeds, or fixtures in dev).",
+          fix_suggestion:
+            "Verify the feed provider (getReelFeed → Supabase live feed / daily_feeds, or fixtures in dev).",
         });
         setReelStatus((current) => nextReelStatus(current, "feed_failed"));
       });
@@ -290,7 +291,13 @@ export function BlipReel() {
       />
       <div className={`sheet${overlay?.kind === "sheet" ? " on" : ""}`} style={{ ...accentStyle, height: "66%" }}>
         {overlay?.kind === "sheet" && currentStory ? (
-          <AskSheet story={currentStory} mode={overlay.mode} onClose={closeOverlay} onOpenArticle={openArticle} />
+          <AskSheet
+            key={currentStory.digest_id}
+            story={currentStory}
+            mode={overlay.mode}
+            onClose={closeOverlay}
+            onOpenArticle={openArticle}
+          />
         ) : null}
       </div>
       <div className={`layer-article${overlay?.kind === "article" ? " on" : ""}`} style={accentStyle}>

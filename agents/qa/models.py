@@ -22,7 +22,7 @@ Column names that map to Supabase are transcribed verbatim from
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -236,6 +236,29 @@ class GroundingCorpus(BaseModel):
             f"[{passage.passage_id}] {passage.passage_text}"
             for passage in self.passages
         )
+
+
+class ConversationTurn(BaseModel):
+    """One prior turn of the typed Q&A thread, sent with a follow-up question.
+
+    Stateless-server multi-turn (Bug 3): the client holds the thread and ships
+    the recent turns with each request; the worker weaves them into the answer
+    prompt's RECENT CONVERSATION block so follow-ups ("what about its
+    margins?") resolve against the thread. Conversation text is NEVER treated
+    as source material — the grounding rule still binds answers to the corpus.
+
+    Mirrors the TS contract ``src/types/qa.ts`` ``QaConversationTurn``.
+    """
+
+    role: Literal["user", "model"] = Field(
+        ..., description="Who spoke: the reader ('user') or the answerer ('model')."
+    )
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="The turn's text — the question, or the answer/refusal copy.",
+    )
 
 
 class AnswerCitation(BaseModel):

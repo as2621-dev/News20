@@ -22,7 +22,14 @@
  */
 
 import { logger } from "@/lib/logger";
-import type { AnswerCitation, QuestionAnswer } from "@/types/qa";
+import type { AnswerCitation, QaConversationTurn, QuestionAnswer } from "@/types/qa";
+
+/**
+ * The maximum number of prior thread turns shipped with a follow-up. Matches
+ * the worker's prompt budget (it renders at most the last 6 turns) and keeps
+ * the request body bounded.
+ */
+export const MAX_CONVERSATION_TURNS_SENT = 6;
 
 /**
  * The fixed client-side refusal copy used ONLY when the request itself fails
@@ -131,6 +138,9 @@ function isAnswerCitation(value: unknown): value is AnswerCitation {
  *
  * @param story_id - The `stories.story_id` slug (the reel `Story.digest_id`).
  * @param question_text - The user's question.
+ * @param conversation_turns - Recent prior thread turns (most-recent-last) for
+ *   follow-up resolution; only the last {@link MAX_CONVERSATION_TURNS_SENT} are
+ *   sent, and the field is omitted entirely on a first question.
  * @param fetchImpl - Injectable fetch (defaults to the global `fetch`; tests pass a mock).
  * @returns The grounded answer, or a refusal on any failure.
  *
@@ -145,16 +155,25 @@ function isAnswerCitation(value: unknown): value is AnswerCitation {
 export async function askQuestion(
   story_id: string,
   question_text: string,
+  conversation_turns: QaConversationTurn[] = [],
   fetchImpl: typeof fetch = fetch,
 ): Promise<QuestionAnswer> {
   const endpoint = `${getQaApiBaseUrl()}/api/story/${encodeURIComponent(story_id)}/question`;
-  logger.info("ask_question_started", { story_id, question_length: question_text.length });
+  const trimmedTurns = conversation_turns.slice(-MAX_CONVERSATION_TURNS_SENT);
+  logger.info("ask_question_started", {
+    story_id,
+    question_length: question_text.length,
+    conversation_turn_count: trimmedTurns.length,
+  });
 
   try {
     const response = await fetchImpl(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question_text }),
+      body: JSON.stringify({
+        question_text,
+        ...(trimmedTurns.length > 0 ? { conversation_turns: trimmedTurns } : {}),
+      }),
     });
 
     if (!response.ok) {

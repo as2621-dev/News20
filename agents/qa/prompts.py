@@ -61,6 +61,11 @@ Output ONLY a JSON object with this exact shape (no markdown, no code fences):
 CONTEXT (the only material you may use; each line is "[passage_id] text")
 {CONTEXT_BLOCK}
 
+RECENT CONVERSATION (use ONLY to resolve pronouns and follow-up references in
+the question — the grounding rule above still applies in full; conversation
+text is NOT source material and must never be cited or answered from)
+{CONVERSATION_BLOCK}
+
 QUESTION
 {QUESTION}"""
 

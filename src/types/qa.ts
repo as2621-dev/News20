@@ -57,14 +57,43 @@ export interface QuestionAnswer {
 }
 
 /**
+ * One prior turn of the typed Q&A thread, sent with a follow-up so the worker
+ * can resolve pronouns/references (`agents.qa.models.ConversationTurn`).
+ *
+ * Stateless-server multi-turn: the CLIENT holds the thread and ships the recent
+ * turns with each request; the worker never stores a session.
+ */
+export interface QaConversationTurn {
+  /** Who spoke: the reader (`"user"`) or the grounded answerer (`"model"`). */
+  role: "user" | "model";
+  /** The turn's text — the question, or the answer/refusal copy. */
+  text: string;
+}
+
+/**
+ * One completed question→answer exchange in the typed Q&A thread. The unit the
+ * AskSheetType thread renders and `qaHistoryStore` persists per story.
+ */
+export interface CompletedQaTurn {
+  /** The reader's question as submitted (trimmed). */
+  question_text: string;
+  /** The worker's answer payload (grounded answer or refusal). */
+  answer: QuestionAnswer;
+}
+
+/**
  * The request body for `POST /api/story/{story_id}/question`.
  *
  * Maps `agents.worker.main.QuestionRequest`. `conversation_id` is reserved for
- * M3 multi-turn and unused in M2 (left optional so the shape stays forward-compatible).
+ * M3 multi-turn memory and unused (left optional so the shape stays
+ * forward-compatible); `conversation_turns` is the shipped stateless multi-turn
+ * mechanism (recent thread turns, most-recent-last).
  */
 export interface QuestionRequest {
   /** The user's question text (`QuestionRequest.question_text`). */
   question_text: string;
   /** Reserved for M3 multi-turn memory; omitted in M2 (`QuestionRequest.conversation_id`). */
   conversation_id?: string;
+  /** Recent prior thread turns for follow-up resolution; omitted on a first question. */
+  conversation_turns?: QaConversationTurn[];
 }
