@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   base64FromPcm16,
+  createMicCapture,
   downsampleTo16kHz,
   floatToPcm16,
   GEMINI_INPUT_SAMPLE_RATE,
@@ -100,5 +101,71 @@ describe("base64FromPcm16 / pcm16FromBase64 — wire round-trip (output decode p
   it("decodes an empty chunk to zero samples (no crash on a keepalive)", () => {
     const restored = pcm16FromBase64(base64FromPcm16(new Int16Array(0)));
     expect(restored.length).toBe(0);
+  });
+});
+
+describe("createMicCapture — injected AudioContext ownership (gotcha 8)", () => {
+  /** A fake context complete enough for the mic-capture node graph. */
+  function buildFakeAudioContext() {
+    const fakeContext = {
+      state: "suspended" as string,
+      sampleRate: 48000,
+      destination: {},
+      resume: vi.fn(async () => {
+        fakeContext.state = "running";
+      }),
+      close: vi.fn(async () => {
+        fakeContext.state = "closed";
+      }),
+      createMediaStreamSource: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
+      createScriptProcessor: vi.fn(() => ({
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        onaudioprocess: null as ((event: unknown) => void) | null,
+      })),
+      createGain: vi.fn(() => ({ gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() })),
+    };
+    return fakeContext;
+  }
+
+  function buildFakeMediaStream() {
+    return { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream;
+  }
+
+  it("uses the injected (gesture-created) context instead of constructing one", () => {
+    // WHY: a context constructed HERE (after awaits) starts suspended on iOS —
+    // the whole gotcha-8 fix depends on the injected one being used.
+    const audioContextConstructorSpy = vi.fn();
+    vi.stubGlobal("AudioContext", audioContextConstructorSpy);
+    try {
+      const fakeContext = buildFakeAudioContext();
+      createMicCapture({
+        mediaStream: buildFakeMediaStream(),
+        onAudioChunk: () => {},
+        audioContext: fakeContext as unknown as AudioContext,
+      });
+      expect(audioContextConstructorSpy).not.toHaveBeenCalled();
+      expect(fakeContext.createMediaStreamSource).toHaveBeenCalledTimes(1);
+      // A suspended context gets a resume() kick (belt-and-suspenders).
+      expect(fakeContext.resume).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("stop() closes the injected context (ownership transfer)", () => {
+    const fakeContext = buildFakeAudioContext();
+    const capture = createMicCapture({
+      mediaStream: buildFakeMediaStream(),
+      onAudioChunk: () => {},
+      audioContext: fakeContext as unknown as AudioContext,
+    });
+
+    capture.stop();
+
+    expect(fakeContext.close).toHaveBeenCalledTimes(1);
+    // Idempotent: a second stop must not double-close.
+    capture.stop();
+    expect(fakeContext.close).toHaveBeenCalledTimes(1);
   });
 });

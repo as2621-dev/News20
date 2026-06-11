@@ -217,6 +217,13 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   // function, not takes one — memoize the returned async handler by story id.
   const onToolCall = useMemo(() => buildAskAboutStoryHandler(story.digest_id), [story.digest_id]);
 
+  // Mic failure after connect (gotcha 8 surfacing): specific copy + error view —
+  // the hook has already disconnected, so the orb never fakes LISTENING.
+  const handleMicError = useCallback((): void => {
+    setErrorMessage("Couldn’t access your microphone. Check mic permission in Settings, or type your question.");
+    setViewState("error");
+  }, []);
+
   const { status, connect, disconnect } = useGeminiLive({
     systemInstruction: buildInNewsSystemInstruction(story.headline, story.digest_id, STORY_QA_TOOL_GROUNDING_CLAUSE),
     tools: [askAboutStoryDeclaration],
@@ -224,6 +231,7 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     onTranscript: handleTranscript,
     voiceName: GEMINI_LIVE_DEFAULT_VOICE,
     greetingNudge: buildGreetingNudge(story.headline),
+    onMicError: handleMicError,
   });
 
   // Reason: useGeminiLive rebuilds connect/disconnect on every render because the
@@ -270,14 +278,15 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     }
   }, [story.digest_id]);
 
-  // Mirror hook error status → error view.
+  // Mirror hook error status → error view. The generic copy must NOT clobber a
+  // more specific message (e.g. onMicError's) that landed first.
   useEffect(() => {
     if (status === "error") {
       logger.error("ask_sheet_voice_hook_error", {
         story_id: story.digest_id,
         fix_suggestion: "Inspect useGeminiLive status; the token endpoint or WSS handshake may have failed.",
       });
-      setErrorMessage("Voice isn't available right now.");
+      setErrorMessage((previousMessage) => previousMessage ?? "Voice isn't available right now.");
       setViewState("error");
     }
   }, [status, story.digest_id]);

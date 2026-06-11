@@ -17,6 +17,8 @@
  * 3. **`setup` then wait for `setupComplete`.** The client still sends a `setup`
  *    frame (model, AUDIO modality, voice, systemInstruction, tools, in/out
  *    transcription) and must NOT send any audio until `{setupComplete}` arrives.
+ *    `speechConfig` lives INSIDE `generationConfig` — at the `setup` top level
+ *    the v1alpha constrained endpoint closes with 1007 `Unknown name "speechConfig"`.
  * 4. **Greeting nudge.** Auto-VAD waits for user audio, so we force the model's
  *    first line with a `clientContent` user turn (`turnComplete:true`).
  * 5. **Asymmetric PCM** (handled in `./audio`): input 16 kHz, output 24 kHz.
@@ -26,6 +28,14 @@
  * 7. **Single-use token + double-connect guard.** The `uses:1` token means React
  *    19 StrictMode's double-mount must open EXACTLY ONE socket; function
  *    round-trips reply `{toolResponse:{functionResponses:[{id,name,response}]}}`.
+ * 8. **Gesture-synchronous AudioContexts (iOS WebKit).** Both AudioContexts (mic
+ *    capture + 24 kHz player) and the `getUserMedia` call MUST start
+ *    synchronously at the head of `connect()` — i.e. inside the user tap.
+ *    Created after an `await` (token mint / setupComplete) they start
+ *    `'suspended'` on iOS, the ScriptProcessorNode never fires, ZERO mic chunks
+ *    are sent, and the model never answers — while the greeting still plays
+ *    (the symptom: one-way audio). `startMicAndGreeting` then consumes the
+ *    pre-acquired stream/context after `setupComplete`.
  *
  * Mic capture + downsample + 24 kHz ring-buffer playback live in `./audio`; this
  * file owns only the WS lifecycle, the setup handshake, and frame routing.
@@ -93,6 +103,12 @@ export interface UseGeminiLiveParams {
    * the model to speak first. Defaults to a generic opener.
    */
   greetingNudge?: string;
+  /**
+   * Called when mic capture could not start AFTER the session connected (the
+   * greeting may already be audible). The hook also disconnects and sets status
+   * `"error"` so the orb never fakes LISTENING on a deaf session.
+   */
+  onMicError?: (errorMessage: string) => void;
 }
 
 /** What {@link useGeminiLive} hands back to a Voice-mode component. */
@@ -131,8 +147,10 @@ export function buildSetupFrame(params: {
 }): {
   setup: {
     model: string;
-    generationConfig: { responseModalities: string[] };
-    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: string } } };
+    generationConfig: {
+      responseModalities: string[];
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: string } } };
+    };
     systemInstruction: { parts: { text: string }[] };
     tools: { functionDeclarations: GeminiToolDeclaration[] }[];
     inputAudioTranscription: Record<string, never>;
@@ -143,9 +161,14 @@ export function buildSetupFrame(params: {
     setup: {
       // Reason: the model id MUST be prefixed with `models/` in the setup frame.
       model: params.model.startsWith("models/") ? params.model : `models/${params.model}`,
-      generationConfig: { responseModalities: ["AUDIO"] },
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: params.voiceName } },
+      generationConfig: {
+        responseModalities: ["AUDIO"],
+        // Reason: speechConfig MUST sit INSIDE generationConfig on the v1alpha
+        // constrained endpoint — at the `setup` top level the server closes the
+        // socket with 1007 `Unknown name "speechConfig" at 'setup'`.
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: params.voiceName } },
+        },
       },
       systemInstruction: { parts: [{ text: params.systemInstruction }] },
       // Reason: even an empty tool set is sent as a single declarations group so
@@ -229,6 +252,7 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     voiceName = GEMINI_LIVE_DEFAULT_VOICE,
     model = GEMINI_LIVE_MODEL,
     greetingNudge = "Say a brief, friendly hello and ask what I'd like to know.",
+    onMicError,
   } = params;
 
   const [status, setStatus] = useState<GeminiLiveStatus>("idle");
@@ -238,6 +262,11 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
   const socketRef = useRef<WebSocket | null>(null);
   const micCaptureRef = useRef<MicCapture | null>(null);
   const playerRef = useRef<PcmPlayer | null>(null);
+  // Reason (gotcha 8): the mic AudioContext + getUserMedia promise are acquired
+  // synchronously inside connect()'s user gesture and consumed later (after
+  // setupComplete) by startMicAndGreeting.
+  const micAudioContextRef = useRef<AudioContext | null>(null);
+  const pendingMicStreamRef = useRef<Promise<MediaStream> | null>(null);
   // Reason (gotcha 7): the single-use token means StrictMode's double-invoke must
   // open EXACTLY ONE socket. Two guards cover both StrictMode behaviours:
   //   - `connectGuardRef` short-circuits a second `connect()` within one mount;
@@ -256,14 +285,67 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
   onTranscriptRef.current = onTranscript;
   const onToolCallRef = useRef(onToolCall);
   onToolCallRef.current = onToolCall;
+  const onMicErrorRef = useRef(onMicError);
+  onMicErrorRef.current = onMicError;
   // Reason: setupComplete is read inside the message closure; a ref avoids a
   // stale-state race between the gate check and the React state update, and lets
   // the gate fire exactly once per session.
   const isSetupCompleteRef = useRef<boolean>(false);
 
+  // Release the gesture-pre-acquired audio resources (gotcha 8): the mic
+  // AudioContext (when not yet owned by a MicCapture — its stop() closes it),
+  // the PCM player, and the pending getUserMedia stream's tracks. Idempotent;
+  // double-close is guarded/caught.
+  const releasePreacquiredAudio = useCallback((): void => {
+    const micAudioContext = micAudioContextRef.current;
+    micAudioContextRef.current = null;
+    if (micAudioContext && micAudioContext.state !== "closed") {
+      void micAudioContext.close().catch(() => {
+        // Reason: a context already closed by MicCapture.stop() rejects; benign.
+      });
+    }
+    playerRef.current?.close();
+    playerRef.current = null;
+    const pendingMicStream = pendingMicStreamRef.current;
+    pendingMicStreamRef.current = null;
+    if (pendingMicStream) {
+      pendingMicStream
+        .then((stream) => {
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+        })
+        .catch(() => {
+          // Reason: a rejected getUserMedia has no tracks to stop.
+        });
+    }
+  }, []);
+
+  const disconnect = useCallback((): void => {
+    connectGuardRef.current = false;
+    // Reason (gotcha 7): bump the epoch so any connect still awaiting its token
+    // mint sees a changed epoch after the await and aborts before opening a socket.
+    // INVARIANT (gotcha 8): every epoch bump releases the pre-acquired audio —
+    // the stale-epoch bail in connect() relies on this and must NOT release
+    // (the shared refs may already hold a NEWER connect's resources).
+    connectEpochRef.current += 1;
+    micCaptureRef.current?.stop();
+    micCaptureRef.current = null;
+    releasePreacquiredAudio();
+    const socket = socketRef.current;
+    socketRef.current = null;
+    if (socket && socket.readyState <= WebSocket.OPEN) {
+      socket.close();
+    }
+    isSetupCompleteRef.current = false;
+    setIsSetupComplete(false);
+    setStatus("closed");
+  }, [releasePreacquiredAudio]);
+
   // Start mic capture + send the greeting nudge — ONLY after setupComplete (so
-  // audio never precedes the handshake, gotcha 3). Defined before `connect` so
-  // it is a stable dependency of it (no temporal-dead-zone / stale closure).
+  // audio never precedes the handshake, gotcha 3). Consumes the stream/context
+  // pre-acquired inside connect()'s user gesture (gotcha 8). Defined before
+  // `connect` so it is a stable dependency of it.
   const startMicAndGreeting = useCallback(
     (socket: WebSocket): void => {
       // Reason (gotcha 4): auto-VAD waits for user audio, so force the model's
@@ -279,13 +361,46 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
 
       void (async (): Promise<void> => {
         try {
-          const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // Reason (gotcha 8): consume the gesture-pre-acquired stream; the
+          // direct getUserMedia is a non-iOS/legacy-caller fallback only.
+          const mediaStream = await (pendingMicStreamRef.current ??
+            navigator.mediaDevices.getUserMedia({ audio: true }));
+          const micAudioContext = micAudioContextRef.current ?? undefined;
+          if (micAudioContext && micAudioContext.state !== "running") {
+            // Belt-and-suspenders: the gesture's resume() should have landed.
+            await micAudioContext.resume().catch(() => {});
+          }
+          logger.info("voice_live_mic_starting", {
+            mic_context_state: micAudioContext?.state ?? "none_preacquired",
+            socket_ready_state: socket.readyState,
+          });
+          let hasSentFirstChunk = false;
+          let hasWarnedDroppedChunk = false;
           micCaptureRef.current = createMicCapture({
             mediaStream,
+            audioContext: micAudioContext,
             onAmplitude: setInputAmplitude,
             onAudioChunk: (chunk) => {
               // Reason (gotcha 5): input is 16 kHz mono PCM16, base64, as realtimeInput.
-              socketRef.current?.send(
+              const liveSocket = socketRef.current;
+              if (!liveSocket || liveSocket.readyState !== WebSocket.OPEN) {
+                // Reason (Rule 12): WebSocket.send() on a non-OPEN socket drops the
+                // frame SILENTLY — warn once per session instead of vanishing audio.
+                if (!hasWarnedDroppedChunk) {
+                  hasWarnedDroppedChunk = true;
+                  logger.warn("voice_live_send_dropped_socket_not_open", {
+                    frame_kind: "realtime_audio",
+                    ready_state: liveSocket?.readyState ?? -1,
+                    fix_suggestion: "Socket closed under an active mic; expect a reconnect or teardown.",
+                  });
+                }
+                return;
+              }
+              if (!hasSentFirstChunk) {
+                hasSentFirstChunk = true;
+                logger.info("voice_live_first_audio_chunk_sent", { socket_ready_state: liveSocket.readyState });
+              }
+              liveSocket.send(
                 JSON.stringify({
                   realtimeInput: { audio: { mimeType: chunk.mimeType, data: chunk.base64Data } },
                 }),
@@ -293,34 +408,21 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
             },
           });
         } catch (micError) {
+          const errorMessage = micError instanceof Error ? micError.message : "unknown";
           logger.error("voice_live_mic_failed", {
-            error_message: micError instanceof Error ? micError.message : "unknown",
+            error_message: errorMessage,
             fix_suggestion: "Mic permission denied or unavailable; show the mic-denied fallback.",
           });
+          // Reason (Rule 12): a deaf session must not pose as LISTENING — surface
+          // the failure, tear down, and land on the error state.
+          onMicErrorRef.current?.(errorMessage);
+          disconnect();
+          setStatus("error");
         }
       })();
     },
-    [greetingNudge],
+    [greetingNudge, disconnect],
   );
-
-  const disconnect = useCallback((): void => {
-    connectGuardRef.current = false;
-    // Reason (gotcha 7): bump the epoch so any connect still awaiting its token
-    // mint sees a changed epoch after the await and aborts before opening a socket.
-    connectEpochRef.current += 1;
-    micCaptureRef.current?.stop();
-    micCaptureRef.current = null;
-    playerRef.current?.close();
-    playerRef.current = null;
-    const socket = socketRef.current;
-    socketRef.current = null;
-    if (socket && socket.readyState <= WebSocket.OPEN) {
-      socket.close();
-    }
-    isSetupCompleteRef.current = false;
-    setIsSetupComplete(false);
-    setStatus("closed");
-  }, []);
 
   const handleServerFrame = useCallback(
     async (raw: unknown): Promise<void> => {
@@ -378,7 +480,18 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
           name: call.name ?? "",
           args: call.args ?? {},
         });
-        socketRef.current?.send(
+        const liveSocket = socketRef.current;
+        if (!liveSocket || liveSocket.readyState !== WebSocket.OPEN) {
+          // Reason (Rule 12): send() on a non-OPEN socket drops the frame
+          // silently — the model would wait forever for the tool response.
+          logger.warn("voice_live_send_dropped_socket_not_open", {
+            frame_kind: "tool_response",
+            ready_state: liveSocket?.readyState ?? -1,
+            fix_suggestion: "Socket closed mid tool round-trip; the turn is lost — reconnect.",
+          });
+          continue;
+        }
+        liveSocket.send(
           JSON.stringify({
             toolResponse: {
               functionResponses: [{ id: call.id, name: call.name, response }],
@@ -405,6 +518,38 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     const connectEpoch = connectEpochRef.current;
     setStatus("connecting");
 
+    // Reason (gotcha 8): acquire ALL audio resources SYNCHRONOUSLY here, inside
+    // the user tap — an AudioContext constructed after an await starts
+    // 'suspended' on iOS WebKit and the mic processor never fires (the one-way
+    // -audio bug). getUserMedia is also started now so the iOS permission flow
+    // binds to the gesture; its promise is consumed after setupComplete.
+    try {
+      const micAudioContext = new AudioContext();
+      if (micAudioContext.state !== "running") {
+        void micAudioContext.resume();
+      }
+      micAudioContextRef.current = micAudioContext;
+      playerRef.current = createPcmPlayer();
+      const pendingMicStream = navigator.mediaDevices.getUserMedia({ audio: true });
+      pendingMicStreamRef.current = pendingMicStream;
+      // Reason: defuse the unhandled rejection; startMicAndGreeting consumes
+      // (and surfaces) the real failure after setupComplete.
+      pendingMicStream.catch(() => {});
+      logger.info("voice_live_audio_acquired_in_gesture", {
+        mic_context_state: micAudioContext.state,
+        mic_context_sample_rate: micAudioContext.sampleRate,
+      });
+    } catch (gestureAudioError) {
+      logger.error("voice_live_gesture_audio_failed", {
+        error_message: gestureAudioError instanceof Error ? gestureAudioError.message : "unknown",
+        fix_suggestion: "AudioContext/getUserMedia unavailable in this WebView; voice mode cannot run.",
+      });
+      releasePreacquiredAudio();
+      connectGuardRef.current = false;
+      setStatus("error");
+      return;
+    }
+
     let ephemeralTokenName: string;
     try {
       // Reason (gotcha 1): the worker mints the token; the API key never reaches
@@ -427,6 +572,12 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
         error_message: mintError instanceof Error ? mintError.message : "unknown",
         fix_suggestion: "Confirm the worker /api/voice/live-token route + GEMINI_API_KEY are configured.",
       });
+      // Reason (gotcha 8): release the gesture-pre-acquired audio — but ONLY if
+      // no teardown bumped the epoch meanwhile (a teardown's disconnect already
+      // released, and the refs may hold a newer connect's resources).
+      if (connectEpoch === connectEpochRef.current) {
+        releasePreacquiredAudio();
+      }
       connectGuardRef.current = false;
       setStatus("error");
       return;
@@ -436,6 +587,9 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     // awaiting, THIS connect belongs to a torn-down attempt (the StrictMode first
     // mount) — bail BEFORE constructing a socket. The surviving connect (matching
     // epoch) opens the single allowed WSS. This collapses the double-mount to one.
+    // NO release here (gotcha 8 invariant): the disconnect that bumped the epoch
+    // already released THIS connect's audio, and the shared refs may now hold the
+    // SURVIVING connect's resources — releasing would kill the live session.
     if (connectEpoch !== connectEpochRef.current) {
       logger.info("voice_live_connect_aborted_stale_epoch", {});
       return;
@@ -443,9 +597,9 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
 
     // Reason (gotcha 2): pass the token via ?access_token= on the CONSTRAINED
     // endpoint; the unconstrained one silently drops auth_tokens/... tokens.
+    // (The 24 kHz player was already constructed in-gesture — gotcha 8.)
     const socket = new WebSocket(`${GEMINI_LIVE_WSS_BASE}?access_token=${encodeURIComponent(ephemeralTokenName)}`);
     socketRef.current = socket;
-    playerRef.current = createPcmPlayer();
 
     socket.onopen = (): void => {
       // Reason (gotcha 3): send the setup frame and WAIT for setupComplete before
@@ -486,13 +640,29 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
       });
       setStatus("error");
     };
-    socket.onclose = (): void => {
+    socket.onclose = (closeEvent: CloseEvent): void => {
       // Reason: allow a future reconnect after the socket closes.
       connectGuardRef.current = false;
+      // Reason (Rule 12): a close BEFORE setupComplete on the still-active socket
+      // means the server rejected the `setup` frame (e.g. 1007 on a malformed
+      // field) — surface an error state instead of leaving the orb on LISTENING
+      // forever. Intentional teardowns skip this: disconnect() nulls socketRef
+      // BEFORE calling close(), so `socketRef.current === socket` is false there.
+      if (socketRef.current === socket && !isSetupCompleteRef.current) {
+        logger.error("voice_live_setup_rejected", {
+          close_code: closeEvent?.code,
+          close_reason: closeEvent?.reason,
+          fix_suggestion:
+            "Server closed the WS before setupComplete — the setup frame was rejected. " +
+            "Check the close reason; e.g. speechConfig must sit inside generationConfig.",
+        });
+        setStatus("error");
+        return;
+      }
       setStatus("closed");
     };
     // Reason: hint the parameterized values are intentionally captured here.
-  }, [handleServerFrame, startMicAndGreeting, model, systemInstruction, tools, voiceName]);
+  }, [handleServerFrame, startMicAndGreeting, releasePreacquiredAudio, model, systemInstruction, tools, voiceName]);
 
   // Tear everything down on unmount (also covers the StrictMode unmount). The
   // disconnect() bumps the connect epoch, which is what an in-flight connect()

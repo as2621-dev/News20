@@ -172,6 +172,14 @@ export interface CreateMicCaptureParams {
   onAudioChunk: (chunk: MicAudioChunk) => void;
   /** Optional amplitude (0..1, RMS) per frame — drives the waveform UI (SP4). */
   onAmplitude?: (amplitude: number) => void;
+  /**
+   * Pre-created `AudioContext` — createMicCapture takes OWNERSHIP (`stop()`
+   * closes it). iOS WebKit (gotcha 8): a context constructed outside a user
+   * gesture starts `'suspended'` and the ScriptProcessorNode never fires, so
+   * the caller MUST create it synchronously in the tap handler and inject it
+   * here. When omitted (non-iOS / tests) one is created on the spot.
+   */
+  audioContext?: AudioContext;
 }
 
 /**
@@ -191,8 +199,23 @@ export interface CreateMicCaptureParams {
  * const capture = createMicCapture({ mediaStream: stream, onAudioChunk: send });
  * // later: capture.stop();
  */
-export function createMicCapture({ mediaStream, onAudioChunk, onAmplitude }: CreateMicCaptureParams): MicCapture {
-  const audioContext = new AudioContext();
+export function createMicCapture({
+  mediaStream,
+  onAudioChunk,
+  onAmplitude,
+  audioContext: injectedAudioContext,
+}: CreateMicCaptureParams): MicCapture {
+  const audioContext = injectedAudioContext ?? new AudioContext();
+  // Reason (gotcha 8): belt-and-suspenders — a suspended context never fires
+  // onaudioprocess. resume() is a no-op when already running.
+  if (audioContext.state !== "running") {
+    void audioContext.resume();
+  }
+  logger.info("voice_mic_capture_context", {
+    mic_context_state: audioContext.state,
+    mic_context_sample_rate: audioContext.sampleRate,
+    was_injected: injectedAudioContext !== undefined,
+  });
   const sourceNode = audioContext.createMediaStreamSource(mediaStream);
   // Reason: 4096-frame buffer balances latency vs. callback overhead; mono in/out.
   const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
@@ -278,6 +301,12 @@ export function createPcmPlayer(outputSampleRate: number = GEMINI_OUTPUT_SAMPLE_
   // Reason: Gemini streams 24 kHz; create the context AT that rate so the buffers
   // play at true pitch without an extra resample.
   const audioContext = new AudioContext({ sampleRate: outputSampleRate });
+  // Reason (gotcha 8): on iOS WebKit a context can start 'suspended'; kick a
+  // resume so playback works when the player is constructed inside the tap.
+  if (audioContext.state !== "running") {
+    void audioContext.resume();
+  }
+  logger.info("voice_pcm_player_context", { player_context_state: audioContext.state });
   let nextStartTime = 0;
   const scheduledSources = new Set<AudioBufferSourceNode>();
   // Reason: ≥2 chunks of lead so the scheduler never falls behind the clock and

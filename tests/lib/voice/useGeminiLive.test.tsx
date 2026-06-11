@@ -79,18 +79,70 @@ class FakeWebSocket {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Fake AudioContext — complete enough for BOTH the mic-capture path and the
+// 24 kHz player path (gotcha 8: the hook now constructs both in-gesture).
+// ---------------------------------------------------------------------------
+
+class FakeAudioContext {
+  static instances: FakeAudioContext[] = [];
+  state = "suspended";
+  sampleRate = 48000;
+  currentTime = 0;
+  destination = {};
+  resume = vi.fn(async (): Promise<void> => {
+    this.state = "running";
+  });
+  constructor() {
+    FakeAudioContext.instances.push(this);
+  }
+  createBuffer() {
+    return { getChannelData: () => new Float32Array(0), duration: 0 };
+  }
+  createBufferSource() {
+    return { connect() {}, start() {}, stop() {}, onended: null };
+  }
+  createMediaStreamSource() {
+    return { connect() {}, disconnect() {} };
+  }
+  lastScriptProcessor: {
+    connect: () => void;
+    disconnect: () => void;
+    onaudioprocess: ((event: unknown) => void) | null;
+  } | null = null;
+  createScriptProcessor() {
+    this.lastScriptProcessor = { connect() {}, disconnect() {}, onaudioprocess: null };
+    return this.lastScriptProcessor;
+  }
+  createGain() {
+    return { gain: { value: 0 }, connect() {}, disconnect() {} };
+  }
+  close() {
+    this.state = "closed";
+    return Promise.resolve();
+  }
+}
+
+function fakeMediaStream(): { getTracks: () => { stop: () => void }[] } {
+  return { getTracks: () => [{ stop: vi.fn() }] };
+}
+
+let getUserMediaMock: ReturnType<typeof vi.fn>;
+
 // A controller-capturing harness component (codebase convention: createRoot+act).
 let capturedController: GeminiLiveController | null = null;
 
 function HookHarness(props: {
   systemInstruction: string;
   onToolCall?: (call: GeminiToolCall) => Promise<Record<string, unknown>> | Record<string, unknown>;
+  onMicError?: (errorMessage: string) => void;
   autoConnect?: boolean;
 }): null {
   const controller = useGeminiLive({
     systemInstruction: props.systemInstruction,
     tools: [{ name: "record_interest", description: "record a detected interest" }],
     onToolCall: props.onToolCall,
+    onMicError: props.onMicError,
   });
   capturedController = controller;
   useEffect(() => {
@@ -121,27 +173,18 @@ beforeEach(() => {
       json: async () => ({ ephemeral_token_name: "auth_tokens/test-token" }),
     })),
   );
-  // Stub the playback AudioContext (createPcmPlayer) — no real audio device.
-  vi.stubGlobal(
-    "AudioContext",
-    class {
-      currentTime = 0;
-      destination = {};
-      createBuffer() {
-        return { getChannelData: () => new Float32Array(0), duration: 0 };
-      }
-      createBufferSource() {
-        return { connect() {}, start() {}, stop() {}, onended: null };
-      }
-      close() {
-        return Promise.resolve();
-      }
-    },
-  );
-  // Stub the mic so startMicAndGreeting's getUserMedia resolves to a fake stream.
+  // Stub BOTH AudioContexts (mic capture + createPcmPlayer) — no real audio
+  // device. The stub is COMPLETE for the mic path (createMediaStreamSource /
+  // createScriptProcessor / createGain / state / resume): a partial stub would
+  // make mic startup throw, which the gotcha-8 design now surfaces as status
+  // "error" instead of swallowing.
+  FakeAudioContext.instances = [];
+  vi.stubGlobal("AudioContext", FakeAudioContext);
+  // Stub the mic so connect()'s in-gesture getUserMedia resolves to a fake stream.
+  getUserMediaMock = vi.fn(async () => fakeMediaStream());
   Object.defineProperty(globalThis.navigator, "mediaDevices", {
     configurable: true,
-    value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [] })) },
+    value: { getUserMedia: getUserMediaMock },
   });
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -167,7 +210,8 @@ describe("buildSetupFrame — the setup-frame contract (gotcha 3, pure)", () => 
     });
     expect(frame.setup.model).toBe("models/gemini-x");
     expect(frame.setup.generationConfig.responseModalities).toEqual(["AUDIO"]);
-    expect(frame.setup.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Charon");
+    // speechConfig MUST live INSIDE generationConfig — top-level → WS close 1007.
+    expect(frame.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Charon");
     expect(frame.setup.systemInstruction.parts[0].text).toBe("ground in the story");
     expect(frame.setup.tools[0].functionDeclarations[0].name).toBe("t");
     expect(frame.setup.inputAudioTranscription).toEqual({});
@@ -291,5 +335,137 @@ describe("useGeminiLive — the live transport contract", () => {
     });
     expect(FakeWebSocket.instances.length).toBe(0);
     expect(capturedController?.status).toBe("idle");
+  });
+});
+
+describe("useGeminiLive — gesture-synchronous audio (gotcha 8)", () => {
+  it("constructs the AudioContexts and starts getUserMedia BEFORE the token mint resolves", async () => {
+    // WHY: an AudioContext created after an await starts 'suspended' on iOS
+    // WebKit → the mic processor never fires → one-way audio (the exact bug).
+    // Gate the mint on a manual promise to prove acquisition happens first.
+    let releaseMint: (() => void) | undefined;
+    const mintGate = new Promise<void>((resolve) => {
+      releaseMint = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        await mintGate;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ephemeral_token_name: "auth_tokens/test-token" }),
+        };
+      }),
+    );
+
+    await act(async () => {
+      root.render(<HookHarness systemInstruction="p" autoConnect />);
+    });
+
+    // The mint has NOT resolved yet — both contexts + getUserMedia already exist.
+    expect(FakeAudioContext.instances.length).toBe(2);
+    expect(getUserMediaMock).toHaveBeenCalledTimes(1);
+    // resume() was kicked on the (suspended) mic context inside the gesture.
+    expect(FakeAudioContext.instances[0].resume).toHaveBeenCalled();
+    expect(FakeWebSocket.instances.length).toBe(0);
+
+    releaseMint?.();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances.length).toBe(1);
+  });
+
+  it("surfaces a mic failure as status error + onMicError (never a deaf LISTENING)", async () => {
+    // WHY: the old code logged the failure and let the orb stay LISTENING while
+    // the socket heard nothing — the user spoke to a deaf session.
+    getUserMediaMock.mockRejectedValue(new Error("NotAllowedError"));
+    const onMicError = vi.fn();
+    await act(async () => {
+      root.render(<HookHarness systemInstruction="p" onMicError={onMicError} />);
+    });
+    // Reason: call connect() ONCE manually — the autoConnect harness effect
+    // would re-connect after the error path resets the double-connect guard.
+    await act(async () => {
+      void capturedController?.connect();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const socket = FakeWebSocket.instances[0];
+    await act(async () => {
+      socket.open();
+      socket.deliver({ setupComplete: {} });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onMicError).toHaveBeenCalledWith("NotAllowedError");
+    expect(capturedController?.status).toBe("error");
+  });
+
+  it("drops mic frames (no throw, no send) when the socket is not OPEN", async () => {
+    // WHY: WebSocket.send() on a closing socket drops frames SILENTLY — the
+    // guard must skip the send and warn instead of letting audio vanish quietly.
+    await act(async () => {
+      root.render(<HookHarness systemInstruction="p" autoConnect />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const socket = FakeWebSocket.instances[0];
+    await act(async () => {
+      socket.open();
+      socket.deliver({ setupComplete: {} });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The mic context (first instance) now owns a ScriptProcessor.
+    const micContext = FakeAudioContext.instances[0];
+    expect(micContext.lastScriptProcessor).not.toBeNull();
+    const audioEvent = { inputBuffer: { getChannelData: () => new Float32Array(8) } };
+
+    // While OPEN, a frame goes out.
+    act(() => {
+      micContext.lastScriptProcessor?.onaudioprocess?.(audioEvent);
+    });
+    expect(socket.framesWithKey("realtimeInput").length).toBe(1);
+
+    // Not OPEN → the chunk is dropped, not thrown, not sent.
+    socket.readyState = FakeWebSocket.CLOSING;
+    act(() => {
+      micContext.lastScriptProcessor?.onaudioprocess?.(audioEvent);
+    });
+    expect(socket.framesWithKey("realtimeInput").length).toBe(1);
+  });
+
+  it("StrictMode: the torn-down first mount's pre-acquired contexts are closed", async () => {
+    // WHY: connect() now holds live audio resources BEFORE any await — the
+    // StrictMode first mount must release them (mic indicator off, no leak)
+    // while the surviving mount keeps its own.
+    await act(async () => {
+      root.render(
+        <StrictMode>
+          <HookHarness systemInstruction="p" autoConnect />
+        </StrictMode>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(FakeWebSocket.instances.length).toBe(1);
+    // Mount 1 acquired contexts [0,1] (mic+player) — released by its cleanup;
+    // mount 2's contexts [2,3] survive for the live session.
+    expect(FakeAudioContext.instances.length).toBe(4);
+    expect(FakeAudioContext.instances[0].state).toBe("closed");
+    expect(FakeAudioContext.instances[1].state).toBe("closed");
+    expect(FakeAudioContext.instances[2].state).not.toBe("closed");
+    expect(FakeAudioContext.instances[3].state).not.toBe("closed");
   });
 });
