@@ -106,6 +106,16 @@ export function BlipIconDefs() {
             strokeLinejoin="round"
           />
         </symbol>
+        <symbol id="i-chev" viewBox="0 0 24 24">
+          <path
+            d="M9 6l6 6-6 6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </symbol>
         <symbol id="i-spark" viewBox="0 0 24 24">
           <path
             d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z"

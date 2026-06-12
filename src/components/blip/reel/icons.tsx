@@ -12,6 +12,7 @@ export type BlipIconName =
   | "arrow"
   | "back"
   | "check"
+  | "chev"
   | "close"
   | "doc"
   | "following"

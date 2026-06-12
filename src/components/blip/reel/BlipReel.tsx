@@ -34,11 +34,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // here in the reel's root client component so the reel is self-sufficient.
 import "@/styles/blip-flow.css";
 import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
-import { AccountSheet } from "@/components/blip/reel/AccountSheet";
 import { ArticleLayer } from "@/components/blip/reel/ArticleLayer";
 import { AskSheet, type AskSheetMode } from "@/components/blip/reel/AskSheet";
 import { ReelStage } from "@/components/blip/reel/ReelStage";
 import { ReelToast } from "@/components/blip/reel/ReelToast";
+import { SettingsLayer } from "@/components/blip/reel/SettingsLayer";
 import { AllCaughtUp } from "@/components/reel/AllCaughtUp";
 import { LoadingSkeleton } from "@/components/reel/LoadingSkeleton";
 import { ReelError } from "@/components/reel/ReelError";
@@ -56,7 +56,7 @@ import type { Story } from "@/types/feed";
  * Which overlay is open over the active story, if any.
  * - `{ kind: "sheet", mode }` — the ask sheet (type or voice composer).
  * - `{ kind: "article" }`     — the full-article layer (tap-headline).
- * - `{ kind: "account" }`     — the account sheet (tap the blip wordmark).
+ * - `{ kind: "account" }`     — the settings layer (tap the blip wordmark).
  * - `null`                    — the bare reel.
  */
 type Overlay = { kind: "sheet"; mode: AskSheetMode } | { kind: "article" } | { kind: "account" } | null;
@@ -329,10 +329,7 @@ export function BlipReel() {
         style={accentStyle}
         onClick={closeOverlay}
       />
-      <div
-        className={`sheet${overlay?.kind === "sheet" || overlay?.kind === "account" ? " on" : ""}`}
-        style={{ ...accentStyle, height: overlay?.kind === "account" ? "46%" : "66%" }}
-      >
+      <div className={`sheet${overlay?.kind === "sheet" ? " on" : ""}`} style={{ ...accentStyle, height: "66%" }}>
         {overlay?.kind === "sheet" && currentStory ? (
           <AskSheet
             key={currentStory.digest_id}
@@ -342,7 +339,9 @@ export function BlipReel() {
             onOpenArticle={openArticle}
           />
         ) : null}
-        {overlay?.kind === "account" ? <AccountSheet onClose={closeOverlay} /> : null}
+      </div>
+      <div className={`layer-settings${overlay?.kind === "account" ? " on" : ""}`}>
+        {overlay?.kind === "account" ? <SettingsLayer onClose={closeOverlay} /> : null}
       </div>
       <div className={`layer-article${overlay?.kind === "article" ? " on" : ""}`} style={accentStyle}>
         {overlay?.kind === "article" && currentStory ? (

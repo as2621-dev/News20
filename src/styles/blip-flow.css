@@ -3222,9 +3222,317 @@ body {
   background: linear-gradient(to top, var(--bg) 60%, color-mix(in oklab, var(--bg) 80%, transparent));
 }
 
+/* ---- settings layer (App Surfaces — Settings design) ---- */
+/* Full-screen slide-up singleton, same motion as .layer-article. The design pins
+   the Settings screen accent to tech cyan (memory dots / sign-out tint follow it). */
+.layer-settings {
+  --accent: #22d3ee;
+  position: absolute;
+  inset: 0;
+  z-index: 42;
+  background: var(--bg);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(101%);
+  transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.layer-settings.on {
+  transform: translateY(0);
+}
+.set-kicker {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+.set-htitle {
+  font-family: "Playfair Display", serif;
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  margin: 7px 0 0;
+  line-height: 1.05;
+}
+.set-seclabel {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  margin: 26px 0 4px;
+}
+.set-acct {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 22px;
+}
+.set-av {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  background: linear-gradient(145deg, #7c5cff, #22d3ee);
+}
+.set-acct-name {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.set-acct-email {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 3px;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.set-row.first {
+  border-top: none;
+}
+.set-rmain {
+  flex: 1;
+  min-width: 0;
+}
+.set-rlabel {
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.set-rsub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 3px;
+}
+.set-rval {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.set-rval .set-mono {
+  font-size: 12.5px;
+}
+.set-mono {
+  font-family: "JetBrains Mono", monospace;
+}
+.set-chev {
+  width: 18px;
+  height: 18px;
+  color: rgba(255, 255, 255, 0.32);
+  flex: none;
+}
+/* inline name editor — the Name row swaps into this on tap */
+.set-name-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 0 12px;
+}
+.set-name-edit input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  outline: none;
+}
+.set-name-edit input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+.set-name-edit input:focus {
+  border-color: rgba(255, 255, 255, 0.32);
+}
+.set-name-edit .save {
+  flex: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: #f1ece0;
+  color: #14110b;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}
+.set-name-edit .cancel {
+  flex: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  padding: 10px 2px;
+}
+.set-danger {
+  color: #ef4444 !important;
+}
+.set-subnote {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.5;
+  margin: 8px 0 14px;
+}
+.set-plan-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.025);
+}
+.set-plan-tier {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 18px;
+}
+.set-ptag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+}
+.set-pname {
+  font-family: "Playfair Display", serif;
+  font-size: 23px;
+  font-weight: 700;
+  margin-top: 7px;
+}
+.set-pmeta {
+  text-align: right;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.7;
+  white-space: nowrap;
+}
+/* wild rose #e8b7bc — the design's Pro-tier accent */
+.set-plan-pro {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, color-mix(in oklab, #e8b7bc 9%, transparent), transparent);
+}
+.set-plan-pro .set-ptag {
+  color: #e8b7bc;
+}
+.set-plan-pro .set-pname {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.set-pper {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+}
+/* cream #f1ece0 — the design's CTA fill */
+.set-upgrade {
+  display: block;
+  width: calc(100% - 36px);
+  margin: 2px 18px 18px;
+  padding: 14px;
+  border-radius: 13px;
+  border: none;
+  cursor: pointer;
+  background: #f1ece0;
+  color: #14110b;
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 10px 24px -12px rgba(241, 236, 224, 0.4);
+}
+.set-memline {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 11px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.set-memline.first {
+  border-top: none;
+}
+.set-memline .set-md {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  margin-top: 6px;
+  flex: none;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+.set-memline p {
+  margin: 0;
+  font-family: "Playfair Display", serif;
+  font-size: 15.5px;
+  line-height: 1.4;
+  color: #e8e8e4;
+}
+.set-stubnote {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(232, 183, 188, 0.85);
+  margin: 10px 2px 0;
+}
+.set-signout {
+  margin: 26px 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 28px;
+}
+.set-signout button {
+  background: none;
+  border: none;
+  color: #e8b7bc;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.set-ver {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet,
   .layer-article,
+  .layer-settings,
   .scene {
     transition: none !important;
   }
