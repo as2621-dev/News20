@@ -217,6 +217,14 @@ describe("buildSetupFrame — the setup-frame contract (gotcha 3, pure)", () => 
     expect(frame.setup.inputAudioTranscription).toEqual({});
     expect(frame.setup.outputAudioTranscription).toEqual({});
   });
+
+  it("exports Jordan's live voice as Sadaltager (matches the pre-rendered TTS host)", async () => {
+    // WHY: the live Q&A host must sound like the JORDAN the user just heard in
+    // the story digest — agents/voice/gemini_tts.py binds JORDAN → Sadaltager,
+    // and this constant is the frontend half of that cross-stack contract.
+    const { GEMINI_LIVE_JORDAN_VOICE } = await import("@/lib/voice/useGeminiLive");
+    expect(GEMINI_LIVE_JORDAN_VOICE).toBe("Sadaltager");
+  });
 });
 
 describe("normalizeFrameToText — frame normalization (gotcha 6)", () => {

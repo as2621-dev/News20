@@ -295,11 +295,16 @@ async def render_chunk(
     # prefixes that match the speaker_voice_configs. Convert the XML tags to
     # bare Person1/Person2 prefixes so the renderer binds the right voices.
     prompt_lines: list[str] = [
-        "TTS the following conversation between Person1 and Person2. "
-        "Read it as a measured, professional two-host broadcast-news segment: "
-        "an unhurried, deliberate anchor cadence with natural pauses between "
-        "sentences and a brief beat at each speaker hand-off. Warm and "
-        "conversational, but never rushed. Do not read the speaker labels aloud.",
+        "TTS the following conversation between Person1 and Person2 — two "
+        "podcast co-hosts who clearly enjoy each other's company. Person1 is "
+        "playful and quick-witted: audible smiles, surprise, comic timing, "
+        "genuine reactions. Person2 is warm and sincere — amused by Person1, "
+        "occasionally laughing along, but grounded and clear on the facts. "
+        "Perform it with lively conversational energy and real emotional "
+        "range: varied pacing, natural emphasis, reactive turn-taking where "
+        "each host audibly responds to the other — never flat, never a "
+        "monotone read. Keep a brief natural beat at each speaker hand-off. "
+        "Do not read the speaker labels aloud.",
     ]
     for tag, body in _TURN_TAG_REGEX.findall(xml_chunk):
         text = body.strip()

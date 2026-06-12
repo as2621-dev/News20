@@ -46,11 +46,20 @@ import {
   STORY_QA_TOOL_GROUNDING_CLAUSE,
 } from "@/lib/voice/storyQaTool";
 import { buildGreetingNudge, buildInNewsSystemInstruction } from "@/lib/voice/storyVoicePrompts";
-import { GEMINI_LIVE_DEFAULT_VOICE, useGeminiLive } from "@/lib/voice/useGeminiLive";
+import { GEMINI_LIVE_DEFAULT_VOICE, GEMINI_LIVE_JORDAN_VOICE, useGeminiLive } from "@/lib/voice/useGeminiLive";
 import type { Story } from "@/types/feed";
 
 /** `localStorage` key the prototype uses to remember mic grant. */
 const VOICE_GRANTED_KEY = "blip-voice-granted";
+
+/**
+ * Input amplitude below this is treated as "the mic is sending silence" —
+ * drives the can't-hear-you hint. RMS of real speech sits well above 0.01.
+ */
+const SILENT_MIC_AMPLITUDE_FLOOR = 0.01;
+
+/** How long (ms) the session may stay silent before the mic hint shows. */
+const SILENT_MIC_HINT_DELAY_MS = 8000;
 
 /**
  * The 4 render states of this component. `permission` = before grant;
@@ -196,11 +205,12 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   const handleTranscript = useCallback((transcript: { role: "user" | "model"; text: string }): void => {
     setTurns((prev) => {
       const last = prev[prev.length - 1];
-      // Reason: Gemini Live streams transcript deltas for the CURRENT turn — we
-      // replace the last entry if it's the same role (streaming update), or
-      // append a new entry when the role switches (new turn boundary).
+      // Reason: Gemini Live streams transcript DELTAS (fragments) for the
+      // CURRENT turn — APPEND to the last entry while the role is unchanged so
+      // the bubble shows the whole sentence, not just the latest fragment; a
+      // role switch starts a new turn.
       if (last && last.role === transcript.role) {
-        return [...prev.slice(0, -1), { role: transcript.role, text: transcript.text }];
+        return [...prev.slice(0, -1), { role: transcript.role, text: last.text + transcript.text }];
       }
       return [...prev, { role: transcript.role, text: transcript.text }];
     });
@@ -224,12 +234,21 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     setViewState("error");
   }, []);
 
-  const { status, connect, disconnect } = useGeminiLive({
+  // Jordan's voice by default; flips to the safe default ONCE if the live
+  // endpoint rejects the setup before completing (voice-name fallback).
+  const [liveVoiceName, setLiveVoiceName] = useState<string>(GEMINI_LIVE_JORDAN_VOICE);
+  const hasRetriedFallbackVoiceRef = useRef<boolean>(false);
+
+  // Can't-hear-you hint when the live mic stream stays silent (simulator gotcha).
+  const [showSilentMicHint, setShowSilentMicHint] = useState<boolean>(false);
+  const peakAmplitudeRef = useRef<number>(0);
+
+  const { status, isSetupComplete, inputAmplitude, connect, disconnect } = useGeminiLive({
     systemInstruction: buildInNewsSystemInstruction(story.headline, story.digest_id, STORY_QA_TOOL_GROUNDING_CLAUSE),
     tools: [askAboutStoryDeclaration],
     onToolCall,
     onTranscript: handleTranscript,
-    voiceName: GEMINI_LIVE_DEFAULT_VOICE,
+    voiceName: liveVoiceName,
     greetingNudge: buildGreetingNudge(story.headline),
     onMicError: handleMicError,
   });
@@ -281,14 +300,78 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   // Mirror hook error status → error view. The generic copy must NOT clobber a
   // more specific message (e.g. onMicError's) that landed first.
   useEffect(() => {
-    if (status === "error") {
-      logger.error("ask_sheet_voice_hook_error", {
-        story_id: story.digest_id,
-        fix_suggestion: "Inspect useGeminiLive status; the token endpoint or WSS handshake may have failed.",
-      });
-      setErrorMessage((previousMessage) => previousMessage ?? "Voice isn't available right now.");
-      setViewState("error");
+    if (status !== "error") {
+      return;
     }
+    // Voice-name fallback: a pre-setup failure with Jordan's voice may mean the
+    // live endpoint rejected the voice — retry ONCE with the safe default.
+    // Post-setup errors (e.g. mic failure) never trigger this.
+    if (!hasRetriedFallbackVoiceRef.current && !isSetupComplete && liveVoiceName === GEMINI_LIVE_JORDAN_VOICE) {
+      hasRetriedFallbackVoiceRef.current = true;
+      logger.warn("ask_sheet_voice_fallback_voice_retry", {
+        story_id: story.digest_id,
+        rejected_voice_name: liveVoiceName,
+        fallback_voice_name: GEMINI_LIVE_DEFAULT_VOICE,
+        fix_suggestion:
+          "Jordan's live voice (Sadaltager) may be unsupported on the Live model; retrying with the default.",
+      });
+      disconnectRef.current();
+      setLiveVoiceName(GEMINI_LIVE_DEFAULT_VOICE);
+      return;
+    }
+    logger.error("ask_sheet_voice_hook_error", {
+      story_id: story.digest_id,
+      fix_suggestion: "Inspect useGeminiLive status; the token endpoint or WSS handshake may have failed.",
+    });
+    setErrorMessage((previousMessage) => previousMessage ?? "Voice isn't available right now.");
+    setViewState("error");
+  }, [status, story.digest_id, isSetupComplete, liveVoiceName]);
+
+  // Run the fallback reconnect AFTER the voice-name state lands, so the hook's
+  // connect() closes over the NEW voice (calling it in the same render would
+  // reuse the rejected one).
+  useEffect(() => {
+    if (liveVoiceName === GEMINI_LIVE_DEFAULT_VOICE && hasRetriedFallbackVoiceRef.current) {
+      setViewState("listening");
+      void startVoiceSession();
+    }
+    // Reason: startVoiceSession is stable per story; this effect must run only
+    // when the fallback flips the voice name.
+  }, [liveVoiceName, startVoiceSession]);
+
+  // Track the session's peak mic amplitude; clear the silent-mic hint the
+  // moment real input arrives.
+  useEffect(() => {
+    if (inputAmplitude > peakAmplitudeRef.current) {
+      peakAmplitudeRef.current = inputAmplitude;
+    }
+    if (showSilentMicHint && inputAmplitude >= SILENT_MIC_AMPLITUDE_FLOOR) {
+      setShowSilentMicHint(false);
+    }
+  }, [inputAmplitude, showSilentMicHint]);
+
+  // After the session goes live, if the mic stream stays silent for the grace
+  // window the user is talking to a deaf session (common in the iOS Simulator
+  // when macOS mic permission / I/O ▸ Audio Input is off) — surface a hint.
+  useEffect(() => {
+    if (status !== "live") {
+      setShowSilentMicHint(false);
+      return;
+    }
+    peakAmplitudeRef.current = 0;
+    const silentMicTimer = setTimeout(() => {
+      if (peakAmplitudeRef.current < SILENT_MIC_AMPLITUDE_FLOOR) {
+        setShowSilentMicHint(true);
+        logger.warn("voice_live_input_silent", {
+          story_id: story.digest_id,
+          peak_amplitude: peakAmplitudeRef.current,
+          fix_suggestion:
+            "No mic energy reached the session. On the iOS Simulator: grant macOS mic permission to " +
+            "Simulator.app and enable I/O ▸ Audio Input ▸ Internal Microphone. On device: check mic permission.",
+        });
+      }
+    }, SILENT_MIC_HINT_DELAY_MS);
+    return () => clearTimeout(silentMicTimer);
   }, [status, story.digest_id]);
 
   // On mount: if the view is already `listening` (localStorage flag was set),
@@ -437,6 +520,20 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     <>
       <div className="sheet-body">
         <VsOrb view_state={viewState === "responding" ? "responding" : "listening"} />
+        {showSilentMicHint ? (
+          <p
+            style={{
+              color: "rgba(255,255,255,.55)",
+              fontSize: "12px",
+              lineHeight: 1.45,
+              textAlign: "center",
+              margin: "10px auto 0",
+              maxWidth: "280px",
+            }}
+          >
+            Can&rsquo;t hear you — check mic access (Simulator: I/O ▸ Audio Input).
+          </p>
+        ) : null}
         <div className="vthread" id="vthread">
           {last_user_turn !== null && (
             <div className="row-q">

@@ -47,8 +47,14 @@ import { createMicCapture, createPcmPlayer, type MicCapture, type PcmPlayer } fr
 
 /** The default Gemini Live model (native-audio preview — gotcha intro). */
 export const GEMINI_LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
-/** The default prebuilt voice for Live sessions. */
+/** The default prebuilt voice for Live sessions (also the fallback when a preferred voice is rejected). */
 export const GEMINI_LIVE_DEFAULT_VOICE = "Charon";
+/**
+ * Jordan's voice — the SAME prebuilt voice (`Sadaltager`) the pre-rendered
+ * story digests bind to JORDAN (agents/voice/gemini_tts.py VOICE_MAP_GEMINI),
+ * so the live Q&A host sounds like the Jordan the user just heard.
+ */
+export const GEMINI_LIVE_JORDAN_VOICE = "Sadaltager";
 /** Worker route that mints the ephemeral token (SP3 `agents/worker/main.py`). */
 export const MINT_TOKEN_PATH = "/api/voice/live-token";
 /**
