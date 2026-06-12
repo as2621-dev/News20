@@ -209,8 +209,17 @@ async def _regenerate_story(
     audio_bytes, audio_duration_ms = await render_audio_bytes(script, tts_client)
     caption_track = build_caption_track(script, audio_duration_ms)
 
-    # ── 3. Upload new audio (versioned path so CDN/clients never see stale bytes) ──
-    audio_object_path = f"{story_id}/digest-{feed_date}-regen.mp3"
+    # ── 3. Upload new audio (digest-count-versioned path: bucket uploads are
+    # upsert=false, so a re-run must never collide with a prior object) ──
+    all_digest_rows = (
+        supabase.table("digests")
+        .select("digest_id")
+        .eq("digest_story_id", story_id)
+        .execute()
+        .data
+        or []
+    )
+    audio_object_path = f"{story_id}/digest-regen-v{len(all_digest_rows) + 1}.mp3"
     audio_url = upload_to_bucket(
         supabase, AUDIO_BUCKET, audio_object_path, audio_bytes, "audio/mpeg"
     )
@@ -298,12 +307,22 @@ async def _run() -> int:
 
     paid = os.environ.get("RUN_REGEN") == "1"
     max_regen = int(os.environ.get("MAX_REGEN", "0"))
+    # Explicit override: regenerate THESE story ids instead of the latest feed
+    # window (e.g. seeded/global-fallback stories outside any daily_feeds row).
+    explicit_ids = [
+        sid.strip()
+        for sid in os.environ.get("REGEN_STORY_IDS", "").split(",")
+        if sid.strip()
+    ]
 
     supabase = create_client(
         os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     )
 
-    feed_date, story_ids = _load_target_story_ids(supabase)
+    if explicit_ids:
+        feed_date, story_ids = "explicit", explicit_ids
+    else:
+        feed_date, story_ids = _load_target_story_ids(supabase)
     if not story_ids:
         print("No daily_feeds rows found — nothing to regenerate.")
         return 1
