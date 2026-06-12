@@ -516,24 +516,14 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
       <div className="art-bar">
         <div className="r3-bottom">
           <div className="r3-row">
-            <button
-              type="button"
-              className="sig-btn"
-              aria-label="Ask by voice"
-              onClick={() => onOpenVoice?.()}
-              style={{ background: "transparent", border: "none", padding: 0 }}
-            >
+            {/* No inline style overrides here — the reel's .sig-btn/.field CSS
+                must apply verbatim so this bar matches the reel's ask bar. */}
+            <button type="button" className="sig-btn" aria-label="Ask by voice" onClick={() => onOpenVoice?.()}>
               <span className="ring" />
               <span className="ring r2" />
               {ic("voice")}
             </button>
-            <button
-              type="button"
-              className="qfield field"
-              aria-label="Type a question"
-              onClick={() => onOpenType?.()}
-              style={{ background: "transparent", border: "none", padding: 0, textAlign: "left" }}
-            >
+            <button type="button" className="qfield field" aria-label="Type a question" onClick={() => onOpenType?.()}>
               <span className="q">Ask anything about this story…</span>
               <span className="kbd">{ic("keyboard")}</span>
             </button>

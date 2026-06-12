@@ -76,10 +76,11 @@ export function KaraokeCaption({
         {captionState.words.map((word, wordIndex) => (
           // Spread the selector's css_class_names verbatim (the visual contract).
           // biome-ignore lint/suspicious/noArrayIndexKey: word order is stable within a sentence and there is no stable id; index is the correct key here.
-          <span key={wordIndex} className={word.css_class_names}>
-            {word.word_text}
-            {/* Reason: spaces between inline word spans are collapsed; emit an
-                explicit space so the rendered sentence reads naturally. */}
+          <span key={wordIndex}>
+            <span className={word.css_class_names}>{word.word_text}</span>
+            {/* Reason: the word span is display:inline-block (for the scale pop),
+                and trailing whitespace INSIDE an inline-block is trimmed — the
+                separating space must live OUTSIDE it to render. */}
             {wordIndex < captionState.words.length - 1 ? " " : null}
           </span>
         ))}

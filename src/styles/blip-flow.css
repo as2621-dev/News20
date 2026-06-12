@@ -2223,12 +2223,12 @@ body {
   gap: 13px;
 }
 .r3-row .sig-btn {
-  width: 68px;
-  height: 68px;
+  width: 52px;
+  height: 52px;
 }
 .r3-row .sig-btn .ico {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
 }
 .field {
   background: rgba(8, 12, 22, 0.5);
@@ -2237,16 +2237,17 @@ body {
 }
 .field .q {
   color: rgba(255, 255, 255, 0.66);
-  font-size: 15px;
+  font-size: 14px;
 }
 .qfield {
   flex: 1;
-  height: 64px;
+  min-width: 0;
+  height: 52px;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 0 8px 0 18px;
-  border-radius: 17px;
+  gap: 10px;
+  padding: 0 8px 0 16px;
+  border-radius: 15px;
   cursor: text;
   transition:
     border-color 0.16s,
@@ -2254,11 +2255,16 @@ body {
 }
 .qfield .q {
   flex: 1;
+  /* one line, always — ellipsize instead of wrapping */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
 }
 .qfield .kbd {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   flex: none;
   display: grid;
   place-items: center;
@@ -2267,8 +2273,8 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 .qfield .kbd .ico {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
 }
 
 /* follow confirmation toast — bottom-center pill over the reel */
