@@ -109,7 +109,7 @@ def _rebuild_canonical_story(
     chunk_rows = (
         supabase.table("detail_chunks")
         .select("chunk_index,chunk_text")
-        .eq("chunk_story_id", story_id)
+        .eq("detail_story_id", story_id)
         .order("chunk_index")
         .execute()
         .data
