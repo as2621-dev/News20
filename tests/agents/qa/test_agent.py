@@ -271,6 +271,50 @@ class TestWebFallbackBranch:
         assert answer.answer_text == REFUSAL_ANSWER_TEXT
 
     @pytest.mark.asyncio
+    async def test_prose_web_answer_with_sources_is_salvaged(self, s1_corpus) -> None:
+        """Search-tool prose (non-JSON) + real web sources → surfaced as the answer.
+
+        WHY: with the google_search tool active, Gemini sometimes ignores the
+        JSON contract and returns the answer as plain prose. Having SEARCHED
+        (sources present) means the relatedness gate passed — the prose must be
+        surfaced with web attribution, not refused on a formatting technicality.
+        """
+        client = _llm_client_returning(_answer_response("", [], False))
+        _stub_web_search(
+            client,
+            "Nvidia trades at roughly 23x forward earnings as of June 2026.",
+            web_sources=[
+                {
+                    "source_title": "gurufocus.com",
+                    "source_url": "https://gurufocus.com/nvda",
+                }
+            ],
+        )
+
+        answer = await answer_question("Forward PE of Nvidia?", s1_corpus, client)
+
+        assert answer.answer_is_grounded is True
+        assert "23x forward earnings" in answer.answer_text
+        assert answer.answer_citations[0].passage_id == "web:0"
+        assert answer.answer_citations[0].source_outlet_name == "gurufocus.com"
+
+    @pytest.mark.asyncio
+    async def test_prose_without_sources_refuses(self, s1_corpus) -> None:
+        """Non-JSON output with NO searched sources → refusal (no relatedness signal).
+
+        WHY: prose without a search behind it could be an ungrounded ramble about
+        an unrelated question — without the searched-sources signal it must not
+        be surfaced as an answer.
+        """
+        client = _llm_client_returning(_answer_response("", [], False))
+        _stub_web_search(client, "Some unverifiable prose with no search behind it.")
+
+        answer = await answer_question("Forward PE?", s1_corpus, client)
+
+        assert answer.answer_is_grounded is False
+        assert answer.answer_text == REFUSAL_ANSWER_TEXT
+
+    @pytest.mark.asyncio
     async def test_web_call_raising_falls_back_to_plain_refusal(
         self, s1_corpus
     ) -> None:

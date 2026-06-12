@@ -188,6 +188,27 @@ def _parse_answer_response(parsed: dict[str, Any]) -> tuple[str, list[str], bool
 MAX_WEB_CITATIONS = 4
 
 
+def _web_citations(web_sources: list[dict[str, str]]) -> list[AnswerCitation]:
+    """Map searched web sources → :class:`AnswerCitation` chips (``web:<n>`` ids).
+
+    Args:
+        web_sources: ``{"source_title", "source_url"}`` dicts from the search
+            response's grounding metadata.
+
+    Returns:
+        At most :data:`MAX_WEB_CITATIONS` citations in grounding order.
+    """
+    return [
+        AnswerCitation(
+            source_url=web_source["source_url"],
+            source_quote="",
+            source_outlet_name=web_source["source_title"],
+            passage_id=f"web:{web_source_index}",
+        )
+        for web_source_index, web_source in enumerate(web_sources[:MAX_WEB_CITATIONS])
+    ]
+
+
 def build_off_topic_answer() -> QuestionAnswer:
     """Build the off-topic pushback answer (unrelated question → steer back).
 
@@ -234,32 +255,58 @@ async def _answer_from_web(
         A web-answered :class:`QuestionAnswer`, the off-topic pushback, or the
         plain refusal when the web call fails / returns nothing usable.
     """
-    system_prompt = (
+    # Reason: the WHOLE filled template goes in the USER prompt (not
+    # system_instruction) — Gemini's google_search tool triggers off the user
+    # content, and burying the question in the system prompt made the model skip
+    # the search and return empty answers (observed against the live corpus).
+    user_prompt = (
         WEB_FALLBACK_ANSWER_PROMPT.replace(
             "{CONTEXT_BLOCK}", corpus.render_context_block()
         )
         .replace("{CONVERSATION_BLOCK}", _render_conversation_block(conversation_turns))
         .replace("{QUESTION}", question_text.strip())
     )
-    user_prompt = (
-        "Apply the relatedness gate, then answer with Google Search if related. "
-        "Output ONLY the JSON object with 'is_related' and 'answer'."
-    )
 
     try:
         raw_response, web_sources = await llm_client.call_gemini_with_search(
             prompt=user_prompt,
-            system=system_prompt,
             temperature=ANSWER_TEMPERATURE,
         )
-        parsed = extract_json_from_llm_response(raw_response, stage="qa_web_fallback")
     except Exception as exc:  # noqa: BLE001 — fail safe to refusal, never a 5xx
         logger.error(
             "qa_web_fallback_failed",
             story_id=corpus.story_id,
             error_type=type(exc).__name__,
             error_message=str(exc)[:200],
-            fix_suggestion="Web-fallback LLM/parse failed; returning plain refusal",
+            fix_suggestion="Web-fallback LLM call failed; returning plain refusal",
+        )
+        return build_refusal_answer()
+
+    try:
+        parsed = extract_json_from_llm_response(raw_response, stage="qa_web_fallback")
+    except Exception:  # noqa: BLE001 — prose salvage below, then refusal
+        # Reason: with the search tool active Gemini sometimes ignores the JSON
+        # contract and returns the answer as plain prose. When it actually
+        # SEARCHED (web sources present) the prose IS the related answer —
+        # searching at all means the relatedness gate passed (unrelated
+        # questions are refused without a search) — so surface it attributed
+        # to the web rather than refusing on a formatting technicality.
+        prose_answer = raw_response.strip()
+        if prose_answer and web_sources:
+            logger.info(
+                "qa_web_fallback_prose_salvaged",
+                story_id=corpus.story_id,
+                web_source_count=len(web_sources),
+            )
+            return QuestionAnswer(
+                answer_text=prose_answer,
+                answer_citations=_web_citations(web_sources),
+                answer_is_grounded=True,
+            )
+        logger.error(
+            "qa_web_fallback_unparseable",
+            story_id=corpus.story_id,
+            fix_suggestion="Web-fallback output was neither JSON nor searched prose; refusing",
         )
         return build_refusal_answer()
 
@@ -283,15 +330,7 @@ async def _answer_from_web(
         logger.info("qa_web_fallback_empty_answer", story_id=corpus.story_id)
         return build_refusal_answer()
 
-    citations = [
-        AnswerCitation(
-            source_url=web_source["source_url"],
-            source_quote="",
-            source_outlet_name=web_source["source_title"],
-            passage_id=f"web:{web_source_index}",
-        )
-        for web_source_index, web_source in enumerate(web_sources[:MAX_WEB_CITATIONS])
-    ]
+    citations = _web_citations(web_sources)
     logger.info(
         "qa_web_fallback_answered",
         story_id=corpus.story_id,

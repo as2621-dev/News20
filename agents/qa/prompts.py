@@ -124,10 +124,12 @@ completely different subject is UNRELATED — set "is_related" to false, leave
 "answer" empty, and STOP. Do not answer unrelated questions.
 
 STEP 2 — SEARCH-GROUNDED ANSWER (related questions only)
-Use Google Search to answer the question. Write a short, direct answer (1-3
-sentences) based on what the search results actually say. If the search results
-do not settle the answer, say so honestly inside the answer rather than guessing
-("Recent reports suggest…", "I couldn't find a current figure…").
+Use Google Search to answer the question — ALWAYS run a search before answering.
+Write a short, direct answer (1-3 sentences) based on what the search results
+actually say. When "is_related" is true the "answer" MUST be non-empty: if the
+search results do not settle the answer, say so honestly inside the answer
+rather than guessing or leaving it blank ("Recent reports suggest…", "I
+couldn't find a current figure…").
 
 OUTPUT CONTRACT
 Output ONLY a JSON object with this exact shape (no markdown, no code fences):
