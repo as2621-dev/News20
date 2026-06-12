@@ -23,13 +23,15 @@ import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 export interface AllCaughtUpProps {
   /** Restart the briefing from the first story (scroll to 0 + replay digest-1). */
   onReplay: () => void;
+  /** The REAL number of stories in today's briefing (defaults to the 30 cap). */
+  storyCount?: number;
 }
 
 /**
  * Render the all-caught-up finish line. Covers the reel surface; the only
  * interactive control is the replay CTA.
  */
-export function AllCaughtUp({ onReplay }: AllCaughtUpProps) {
+export function AllCaughtUp({ onReplay, storyCount = FEED_TOTAL }: AllCaughtUpProps) {
   const prefersReducedMotion = useReducedMotion();
 
   // Reason: a single fade-up variant reused for every line; reduced motion makes
@@ -55,7 +57,7 @@ export function AllCaughtUp({ onReplay }: AllCaughtUpProps) {
 
       <div className="relative z-10 mx-auto w-full max-w-[300px] text-center">
         <motion.div variants={fadeUp} className="mb-6 font-mono text-[12px] uppercase tracking-[0.2em] text-white/45">
-          {FEED_TOTAL} / {FEED_TOTAL} · DONE
+          {storyCount} / {storyCount} · DONE
         </motion.div>
 
         <motion.h1 variants={fadeUp} className="font-serif text-[40px] font-bold leading-[1.08] text-white">

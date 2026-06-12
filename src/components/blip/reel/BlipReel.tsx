@@ -34,9 +34,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // here in the reel's root client component so the reel is self-sufficient.
 import "@/styles/blip-flow.css";
 import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
+import { AccountSheet } from "@/components/blip/reel/AccountSheet";
 import { ArticleLayer } from "@/components/blip/reel/ArticleLayer";
 import { AskSheet, type AskSheetMode } from "@/components/blip/reel/AskSheet";
 import { ReelStage } from "@/components/blip/reel/ReelStage";
+import { ReelToast } from "@/components/blip/reel/ReelToast";
 import { AllCaughtUp } from "@/components/reel/AllCaughtUp";
 import { LoadingSkeleton } from "@/components/reel/LoadingSkeleton";
 import { ReelError } from "@/components/reel/ReelError";
@@ -54,9 +56,13 @@ import type { Story } from "@/types/feed";
  * Which overlay is open over the active story, if any.
  * - `{ kind: "sheet", mode }` — the ask sheet (type or voice composer).
  * - `{ kind: "article" }`     — the full-article layer (tap-headline).
+ * - `{ kind: "account" }`     — the account sheet (tap the blip wordmark).
  * - `null`                    — the bare reel.
  */
-type Overlay = { kind: "sheet"; mode: AskSheetMode } | { kind: "article" } | null;
+type Overlay = { kind: "sheet"; mode: AskSheetMode } | { kind: "article" } | { kind: "account" } | null;
+
+/** How long the follow confirmation toast stays visible (ms). */
+const REEL_TOAST_DURATION_MS = 1800;
 
 /**
  * Mount the Stage-4 reel: load the feed, wire the status machine + audio unlock +
@@ -75,6 +81,30 @@ export function BlipReel() {
   const [followedDigestIds, setFollowedDigestIds] = useState<Set<string>>(() => new Set());
   // Which ask sheet / article is open over the active story (the Stage-4 overlay).
   const [overlay, setOverlay] = useState<Overlay>(null);
+  // The follow-confirmation toast message (null = hidden); timer auto-clears it.
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Show the bottom-center toast pill, restarting the dismiss timer. */
+  const showToast = useCallback((message: string): void => {
+    setToastMessage(message);
+    if (toastTimerRef.current !== null) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, REEL_TOAST_DURATION_MS);
+  }, []);
+
+  // Clear any pending toast timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const activeIndex = useActiveStoryObserver({
     containerRef: scrollContainerRef,
@@ -200,45 +230,54 @@ export function BlipReel() {
   }, []);
 
   /** Persist a follow toggle (optimistic flip, write through, reconcile to truth). */
-  const toggleFollowedForStory = useCallback((digestId: string): void => {
-    setFollowedDigestIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(digestId)) {
-        next.delete(digestId);
-      } else {
-        next.add(digestId);
-      }
-      return next;
-    });
+  const toggleFollowedForStory = useCallback(
+    (digestId: string): void => {
+      // Confirmation toast reflecting the OPTIMISTIC new state (the reconcile
+      // below corrects the icon if the write fails).
+      const isNowFollowed = !followedDigestIds.has(digestId);
+      showToast(isNowFollowed ? "Following this story" : "Unfollowed");
 
-    toggleFollow(digestId)
-      .then((persistedIsFollowed) => {
-        setFollowedDigestIds((previous) => {
-          const next = new Set(previous);
-          if (persistedIsFollowed) {
-            next.add(digestId);
-          } else {
-            next.delete(digestId);
-          }
-          return next;
-        });
-      })
-      .catch((toggleError: unknown) => {
-        logger.error("reel_follow_toggle_failed", {
-          story_id: digestId,
-          error_message: toggleError instanceof Error ? toggleError.message : "unknown",
-          fix_suggestion: "Confirm migration 0005 applied and the follows RLS allows the authed write.",
-        });
-        getFollowedStoryIds().then((persistedFollowedStoryIds) => {
-          setFollowedDigestIds(persistedFollowedStoryIds);
-        });
+      setFollowedDigestIds((previous) => {
+        const next = new Set(previous);
+        if (next.has(digestId)) {
+          next.delete(digestId);
+        } else {
+          next.add(digestId);
+        }
+        return next;
       });
-  }, []);
+
+      toggleFollow(digestId)
+        .then((persistedIsFollowed) => {
+          setFollowedDigestIds((previous) => {
+            const next = new Set(previous);
+            if (persistedIsFollowed) {
+              next.add(digestId);
+            } else {
+              next.delete(digestId);
+            }
+            return next;
+          });
+        })
+        .catch((toggleError: unknown) => {
+          logger.error("reel_follow_toggle_failed", {
+            story_id: digestId,
+            error_message: toggleError instanceof Error ? toggleError.message : "unknown",
+            fix_suggestion: "Confirm migration 0005 applied and the follows RLS allows the authed write.",
+          });
+          getFollowedStoryIds().then((persistedFollowedStoryIds) => {
+            setFollowedDigestIds(persistedFollowedStoryIds);
+          });
+        });
+    },
+    [followedDigestIds, showToast],
+  );
 
   // ---- overlay open/close (the Stage-4 ask + article plumbing) ----
   const openType = useCallback((): void => setOverlay({ kind: "sheet", mode: "type" }), []);
   const openVoice = useCallback((): void => setOverlay({ kind: "sheet", mode: "voice" }), []);
   const openArticle = useCallback((): void => setOverlay({ kind: "article" }), []);
+  const openAccount = useCallback((): void => setOverlay({ kind: "account" }), []);
   const closeOverlay = useCallback((): void => setOverlay(null), []);
 
   const isOverlayOpen = overlay !== null;
@@ -274,6 +313,7 @@ export function BlipReel() {
             onOpenType={openType}
             onOpenVoice={openVoice}
             onOpenArticle={openArticle}
+            onOpenAccount={openAccount}
           />
         ))}
       </div>
@@ -289,7 +329,10 @@ export function BlipReel() {
         style={accentStyle}
         onClick={closeOverlay}
       />
-      <div className={`sheet${overlay?.kind === "sheet" ? " on" : ""}`} style={{ ...accentStyle, height: "66%" }}>
+      <div
+        className={`sheet${overlay?.kind === "sheet" || overlay?.kind === "account" ? " on" : ""}`}
+        style={{ ...accentStyle, height: overlay?.kind === "account" ? "46%" : "66%" }}
+      >
         {overlay?.kind === "sheet" && currentStory ? (
           <AskSheet
             key={currentStory.digest_id}
@@ -299,6 +342,7 @@ export function BlipReel() {
             onOpenArticle={openArticle}
           />
         ) : null}
+        {overlay?.kind === "account" ? <AccountSheet onClose={closeOverlay} /> : null}
       </div>
       <div className={`layer-article${overlay?.kind === "article" ? " on" : ""}`} style={accentStyle}>
         {overlay?.kind === "article" && currentStory ? (
@@ -306,10 +350,13 @@ export function BlipReel() {
         ) : null}
       </div>
 
+      {/* ---- follow confirmation toast ---- */}
+      <ReelToast message={toastMessage} />
+
       {/* ---- reel status overlays (reused from the legacy reel) ---- */}
       {reelStatus === "loading" ? <LoadingSkeleton /> : null}
       {reelStatus === "tapstart" ? <TapToStart onStart={handleStart} /> : null}
-      {reelStatus === "caughtup" ? <AllCaughtUp onReplay={handleReplay} /> : null}
+      {reelStatus === "caughtup" ? <AllCaughtUp onReplay={handleReplay} storyCount={stories.length} /> : null}
       {reelStatus === "error" ? <ReelError onRetry={handleRetry} /> : null}
     </div>
   );

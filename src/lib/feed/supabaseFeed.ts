@@ -19,6 +19,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AnchorSpeaker, CaptionSentence, SegmentKey, Story, WordToken } from "@/types/feed";
 
@@ -164,7 +165,9 @@ export async function getFeed(client: SupabaseClient = getSupabaseBrowserClient(
     );
   }
 
-  return (data ?? []).map(mapStoryRow);
+  // Reason: the briefing is finite by contract — never surface more than the
+  // 30-story cap even if the table carries extra rows.
+  return (data ?? []).slice(0, FEED_TOTAL).map(mapStoryRow);
 }
 
 /** A `daily_feeds` row with its embedded story (the same {@link StoryRow} shape). */
@@ -212,5 +215,9 @@ export async function getDailyFeed(
     );
   }
 
-  return (data ?? []).map((row) => mapStoryRow(Array.isArray(row.stories) ? row.stories[0] : row.stories));
+  // Reason: same finite-briefing cap as getFeed — the allocator writes ~30
+  // slots, but the UI contract is AT MOST 30 stories.
+  return (data ?? [])
+    .slice(0, FEED_TOTAL)
+    .map((row) => mapStoryRow(Array.isArray(row.stories) ? row.stories[0] : row.stories));
 }

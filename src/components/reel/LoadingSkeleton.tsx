@@ -16,7 +16,7 @@
  * (matching the prototype, which disabled the shimmer under that query).
  */
 import { BlipLogo } from "@/components/BlipLogo";
-import { FEED_START_INDEX, FEED_TOTAL } from "@/lib/reel/feedBriefing";
+import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 
 /** One pulsing skeleton block (poster/caption stand-in). */
 function SkeletonBlock({ className }: { className: string }) {
@@ -45,14 +45,14 @@ export function LoadingSkeleton() {
       aria-label="Loading today's briefing"
       className="absolute inset-0 z-40 flex flex-col bg-background"
     >
-      {/* top chrome: finite bar (consumed segments done) + wordmark */}
+      {/* top chrome: finite bar (nothing consumed yet while buffering) + wordmark */}
       <div className="px-4 pt-safe-t">
         <div className="mb-3 flex gap-[3px]">
           {Array.from({ length: FEED_TOTAL }, (_unused, segmentIndex) => (
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length positional bar; segment index IS the identity.
               key={segmentIndex}
-              className={`finite-seg${segmentIndex < FEED_START_INDEX ? " done" : ""}`}
+              className="finite-seg"
             />
           ))}
         </div>

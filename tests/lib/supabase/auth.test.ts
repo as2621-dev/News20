@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { sendMagicLink } from "@/lib/supabase/auth";
+import { sendMagicLink, signOut, verifyEmailOtp } from "@/lib/supabase/auth";
 
 /**
  * Fake Supabase auth client whose `auth.signInWithOtp` resolves to the given
@@ -51,5 +51,101 @@ describe("sendMagicLink", () => {
 
     expect(result).toEqual({ ok: false, error_message: "rate limit exceeded" });
     expect(signInWithOtp).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Fake Supabase auth client whose `auth.verifyOtp` resolves to the given result.
+ * Same client-boundary mocking as {@link makeFakeAuthClient}.
+ */
+function makeFakeOtpClient(result: { error: unknown }) {
+  const verifyOtp = vi.fn().mockResolvedValue(result);
+  return { client: { auth: { verifyOtp } } as never, verifyOtp };
+}
+
+describe("verifyEmailOtp", () => {
+  it("calls verifyOtp exactly once with email + token + type 'email' and returns ok", async () => {
+    // WHY: the happy path is the in-app iOS sign-in contract — the emailed code
+    // must reach Supabase as a type:"email" OTP verification exactly once. Fails
+    // if the call is dropped, duplicated, or sent with the wrong OTP type (a
+    // type:"magiclink" token would be rejected server-side).
+    const { client, verifyOtp } = makeFakeOtpClient({ error: null });
+
+    const result = await verifyEmailOtp("reader@example.com", "12345678", client);
+
+    expect(result).toEqual({ ok: true });
+    expect(verifyOtp).toHaveBeenCalledTimes(1);
+    expect(verifyOtp.mock.calls[0][0]).toEqual({
+      email: "reader@example.com",
+      token: "12345678",
+      type: "email",
+    });
+  });
+
+  it("returns ok:false and NEVER calls verifyOtp for a malformed code (Rule 12)", async () => {
+    // WHY: Supabase rate-limits OTP attempts — an obviously bad code (wrong
+    // length, non-digits) must be rejected locally with ZERO API calls. Fails if
+    // the local code-shape guard is removed.
+    const { client, verifyOtp } = makeFakeOtpClient({ error: null });
+
+    const result = await verifyEmailOtp("reader@example.com", "1234", client);
+
+    expect(result.ok).toBe(false);
+    expect(verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("maps a Supabase error (expired/wrong code) to ok:false with the error message", async () => {
+    // WHY: an expired or mistyped code must surface as an inline error, never a
+    // silent success — fails if the error branch is dropped.
+    const { client, verifyOtp } = makeFakeOtpClient({ error: { message: "Token has expired or is invalid" } });
+
+    const result = await verifyEmailOtp("reader@example.com", "12345678", client);
+
+    expect(result).toEqual({ ok: false, error_message: "Token has expired or is invalid" });
+    expect(verifyOtp).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Fake Supabase auth client whose `auth.signOut` resolves (or rejects). Same
+ * client-boundary mocking as {@link makeFakeAuthClient}.
+ */
+function makeFakeSignOutClient(result: { error: unknown } | Error) {
+  const signOutFn = result instanceof Error ? vi.fn().mockRejectedValue(result) : vi.fn().mockResolvedValue(result);
+  return { client: { auth: { signOut: signOutFn } } as never, signOutFn };
+}
+
+describe("signOut", () => {
+  it("calls auth.signOut exactly once and returns ok", async () => {
+    // WHY: the happy path is the account-sheet contract — sign-out must reach
+    // Supabase exactly once so the persisted session is actually cleared before
+    // the UI routes back to onboarding.
+    const { client, signOutFn } = makeFakeSignOutClient({ error: null });
+
+    const result = await signOut(client);
+
+    expect(result).toEqual({ ok: true });
+    expect(signOutFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps a Supabase error to ok:false with the error message", async () => {
+    // WHY: a failed sign-out must surface as an inline error — routing to
+    // onboarding with a still-live session would look signed-out while staying
+    // signed in (Rule 12: fail loud).
+    const { client } = makeFakeSignOutClient({ error: { message: "network down" } });
+
+    const result = await signOut(client);
+
+    expect(result).toEqual({ ok: false, error_message: "network down" });
+  });
+
+  it("maps a thrown (rejected) signOut to ok:false instead of crashing", async () => {
+    // WHY (edge): supabase-js rejects on transport-level failures; the wrapper
+    // must convert the rejection to the discriminated union the UI switches on.
+    const { client } = makeFakeSignOutClient(new Error("fetch failed"));
+
+    const result = await signOut(client);
+
+    expect(result).toEqual({ ok: false, error_message: "fetch failed" });
   });
 });

@@ -33,7 +33,6 @@ import { BlipLogo } from "@/components/BlipLogo";
 import { ic } from "@/components/blip/reel/icons";
 import { KaraokeCaption } from "@/components/reel/KaraokeCaption";
 import { captionStateAtTime } from "@/lib/captions/captionState";
-import { FEED_START_INDEX, FEED_TOTAL } from "@/lib/reel/feedBriefing";
 import { type NextReelState, useReelAudio } from "@/lib/reel/useReelAudio";
 import type { AnchorSpeaker, Story } from "@/types/feed";
 
@@ -49,12 +48,19 @@ const SPEAKER_IDENTITY_COLOR: Record<AnchorSpeaker, string> = {
   JORDAN: "#C792EA",
 };
 
-/** Hardcoded briefing date (no per-story date in the feed contract yet) — matches the prototype chrome. */
-const BRIEFING_DATE_LABEL = "THU · MAY 29";
+/**
+ * Format today's date as the briefing chrome label, e.g. `"THU · MAY 29"`.
+ * (The feed contract has no per-story date yet, so the briefing is "today".)
+ */
+function formatBriefingDateLabel(date: Date): string {
+  const weekday = date.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+  const month = date.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+  return `${weekday} · ${month} ${date.getDate()}`;
+}
 
-/** Format the finite counter, e.g. `feedPosition 25` → `"26 / 30"`. */
-function formatCounter(feedPosition: number): string {
-  return `${String(feedPosition + 1).padStart(2, "0")} / ${FEED_TOTAL}`;
+/** Format the finite counter from the REAL feed position, e.g. `(0, 30)` → `"01 / 30"`. */
+function formatCounter(storyIndex: number, storyCount: number): string {
+  return `${String(storyIndex + 1).padStart(2, "0")} / ${storyCount}`;
 }
 
 /** Format an audio clock value in ms as `m:ss` (e.g. `46000` → `"0:46"`). */
@@ -98,6 +104,8 @@ export interface ReelStageProps {
   onOpenVoice: () => void;
   /** Open the full-article layer (tap the headline). */
   onOpenArticle: () => void;
+  /** Open the account sheet (tap the blip wordmark). */
+  onOpenAccount: () => void;
 }
 
 /**
@@ -121,6 +129,7 @@ export function ReelStage({
   onOpenType,
   onOpenVoice,
   onOpenArticle,
+  onOpenAccount,
 }: ReelStageProps) {
   const prefersReducedMotion = useReducedMotion();
 
@@ -176,7 +185,6 @@ export function ReelStage({
     [story.caption_sentences, story.speech_end_ms, audioController.currentTimeMs],
   );
 
-  const feedPosition = FEED_START_INDEX + storyIndex;
   const progressPercent =
     story.audio_duration_ms > 0
       ? Math.min(100, Math.max(0, (audioController.currentTimeMs / story.audio_duration_ms) * 100))
@@ -214,14 +222,14 @@ export function ReelStage({
         <div className="reel-halo" aria-hidden="true" />
         <div className="reel-scrim" aria-hidden="true" />
 
-        {/* top chrome: finite bar + wordmark/date + counter + profile */}
+        {/* top chrome: finite bar + wordmark/date (tap → account) + counter */}
         <div className="top">
           <div className="finite">
-            {Array.from({ length: FEED_TOTAL }, (_unused, segmentIndex) => {
+            {Array.from({ length: storyCount }, (_unused, segmentIndex) => {
               let stateClass = "";
-              if (segmentIndex < feedPosition) {
+              if (segmentIndex < storyIndex) {
                 stateClass = " done";
-              } else if (segmentIndex === feedPosition) {
+              } else if (segmentIndex === storyIndex) {
                 stateClass = " cur";
               }
               return (
@@ -231,15 +239,18 @@ export function ReelStage({
             })}
           </div>
           <div className="toprow">
-            <div className="brand">
+            <button
+              type="button"
+              className="brand"
+              aria-label="Open account"
+              onClick={onOpenAccount}
+              style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+            >
               <BlipLogo size={20} />
-              <span className="date">{BRIEFING_DATE_LABEL}</span>
-            </div>
+              <span className="date">{formatBriefingDateLabel(new Date())}</span>
+            </button>
             <div className="topright">
-              <span className="counter">{formatCounter(feedPosition)}</span>
-              <button type="button" className="act" aria-label="Profile" onClick={onOpenType}>
-                {ic("profile")}
-              </button>
+              <span className="counter">{formatCounter(storyIndex, storyCount)}</span>
             </div>
           </div>
         </div>
@@ -287,17 +298,15 @@ export function ReelStage({
             <span className="seg-dot" />
             {story.segment_label}
           </div>
-          <h1 className="headline">{story.headline}</h1>
-          {/* The headline is a heading (non-interactive); the article opens from the
-              explicit tap-cue button below + the ask bar, keeping semantics clean. */}
+          {/* The headline IS the article tap target (the explicit tap-cue hint
+              line was removed) — a button-wrapped heading keeps it reachable. */}
           <button
             type="button"
-            className="tap-cue"
+            aria-label="Open the full article"
             onClick={onOpenArticle}
-            style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+            style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
           >
-            {ic("arrow")}
-            TAP THE HEADLINE FOR THE FULL ARTICLE
+            <h1 className="headline">{story.headline}</h1>
           </button>
         </div>
 
@@ -335,10 +344,6 @@ export function ReelStage({
               <span className="q">Ask anything about this story…</span>
               <span className="kbd">{ic("keyboard")}</span>
             </button>
-          </div>
-          <div className="r3-hint">
-            <span className="dot" />
-            PRESS TO TALK · OR TYPE YOUR OWN
           </div>
         </div>
       </div>
