@@ -28,7 +28,7 @@ from agents.m0.poster_models import (
     SelectionReport,
 )
 from agents.m0.reference_prompt_synthesizer import synthesize_prompt
-from agents.m0.serper_image_search import search_images
+from agents.m0.serper_image_search import search_images, youtube_thumbnail_candidate
 from agents.m0.story_concept import extract_story_concept
 from agents.shared.logger import get_logger
 
@@ -59,8 +59,11 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
     refs_dir = output_dir / "refs"
 
     report = SelectionReport(
-        digest_id=digest.digest_id, headline=headline, accent_hex=accent_hex,
-        refined_query="", candidate_count=0,
+        digest_id=digest.digest_id,
+        headline=headline,
+        accent_hex=accent_hex,
+        refined_query="",
+        candidate_count=0,
     )
 
     # (0) concept-first (poster-pipeline §4): drives query, scoring, and synthesis.
@@ -69,12 +72,25 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
 
     # (1) search on the concept query  (2) gate is inside search_images
     report.refined_query = concept.image_search_query
-    candidates = search_images(concept.image_search_query, digest.digest_id)[:CANDIDATE_LIMIT]
+    candidates = search_images(concept.image_search_query, digest.digest_id)[
+        :CANDIDATE_LIMIT
+    ]
+    # (1b) YouTube-sourced story: the video's own thumbnail is the most
+    # on-subject seed — PREPEND it ahead of the SERP results (scoring still
+    # decides the winner; the size gate still applies after download).
+    youtube_candidate = youtube_thumbnail_candidate(
+        digest.digest_source_url or "", digest.digest_id
+    )
+    if youtube_candidate is not None:
+        candidates = [youtube_candidate, *candidates]
     report.candidate_count = len(candidates)
     if not candidates:
         report.notes = "no candidates returned from SERP after gating"
-        logger.error("poster_pipeline_no_candidates", digest_id=digest.digest_id,
-                     fix_suggestion="Broaden the query or relax the size gate.")
+        logger.error(
+            "poster_pipeline_no_candidates",
+            digest_id=digest.digest_id,
+            fix_suggestion="Broaden the query or relax the size gate.",
+        )
         _write_report(report, output_dir)
         return report
 
@@ -84,8 +100,11 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
     ]
     if not downloaded:
         report.notes = "all candidate downloads failed"
-        logger.error("poster_pipeline_no_downloads", digest_id=digest.digest_id,
-                     fix_suggestion="Candidate hosts blocked fetch; try other results or thumbnails.")
+        logger.error(
+            "poster_pipeline_no_downloads",
+            digest_id=digest.digest_id,
+            fix_suggestion="Candidate hosts blocked fetch; try other results or thumbnails.",
+        )
         _write_report(report, output_dir)
         return report
 
@@ -98,20 +117,32 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
         _write_report(report, output_dir)
         return report
     report.winner_candidate_id = winner.candidate.candidate_id
-    winner_downloaded = next(d for d in downloaded if d.candidate.candidate_id == winner.candidate.candidate_id)
+    winner_downloaded = next(
+        d
+        for d in downloaded
+        if d.candidate.candidate_id == winner.candidate.candidate_id
+    )
 
     # (7) recast prompt  (8) image-conditioned generate  (9) grade
-    synthesized_prompt = synthesize_prompt(winner_downloaded, concept, accent_hex, client)
+    synthesized_prompt = synthesize_prompt(
+        winner_downloaded, concept, accent_hex, client
+    )
     report.synthesized_prompt = synthesized_prompt
 
     response = generate_from_reference(
-        client, synthesized_prompt, winner_downloaded.image_bytes, winner_downloaded.mime_type
+        client,
+        synthesized_prompt,
+        winner_downloaded.image_bytes,
+        winner_downloaded.mime_type,
     )
     raw_bytes, _mime = _extract_image_bytes(response)
     if not raw_bytes:
         report.notes = "Nano Banana Pro returned no image part (safety filter or empty)"
-        logger.error("poster_pipeline_generation_empty", digest_id=digest.digest_id,
-                     fix_suggestion="Rephrase the synthesized prompt to be less literal/sensitive.")
+        logger.error(
+            "poster_pipeline_generation_empty",
+            digest_id=digest.digest_id,
+            fix_suggestion="Rephrase the synthesized prompt to be less literal/sensitive.",
+        )
         _write_report(report, output_dir)
         return report
 
@@ -122,8 +153,10 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
     report.poster_path = str(poster_path)
 
     logger.info(
-        "poster_pipeline_completed", digest_id=digest.digest_id,
-        winner_candidate_id=report.winner_candidate_id, poster_path=str(poster_path),
+        "poster_pipeline_completed",
+        digest_id=digest.digest_id,
+        winner_candidate_id=report.winner_candidate_id,
+        poster_path=str(poster_path),
     )
     _write_report(report, output_dir)
     return report

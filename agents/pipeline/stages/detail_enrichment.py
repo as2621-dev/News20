@@ -35,7 +35,7 @@ Example:
     ...     llm_client=client, segment_slug="geopolitics",
     ... )
     >>> enrichment.second_analytic.analytic_kind
-    'market_impact'
+    'subject_profile'
 """
 
 from __future__ import annotations
@@ -79,16 +79,18 @@ _MAX_SOURCE_BODY_CHARS = 8000
 # first 5 (most-important-first); fewer is a hard failure (fail loud, Rule 12).
 _REQUIRED_KEY_POINTS = 5
 
-# Reason: the deterministic segment → analytic_kind map (Decision #2). The DB
-# segment_slug enum is {geopolitics, markets, tech, sport, wildcard}; any slug not
-# in this map (incl. the wildcard catch-all and any future/unknown value) falls
-# back to why_it_matters — the always-safe kind that needs no domain figures.
+# Reason: the deterministic segment → analytic_kind map (2026-06-12 product
+# decision, supersedes Decision #2's original table): MARKET IMPACT exists ONLY
+# for markets + tech stories; every other segment gets the PROFILE of the
+# story's central person/organization. Any slug not in this map (incl. future/
+# unknown values) falls back to why_it_matters — the always-safe kind that
+# needs no domain figures.
 _SEGMENT_TO_ANALYTIC_KIND: dict[str, AnalyticKind] = {
-    "geopolitics": "market_impact",
-    "markets": "ripple",
-    "tech": "impact",
-    "sport": "stakes",
-    "wildcard": "why_it_matters",
+    "geopolitics": "subject_profile",
+    "markets": "market_impact",
+    "tech": "market_impact",
+    "sport": "subject_profile",
+    "wildcard": "subject_profile",
 }
 
 # The human tab label per analytic_kind (Decision #2 table). Fixed by the kind, not
@@ -99,7 +101,14 @@ _ANALYTIC_TAB_LABELS: dict[AnalyticKind, str] = {
     "impact": "IMPACT",
     "stakes": "STAKES",
     "why_it_matters": "WHY IT MATTERS",
+    "subject_profile": "PROFILE",
 }
+
+# Reason: subject_profile rows explicitly noted as background (well-known facts
+# about famous public figures, the ONE sanctioned exception to the single-source
+# rule) are exempt from the numeric source-grounding drop — a birth year or
+# papacy start date will legitimately not appear in the day's article.
+_BACKGROUND_NOTE_VALUE = "background"
 
 # Reason: a "value carries a number" test. Any run of 2+ digits, or a single digit
 # next to a unit/symbol ($ % bn etc.), means the value asserts a figure that MUST be
@@ -172,7 +181,8 @@ def select_analytic_kind(segment_slug: str) -> AnalyticKind:
     """Map a story's ``segment_slug`` to its ``analytic_kind`` (PURE, deterministic).
 
     The second-analytic kind is chosen by code from the segment, NEVER by the LLM
-    (Decision #2 / Rule 5). Unknown / wildcard segments fall back to
+    (Decision #2 / Rule 5). MARKET IMPACT exists only for markets + tech; the
+    other segments get the subject PROFILE. Unknown segments fall back to
     ``why_it_matters`` — the always-safe kind that asserts no domain figure.
 
     Args:
@@ -183,10 +193,10 @@ def select_analytic_kind(segment_slug: str) -> AnalyticKind:
         The deterministic ``AnalyticKind`` for that segment.
 
     Example:
-        >>> select_analytic_kind("geopolitics")
+        >>> select_analytic_kind("markets")
         'market_impact'
-        >>> select_analytic_kind("sport")
-        'stakes'
+        >>> select_analytic_kind("geopolitics")
+        'subject_profile'
         >>> select_analytic_kind("something-unknown")
         'why_it_matters'
     """
@@ -250,7 +260,10 @@ def _is_number_grounded(value: str, source_digits: str) -> bool:
 
 
 def _ground_analytic_rows(
-    raw_rows: list[Any], source_digits: str, story_id: str
+    raw_rows: list[Any],
+    source_digits: str,
+    story_id: str,
+    analytic_kind: AnalyticKind,
 ) -> tuple[list[AnalyticRow], bool]:
     """Validate + source-ground each drafted analytic row's numeric value.
 
@@ -260,10 +273,17 @@ def _ground_analytic_rows(
     source digit stream; otherwise the value is DROPPED to None (direction-only)
     and the analytic is marked ungrounded.
 
+    EXCEPTION (the one sanctioned hole in the single-source rule): a
+    ``subject_profile`` row whose note is ``"background"`` may carry numbers not
+    in the article (a birth year, a career figure) — these are well-known facts
+    about famous public figures the prompt allows from general knowledge, and
+    they are kept verbatim without affecting ``analytic_is_grounded``.
+
     Args:
         raw_rows: The model's drafted row objects (untrusted dicts).
         source_digits: The source body's digit stream.
         story_id: The story id (for logging the dropped-number event).
+        analytic_kind: The code-chosen kind (gates the background exemption).
 
     Returns:
         ``(validated_rows, all_numbers_grounded)`` — the second element is False if
@@ -281,7 +301,16 @@ def _ground_analytic_rows(
         direction = _clean_direction(raw_row.get("analytic_row_direction"))
         note = _clean_optional_str(raw_row.get("analytic_row_note"))
 
-        if _value_has_number(value) and not _is_number_grounded(value, source_digits):
+        is_background_profile_row = (
+            analytic_kind == "subject_profile"
+            and note is not None
+            and note.lower() == _BACKGROUND_NOTE_VALUE
+        )
+        if (
+            not is_background_profile_row
+            and _value_has_number(value)
+            and not _is_number_grounded(value, source_digits)
+        ):
             # Reason: trust gate — an ungrounded number must NEVER publish as a fact.
             # Drop it to direction-only and flag the whole analytic ungrounded.
             logger.warning(
@@ -508,7 +537,7 @@ async def run_detail_enrichment(
         ...     story=story, script=script, llm_client=client, segment_slug="markets",
         ... )
         >>> enrichment.second_analytic.analytic_kind
-        'ripple'
+        'market_impact'
     """
     source_body = (story.canonical_body_text or "").strip()
     if not source_body:
@@ -558,7 +587,10 @@ async def run_detail_enrichment(
     if not isinstance(raw_analytic, dict):
         raw_analytic = {}
     rows, rows_grounded = _ground_analytic_rows(
-        raw_analytic.get("analytic_rows", []) or [], source_digits, story_id
+        raw_analytic.get("analytic_rows", []) or [],
+        source_digits,
+        story_id,
+        analytic_kind,
     )
     second_analytic = SecondAnalytic(
         analytic_story_id=story_id,

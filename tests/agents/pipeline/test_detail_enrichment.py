@@ -128,11 +128,13 @@ class TestSelectAnalyticKindPure:
     @pytest.mark.parametrize(
         ("segment_slug", "expected_kind"),
         [
-            ("geopolitics", "market_impact"),
-            ("markets", "ripple"),
-            ("tech", "impact"),
-            ("sport", "stakes"),
-            ("wildcard", "why_it_matters"),
+            # 2026-06-12 product decision: MARKET IMPACT only for markets + tech;
+            # geopolitics/sport/wildcard get the subject PROFILE.
+            ("geopolitics", "subject_profile"),
+            ("markets", "market_impact"),
+            ("tech", "market_impact"),
+            ("sport", "subject_profile"),
+            ("wildcard", "subject_profile"),
         ],
     )
     def test_happy_path_every_segment_maps(self, segment_slug, expected_kind) -> None:
@@ -148,6 +150,20 @@ class TestSelectAnalyticKindPure:
         assert select_analytic_kind("health.policy") == "why_it_matters"
         assert select_analytic_kind("") == "why_it_matters"
 
+    def test_subject_profile_instruction_declares_background_exemption(self) -> None:
+        """The PROFILE prompt instruction exists and scopes the background exemption.
+
+        WHY: the grounding gate exempts rows noted 'background' ONLY because the
+        prompt instructs the model to mark general-knowledge facts that way — if
+        the instruction loses that contract, the exemption becomes unsound.
+        """
+        from agents.pipeline.prompts import DETAIL_ANALYTIC_INSTRUCTIONS
+
+        instruction = DETAIL_ANALYTIC_INSTRUCTIONS["subject_profile"]
+        assert "PROFILE" in instruction
+        assert "background" in instruction
+        assert "SINGLE-SOURCE" in instruction
+
 
 class TestGroundedHappyPath:
     """A clean grounded payload yields a fully-structured enrichment."""
@@ -156,11 +172,11 @@ class TestGroundedHappyPath:
     async def test_clean_payload_structure_and_segment_kind(
         self, geopolitics_story, digest_script, make_llm_client
     ) -> None:
-        """5 key points, an in-order timeline, and the geopolitics→market_impact kind.
+        """5 key points, an in-order timeline, and the geopolitics→subject_profile kind.
 
         WHY: this is the structural contract SP4 persists. The analytic_kind MUST
-        match the segment map (geopolitics→market_impact) — a wrong kind would skin
-        the Detail tab incorrectly.
+        match the segment map (geopolitics→subject_profile, 2026-06-12 remap) — a
+        wrong kind would skin the Detail tab incorrectly.
         """
         client = make_llm_client(_enrichment_payload())
         enrichment = await run_detail_enrichment(
@@ -182,18 +198,18 @@ class TestGroundedHappyPath:
         assert enrichment.timeline[0].timeline_when_label == "Mon"
 
         # Segment-correct analytic kind + label.
-        assert enrichment.second_analytic.analytic_kind == "market_impact"
-        assert enrichment.second_analytic.analytic_tab_label == "MARKET IMPACT"
+        assert enrichment.second_analytic.analytic_kind == "subject_profile"
+        assert enrichment.second_analytic.analytic_tab_label == "PROFILE"
 
         # All drafted numbers ("20%", "1.20") are in the source → grounded.
         assert enrichment.second_analytic.analytic_is_grounded is True
         assert enrichment.key_figure.key_figure_value == "20%"
 
     @pytest.mark.asyncio
-    async def test_markets_segment_yields_ripple_kind(
+    async def test_markets_segment_yields_market_impact_kind(
         self, geopolitics_story, digest_script, make_llm_client
     ) -> None:
-        """A markets story gets the ripple kind (segment map, not the LLM)."""
+        """A markets story gets the market_impact kind (segment map, not the LLM)."""
         client = make_llm_client(_enrichment_payload())
         enrichment = await run_detail_enrichment(
             story=geopolitics_story,
@@ -201,8 +217,8 @@ class TestGroundedHappyPath:
             llm_client=client,
             segment_slug="markets",
         )
-        assert enrichment.second_analytic.analytic_kind == "ripple"
-        assert enrichment.second_analytic.analytic_tab_label == "RIPPLE"
+        assert enrichment.second_analytic.analytic_kind == "market_impact"
+        assert enrichment.second_analytic.analytic_tab_label == "MARKET IMPACT"
 
 
 class TestNumberGroundingGate:
@@ -310,6 +326,74 @@ class TestNumberGroundingGate:
             == "record high"
         )
         assert enrichment.second_analytic.analytic_is_grounded is True
+
+    @pytest.mark.asyncio
+    async def test_profile_background_row_keeps_non_article_number(
+        self, geopolitics_story, digest_script, make_llm_client
+    ) -> None:
+        """A subject_profile row noted 'background' keeps a number absent from the article.
+
+        WHY: the PROFILE section is the ONE sanctioned exception to the
+        single-source rule (2026-06-12 decision) — a famous figure's birth year
+        ("1955") will legitimately not appear in the day's article and must NOT
+        be stripped, nor flip analytic_is_grounded.
+        """
+        client = make_llm_client(
+            _enrichment_payload(
+                analytic_rows=[
+                    {
+                        "analytic_row_label": "BORN",
+                        "analytic_row_value": "1955, Chicago",
+                        "analytic_row_direction": None,
+                        "analytic_row_note": "background",
+                    },
+                ]
+            )
+        )
+        enrichment = await run_detail_enrichment(
+            story=geopolitics_story,
+            script=digest_script,
+            llm_client=client,
+            segment_slug="wildcard",
+        )
+        assert enrichment.second_analytic.analytic_kind == "subject_profile"
+        assert (
+            enrichment.second_analytic.analytic_rows[0].analytic_row_value
+            == "1955, Chicago"
+        )
+        assert enrichment.second_analytic.analytic_is_grounded is True
+
+    @pytest.mark.asyncio
+    async def test_background_note_does_not_exempt_market_impact_rows(
+        self, geopolitics_story, digest_script, make_llm_client
+    ) -> None:
+        """The 'background' note exempts ONLY subject_profile — market rows stay gated.
+
+        WHY (failure case): the exemption must not become a model-controlled
+        backdoor — a market_impact row claiming 'background' with a fabricated
+        figure is still dropped to direction-only and flagged ungrounded.
+        """
+        client = make_llm_client(
+            _enrichment_payload(
+                analytic_rows=[
+                    {
+                        "analytic_row_label": "Brent crude",
+                        "analytic_row_value": "+4%",
+                        "analytic_row_direction": "up",
+                        "analytic_row_note": "background",
+                    },
+                ]
+            )
+        )
+        enrichment = await run_detail_enrichment(
+            story=geopolitics_story,
+            script=digest_script,
+            llm_client=client,
+            segment_slug="markets",
+        )
+        assert enrichment.second_analytic.analytic_kind == "market_impact"
+        assert enrichment.second_analytic.analytic_rows[0].analytic_row_value is None
+        assert enrichment.second_analytic.analytic_is_grounded is False
 
 
 class TestEnrichmentFailureModes:

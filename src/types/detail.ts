@@ -33,11 +33,13 @@ export type BiasLean = "left" | "center" | "right";
 
 /**
  * The segment-skinned "second analytic" Detail tab kind (Phase 2c). Mirrors the
- * `analytic_kind` Postgres enum (`reference/supabase-schema.md` §1). Chosen
- * deterministically from the story's segment (geopolitics→market_impact,
- * markets→ripple, tech→impact, sport→stakes, wildcard→why_it_matters).
+ * `analytic_kind` Postgres enum (`reference/supabase-schema.md` §1 + migration
+ * 0011). Chosen deterministically from the story's segment: markets/tech →
+ * market_impact, geopolitics/sport/wildcard → subject_profile (PROFILE),
+ * unknown → why_it_matters. ripple/impact/stakes remain for rows enriched
+ * before the 2026-06-12 remap.
  */
-export type AnalyticKind = "market_impact" | "ripple" | "impact" | "stakes" | "why_it_matters";
+export type AnalyticKind = "market_impact" | "ripple" | "impact" | "stakes" | "why_it_matters" | "subject_profile";
 
 /**
  * How the Detail "Coverage" tab is framed (Phase 2c). Mirrors the `coverage_mode`

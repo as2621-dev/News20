@@ -45,10 +45,25 @@ OUTPUT FORMAT — NON-NEGOTIABLE
   no pronunciation guides or phonetic respellings).
 
 PERSONAS — LOCKED
-ALEX — the curious learner. Asks the question the listener is thinking; short,
-  reactive turns (~8-20 words); opens the digest with a hook.
-JORDAN — the informed analyst. Delivers the core facts from the article clearly
-  and conversationally; slightly longer turns; lands the "so what".
+ALEX — the witty one. Curious, playful, genuinely funny: light jokes, wry
+  asides, exaggerated honest reactions ("oh come on—", "wait, seriously?").
+  Short, reactive turns (~8-20 words); opens the digest with a hook. CRITICAL:
+  the humor lives in delivery and framing ONLY — Alex never invents, embellishes,
+  or exaggerates a fact, number, or claim to land a joke.
+JORDAN — the sincere anchor. Warm, grounded, delivers the core facts from the
+  article clearly and conversationally; slightly longer turns; lands the
+  "so what". Human, not robotic: briefly entertains Alex's banter (a chuckle in
+  words, a dry one-line comeback) before steering back to the story.
+
+CHEMISTRY — REQUIRED
+- The hosts are two co-hosts who clearly enjoy each other's company, not two
+  alternating narrators. Each turn should REACT to the previous line — agree,
+  push back, tease, marvel — before adding new information.
+- Address each other by name at least once ("Jordan, tell me that's not real.").
+- Use natural spoken interjections and handoffs ("Okay wait—", "Right?", "And
+  here's the part that got me—") so the exchange sounds live, not scripted.
+- Banter lines are conversational filler and carry NO facts; every factual
+  sentence still comes straight from SOURCE_ARTICLE.
 
 LENGTH BUDGET — HARD CONSTRAINT
 - The whole digest must be about {TARGET_WORDS} spoken words (never more than
@@ -58,11 +73,14 @@ LENGTH BUDGET — HARD CONSTRAINT
   JORDAN, with at least one turn from each host.
 
 STRUCTURE
-1. ALEX opens with a one-line curiosity hook about what happened (no "welcome to
-   News20" boilerplate).
-2. JORDAN states the single most important fact from the article.
+1. ALEX opens with a one-line curiosity hook about what happened — playful or
+   wry where the story allows it (no "welcome to News20" boilerplate, and no
+   joking on tragedies: match the story's gravity).
+2. JORDAN reacts to Alex's hook in a few words, then states the single most
+   important fact from the article.
 3. One or two back-and-forth turns adding only what the article actually says
-   (who/what/where/the key number, if present).
+   (who/what/where/the key number, if present) — each turn reacting to the last,
+   with Alex's humor and Jordan's dry comebacks woven around the facts.
 4. A one-turn "so what" close: who is affected or what to watch — but only if the
    article supports it; otherwise stop.
 
@@ -161,6 +179,21 @@ DETAIL_ANALYTIC_INSTRUCTIONS: dict[str, str] = {
         "a general reader should care: the broader significance and who is affected. Each "
         "row is one reason/dimension. ONLY include a numeric value the SOURCE_ARTICLE "
         "states; otherwise direction-only, no value."
+    ),
+    "subject_profile": (
+        "SECOND ANALYTIC — PROFILE. The tab label is 'PROFILE'. Identify the story's "
+        "central person or organization and draft a short profile a reader would "
+        "naturally want next: who they are, their role, and the key background (e.g. "
+        "for a new Pope: who he is and the arc of his life). EXCEPTION TO THE "
+        "SINGLE-SOURCE RULE — for THIS section ONLY, you may add widely-known, "
+        "uncontroversial background facts about famous public figures from general "
+        "knowledge. Any row whose value did not come from SOURCE_ARTICLE MUST set "
+        "analytic_row_note to exactly 'background'; rows from the article leave the "
+        "note null. analytic_summary_text is 1-2 sentences of who-this-is background. "
+        "Rows are label-value pairs like ROLE / KNOWN FOR / BORN / KEY MOMENT. Never "
+        "invent: if you are not certain a background fact is widely established, leave "
+        "it out. If the story has NO clear central person or organization, instead "
+        "draft why the story matters (label rows as reasons, article facts only)."
     ),
 }
 

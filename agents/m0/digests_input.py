@@ -35,6 +35,9 @@ class Digest(BaseModel):
         digest_headline: Short headline for the headline card (cut 1).
         digest_category: Editorial category label.
         digest_source: Human-readable source citation from the brief.
+        digest_source_url: Machine-readable source URL (None when unknown).
+            A YouTube video/podcast URL here makes the poster pipeline seed
+            from the video's own thumbnail.
         turns: Ordered ALEX/JORDAN dialogue turns (the spoken script).
 
     Example:
@@ -51,6 +54,11 @@ class Digest(BaseModel):
     )
     digest_category: str = Field(..., description="Editorial category label")
     digest_source: str = Field(..., description="Human-readable source citation")
+    digest_source_url: str | None = Field(
+        default=None,
+        description="Machine-readable source URL; a YouTube URL seeds the poster "
+        "from the video thumbnail",
+    )
     turns: list[DialogueTurn] = Field(
         ...,
         min_length=1,

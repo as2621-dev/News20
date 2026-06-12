@@ -45,7 +45,9 @@ ClaimStatus = Literal["SUPPORTED", "UNSUPPORTED", "CONTRADICTED"]
 # its kind. Mirrors the analytic_kind Postgres enum (supabase-schema.md §1):
 #   geopolitics→market_impact, markets→ripple, tech→impact,
 #   sport→stakes, wildcard→why_it_matters.
-AnalyticKind = Literal["market_impact", "ripple", "impact", "stakes", "why_it_matters"]
+AnalyticKind = Literal[
+    "market_impact", "ripple", "impact", "stakes", "why_it_matters", "subject_profile"
+]
 
 # How the Detail "Coverage" tab is framed. Mirrors the coverage_mode Postgres enum
 # (supabase-schema.md §1). partisan = L·C·R + blindspot (contested / geopolitics);
@@ -68,8 +70,8 @@ CoverageMomentum = Literal["breaking", "developing", "settled"]
 class DialogueTurn(BaseModel):
     """A single turn of dialogue spoken by either ALEX or JORDAN.
 
-    Ported shape from the donor. ALEX is the curious learner, JORDAN the
-    informed analyst. The text is rendered verbatim by Gemini multi-speaker TTS
+    Ported shape from the donor. ALEX is the witty, playful host; JORDAN the
+    sincere anchor. The text is rendered verbatim by Gemini multi-speaker TTS
     downstream (SP3), so it must be plain speakable English — no bracket tags.
 
     Attributes:

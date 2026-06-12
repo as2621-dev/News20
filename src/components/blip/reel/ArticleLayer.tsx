@@ -379,9 +379,10 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
 
   // ---------------------------------------------------------------------------
   // Tab definitions — the middle tab label comes from second_analytic when
-  // present, otherwise falls back to the static "MARKET IMPACT" label.
+  // present (MARKET IMPACT / PROFILE / …), otherwise a neutral placeholder while
+  // loading or when the analytic is absent.
   // ---------------------------------------------------------------------------
-  const marketTabLabel = detail?.second_analytic?.analytic_tab_label ?? "MARKET IMPACT";
+  const marketTabLabel = detail?.second_analytic?.analytic_tab_label ?? "ANALYSIS";
 
   const TAB_DEFS: { id: AnalyticsTabId; label: string }[] = [
     { id: "timeline", label: "STORY TIMELINE" },
@@ -536,10 +537,6 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
               <span className="q">Ask anything about this story…</span>
               <span className="kbd">{ic("keyboard")}</span>
             </button>
-          </div>
-          <div className="r3-hint">
-            <span className="dot" />
-            PRESS TO TALK · OR TYPE YOUR OWN
           </div>
         </div>
       </div>
