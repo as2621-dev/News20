@@ -9,9 +9,10 @@ SP2 stages — scripting and verification — only need **Gemini text generation
       News20 has no OpenAI dependency — Rule 2, avoid dead code + a hard import).
     - The multi-speaker TTS method is dropped (SP3 reuses M0's
       ``agents/voice/gemini_tts.py`` for the actual audio render).
-    - The Google-Search grounding method is dropped: News20 verification grounds
-      **in-context** against the single source's body text, not the web
-      (memory: news20-qa-incontext-grounding).
+    - News20 verification grounds **in-context** against the single source's
+      body text, not the web (memory: news20-qa-incontext-grounding).
+      ``call_gemini_with_search`` exists ONLY for the Q&A web-fallback path
+      (story-related questions the per-story corpus cannot answer).
 
 What is kept verbatim from the donor: the lazy client init, the
 exponential-backoff retry wrapper, and the structured JSON logging with token
@@ -208,3 +209,105 @@ class LLMClient:
             response_length=len(result),
         )
         return result
+
+    async def call_gemini_with_search(
+        self,
+        prompt: str,
+        system: str = "",
+        model: str = DEFAULT_GEMINI_TEXT_MODEL,
+        temperature: float = 0.3,
+    ) -> tuple[str, list[dict[str, str]]]:
+        """Call Gemini with the Google Search grounding tool enabled.
+
+        Used ONLY by the Q&A web-fallback (a story-related question the per-story
+        corpus cannot answer). Returns the response text plus the web sources the
+        model actually grounded on, extracted from the response's
+        ``grounding_metadata.grounding_chunks`` (title + uri per chunk).
+
+        Args:
+            prompt: User prompt text.
+            system: System prompt / instruction text (empty to omit).
+            model: Gemini text model name (defaults to ``gemini-2.5-flash``).
+            temperature: Sampling temperature.
+
+        Returns:
+            ``(response_text, web_sources)`` where each web source is a
+            ``{"source_title": ..., "source_url": ...}`` dict (empty list when
+            the model answered without consulting the web).
+
+        Raises:
+            PipelineStageError: When all retries are exhausted.
+
+        Example:
+            >>> text, sources = await client.call_gemini_with_search("Forward P/E of CRWV?")  # doctest: +SKIP
+        """
+        start_time = time.monotonic()
+        logger.info(
+            "llm_search_call_started",
+            provider="gemini",
+            model=model,
+            prompt_length=len(prompt),
+            system_length=len(system),
+        )
+
+        async def _call() -> tuple[str, list[dict[str, str]]]:
+            from google.genai import types as genai_types
+
+            client = self._get_gemini_client()
+            config = genai_types.GenerateContentConfig(
+                system_instruction=system if system else None,
+                temperature=temperature,
+                tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+            )
+            response = await client.aio.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=config,
+            )
+            return response.text or "", _extract_web_sources(response)
+
+        result_text, web_sources = await self._retry_with_backoff("gemini", _call)
+        elapsed_ms = int((time.monotonic() - start_time) * 1000)
+        logger.info(
+            "llm_search_call_completed",
+            provider="gemini",
+            model=model,
+            elapsed_ms=elapsed_ms,
+            response_length=len(result_text),
+            web_source_count=len(web_sources),
+        )
+        return result_text, web_sources
+
+
+def _extract_web_sources(response: Any) -> list[dict[str, str]]:
+    """Extract grounded web sources from a Gemini search-tool response.
+
+    Walks ``candidates[0].grounding_metadata.grounding_chunks[*].web`` defensively
+    (every level is optional in the SDK response) and returns one
+    ``{"source_title", "source_url"}`` dict per web chunk with a URI.
+
+    Args:
+        response: The ``generate_content`` response object.
+
+    Returns:
+        The web sources the answer was grounded on (possibly empty).
+    """
+    candidates = getattr(response, "candidates", None) or []
+    if not candidates:
+        return []
+    grounding_metadata = getattr(candidates[0], "grounding_metadata", None)
+    grounding_chunks = getattr(grounding_metadata, "grounding_chunks", None) or []
+
+    web_sources: list[dict[str, str]] = []
+    for chunk in grounding_chunks:
+        web_info = getattr(chunk, "web", None)
+        web_uri = getattr(web_info, "uri", None)
+        if not web_uri:
+            continue
+        web_sources.append(
+            {
+                "source_title": getattr(web_info, "title", None) or "Web source",
+                "source_url": web_uri,
+            }
+        )
+    return web_sources

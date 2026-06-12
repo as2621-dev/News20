@@ -11,12 +11,17 @@ Flow (``answer_question``):
        passage ids it used (``GROUNDED_ANSWER_PROMPT`` forbids answering without
        the provided context — prototype-port-map.md §7).
     3. Parse the answer + cited passage ids. Off-topic / unsupported / empty →
-       refuse with NO fabricated answer.
+       fall through to the WEB FALLBACK (step 6), never a fabricated answer.
     4. Re-verify the answer against the corpus (``agents/qa/verification.py``).
-       If verification fails, DOWNGRADE to a refusal — an ungrounded answer is
-       never surfaced as grounded (Rule 9, zero-tolerance accuracy).
+       If verification fails, fall through to the web fallback — an ungrounded
+       answer is never surfaced as corpus-grounded (Rule 9).
     5. Map the cited passage ids → :class:`AnswerCitation` chips (outlet + URL),
        tracing each citation to that story's ``story_sources`` / corpus passages.
+    6. WEB FALLBACK (``_answer_from_web``): when the corpus cannot answer, a
+       Google-Search-grounded Gemini call first gates on story RELATEDNESS — a
+       related question (e.g. a financial metric of a company the story covers)
+       is answered from the web with web-source citations; an unrelated question
+       gets the ``OFF_TOPIC_ANSWER_TEXT`` pushback (ask about this story).
 
 Returns the typed :class:`QuestionAnswer` (``api-contracts.md``). The Gemini call
 is mocked at the ``LLMClient`` boundary in every test — no live call, no cost.
@@ -35,7 +40,12 @@ from agents.qa.models import (
     GroundingCorpus,
     QuestionAnswer,
 )
-from agents.qa.prompts import GROUNDED_ANSWER_PROMPT, REFUSAL_ANSWER_TEXT
+from agents.qa.prompts import (
+    GROUNDED_ANSWER_PROMPT,
+    OFF_TOPIC_ANSWER_TEXT,
+    REFUSAL_ANSWER_TEXT,
+    WEB_FALLBACK_ANSWER_PROMPT,
+)
 from agents.qa.verification import verify_answer_against_corpus
 from agents.shared.logger import get_logger
 
@@ -173,18 +183,142 @@ def _parse_answer_response(parsed: dict[str, Any]) -> tuple[str, list[str], bool
     return answer_text, cited_ids, claims_grounded
 
 
+# Reason: bound the web-answer citation chips — search grounding can return many
+# chunks; the UI only needs a few attribution chips.
+MAX_WEB_CITATIONS = 4
+
+
+def build_off_topic_answer() -> QuestionAnswer:
+    """Build the off-topic pushback answer (unrelated question → steer back).
+
+    Same wire shape as a refusal (``answer_is_grounded=False``, no citations) so
+    the UI's refusal card renders it; only the body copy differs — the gentle
+    "ask about this story" pushback instead of the can't-answer copy.
+
+    Returns:
+        The off-topic :class:`QuestionAnswer`.
+
+    Example:
+        >>> build_off_topic_answer().answer_is_grounded
+        False
+    """
+    return QuestionAnswer(
+        answer_text=OFF_TOPIC_ANSWER_TEXT,
+        answer_citations=[],
+        answer_is_grounded=False,
+    )
+
+
+async def _answer_from_web(
+    question_text: str,
+    corpus: GroundingCorpus,
+    llm_client: LLMClient,
+    conversation_turns: list[ConversationTurn] | None,
+) -> QuestionAnswer:
+    """Web-search fallback for a question the story corpus could not answer.
+
+    One Gemini call with the Google Search tool: the prompt first gates on
+    story-RELATEDNESS (unrelated → the off-topic pushback, no web answer), then
+    answers a related question from live search results. Web sources from the
+    response's grounding metadata become the citation chips (``passage_id``
+    ``"web:<n>"``), so a web answer is always attributed — never passed off as
+    a corpus-grounded one.
+
+    Args:
+        question_text: The reader's question.
+        corpus: The story's grounding corpus (renders the relatedness context).
+        llm_client: An initialized ``LLMClient`` (mocked in tests).
+        conversation_turns: Prior thread turns for pronoun resolution.
+
+    Returns:
+        A web-answered :class:`QuestionAnswer`, the off-topic pushback, or the
+        plain refusal when the web call fails / returns nothing usable.
+    """
+    system_prompt = (
+        WEB_FALLBACK_ANSWER_PROMPT.replace(
+            "{CONTEXT_BLOCK}", corpus.render_context_block()
+        )
+        .replace("{CONVERSATION_BLOCK}", _render_conversation_block(conversation_turns))
+        .replace("{QUESTION}", question_text.strip())
+    )
+    user_prompt = (
+        "Apply the relatedness gate, then answer with Google Search if related. "
+        "Output ONLY the JSON object with 'is_related' and 'answer'."
+    )
+
+    try:
+        raw_response, web_sources = await llm_client.call_gemini_with_search(
+            prompt=user_prompt,
+            system=system_prompt,
+            temperature=ANSWER_TEMPERATURE,
+        )
+        parsed = extract_json_from_llm_response(raw_response, stage="qa_web_fallback")
+    except Exception as exc:  # noqa: BLE001 — fail safe to refusal, never a 5xx
+        logger.error(
+            "qa_web_fallback_failed",
+            story_id=corpus.story_id,
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:200],
+            fix_suggestion="Web-fallback LLM/parse failed; returning plain refusal",
+        )
+        return build_refusal_answer()
+
+    if not isinstance(parsed, dict):
+        logger.warning(
+            "qa_web_fallback_non_object",
+            story_id=corpus.story_id,
+            fix_suggestion="Web-fallback returned non-object output; refusing",
+        )
+        return build_refusal_answer()
+
+    is_related = bool(parsed.get("is_related", False))
+    answer_text = str(parsed.get("answer", "")).strip()
+
+    if not is_related:
+        logger.info("qa_web_fallback_off_topic", story_id=corpus.story_id)
+        return build_off_topic_answer()
+    if not answer_text:
+        # Reason: related but the model produced no answer — the honest outcome
+        # is the plain can't-answer refusal, not an empty bubble.
+        logger.info("qa_web_fallback_empty_answer", story_id=corpus.story_id)
+        return build_refusal_answer()
+
+    citations = [
+        AnswerCitation(
+            source_url=web_source["source_url"],
+            source_quote="",
+            source_outlet_name=web_source["source_title"],
+            passage_id=f"web:{web_source_index}",
+        )
+        for web_source_index, web_source in enumerate(web_sources[:MAX_WEB_CITATIONS])
+    ]
+    logger.info(
+        "qa_web_fallback_answered",
+        story_id=corpus.story_id,
+        web_citation_count=len(citations),
+    )
+    return QuestionAnswer(
+        answer_text=answer_text,
+        answer_citations=citations,
+        answer_is_grounded=True,
+    )
+
+
 async def answer_question(
     question_text: str,
     corpus: GroundingCorpus,
     llm_client: LLMClient,
     conversation_turns: list[ConversationTurn] | None = None,
 ) -> QuestionAnswer:
-    """Answer a question grounded ONLY in a story's in-context corpus.
+    """Answer a question — story corpus first, web-search fallback for related ones.
 
     Constrains the model to the corpus's context block, parses its answer +
-    cited passage ids, refuses on any ungrounded signal, then re-verifies the
-    answer against the corpus and DOWNGRADES to a refusal if verification fails —
-    so an ungrounded answer is never surfaced as grounded (Rule 9).
+    cited passage ids, and re-verifies the answer against the corpus. When the
+    corpus cannot ground an answer (off-source question, no citation, failed
+    verification), falls through to :func:`_answer_from_web`: a story-RELATED
+    question is answered via Google Search with web-source citations; an
+    unrelated one gets the off-topic pushback. An ungrounded guess is never
+    surfaced as an answer (Rule 9) — every answer is corpus-cited or web-cited.
 
     Args:
         question_text: The reader's question.
@@ -248,26 +382,33 @@ async def answer_question(
         logger.warning(
             "qa_answer_non_object",
             story_id=corpus.story_id,
-            fix_suggestion="Answerer returned non-object output; refusing",
+            fix_suggestion="Answerer returned non-object output; trying web fallback",
         )
-        return build_refusal_answer()
+        return await _answer_from_web(
+            question_text, corpus, llm_client, conversation_turns
+        )
 
     answer_text, cited_ids, claims_grounded = _parse_answer_response(parsed)
     citations = _map_citations(cited_ids, corpus) if claims_grounded else []
 
-    # Reason: refuse before verifying if the answer is structurally ungrounded
-    # (off-topic, empty, no real citation) — no need to spend a verification call.
+    # Reason: the corpus cannot ground this answer (off-source question, empty
+    # answer, no real citation) — fall through to the web fallback, which gates
+    # on relatedness and either web-answers or pushes back off-topic.
     if not claims_grounded or not citations:
         logger.info(
-            "qa_answer_refused_pre_verification",
+            "qa_answer_unanswerable_from_corpus",
             story_id=corpus.story_id,
             claims_grounded=claims_grounded,
             mapped_citation_count=len(citations),
         )
-        return build_refusal_answer()
+        return await _answer_from_web(
+            question_text, corpus, llm_client, conversation_turns
+        )
 
     # Reason: SECOND guardrail — re-verify the answer against the corpus; a failed
-    # verification downgrades a plausible-but-ungrounded answer to a refusal.
+    # verification downgrades a plausible-but-ungrounded answer to the web fallback
+    # (which answers with explicit web attribution or refuses) — never surfaced
+    # as corpus-grounded.
     is_verified = await verify_answer_against_corpus(
         answer_text=answer_text,
         context_block=context_block,
@@ -277,9 +418,11 @@ async def answer_question(
         logger.warning(
             "qa_answer_failed_verification",
             story_id=corpus.story_id,
-            fix_suggestion="Answer not supported by corpus on re-check; downgraded to refusal",
+            fix_suggestion="Answer not supported by corpus on re-check; trying web fallback",
         )
-        return build_refusal_answer()
+        return await _answer_from_web(
+            question_text, corpus, llm_client, conversation_turns
+        )
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
     logger.info(

@@ -331,12 +331,14 @@ class QuestionAnswer(BaseModel):
     ungrounded guess must never be surfaced as grounded.
 
     Attributes:
-        answer_text: The grounded answer body, or the fixed refusal copy when
+        answer_text: The grounded answer body, or the refusal/off-topic copy when
             ``answer_is_grounded`` is ``False``.
-        answer_citations: One citation per grounding passage the answer used
-            (always empty on a refusal). The frontend renders one chip each.
-        answer_is_grounded: ``True`` only when the answer is grounded in the
-            corpus AND verified; ``False`` → render the refusal state.
+        answer_citations: One citation per source the answer used — corpus
+            passages, or web sources (``passage_id`` ``"web:<n>"``) on a
+            web-fallback answer. Always empty on a refusal.
+        answer_is_grounded: ``True`` only when the answer is backed by sources —
+            corpus-grounded AND verified, or web-search-grounded with web
+            citations; ``False`` → render the refusal/pushback state.
 
     Example:
         >>> grounded = QuestionAnswer(

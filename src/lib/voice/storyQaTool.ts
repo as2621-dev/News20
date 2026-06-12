@@ -48,9 +48,10 @@ export const ASK_ABOUT_STORY_TOOL_NAME = "ask_about_story";
 export const askAboutStoryDeclaration: GeminiToolDeclaration = {
   name: ASK_ABOUT_STORY_TOOL_NAME,
   description:
-    "Answer the user's question about THIS news story using only its verified sources. " +
-    "Call this for every factual question about the story; it returns a grounded answer with " +
-    "citations, or a refusal when the sources cannot support an answer.",
+    "Answer the user's question about THIS news story (or anything related to it) using its " +
+    "verified sources, with a web-search fallback for related questions the sources don't cover. " +
+    "Call this for every factual question; it returns a sourced answer with citations, or a " +
+    "refusal/pushback when the question can't be answered or is unrelated to the story.",
   parameters: {
     type: "object",
     properties: {
@@ -74,7 +75,7 @@ export const askAboutStoryDeclaration: GeminiToolDeclaration = {
  */
 export const STORY_QA_TOOL_GROUNDING_CLAUSE =
   `You have one tool, ${ASK_ABOUT_STORY_TOOL_NAME}(question_text). ` +
-  "You MUST NOT answer any factual question about this story from your own knowledge. " +
+  "You MUST NOT answer any factual question about this story — or related to it — from your own knowledge. " +
   `For every such question, call ${ASK_ABOUT_STORY_TOOL_NAME} with the user's question, then speak ONLY the tool's answer_text. ` +
   "When the tool returns answer_is_grounded false, say its answer_text verbatim as a brief refusal and DO NOT guess, invent, or add any facts of your own.";
 
