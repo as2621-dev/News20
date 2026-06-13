@@ -23,19 +23,45 @@ function findRenderedWord(words: ReturnType<typeof captionStateAtTime>["words"],
   return words.find((word) => word.word_text === wordText);
 }
 
+/**
+ * Helper: find a word token (with its timing) by text across all sentences.
+ *
+ * WHY: probe times are DERIVED from the fixture instead of hardcoded so these
+ * invariant tests survive caption-track regeneration (the timings changed when
+ * alignment moved from heuristic slicing to acoustic forced alignment).
+ */
+function findToken(sentences: CaptionSentence[], wordText: string) {
+  for (const sentence of sentences) {
+    const token = sentence.word_tokens.find((word) => word.word_text === wordText);
+    if (token) return token;
+  }
+  throw new Error(`token ${wordText} not found in fixture`);
+}
+
+/** Helper: a probe instant strictly inside a token's [start_ms, end_ms). */
+function midpointMs(token: { start_ms: number; end_ms: number }) {
+  return Math.floor((token.start_ms + token.end_ms) / 2);
+}
+
 describe("captionStateAtTime — invariant (a): the word containing t is active", () => {
-  it("marks the word whose [start_ms,end_ms) contains t as active (digest-1 'target' at 2200ms)", () => {
-    // "target" spans [2007, 2509)ms in digest-1 sentence 0.
-    const state = captionStateAtTime(digest1Sentences, 2200, digest1SpeechEndMs);
+  it("marks the word whose [start_ms,end_ms) contains t as active (digest-1 'target' midpoint)", () => {
+    // Probe strictly inside "target" (digest-1 sentence 0) — derived, not hardcoded.
+    const state = captionStateAtTime(
+      digest1Sentences,
+      midpointMs(findToken(digest1Sentences, "target")),
+      digest1SpeechEndMs,
+    );
     expect(state.current_sentence_index).toBe(0);
     const target = findRenderedWord(state.words, "target");
     expect(target?.timing).toBe("active");
   });
 
   it("treats the interval as half-open: at t == end_ms the word is already spoken, not active", () => {
-    // WHY: [start,end) — exactly at end_ms the word has ended. "The" ends at
-    // 287ms; "U.S." starts at 287ms, so at t=287 "U.S." is the active one.
-    const state = captionStateAtTime(digest1Sentences, 287, digest1SpeechEndMs);
+    // WHY: [start,end) — exactly at end_ms the word has ended. The track is
+    // contiguous ("U.S." starts exactly where "The" ends), so at t = The.end_ms
+    // "U.S." is the active one.
+    const theToken = findToken(digest1Sentences, "The");
+    const state = captionStateAtTime(digest1Sentences, theToken.end_ms, digest1SpeechEndMs);
     expect(findRenderedWord(state.words, "The")?.timing).toBe("spoken");
     expect(findRenderedWord(state.words, "U.S.")?.timing).toBe("active");
   });
@@ -52,9 +78,13 @@ describe("captionStateAtTime — invariant (a): the word containing t is active"
 
 describe("captionStateAtTime — invariant (b): before=spoken, after=dim, gaps=spoken", () => {
   it("marks words ending before t as spoken and words starting after t as dim", () => {
-    // At t=2200 (inside "target"), "The" (ended 287) is spoken; "inside"
-    // (starts 2509) is dim.
-    const state = captionStateAtTime(digest1Sentences, 2200, digest1SpeechEndMs);
+    // Probe inside "target": earlier sentence-0 words ("The", "another") are
+    // spoken; later ones ("inside", "Iran") are dim. Probe derived from fixture.
+    const state = captionStateAtTime(
+      digest1Sentences,
+      midpointMs(findToken(digest1Sentences, "target")),
+      digest1SpeechEndMs,
+    );
     expect(findRenderedWord(state.words, "The")?.timing).toBe("spoken");
     expect(findRenderedWord(state.words, "another")?.timing).toBe("spoken");
     expect(findRenderedWord(state.words, "inside")?.timing).toBe("dim");
@@ -62,12 +92,12 @@ describe("captionStateAtTime — invariant (b): before=spoken, after=dim, gaps=s
   });
 
   it("resolves an inter-word gap to spoken (the passed side), never active", () => {
-    // WHY: M0 words abut, but if a gap exists between word.end and next.start,
-    // a t in that gap must not light a phantom active word. "military" ends at
-    // 1147ms, "hit" starts at 1147ms (abutting) — probe just past "military"
-    // end but before any later word: at t=1147 "hit" is active and "military"
-    // spoken; at a synthetic gap point we still get no active among ended words.
-    const state = captionStateAtTime(digest1Sentences, 1147, digest1SpeechEndMs);
+    // WHY: words abut ("hit" starts exactly where "military" ends), and if a
+    // gap exists between word.end and next.start, a t in that gap must not
+    // light a phantom active word. Probe at exactly military.end_ms: "hit" is
+    // active and "military" spoken; no ended word may be active.
+    const probeMs = findToken(digest1Sentences, "military").end_ms;
+    const state = captionStateAtTime(digest1Sentences, probeMs, digest1SpeechEndMs);
     expect(findRenderedWord(state.words, "military")?.timing).toBe("spoken");
     expect(findRenderedWord(state.words, "hit")?.timing).toBe("active");
     // No word can be active whose [start,end) does not contain t.
@@ -75,8 +105,8 @@ describe("captionStateAtTime — invariant (b): before=spoken, after=dim, gaps=s
       if (word.timing === "active") {
         const token = state.current_sentence?.word_tokens.find((t) => t.word_text === word.word_text);
         expect(token).toBeDefined();
-        expect(1147).toBeGreaterThanOrEqual(token?.start_ms ?? Number.POSITIVE_INFINITY);
-        expect(1147).toBeLessThan(token?.end_ms ?? Number.NEGATIVE_INFINITY);
+        expect(probeMs).toBeGreaterThanOrEqual(token?.start_ms ?? Number.POSITIVE_INFINITY);
+        expect(probeMs).toBeLessThan(token?.end_ms ?? Number.NEGATIVE_INFINITY);
       }
     }
   });
@@ -116,18 +146,29 @@ describe("captionStateAtTime — invariant (c): nothing active at or past speech
 
 describe("captionStateAtTime — invariant (d): exactly one highlight per current sentence", () => {
   it("exposes exactly one highlight word in every current sentence across the track", () => {
-    // Sweep so every sentence is exercised as the current one.
+    // Sweep so every sentence is exercised as the current one. Acoustic tracks
+    // start at the real first-word onset, so instants before the first
+    // sentence legitimately have no current sentence (and no words) — the
+    // one-highlight law applies only while a sentence is current.
+    let sentencesSeen = 0;
     for (let timeMs = 0; timeMs <= digest1SpeechEndMs; timeMs += 200) {
       const state = captionStateAtTime(digest1Sentences, timeMs, digest1SpeechEndMs);
+      if (state.current_sentence_index === -1) continue;
+      sentencesSeen += 1;
       const highlightCount = state.words.filter((word) => word.is_highlight).length;
       expect(highlightCount).toBe(1);
     }
+    expect(sentencesSeen).toBeGreaterThan(0);
   });
 
   it("keeps highlight independent of timing — a word can be both active and highlight", () => {
     // WHY: the CSS .w.hl.active coexists; collapsing into one enum would lose
-    // this. "target" at 2200ms is the active word AND the highlight keyword.
-    const state = captionStateAtTime(digest1Sentences, 2200, digest1SpeechEndMs);
+    // this. Probed inside "target": the active word AND the highlight keyword.
+    const state = captionStateAtTime(
+      digest1Sentences,
+      midpointMs(findToken(digest1Sentences, "target")),
+      digest1SpeechEndMs,
+    );
     const target = findRenderedWord(state.words, "target");
     expect(target?.timing).toBe("active");
     expect(target?.is_highlight).toBe(true);
@@ -135,8 +176,9 @@ describe("captionStateAtTime — invariant (d): exactly one highlight per curren
   });
 
   it("renders the highlight as .hl even when not the active word", () => {
-    // Before "target" is reached (t=100ms), it is dim-but-highlight → "w hl".
-    const state = captionStateAtTime(digest1Sentences, 100, digest1SpeechEndMs);
+    // Probe at the first word's start (sentence 0 current, "target" not yet
+    // reached): it is dim-but-highlight → "w hl".
+    const state = captionStateAtTime(digest1Sentences, digest1Sentences[0].sentence_start_ms, digest1SpeechEndMs);
     const target = findRenderedWord(state.words, "target");
     expect(target?.timing).toBe("dim");
     expect(target?.is_highlight).toBe(true);

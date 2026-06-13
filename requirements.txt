@@ -23,6 +23,17 @@ trafilatura>=1.6
 # ──── Audio Processing (needs ffmpeg/ffprobe on PATH) ────
 pydub>=0.25
 
+# ──── Acoustic caption alignment (offline Wav2Vec2 CTC forced alignment) ────
+# torchaudio.functional.forced_align gives word-level karaoke timing from the
+# known transcript + assembled audio — no paid API. CPU wheels are fine; the
+# WAV2VEC2_ASR_BASE_960H model (~360MB) downloads once to the torch cache.
+# num2words expands digits/currency to spoken words for the CTC label set.
+# If these are absent the pipeline falls back to heuristic char-weight slicing.
+torch>=2.4
+torchaudio>=2.4
+num2words>=0.5
+numpy>=1.26
+
 # ──── Persistence: Supabase service-role writes/uploads (Phase 1d SP3) ────
 # supabase-py writes stories/digests/captions + uploads audio/poster to storage.
 # python-dotenv loads .env for the standalone live e2e script (the agent clients

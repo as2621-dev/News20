@@ -206,8 +206,12 @@ async def _regenerate_story(
         return "skipped_verification_halt"
 
     # ── 2. TTS + captions ──
-    audio_bytes, audio_duration_ms = await render_audio_bytes(script, tts_client)
-    caption_track = build_caption_track(script, audio_duration_ms)
+    audio_bytes, audio_duration_ms, segment_timings = await render_audio_bytes(
+        script, tts_client
+    )
+    caption_track = build_caption_track(
+        script, audio_duration_ms, segment_timings, audio_bytes=audio_bytes
+    )
 
     # ── 3. Upload new audio (digest-count-versioned path: bucket uploads are
     # upsert=false, so a re-run must never collide with a prior object) ──

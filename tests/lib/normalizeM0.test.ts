@@ -34,18 +34,24 @@ describe("normalizeM0Captions", () => {
 
   it("converts seconds → ms with Math.round and derives sentence windows from first/last word", () => {
     // WHY: the audio clock is ms; an off-by-rounding conversion drifts the
-    // karaoke. digest-1 sentence 0: first word "The" start 0.0s, last word
-    // "shipping." end 9.463s → [0, 9463]ms; highlight "target" [2007, 2509]ms.
+    // karaoke. Expectations are DERIVED from the raw fixture seconds (not
+    // hardcoded) so the test survives caption-track regeneration: sentence 0's
+    // window is its first word's start / last word's end, Math.round-ed to ms.
     const sentences = normalizeM0Captions(digest1Track, ["ALEX", "JORDAN"]);
     const firstSentence = sentences[0];
+    const sentence0RawWords = digest1Track.words.filter((word) => word.sentence_index === 0);
 
-    expect(firstSentence.sentence_start_ms).toBe(0);
-    expect(firstSentence.sentence_end_ms).toBe(9463);
+    expect(firstSentence.sentence_start_ms).toBe(Math.round(sentence0RawWords[0].start_s * 1000));
+    expect(firstSentence.sentence_end_ms).toBe(
+      Math.round(sentence0RawWords[sentence0RawWords.length - 1].end_s * 1000),
+    );
 
+    const rawTarget = sentence0RawWords.find((word) => word.word === "target");
+    expect(rawTarget).toBeDefined();
     const targetToken = firstSentence.word_tokens.find((token) => token.word_text === "target");
     expect(targetToken).toBeDefined();
-    expect(targetToken?.start_ms).toBe(2007);
-    expect(targetToken?.end_ms).toBe(2509);
+    expect(targetToken?.start_ms).toBe(Math.round((rawTarget?.start_s ?? Number.NaN) * 1000));
+    expect(targetToken?.end_ms).toBe(Math.round((rawTarget?.end_s ?? Number.NaN) * 1000));
     expect(targetToken?.is_highlight).toBe(true);
   });
 

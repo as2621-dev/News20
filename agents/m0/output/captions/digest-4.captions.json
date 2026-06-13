@@ -1,909 +1,909 @@
 {
   "digest_id": "digest-4",
   "audio_duration_s": 47.492,
-  "speech_end_s": 47.492,
+  "speech_end_s": 47.372,
   "sentence_count": 11,
   "words": [
     {
       "word": "Nvidia",
-      "start_s": 0.0,
-      "end_s": 0.45,
+      "start_s": 0.2,
+      "end_s": 0.84,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "just",
-      "start_s": 0.45,
-      "end_s": 0.771,
+      "start_s": 0.84,
+      "end_s": 1.08,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "reported",
-      "start_s": 0.771,
-      "end_s": 1.35,
+      "start_s": 1.08,
+      "end_s": 1.62,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "earnings",
-      "start_s": 1.35,
-      "end_s": 1.928,
+      "start_s": 1.62,
+      "end_s": 2.281,
       "sentence_index": 0,
       "is_highlight": true
     },
     {
       "word": "\u2014",
-      "start_s": 1.928,
-      "end_s": 1.992,
+      "start_s": 2.281,
+      "end_s": 2.321,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "and",
-      "start_s": 1.992,
-      "end_s": 2.249,
+      "start_s": 2.321,
+      "end_s": 2.401,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "the",
-      "start_s": 2.249,
-      "end_s": 2.506,
+      "start_s": 2.401,
+      "end_s": 2.701,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "AI",
-      "start_s": 2.506,
-      "end_s": 2.699,
+      "start_s": 2.701,
+      "end_s": 3.141,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "boom",
-      "start_s": 2.699,
-      "end_s": 3.02,
+      "start_s": 3.141,
+      "end_s": 3.561,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "shows",
-      "start_s": 3.02,
-      "end_s": 3.406,
+      "start_s": 3.561,
+      "end_s": 4.001,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "no",
-      "start_s": 3.406,
-      "end_s": 3.599,
+      "start_s": 4.001,
+      "end_s": 4.321,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "sign",
-      "start_s": 3.599,
-      "end_s": 3.92,
+      "start_s": 4.321,
+      "end_s": 4.701,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "of",
-      "start_s": 3.92,
-      "end_s": 4.113,
+      "start_s": 4.701,
+      "end_s": 4.821,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "cooling.",
-      "start_s": 4.113,
-      "end_s": 4.627,
+      "start_s": 4.821,
+      "end_s": 5.581,
       "sentence_index": 0,
       "is_highlight": false
     },
     {
       "word": "The",
-      "start_s": 4.627,
-      "end_s": 4.884,
+      "start_s": 5.581,
+      "end_s": 5.721,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "chipmaker",
-      "start_s": 4.884,
-      "end_s": 5.527,
+      "start_s": 5.721,
+      "end_s": 6.282,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "pulled",
-      "start_s": 5.527,
-      "end_s": 5.977,
+      "start_s": 6.282,
+      "end_s": 6.582,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "in",
-      "start_s": 5.977,
-      "end_s": 6.169,
+      "start_s": 6.582,
+      "end_s": 6.822,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "81.6",
-      "start_s": 6.169,
-      "end_s": 6.426,
+      "start_s": 6.822,
+      "end_s": 8.062,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "billion",
-      "start_s": 6.426,
-      "end_s": 6.941,
+      "start_s": 8.062,
+      "end_s": 8.502,
       "sentence_index": 1,
       "is_highlight": true
     },
     {
       "word": "dollars",
-      "start_s": 6.941,
-      "end_s": 7.455,
+      "start_s": 8.502,
+      "end_s": 8.922,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "in",
-      "start_s": 7.455,
-      "end_s": 7.648,
+      "start_s": 8.922,
+      "end_s": 9.042,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "revenue",
-      "start_s": 7.648,
-      "end_s": 8.162,
+      "start_s": 9.042,
+      "end_s": 9.402,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "for",
-      "start_s": 8.162,
-      "end_s": 8.419,
+      "start_s": 9.402,
+      "end_s": 9.542,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "the",
-      "start_s": 8.419,
-      "end_s": 8.676,
+      "start_s": 9.542,
+      "end_s": 9.642,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "quarter.",
-      "start_s": 8.676,
-      "end_s": 9.19,
+      "start_s": 9.642,
+      "end_s": 10.443,
       "sentence_index": 1,
       "is_highlight": false
     },
     {
       "word": "Wall",
-      "start_s": 9.19,
-      "end_s": 9.511,
+      "start_s": 10.443,
+      "end_s": 10.643,
       "sentence_index": 2,
       "is_highlight": false
     },
     {
       "word": "Street",
-      "start_s": 9.511,
-      "end_s": 9.961,
+      "start_s": 10.643,
+      "end_s": 10.923,
       "sentence_index": 2,
       "is_highlight": false
     },
     {
       "word": "had",
-      "start_s": 9.961,
-      "end_s": 10.218,
+      "start_s": 10.923,
+      "end_s": 11.083,
       "sentence_index": 2,
       "is_highlight": false
     },
     {
       "word": "expected",
-      "start_s": 10.218,
-      "end_s": 10.796,
+      "start_s": 11.083,
+      "end_s": 11.523,
       "sentence_index": 2,
       "is_highlight": true
     },
     {
       "word": "about",
-      "start_s": 10.796,
-      "end_s": 11.182,
+      "start_s": 11.523,
+      "end_s": 11.783,
       "sentence_index": 2,
       "is_highlight": false
     },
     {
       "word": "79.",
-      "start_s": 11.182,
-      "end_s": 11.375,
+      "start_s": 11.783,
+      "end_s": 12.703,
       "sentence_index": 2,
       "is_highlight": false
     },
     {
       "word": "The",
-      "start_s": 11.375,
-      "end_s": 11.632,
+      "start_s": 12.703,
+      "end_s": 12.943,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "engine",
-      "start_s": 11.632,
-      "end_s": 12.082,
+      "start_s": 12.943,
+      "end_s": 13.443,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "is",
-      "start_s": 12.082,
-      "end_s": 12.275,
+      "start_s": 13.443,
+      "end_s": 13.563,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "the",
-      "start_s": 12.275,
-      "end_s": 12.532,
+      "start_s": 13.563,
+      "end_s": 13.723,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "data-center",
-      "start_s": 12.532,
-      "end_s": 13.239,
+      "start_s": 13.723,
+      "end_s": 14.404,
       "sentence_index": 3,
       "is_highlight": true
     },
     {
       "word": "business",
-      "start_s": 13.239,
-      "end_s": 13.817,
+      "start_s": 14.404,
+      "end_s": 15.264,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "\u2014",
-      "start_s": 13.817,
-      "end_s": 13.881,
+      "start_s": 15.264,
+      "end_s": 15.304,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "revenue",
-      "start_s": 13.881,
-      "end_s": 14.395,
+      "start_s": 15.304,
+      "end_s": 15.684,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "there",
-      "start_s": 14.395,
-      "end_s": 14.781,
+      "start_s": 15.684,
+      "end_s": 15.984,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "nearly",
-      "start_s": 14.781,
-      "end_s": 15.231,
+      "start_s": 15.984,
+      "end_s": 16.404,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "doubled",
-      "start_s": 15.231,
-      "end_s": 15.745,
+      "start_s": 16.404,
+      "end_s": 16.864,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "from",
-      "start_s": 15.745,
-      "end_s": 16.066,
+      "start_s": 16.864,
+      "end_s": 17.044,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 16.066,
-      "end_s": 16.195,
+      "start_s": 17.044,
+      "end_s": 17.124,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "year",
-      "start_s": 16.195,
-      "end_s": 16.516,
+      "start_s": 17.124,
+      "end_s": 17.384,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "ago.",
-      "start_s": 16.516,
-      "end_s": 16.773,
+      "start_s": 17.384,
+      "end_s": 18.104,
       "sentence_index": 3,
       "is_highlight": false
     },
     {
       "word": "That's",
-      "start_s": 16.773,
-      "end_s": 17.159,
+      "start_s": 18.104,
+      "end_s": 18.344,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "the",
-      "start_s": 17.159,
-      "end_s": 17.416,
+      "start_s": 18.344,
+      "end_s": 18.645,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "AI",
-      "start_s": 17.416,
-      "end_s": 17.609,
+      "start_s": 18.645,
+      "end_s": 19.085,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "gold",
-      "start_s": 17.609,
-      "end_s": 17.93,
+      "start_s": 19.085,
+      "end_s": 19.405,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "rush",
-      "start_s": 17.93,
-      "end_s": 18.251,
+      "start_s": 19.405,
+      "end_s": 19.785,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "in",
-      "start_s": 18.251,
-      "end_s": 18.444,
+      "start_s": 19.785,
+      "end_s": 19.905,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 18.444,
-      "end_s": 18.573,
+      "start_s": 19.905,
+      "end_s": 20.065,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "single",
-      "start_s": 18.573,
-      "end_s": 19.022,
+      "start_s": 20.065,
+      "end_s": 20.445,
       "sentence_index": 4,
       "is_highlight": true
     },
     {
       "word": "number.",
-      "start_s": 19.022,
-      "end_s": 19.472,
+      "start_s": 20.445,
+      "end_s": 20.985,
       "sentence_index": 4,
       "is_highlight": false
     },
     {
       "word": "Profit",
-      "start_s": 19.472,
-      "end_s": 19.922,
+      "start_s": 20.985,
+      "end_s": 21.405,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "beat",
-      "start_s": 19.922,
-      "end_s": 20.243,
+      "start_s": 21.405,
+      "end_s": 21.645,
       "sentence_index": 5,
       "is_highlight": true
     },
     {
       "word": "too:",
-      "start_s": 20.243,
-      "end_s": 20.5,
+      "start_s": 21.645,
+      "end_s": 22.225,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 20.5,
-      "end_s": 20.629,
+      "start_s": 22.225,
+      "end_s": 22.305,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "dollar",
-      "start_s": 20.629,
-      "end_s": 21.079,
+      "start_s": 22.305,
+      "end_s": 22.646,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "eighty-seven",
-      "start_s": 21.079,
-      "end_s": 21.85,
+      "start_s": 22.646,
+      "end_s": 23.206,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 21.85,
-      "end_s": 21.979,
+      "start_s": 23.206,
+      "end_s": 23.286,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "share,",
-      "start_s": 21.979,
-      "end_s": 22.364,
+      "start_s": 23.286,
+      "end_s": 23.806,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "against",
-      "start_s": 22.364,
-      "end_s": 22.878,
+      "start_s": 23.806,
+      "end_s": 24.146,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "forecasts",
-      "start_s": 22.878,
-      "end_s": 23.521,
+      "start_s": 24.146,
+      "end_s": 24.806,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "of",
-      "start_s": 23.521,
-      "end_s": 23.714,
+      "start_s": 24.806,
+      "end_s": 24.906,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 23.714,
-      "end_s": 23.842,
+      "start_s": 24.906,
+      "end_s": 24.966,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "dollar",
-      "start_s": 23.842,
-      "end_s": 24.292,
+      "start_s": 24.966,
+      "end_s": 25.286,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "seventy-eight.",
-      "start_s": 24.292,
-      "end_s": 25.128,
+      "start_s": 25.286,
+      "end_s": 26.206,
       "sentence_index": 5,
       "is_highlight": false
     },
     {
       "word": "And",
-      "start_s": 25.128,
-      "end_s": 25.385,
+      "start_s": 26.206,
+      "end_s": 26.366,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "they're",
-      "start_s": 25.385,
-      "end_s": 25.834,
+      "start_s": 26.366,
+      "end_s": 26.607,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "not",
-      "start_s": 25.834,
-      "end_s": 26.092,
+      "start_s": 26.607,
+      "end_s": 26.787,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "slowing",
-      "start_s": 26.092,
-      "end_s": 26.606,
+      "start_s": 26.787,
+      "end_s": 27.127,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "down",
-      "start_s": 26.606,
-      "end_s": 26.927,
+      "start_s": 27.127,
+      "end_s": 27.867,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "\u2014",
-      "start_s": 26.927,
-      "end_s": 26.991,
+      "start_s": 27.867,
+      "end_s": 27.907,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "Nvidia",
-      "start_s": 26.991,
-      "end_s": 27.441,
+      "start_s": 27.907,
+      "end_s": 28.327,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "guided",
-      "start_s": 27.441,
-      "end_s": 27.891,
+      "start_s": 28.327,
+      "end_s": 28.687,
       "sentence_index": 6,
       "is_highlight": true
     },
     {
       "word": "to",
-      "start_s": 27.891,
-      "end_s": 28.084,
+      "start_s": 28.687,
+      "end_s": 28.927,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "91",
-      "start_s": 28.084,
-      "end_s": 28.277,
+      "start_s": 28.927,
+      "end_s": 29.607,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "billion",
-      "start_s": 28.277,
-      "end_s": 28.791,
+      "start_s": 29.607,
+      "end_s": 30.047,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "dollars",
-      "start_s": 28.791,
-      "end_s": 29.305,
+      "start_s": 30.047,
+      "end_s": 30.507,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "next",
-      "start_s": 29.305,
-      "end_s": 29.626,
+      "start_s": 30.507,
+      "end_s": 30.768,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "quarter,",
-      "start_s": 29.626,
-      "end_s": 30.14,
+      "start_s": 30.768,
+      "end_s": 31.428,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "well",
-      "start_s": 30.14,
-      "end_s": 30.462,
+      "start_s": 31.428,
+      "end_s": 31.688,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "above",
-      "start_s": 30.462,
-      "end_s": 30.847,
+      "start_s": 31.688,
+      "end_s": 32.028,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "estimates.",
-      "start_s": 30.847,
-      "end_s": 31.49,
+      "start_s": 32.028,
+      "end_s": 32.748,
       "sentence_index": 6,
       "is_highlight": false
     },
     {
       "word": "They",
-      "start_s": 31.49,
-      "end_s": 31.811,
+      "start_s": 32.748,
+      "end_s": 32.928,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "also",
-      "start_s": 31.811,
-      "end_s": 32.132,
+      "start_s": 32.928,
+      "end_s": 33.248,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "rewarded",
-      "start_s": 32.132,
-      "end_s": 32.711,
+      "start_s": 33.248,
+      "end_s": 33.688,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "shareholders:",
-      "start_s": 32.711,
-      "end_s": 33.546,
+      "start_s": 33.688,
+      "end_s": 34.588,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "an",
-      "start_s": 33.546,
-      "end_s": 33.739,
+      "start_s": 34.588,
+      "end_s": 34.749,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "80",
-      "start_s": 33.739,
-      "end_s": 33.932,
+      "start_s": 34.749,
+      "end_s": 35.029,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "billion",
-      "start_s": 33.932,
-      "end_s": 34.446,
+      "start_s": 35.029,
+      "end_s": 35.389,
       "sentence_index": 7,
       "is_highlight": true
     },
     {
       "word": "dollar",
-      "start_s": 34.446,
-      "end_s": 34.896,
+      "start_s": 35.389,
+      "end_s": 35.689,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "buyback,",
-      "start_s": 34.896,
-      "end_s": 35.41,
+      "start_s": 35.689,
+      "end_s": 36.349,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "and",
-      "start_s": 35.41,
-      "end_s": 35.667,
+      "start_s": 36.349,
+      "end_s": 36.489,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 35.667,
-      "end_s": 35.795,
+      "start_s": 36.489,
+      "end_s": 36.569,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "dividend",
-      "start_s": 35.795,
-      "end_s": 36.374,
+      "start_s": 36.569,
+      "end_s": 37.009,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "hiked",
-      "start_s": 36.374,
-      "end_s": 36.759,
+      "start_s": 37.009,
+      "end_s": 37.309,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "from",
-      "start_s": 36.759,
-      "end_s": 37.081,
+      "start_s": 37.309,
+      "end_s": 37.469,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 37.081,
-      "end_s": 37.209,
+      "start_s": 37.469,
+      "end_s": 37.569,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "single",
-      "start_s": 37.209,
-      "end_s": 37.659,
+      "start_s": 37.569,
+      "end_s": 37.869,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "penny",
-      "start_s": 37.659,
-      "end_s": 38.045,
+      "start_s": 37.869,
+      "end_s": 38.309,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "to",
-      "start_s": 38.045,
-      "end_s": 38.238,
+      "start_s": 38.309,
+      "end_s": 38.449,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "twenty-five",
-      "start_s": 38.238,
-      "end_s": 38.944,
+      "start_s": 38.449,
+      "end_s": 38.95,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "cents.",
-      "start_s": 38.944,
-      "end_s": 39.33,
+      "start_s": 38.95,
+      "end_s": 39.65,
       "sentence_index": 7,
       "is_highlight": false
     },
     {
       "word": "So",
-      "start_s": 39.33,
-      "end_s": 39.523,
+      "start_s": 39.65,
+      "end_s": 40.11,
       "sentence_index": 8,
       "is_highlight": false
     },
     {
       "word": "\u2014",
-      "start_s": 39.523,
-      "end_s": 39.587,
+      "start_s": 40.11,
+      "end_s": 40.15,
       "sentence_index": 8,
       "is_highlight": false
     },
     {
       "word": "a",
-      "start_s": 39.587,
-      "end_s": 39.716,
+      "start_s": 40.15,
+      "end_s": 40.21,
       "sentence_index": 8,
       "is_highlight": false
     },
     {
       "word": "blowout.",
-      "start_s": 39.716,
-      "end_s": 40.23,
+      "start_s": 40.21,
+      "end_s": 41.21,
       "sentence_index": 8,
       "is_highlight": true
     },
     {
       "word": "And",
-      "start_s": 40.23,
-      "end_s": 40.487,
+      "start_s": 41.21,
+      "end_s": 41.33,
       "sentence_index": 9,
       "is_highlight": false
     },
     {
       "word": "yet",
-      "start_s": 40.487,
-      "end_s": 40.744,
+      "start_s": 41.33,
+      "end_s": 41.65,
       "sentence_index": 9,
       "is_highlight": false
     },
     {
       "word": "the",
-      "start_s": 40.744,
-      "end_s": 41.001,
+      "start_s": 41.65,
+      "end_s": 41.85,
       "sentence_index": 9,
       "is_highlight": false
     },
     {
       "word": "stock",
-      "start_s": 41.001,
-      "end_s": 41.387,
+      "start_s": 41.85,
+      "end_s": 42.39,
       "sentence_index": 9,
       "is_highlight": false
     },
     {
       "word": "actually",
-      "start_s": 41.387,
-      "end_s": 41.965,
+      "start_s": 42.39,
+      "end_s": 42.89,
       "sentence_index": 9,
       "is_highlight": false
     },
     {
       "word": "slipped",
-      "start_s": 41.965,
-      "end_s": 42.479,
+      "start_s": 42.89,
+      "end_s": 43.311,
       "sentence_index": 9,
       "is_highlight": true
     },
     {
       "word": "afterward.",
-      "start_s": 42.479,
-      "end_s": 43.122,
+      "start_s": 43.311,
+      "end_s": 43.991,
       "sentence_index": 9,
       "is_highlight": false
     },
     {
       "word": "When",
-      "start_s": 43.122,
-      "end_s": 43.443,
+      "start_s": 43.991,
+      "end_s": 44.131,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "you're",
-      "start_s": 43.443,
-      "end_s": 43.829,
+      "start_s": 44.131,
+      "end_s": 44.311,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "priced",
-      "start_s": 43.829,
-      "end_s": 44.278,
+      "start_s": 44.311,
+      "end_s": 44.671,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "for",
-      "start_s": 44.278,
-      "end_s": 44.535,
+      "start_s": 44.671,
+      "end_s": 44.831,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "perfection,",
-      "start_s": 44.535,
-      "end_s": 45.242,
+      "start_s": 44.831,
+      "end_s": 45.751,
       "sentence_index": 10,
       "is_highlight": true
     },
     {
       "word": "even",
-      "start_s": 45.242,
-      "end_s": 45.564,
+      "start_s": 45.751,
+      "end_s": 46.011,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "great",
-      "start_s": 45.564,
-      "end_s": 45.949,
+      "start_s": 46.011,
+      "end_s": 46.431,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "isn't",
-      "start_s": 45.949,
-      "end_s": 46.271,
+      "start_s": 46.431,
+      "end_s": 46.711,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "always",
-      "start_s": 46.271,
-      "end_s": 46.721,
+      "start_s": 46.711,
+      "end_s": 46.951,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "good",
-      "start_s": 46.721,
-      "end_s": 47.042,
+      "start_s": 46.951,
+      "end_s": 47.152,
       "sentence_index": 10,
       "is_highlight": false
     },
     {
       "word": "enough.",
-      "start_s": 47.042,
-      "end_s": 47.492,
+      "start_s": 47.152,
+      "end_s": 47.372,
       "sentence_index": 10,
       "is_highlight": false
     }

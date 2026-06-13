@@ -25,6 +25,21 @@ from agents.pipeline.llm_clients import LLMClient
 _STORY_ID = "cand-arsenal-001"
 _FIXED_NOW = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
 
+
+@pytest.fixture(autouse=True)
+def no_real_acoustic_aligner(monkeypatch: pytest.MonkeyPatch):
+    """Keep the Wav2Vec2 alignment model out of EVERY pipeline test.
+
+    Reason: ``build_caption_track(..., audio_bytes=...)`` tries acoustic forced
+    alignment first; without this patch a happy-path orchestrate test would
+    download the ~360MB model from the network (CLAUDE.md mandate: mock
+    external services). Returning None exercises the heuristic fallback path.
+    Tests that need a different aligner behavior patch over this themselves.
+    """
+    from agents.pipeline.stages import acoustic_alignment
+
+    monkeypatch.setattr(acoustic_alignment, "_load_aligner", lambda: None)
+
 # Reason: the single source body the scripting + verification stages ground on.
 # Every fact a grounded digest may assert must appear here verbatim/implied.
 _SOURCE_BODY = (

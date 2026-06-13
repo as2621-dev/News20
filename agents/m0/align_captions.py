@@ -48,8 +48,10 @@ import subprocess
 from pathlib import Path
 
 from agents.m0.digests_input import DIGESTS, Digest
+from agents.pipeline.stages.acoustic_alignment import acoustically_align_turn_windows
 from agents.pipeline.stages.forced_alignment import (
     CaptionTrack,
+    TurnAlignmentWindow,
     align_transcript_to_audio,
     split_transcript_into_sentences,
 )
@@ -226,13 +228,28 @@ def build_caption_track(digest: Digest) -> CaptionTrack:
     speech_end_s = audio_duration_s - trailing_silence_s
     keyword_pool = CAPTION_KEYWORD_POOLS.get(digest.digest_id, [])
 
-    track = align_transcript_to_audio(
+    # Reason: prefer acoustic forced alignment (real word onsets from the
+    # audio — same path as the live pipeline); fall back to the original
+    # heuristic time-slice when torch is unavailable or alignment fails.
+    track = acoustically_align_turn_windows(
         digest_id=digest.digest_id,
-        sentences=sentences,
+        audio_bytes=audio_path.read_bytes(),
+        turn_windows=[
+            TurnAlignmentWindow(
+                text=transcript_paragraph, start_s=0.0, end_s=speech_end_s
+            )
+        ],
         audio_duration_s=audio_duration_s,
         preferred_keywords=keyword_pool,
-        speech_end_s=speech_end_s,
     )
+    if track is None:
+        track = align_transcript_to_audio(
+            digest_id=digest.digest_id,
+            sentences=sentences,
+            audio_duration_s=audio_duration_s,
+            preferred_keywords=keyword_pool,
+            speech_end_s=speech_end_s,
+        )
 
     logger.info(
         "caption_track_built",

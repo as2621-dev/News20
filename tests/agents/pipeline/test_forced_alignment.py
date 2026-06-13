@@ -35,9 +35,11 @@ from agents.m0.align_captions import (
 from agents.m0.digests_input import DIGESTS
 from agents.pipeline.stages.forced_alignment import (
     CaptionTrack,
+    TurnAlignmentWindow,
     _choose_highlight_index,
     _split_into_sentences,
     align_transcript_to_audio,
+    align_turn_windows_to_audio,
 )
 
 # A small synthetic two-sentence transcript with a known preferred keyword.
@@ -149,6 +151,101 @@ def test_trailing_silence_keeps_captions_off_silence() -> None:
     )
     # No word may sit in the trailing 2s of silence.
     assert all(word.end_s <= _SYNTHETIC_DURATION_S - 2.0 + 1e-9 for word in track.words)
+
+
+# ---------------------------------------------------------------------------
+# Per-turn-window alignment — captions anchored to the assembler's real
+# per-chunk boundaries so sync re-locks at every speaker turn.
+# ---------------------------------------------------------------------------
+
+# Two windows with a 0.5s silence gap between them (the assembler's inter-turn
+# gap) and 1s of trailing silence after the last window.
+_SYNTHETIC_WINDOWS = [
+    TurnAlignmentWindow(text=_SYNTHETIC_SENTENCES[0], start_s=0.0, end_s=4.0),
+    TurnAlignmentWindow(text=_SYNTHETIC_SENTENCES[1], start_s=4.5, end_s=9.0),
+]
+
+
+def test_align_turn_windows_satisfies_all_invariants() -> None:
+    """Happy path: per-window alignment keeps every global track invariant."""
+    track = align_turn_windows_to_audio(
+        digest_id="digest-test",
+        turn_windows=_SYNTHETIC_WINDOWS,
+        audio_duration_s=_SYNTHETIC_DURATION_S,
+        preferred_keywords=_SYNTHETIC_KEYWORDS,
+    )
+    _assert_track_invariants(track, _expected_word_count(_SYNTHETIC_SENTENCES))
+
+
+def test_align_turn_windows_keeps_words_out_of_silence_gaps() -> None:
+    """No word interval may intrude into the inter-turn silence gap.
+
+    Why: this is the sync fix itself — the global slicer stretched words across
+    the assembler's silence gaps, so the highlight ran ahead of the audio. A
+    word timed inside [4.0, 4.5] would highlight while nobody is speaking.
+    """
+    track = align_turn_windows_to_audio(
+        digest_id="digest-test",
+        turn_windows=_SYNTHETIC_WINDOWS,
+        audio_duration_s=_SYNTHETIC_DURATION_S,
+    )
+    for word in track.words:
+        inside_gap = word.start_s < 4.5 - 1e-9 and word.end_s > 4.0 + 1e-9
+        assert not inside_gap, f"word intrudes into the silence gap: {word}"
+    # Speech ends at the last window boundary — the trailing 1s stays caption-free.
+    assert track.speech_end_s == pytest.approx(9.0, abs=1e-6)
+    assert track.words[-1].end_s == pytest.approx(9.0, abs=1e-6)
+
+
+def test_align_turn_windows_sentences_never_span_windows() -> None:
+    """Each window's words carry their own sentence indices (no cross-gap sentence)."""
+    track = align_turn_windows_to_audio(
+        digest_id="digest-test",
+        turn_windows=_SYNTHETIC_WINDOWS,
+        audio_duration_s=_SYNTHETIC_DURATION_S,
+    )
+    first_window_sentences = {
+        word.sentence_index for word in track.words if word.end_s <= 4.0 + 1e-9
+    }
+    second_window_sentences = {
+        word.sentence_index for word in track.words if word.start_s >= 4.5 - 1e-9
+    }
+    assert first_window_sentences.isdisjoint(second_window_sentences)
+    assert track.sentence_count == len(_SYNTHETIC_SENTENCES)
+
+
+def test_align_turn_windows_overlapping_windows_raise() -> None:
+    """Failure: out-of-order/overlapping windows must raise (fail loud, Rule 12)."""
+    overlapping = [
+        TurnAlignmentWindow(text="One.", start_s=0.0, end_s=5.0),
+        TurnAlignmentWindow(text="Two.", start_s=4.0, end_s=9.0),
+    ]
+    with pytest.raises(ValueError, match="before the previous"):
+        align_turn_windows_to_audio(
+            digest_id="digest-test",
+            turn_windows=overlapping,
+            audio_duration_s=_SYNTHETIC_DURATION_S,
+        )
+
+
+def test_align_turn_windows_past_audio_end_raises() -> None:
+    """Failure: a window ending past the audio duration must raise."""
+    with pytest.raises(ValueError, match="past the audio end"):
+        align_turn_windows_to_audio(
+            digest_id="digest-test",
+            turn_windows=[TurnAlignmentWindow(text="One.", start_s=0.0, end_s=11.0)],
+            audio_duration_s=_SYNTHETIC_DURATION_S,
+        )
+
+
+def test_align_turn_windows_empty_raises() -> None:
+    """Failure: no windows to align must raise ValueError."""
+    with pytest.raises(ValueError, match="No turn windows"):
+        align_turn_windows_to_audio(
+            digest_id="digest-test",
+            turn_windows=[],
+            audio_duration_s=_SYNTHETIC_DURATION_S,
+        )
 
 
 # ---------------------------------------------------------------------------

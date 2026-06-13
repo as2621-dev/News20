@@ -228,6 +228,38 @@ class CaptionTrack(BaseModel):
     )
 
 
+class TurnAlignmentWindow(BaseModel):
+    """One contiguous speech window: turn text + its real audio boundaries.
+
+    Produced from the assembler's measured ``SegmentTiming`` boundaries (one
+    window per rendered TTS chunk), so caption alignment can anchor each turn's
+    words to where that turn ACTUALLY sits in the assembled audio — instead of
+    char-weight-stretching the whole transcript across inter-turn silence gaps.
+
+    Attributes:
+        text: The spoken text of this window (one or more consecutive turns).
+        start_s: Inclusive start of this window's speech in the audio (s).
+        end_s: Exclusive end of this window's speech in the audio (s).
+
+    Example:
+        >>> TurnAlignmentWindow(text="A deal is close.", start_s=0.0, end_s=4.2).end_s
+        4.2
+    """
+
+    text: str = Field(..., description="Spoken text of this window's turn(s)")
+    start_s: float = Field(..., ge=0.0, description="Inclusive window start (s)")
+    end_s: float = Field(..., gt=0.0, description="Exclusive window end (s)")
+
+    @model_validator(mode="after")
+    def end_after_start(self) -> TurnAlignmentWindow:
+        """Validate the window spans a positive interval."""
+        if self.end_s <= self.start_s:
+            raise ValueError(
+                f"TurnAlignmentWindow end_s ({self.end_s}) must be > start_s ({self.start_s})"
+            )
+        return self
+
+
 def _tokenize_text(text: str) -> list[str]:
     """Split text into whitespace-delimited tokens, preserving punctuation."""
     return _WORD_TOKEN_REGEX.findall(text)
@@ -350,6 +382,52 @@ def _choose_highlight_index(
     return best_index
 
 
+def _slice_tokens_proportionally(
+    tokens: list[str],
+    span_start_s: float,
+    span_end_s: float,
+) -> list[tuple[float, float]]:
+    """Char-weight time-slice tokens contiguously across ``[span_start_s, span_end_s]``.
+
+    Each token's share of the span is its weight / total weight. A cumulative
+    cursor keeps intervals contiguous (token i.end == token i+1.start) and
+    strictly monotonic; a small minimum duration guard prevents zero-width
+    intervals on tiny tokens, and the final token is clamped exactly to
+    ``span_end_s`` so rounding never accumulates drift past the span.
+
+    Args:
+        tokens: Non-empty ordered transcript tokens to slice.
+        span_start_s: Inclusive span start in seconds.
+        span_end_s: Exclusive span end in seconds (must exceed the start).
+
+    Returns:
+        One ``(start_s, end_s)`` tuple per token, rounded to milliseconds.
+    """
+    weights = [_word_weight(token) for token in tokens]
+    total_weight = sum(weights)
+    span_duration = span_end_s - span_start_s
+    boundaries: list[tuple[float, float]] = []
+    cumulative_weight = 0.0
+    previous_end = span_start_s
+
+    for index in range(len(tokens)):
+        start_s = previous_end
+        cumulative_weight += weights[index]
+        # Reason: derive end from the cumulative fraction of the whole span so
+        # rounding never accumulates drift past the span end.
+        end_s = span_start_s + (cumulative_weight / total_weight) * span_duration
+        if end_s < start_s + _MIN_WORD_DURATION_S:
+            end_s = min(start_s + _MIN_WORD_DURATION_S, span_end_s)
+        # Reason: clamp the final word exactly to the span end so the track ends
+        # on the speech boundary, never past it.
+        if index == len(tokens) - 1:
+            end_s = span_end_s
+        boundaries.append((round(start_s, 3), round(end_s, 3)))
+        previous_end = end_s
+
+    return boundaries
+
+
 def align_transcript_to_audio(
     digest_id: str,
     sentences: list[str],
@@ -451,38 +529,19 @@ def align_transcript_to_audio(
     if word_count == 0:
         raise ValueError(f"No tokens to align for {digest_id!r}")
 
-    # Reason: proportional time-slice. Each word's share of the speech span is
-    # its weight / total weight. We walk a cumulative cursor so intervals are
-    # contiguous (word i.end == word i+1.start) and strictly monotonic; a small
-    # minimum duration guard prevents zero-width intervals on tiny tokens.
-    weights = [_word_weight(token) for token in flat_tokens]
-    total_weight = sum(weights)
-    caption_words: list[CaptionWord] = []
-    cumulative_weight = 0.0
-    previous_end = 0.0
-
-    for index in range(word_count):
-        start_s = previous_end
-        cumulative_weight += weights[index]
-        # Reason: derive end from the cumulative fraction of the whole span so
-        # rounding never accumulates drift past speech_end.
-        end_s = (cumulative_weight / total_weight) * speech_end
-        if end_s < start_s + _MIN_WORD_DURATION_S:
-            end_s = min(start_s + _MIN_WORD_DURATION_S, speech_end)
-        # Reason: clamp the final word exactly to speech_end so the track ends
-        # on the speech boundary, never past end-of-audio.
-        if index == word_count - 1:
-            end_s = speech_end
-        caption_words.append(
-            CaptionWord(
-                word=flat_tokens[index],
-                start_s=round(start_s, 3),
-                end_s=round(end_s, 3),
-                sentence_index=flat_sentence_index[index],
-                is_highlight=flat_is_highlight[index],
-            )
+    # Reason: proportional time-slice across the whole speech span (see
+    # _slice_tokens_proportionally for the contiguity/monotonicity guarantees).
+    boundaries = _slice_tokens_proportionally(flat_tokens, 0.0, speech_end)
+    caption_words: list[CaptionWord] = [
+        CaptionWord(
+            word=flat_tokens[index],
+            start_s=boundaries[index][0],
+            end_s=boundaries[index][1],
+            sentence_index=flat_sentence_index[index],
+            is_highlight=flat_is_highlight[index],
         )
-        previous_end = end_s
+        for index in range(word_count)
+    ]
 
     track = CaptionTrack(
         digest_id=digest_id,
@@ -499,6 +558,160 @@ def align_transcript_to_audio(
         word_count=word_count,
         highlight_count=highlight_count,
         last_word_end_s=caption_words[-1].end_s,
+    )
+    return track
+
+
+def align_turn_windows_to_audio(
+    digest_id: str,
+    turn_windows: list[TurnAlignmentWindow],
+    audio_duration_s: float,
+    preferred_keywords: list[str] | None = None,
+) -> CaptionTrack:
+    """Align a known transcript to its audio, anchored to real per-turn windows.
+
+    Like :func:`align_transcript_to_audio`, but instead of stretching the whole
+    transcript across the full audio span (which counts inter-turn silence gaps
+    as speech and drifts), each window's words are char-weight sliced ONLY
+    within that window's measured ``[start_s, end_s]`` audio boundaries. Sync
+    therefore re-locks at every turn boundary, and ``speech_end_s`` is the last
+    window's end — no caption ever sits over trailing silence.
+
+    Sentences are split PER WINDOW (a sentence can never span a silence gap)
+    and ``sentence_index`` runs continuously across windows, so the resulting
+    :class:`CaptionTrack` is shape-identical to the global-slice output.
+
+    Args:
+        digest_id: Stable digest id used in logs and the returned track.
+        turn_windows: Ordered, non-overlapping speech windows (one per rendered
+            TTS chunk) with their real boundaries from the audio assembler.
+        audio_duration_s: The real assembled audio duration (s).
+        preferred_keywords: Optional flat pool of preferred caption keywords
+            (same semantics as :func:`align_transcript_to_audio`).
+
+    Returns:
+        A validated :class:`CaptionTrack`.
+
+    Raises:
+        ValueError: If inputs are inconsistent (no windows, non-positive
+            duration, overlapping/out-of-order windows, a window past the audio
+            end, or no alignable tokens).
+
+    Example:
+        >>> track = align_turn_windows_to_audio(
+        ...     "digest-1",
+        ...     [TurnAlignmentWindow(text="A deal is close.", start_s=0.0, end_s=4.0)],
+        ...     10.0,
+        ... )
+        >>> track.speech_end_s
+        4.0
+    """
+    if audio_duration_s <= 0.0:
+        raise ValueError(f"audio_duration_s must be positive, got {audio_duration_s}")
+    if not turn_windows:
+        logger.error(
+            "turn_window_alignment_no_windows",
+            digest_id=digest_id,
+            fix_suggestion="Pass at least one TurnAlignmentWindow built from the assembler's segment timings",
+        )
+        raise ValueError(f"No turn windows to align for {digest_id!r}")
+
+    previous_window_end = 0.0
+    for window_index, window in enumerate(turn_windows):
+        if window.start_s < previous_window_end:
+            logger.error(
+                "turn_window_alignment_overlap",
+                digest_id=digest_id,
+                window_index=window_index,
+                window_start_s=window.start_s,
+                previous_window_end_s=previous_window_end,
+                fix_suggestion="Turn windows must be ordered and non-overlapping (assembler timings are)",
+            )
+            raise ValueError(
+                f"Turn window {window_index} starts at {window.start_s}s before the previous "
+                f"window ends at {previous_window_end}s for {digest_id!r}"
+            )
+        previous_window_end = window.end_s
+    if previous_window_end > audio_duration_s + 0.001:
+        logger.error(
+            "turn_window_alignment_past_audio_end",
+            digest_id=digest_id,
+            last_window_end_s=previous_window_end,
+            audio_duration_s=audio_duration_s,
+            fix_suggestion="Window boundaries must come from the SAME assembled audio as audio_duration_s",
+        )
+        raise ValueError(
+            f"Last turn window ends at {previous_window_end}s past the audio end "
+            f"({audio_duration_s}s) for {digest_id!r}"
+        )
+
+    keywords = preferred_keywords or []
+
+    logger.info(
+        "turn_window_alignment_started",
+        digest_id=digest_id,
+        window_count=len(turn_windows),
+        audio_duration_s=round(audio_duration_s, 3),
+    )
+
+    caption_words: list[CaptionWord] = []
+    sentence_index_offset = 0
+    for window in turn_windows:
+        window_sentences = _split_into_sentences(window.text)
+
+        # Reason: flatten THIS window's tokens so timing is one proportional
+        # pass within the window's real audio span (mirrors the global path).
+        flat_tokens: list[str] = []
+        flat_sentence_index: list[int] = []
+        flat_is_highlight: list[bool] = []
+        for sentence_offset, sentence in enumerate(window_sentences):
+            sentence_tokens = _tokenize_text(sentence)
+            if not sentence_tokens:
+                continue
+            highlight_index = _choose_highlight_index(sentence_tokens, keywords)
+            for token_index, token in enumerate(sentence_tokens):
+                flat_tokens.append(token)
+                flat_sentence_index.append(sentence_index_offset + sentence_offset)
+                flat_is_highlight.append(token_index == highlight_index)
+        if not flat_tokens:
+            continue
+        sentence_index_offset += len(window_sentences)
+
+        boundaries = _slice_tokens_proportionally(
+            flat_tokens, window.start_s, window.end_s
+        )
+        caption_words.extend(
+            CaptionWord(
+                word=flat_tokens[index],
+                start_s=boundaries[index][0],
+                end_s=boundaries[index][1],
+                sentence_index=flat_sentence_index[index],
+                is_highlight=flat_is_highlight[index],
+            )
+            for index in range(len(flat_tokens))
+        )
+
+    if not caption_words:
+        raise ValueError(f"No tokens to align for {digest_id!r}")
+
+    speech_end_s = turn_windows[-1].end_s
+    track = CaptionTrack(
+        digest_id=digest_id,
+        audio_duration_s=round(audio_duration_s, 3),
+        speech_end_s=round(speech_end_s, 3),
+        sentence_count=sentence_index_offset,
+        words=caption_words,
+    )
+
+    highlight_count = sum(1 for word in caption_words if word.is_highlight)
+    logger.info(
+        "turn_window_alignment_completed",
+        digest_id=digest_id,
+        window_count=len(turn_windows),
+        word_count=len(caption_words),
+        sentence_count=sentence_index_offset,
+        highlight_count=highlight_count,
+        speech_end_s=track.speech_end_s,
     )
     return track
 

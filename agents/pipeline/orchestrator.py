@@ -50,9 +50,12 @@ from agents.pipeline.stages.detail_enrichment import (
 )
 from agents.pipeline.categories import CategoryAllocation
 from agents.pipeline.stages.ranking import FollowedEntity, UserProfileInterest
+from agents.pipeline.stages.acoustic_alignment import acoustically_align_turn_windows
 from agents.pipeline.stages.forced_alignment import (
     CaptionTrack,
+    TurnAlignmentWindow,
     align_transcript_to_audio,
+    align_turn_windows_to_audio,
     split_transcript_into_sentences,
 )
 from agents.pipeline.stages.scripting import run_single_source_scripting
@@ -62,6 +65,7 @@ from agents.shared.logger import get_logger
 from agents.voice.audio import assemble_episode
 from agents.voice.gemini_tts import GeminiTTSClient, render_full_dialogue
 from agents.voice.models import DialogueTurn as VoiceDialogueTurn
+from agents.voice.models import SegmentTiming
 
 logger = get_logger("pipeline.orchestrator")
 
@@ -114,7 +118,7 @@ def _to_voice_turns(script: DigestScript) -> list[VoiceDialogueTurn]:
 async def render_audio_bytes(
     script: DigestScript,
     tts_client: GeminiTTSClient,
-) -> tuple[bytes, int]:
+) -> tuple[bytes, int, list[SegmentTiming]]:
     """Render a script to assembled MP3 audio bytes + duration via M0 TTS.
 
     Reuses the M0 spine: ``render_full_dialogue`` (Gemini multi-speaker TTS) →
@@ -126,7 +130,9 @@ async def render_audio_bytes(
         tts_client: An initialized ``GeminiTTSClient`` (mocked in tests).
 
     Returns:
-        ``(mp3_bytes, duration_ms)``.
+        ``(mp3_bytes, duration_ms, segment_timings)`` — the timings are the
+        assembler's real per-chunk speech boundaries, consumed by
+        :func:`build_caption_track` for per-turn caption anchoring.
 
     Raises:
         TTSRenderError: When rendering fails (propagated from the M0 module).
@@ -136,7 +142,7 @@ async def render_audio_bytes(
         turns=voice_turns,
         tts_client=tts_client,
     )
-    assembled, _segment_timings = assemble_episode(
+    assembled, segment_timings = assemble_episode(
         speech_segments=segments,
         speakers=speakers,
         turn_indices=turn_indices,
@@ -144,33 +150,85 @@ async def render_audio_bytes(
     buffer = io.BytesIO()
     assembled.export(buffer, format=AUDIO_EXPORT_FORMAT, bitrate=AUDIO_EXPORT_BITRATE)
     audio_bytes = buffer.getvalue()
-    return audio_bytes, len(assembled)
+    return audio_bytes, len(assembled), segment_timings
 
 
 def build_caption_track(
     script: DigestScript,
     audio_duration_ms: int,
+    segment_timings: list[SegmentTiming] | None = None,
+    audio_bytes: bytes | None = None,
 ) -> CaptionTrack:
-    """Time-slice the (known) script transcript across the real audio duration.
+    """Align the (known) script transcript to the real audio.
 
-    Reuses M0's offline transcript-time-slice forced alignment (Open-Q1: reuse
-    the M0 time-slice path for M1). The transcript is the script turns joined;
-    sentences are split with the M0 splitter; one highlight keyword per sentence
-    is chosen deterministically (no preferred-keyword pool at M1).
+    When ``audio_bytes`` is supplied, word timing comes from ACOUSTIC forced
+    alignment (torchaudio Wav2Vec2 CTC — offline, no API) for tight karaoke
+    sync; on any acoustic failure (torch missing, decode error) it falls back
+    loudly to the heuristic below. The heuristic: when ``segment_timings``
+    (the assembler's real per-chunk speech boundaries from
+    :func:`render_audio_bytes`) are supplied, each chunk's turns are
+    char-weight sliced ONLY within that chunk's measured audio window; without
+    timings, the whole-track proportional slice.
 
     Args:
         script: The grounded digest script (its turns are the transcript).
         audio_duration_ms: The real assembled audio duration in ms.
+        segment_timings: The assembler's per-chunk boundaries (``turn_index`` is
+            the first script turn rendered in that chunk). None/empty → global
+            slice fallback.
+        audio_bytes: The assembled MP3 bytes (the same audio the timings index
+            into). None → heuristic slicing only.
 
     Returns:
         A :class:`CaptionTrack` (word timings + one highlight/sentence).
     """
+    audio_duration_s = max(audio_duration_ms / 1000.0, 0.001)
+    turn_windows: list[TurnAlignmentWindow] | None = None
+    if segment_timings:
+        chunk_start_turn_indices = [timing.turn_index for timing in segment_timings]
+        chunk_end_turn_indices = chunk_start_turn_indices[1:] + [len(script.turns)]
+        turn_windows = [
+            TurnAlignmentWindow(
+                text=" ".join(turn.text for turn in script.turns[start_turn:end_turn]),
+                start_s=timing.start_ms / 1000.0,
+                end_s=timing.end_ms / 1000.0,
+            )
+            for timing, start_turn, end_turn in zip(
+                segment_timings, chunk_start_turn_indices, chunk_end_turn_indices
+            )
+        ]
+
+    if audio_bytes is not None:
+        # Reason: without measured windows, one window spanning the whole audio
+        # still lets the acoustic aligner find real word onsets.
+        acoustic_windows = turn_windows or [
+            TurnAlignmentWindow(
+                text=" ".join(turn.text for turn in script.turns),
+                start_s=0.0,
+                end_s=audio_duration_s,
+            )
+        ]
+        acoustic_track = acoustically_align_turn_windows(
+            digest_id=script.digest_story_id,
+            audio_bytes=audio_bytes,
+            turn_windows=acoustic_windows,
+            audio_duration_s=audio_duration_s,
+        )
+        if acoustic_track is not None:
+            return acoustic_track
+
+    if turn_windows:
+        return align_turn_windows_to_audio(
+            digest_id=script.digest_story_id,
+            turn_windows=turn_windows,
+            audio_duration_s=audio_duration_s,
+        )
     transcript = " ".join(turn.text for turn in script.turns)
     sentences = split_transcript_into_sentences(transcript)
     return align_transcript_to_audio(
         digest_id=script.digest_story_id,
         sentences=sentences,
-        audio_duration_s=max(audio_duration_ms / 1000.0, 0.001),
+        audio_duration_s=audio_duration_s,
     )
 
 
@@ -387,10 +445,14 @@ async def orchestrate_story(
         )
 
     # ── 3. TTS (M0) → audio bytes + duration ──
-    audio_bytes, audio_duration_ms = await render_audio_bytes(script, tts_client)
+    audio_bytes, audio_duration_ms, segment_timings = await render_audio_bytes(
+        script, tts_client
+    )
 
-    # ── 4. Caption timing (M0 forced alignment) ──
-    caption_track = build_caption_track(script, audio_duration_ms)
+    # ── 4. Caption timing (acoustic forced alignment; heuristic fallback) ──
+    caption_track = build_caption_track(
+        script, audio_duration_ms, segment_timings, audio_bytes=audio_bytes
+    )
 
     # ── 5. Poster (M0) — non-fatal ──
     poster_bytes = generate_poster_bytes(

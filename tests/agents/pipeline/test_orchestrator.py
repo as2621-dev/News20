@@ -292,6 +292,52 @@ class TestBuildCaptionTrack:
                 )
         assert set(highlights_per_sentence.values()) == {1}
 
+    def test_caption_track_anchors_to_segment_timings(self) -> None:
+        """With real turn windows, no word starts inside an inter-turn silence gap.
+
+        Why this matters: the whole point of per-turn anchoring is that captions
+        re-lock to the audio at every speaker turn instead of drifting across
+        the assembler's silence gaps — a word timed inside a gap would highlight
+        while nobody is speaking.
+        """
+        from agents.pipeline.models import DialogueTurn, DigestScript
+        from agents.voice.models import SegmentTiming
+
+        script = DigestScript(
+            digest_story_id="s1",
+            turns=[
+                DialogueTurn(speaker="ALEX", text="Arsenal won at the Emirates."),
+                DialogueTurn(speaker="JORDAN", text="Saka scored both goals."),
+            ],
+            word_count=8,
+            estimated_duration_seconds=4,
+        )
+        timings = [
+            SegmentTiming(turn_index=0, speaker="ALEX", start_ms=0, end_ms=4_000),
+            SegmentTiming(turn_index=1, speaker="JORDAN", start_ms=4_500, end_ms=9_000),
+        ]
+        track = orch.build_caption_track(
+            script, audio_duration_ms=10_000, segment_timings=timings
+        )
+
+        # Speech ends at the last window's boundary, not the padded audio end.
+        assert track.speech_end_s == pytest.approx(9.0, abs=0.001)
+        # No word interval intrudes into the 4.0s–4.5s silence gap.
+        for word in track.words:
+            assert not (4.0 < word.start_s < 4.5)
+            assert not (4.0 < word.end_s < 4.5)
+        # Sentences never span windows: Jordan's words start at the second window.
+        jordan_words = [w for w in track.words if w.start_s >= 4.5]
+        assert {w.sentence_index for w in jordan_words} == {1}
+        # Still exactly one highlight per sentence.
+        highlights_per_sentence: dict[int, int] = {}
+        for word in track.words:
+            if word.is_highlight:
+                highlights_per_sentence[word.sentence_index] = (
+                    highlights_per_sentence.get(word.sentence_index, 0) + 1
+                )
+        assert set(highlights_per_sentence.values()) == {1}
+
 
 class TestRenderAudioBytes:
     """The TTS step assembles PCM into MP3 bytes + a real duration."""
@@ -309,11 +355,14 @@ class TestRenderAudioBytes:
             word_count=4,
             estimated_duration_seconds=2,
         )
-        audio_bytes, duration_ms = await orch.render_audio_bytes(
+        audio_bytes, duration_ms, segment_timings = await orch.render_audio_bytes(
             script, _tts_returning_audio()
         )
         assert isinstance(audio_bytes, bytes) and len(audio_bytes) > 0
         assert duration_ms > 0
+        # Real per-chunk speech boundaries come back for caption anchoring.
+        assert segment_timings
+        assert segment_timings[-1].end_ms <= duration_ms
         # The bytes decode back to an audio segment of the reported length.
         import io
 
