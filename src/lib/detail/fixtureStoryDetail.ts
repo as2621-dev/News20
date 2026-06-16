@@ -196,6 +196,9 @@ const FIXTURE_DETAIL_SOURCES: readonly FixtureDetailSource[] = [
 function buildFixtureStoryDetail(source: FixtureDetailSource): StoryDetail {
   return {
     story_id: source.digest_id,
+    // The prototype fixtures predate per-category detail templates; null lets the
+    // UI fall back to the Culture template (and the analytic panels stay empty).
+    detail_category: null,
     detail_chunks: source.chunks.map((chunk_text, chunk_index) => ({ chunk_index, chunk_text })),
     trust_summary: {
       coverage_left_count: source.coverage_left,
@@ -227,7 +230,7 @@ function buildFixtureStoryDetail(source: FixtureDetailSource): StoryDetail {
       question_text,
     })),
     // Phase-2c fields the prototype predates — absent, not fabricated (see file docstring).
-    second_analytic: null,
+    analytic_panels: [],
   };
 }
 

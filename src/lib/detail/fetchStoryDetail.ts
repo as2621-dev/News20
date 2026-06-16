@@ -20,6 +20,7 @@
  */
 
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { logger } from "@/lib/logger";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   AnalyticKind,
@@ -54,11 +55,11 @@ const STORY_SOURCE_SELECT =
   "source_outlet_name,source_bias_lean,source_article_url,source_published_utc,source_is_citation";
 /** `suggested_questions` columns read for the Q&A chips. */
 const SUGGESTED_QUESTION_SELECT = "question_index,question_text";
-/** `stories` key-figure columns for the Detail key-figure card. */
-const STORY_KEY_FIGURE_SELECT = "story_key_figure_value,story_key_figure_label";
-/** `story_analytics` columns read for the segment-skinned second-analytic tab (Phase 2c, 1:1). */
+/** `stories` key-figure + detail-category columns for the Detail card + panel template. */
+const STORY_KEY_FIGURE_SELECT = "story_key_figure_value,story_key_figure_label,story_detail_category";
+/** `story_analytics` columns read for the category's analytic panels (1:N, ordered by slot). */
 const STORY_ANALYTICS_SELECT =
-  "analytic_kind,analytic_tab_label,analytic_headline,analytic_summary_text,analytic_rows,analytic_is_grounded";
+  "analytic_slot_index,analytic_kind,analytic_tab_label,analytic_headline,analytic_summary_text,analytic_rows,analytic_is_grounded";
 /** `detail_key_points` columns read for the 5 at-a-glance bullets (Phase 2c). */
 const DETAIL_KEY_POINT_SELECT = "key_point_index,key_point_text";
 
@@ -82,8 +83,9 @@ interface StoryTrustRow {
   coverage_notable_outlet_names: string[] | null;
 }
 
-/** Raw `story_analytics` row (1:1; Phase 2c). `analytic_rows` is a JSONB array. */
+/** Raw `story_analytics` row (1:N; one per slot). `analytic_rows` is a JSONB array. */
 interface StoryAnalyticsRow {
+  analytic_slot_index: number;
   analytic_kind: AnalyticKind;
   analytic_tab_label: string;
   analytic_headline: string;
@@ -120,10 +122,11 @@ interface SuggestedQuestionRow {
   question_text: string;
 }
 
-/** Raw `stories` key-figure projection. */
+/** Raw `stories` key-figure + detail-category projection. */
 interface StoryKeyFigureRow {
   story_key_figure_value: string | null;
   story_key_figure_label: string | null;
+  story_detail_category: string | null;
 }
 
 /**
@@ -138,6 +141,62 @@ function detailReadError(table: string, story_id: string, error: PostgrestError)
     `Failed to load ${table} for story "${story_id}": ${error.message}. ` +
       "fix_suggestion: confirm migrations applied, RLS allows anon SELECT, and the seed ran.",
   );
+}
+
+/**
+ * Pick the share-target URL from `story_sources` rows.
+ *
+ * Preference order: the first citation row with a URL (the article the digest
+ * was actually written from), else the first row with any URL, else `null`.
+ *
+ * @param rows - The story's `story_sources` rows (any order).
+ * @returns The best shareable article URL, or `null` when none carries a URL.
+ *
+ * @example
+ * pickPrimarySourceArticleUrl([
+ *   { source_article_url: "https://b.example", source_is_citation: false },
+ *   { source_article_url: "https://a.example", source_is_citation: true },
+ * ]); // → "https://a.example"
+ */
+export function pickPrimarySourceArticleUrl(
+  rows: Pick<StorySourceRow, "source_article_url" | "source_is_citation">[],
+): string | null {
+  const citationUrl = rows.find((row) => row.source_is_citation && row.source_article_url)?.source_article_url;
+  if (citationUrl) {
+    return citationUrl;
+  }
+  return rows.find((row) => row.source_article_url)?.source_article_url ?? null;
+}
+
+/**
+ * Fetch ONLY the primary source article URL for one story (the share payload).
+ *
+ * A lean single-table read for the reel's Share button — avoids paying
+ * {@link fetchStoryDetail}'s eight concurrent reads on a share tap. Best-effort:
+ * a read error logs and resolves `null` (the caller shares headline-only).
+ *
+ * @param story_id - The `stories.story_id` slug (carried on `Story.digest_id`).
+ * @param client - Optional Supabase client (injected in tests).
+ * @returns The primary source article URL, or `null` when unavailable.
+ */
+export async function fetchPrimarySourceArticleUrl(
+  story_id: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<string | null> {
+  const { data, error } = await client
+    .from("story_sources")
+    .select("source_article_url,source_is_citation")
+    .eq("source_story_id", story_id)
+    .returns<Pick<StorySourceRow, "source_article_url" | "source_is_citation">[]>();
+  if (error) {
+    logger.warn("share_source_url_fetch_failed", {
+      story_id,
+      error_message: error.message,
+      fix_suggestion: "Sharing falls back to headline-only; check story_sources RLS/seed if persistent.",
+    });
+    return null;
+  }
+  return pickPrimarySourceArticleUrl(data ?? []);
 }
 
 /**
@@ -202,12 +261,13 @@ export async function fetchStoryDetail(
       .order("question_index", { ascending: true })
       .returns<SuggestedQuestionRow[]>(),
     client.from("stories").select(STORY_KEY_FIGURE_SELECT).eq("story_id", story_id).maybeSingle<StoryKeyFigureRow>(),
-    // Phase 2c: the 1:1 segment-skinned second-analytic tab (may be absent → null).
+    // The category's analytic panels (1-3), ordered by slot (may be absent → []).
     client
       .from("story_analytics")
       .select(STORY_ANALYTICS_SELECT)
       .eq("analytic_story_id", story_id)
-      .maybeSingle<StoryAnalyticsRow>(),
+      .order("analytic_slot_index", { ascending: true })
+      .returns<StoryAnalyticsRow[]>(),
     // Phase 2c: the 5 at-a-glance bullets, ordered by index.
     client
       .from("detail_key_points")
@@ -297,18 +357,17 @@ export async function fetchStoryDetail(
     question_text: row.question_text,
   }));
 
-  // Phase 2c: the 1:1 second-analytic tab is null when the story has no analytic row.
-  const analyticsRow = analyticsResult.data;
-  const second_analytic: SecondAnalytic | null = analyticsRow
-    ? {
-        analytic_kind: analyticsRow.analytic_kind,
-        analytic_tab_label: analyticsRow.analytic_tab_label,
-        analytic_headline: analyticsRow.analytic_headline,
-        analytic_summary_text: analyticsRow.analytic_summary_text,
-        analytic_rows: analyticsRow.analytic_rows ?? [],
-        analytic_is_grounded: analyticsRow.analytic_is_grounded,
-      }
-    : null;
+  // The category's analytic panels, ordered by slot (empty when the story has no
+  // analytic rows yet — e.g. a pre-migration story; the UI null-guards).
+  const analytic_panels: SecondAnalytic[] = (analyticsResult.data ?? []).map((row) => ({
+    analytic_slot_index: row.analytic_slot_index,
+    analytic_kind: row.analytic_kind,
+    analytic_tab_label: row.analytic_tab_label,
+    analytic_headline: row.analytic_headline,
+    analytic_summary_text: row.analytic_summary_text,
+    analytic_rows: row.analytic_rows ?? [],
+    analytic_is_grounded: row.analytic_is_grounded,
+  }));
 
   const detail_key_points: DetailKeyPoint[] = (keyPointsResult.data ?? []).map((row) => ({
     key_point_index: row.key_point_index,
@@ -317,13 +376,14 @@ export async function fetchStoryDetail(
 
   return {
     story_id,
+    detail_category: storyResult.data.story_detail_category,
     detail_chunks,
     trust_summary,
     key_figure,
     sources,
     timeline,
     suggested_questions,
-    second_analytic,
+    analytic_panels,
     detail_key_points,
   };
 }

@@ -32,21 +32,39 @@
 export type BiasLean = "left" | "center" | "right";
 
 /**
- * The segment-skinned "second analytic" Detail tab kind (Phase 2c). Mirrors the
- * `analytic_kind` Postgres enum (`reference/supabase-schema.md` §1 + migration
- * 0011). Chosen deterministically from the story's segment: markets/tech →
- * market_impact, geopolitics/sport/wildcard → subject_profile (PROFILE),
- * unknown → why_it_matters. ripple/impact/stakes remain for rows enriched
- * before the 2026-06-12 remap.
+ * One Detail "analytic panel" kind. Mirrors the `analytic_kind` Postgres enum
+ * (migrations 0004 + 0011 + 0014). Which kinds a story carries is chosen
+ * deterministically from its detail CATEGORY template (`src/lib/detailTemplates.ts`),
+ * never by the LLM. The original Phase-2c kinds plus the category-specific
+ * additions (Breaking `what_we_know`; Markets `by_the_numbers`; Tech `the_concept`;
+ * Sport `stat_line` / `recent_form`; source panels `source_context` / `key_points`
+ * / `implications`). `ripple` / `impact` remain for rows enriched before the
+ * 2026-06-12 remap.
  */
-export type AnalyticKind = "market_impact" | "ripple" | "impact" | "stakes" | "why_it_matters" | "subject_profile";
+export type AnalyticKind =
+  | "market_impact"
+  | "ripple"
+  | "impact"
+  | "stakes"
+  | "why_it_matters"
+  | "subject_profile"
+  | "what_we_know"
+  | "by_the_numbers"
+  | "the_concept"
+  | "stat_line"
+  | "recent_form"
+  | "source_context"
+  | "key_points"
+  | "implications";
 
 /**
- * How the Detail "Coverage" tab is framed (Phase 2c). Mirrors the `coverage_mode`
- * Postgres enum (`reference/supabase-schema.md` §1). `partisan` = L·C·R + blindspot
- * (contested / geopolitics); `reach` = covered-by-N + momentum + who-broke-it.
+ * How the Detail "Coverage" tab is framed. Mirrors the `coverage_mode` Postgres
+ * enum (migrations 0004 + 0014). `partisan` = L·C·R + blindspot (World); `reach` =
+ * covered-by-N + momentum + who-broke-it; `reach_lite` = covered-by-N + notable
+ * outlet names ONLY (Breaking — no momentum / who-broke-it). The Detail page reads
+ * the framing from the category template's coverage panel, not from `story_trust`.
  */
-export type CoverageMode = "partisan" | "reach";
+export type CoverageMode = "partisan" | "reach" | "reach_lite";
 
 /**
  * One labeled row inside the second-analytic tab — an element of the
@@ -74,7 +92,9 @@ export interface AnalyticRow {
  * analytic_summary_text, analytic_rows, analytic_is_grounded}`.
  */
 export interface SecondAnalytic {
-  /** The segment-derived analytic kind (`story_analytics.analytic_kind`). */
+  /** 0-based panel order on the Detail page (`story_analytics.analytic_slot_index`). */
+  analytic_slot_index: number;
+  /** The template-derived analytic kind (`story_analytics.analytic_kind`). */
   analytic_kind: AnalyticKind;
   /** Display label ("MARKET IMPACT", "STAKES"; `story_analytics.analytic_tab_label`). */
   analytic_tab_label: string;
@@ -246,6 +266,13 @@ export interface KeyFigure {
 export interface StoryDetail {
   /** The `stories.story_id` slug this payload is for (`"s1"`..`"s5"`). */
   story_id: string;
+  /**
+   * The story's Detail-page category (`stories.story_detail_category`), or `null`
+   * for a pre-migration story. The authoritative source the Detail page uses to
+   * pick its panel template (`DETAIL_TEMPLATES[detail_category]`) — read
+   * Supabase-direct here so it is correct even when the reel feed is fixture-backed.
+   */
+  detail_category: string | null;
   /** Readable body paragraphs, ordered by `chunk_index`. */
   detail_chunks: DetailChunk[];
   /** The trust/coverage summary (the "COVERAGE" strip). */
@@ -265,8 +292,9 @@ export interface StoryDetail {
    */
   detail_key_points?: DetailKeyPoint[];
   /**
-   * The segment-skinned "second analytic" tab (Phase 2c), or `null` when the
-   * story has no analytic row yet. Optional until SP4's fetch reads `story_analytics`.
+   * The category's analytic panels (1-3), ordered by `analytic_slot_index` — one
+   * per `analytic` slot in the story's detail-category template. Empty for a
+   * pre-migration story with no `story_analytics` rows (the UI null-guards).
    */
-  second_analytic?: SecondAnalytic | null;
+  analytic_panels: SecondAnalytic[];
 }

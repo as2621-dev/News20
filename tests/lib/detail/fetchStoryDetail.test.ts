@@ -26,7 +26,7 @@ const trustSummarySchema = z.object({
   blindspot_lean: biasLeanSchema.nullable(),
   opposing_view_text: z.string().nullable(),
   // Phase 2c reach fields (optional in the contract; SP4 populates them).
-  coverage_mode: z.enum(["partisan", "reach"]).optional(),
+  coverage_mode: z.enum(["partisan", "reach", "reach_lite"]).optional(),
   coverage_momentum: z.string().nullable().optional(),
   coverage_originating_outlet: z.string().nullable().optional(),
   coverage_notable_outlets: z.array(z.string()).optional(),
@@ -37,8 +37,25 @@ const analyticRowSchema = z.object({
   analytic_row_direction: z.enum(["up", "down", "flat"]).nullable(),
   analytic_row_note: z.string().nullable(),
 });
+const analyticKindSchema = z.enum([
+  "market_impact",
+  "ripple",
+  "impact",
+  "stakes",
+  "why_it_matters",
+  "subject_profile",
+  "what_we_know",
+  "by_the_numbers",
+  "the_concept",
+  "stat_line",
+  "recent_form",
+  "source_context",
+  "key_points",
+  "implications",
+]);
 const secondAnalyticSchema = z.object({
-  analytic_kind: z.enum(["market_impact", "ripple", "impact", "stakes", "why_it_matters"]),
+  analytic_slot_index: z.number(),
+  analytic_kind: analyticKindSchema,
   analytic_tab_label: z.string(),
   analytic_headline: z.string(),
   analytic_summary_text: z.string(),
@@ -71,14 +88,15 @@ const keyFigureSchema = z.object({
 });
 const storyDetailSchema = z.object({
   story_id: z.string(),
+  detail_category: z.string().nullable(),
   detail_chunks: z.array(detailChunkSchema).min(1),
   trust_summary: trustSummarySchema,
   key_figure: keyFigureSchema,
   sources: z.array(storySourceSchema).min(1),
   timeline: z.array(timelineEventSchema).min(1),
   suggested_questions: z.array(suggestedQuestionSchema).min(1),
-  // Phase 2c (optional in the contract; SP4's fetch populates them).
-  second_analytic: secondAnalyticSchema.nullable().optional(),
+  // The category's analytic panels (1-3), ordered by slot.
+  analytic_panels: z.array(secondAnalyticSchema),
   detail_key_points: z.array(detailKeyPointSchema).optional(),
 });
 
@@ -199,32 +217,57 @@ function sampleResults(): Record<string, TableResult> {
     },
     stories: {
       mode: "single",
-      data: { story_key_figure_value: "~20%", story_key_figure_label: "of global oil transits Hormuz" },
+      data: {
+        story_key_figure_value: "~20%",
+        story_key_figure_label: "of global oil transits Hormuz",
+        story_detail_category: "markets",
+      },
       error: null,
     },
     story_analytics: {
-      mode: "single",
-      data: {
-        analytic_kind: "market_impact",
-        analytic_tab_label: "MARKET IMPACT",
-        analytic_headline: "Oil markets brace on Hormuz tension",
-        analytic_summary_text: "A closure would choke ~20% of seaborne crude.",
-        analytic_rows: [
-          {
-            analytic_row_label: "Hormuz oil share",
-            analytic_row_value: "~20%",
-            analytic_row_direction: null,
-            analytic_row_note: null,
-          },
-          {
-            analytic_row_label: "Brent crude",
-            analytic_row_value: null,
-            analytic_row_direction: "up",
-            analytic_row_note: null,
-          },
-        ],
-        analytic_is_grounded: true,
-      },
+      mode: "list",
+      // Two ordered panels (markets = MARKET IMPACT + BY THE NUMBERS), supplied in
+      // slot order as PostgREST's `.order(analytic_slot_index)` would return them.
+      data: [
+        {
+          analytic_slot_index: 0,
+          analytic_kind: "market_impact",
+          analytic_tab_label: "MARKET IMPACT",
+          analytic_headline: "Oil markets brace on Hormuz tension",
+          analytic_summary_text: "A closure would choke ~20% of seaborne crude.",
+          analytic_rows: [
+            {
+              analytic_row_label: "Hormuz oil share",
+              analytic_row_value: "~20%",
+              analytic_row_direction: null,
+              analytic_row_note: null,
+            },
+            {
+              analytic_row_label: "Brent crude",
+              analytic_row_value: null,
+              analytic_row_direction: "up",
+              analytic_row_note: null,
+            },
+          ],
+          analytic_is_grounded: true,
+        },
+        {
+          analytic_slot_index: 1,
+          analytic_kind: "by_the_numbers",
+          analytic_tab_label: "BY THE NUMBERS",
+          analytic_headline: "The figures behind the threat",
+          analytic_summary_text: "The chokepoint's scale, by the numbers.",
+          analytic_rows: [
+            {
+              analytic_row_label: "Trade value",
+              analytic_row_value: "$81.6B",
+              analytic_row_direction: null,
+              analytic_row_note: null,
+            },
+          ],
+          analytic_is_grounded: true,
+        },
+      ],
       error: null,
     },
     detail_key_points: {
@@ -311,28 +354,34 @@ describe("fetchStoryDetail (supabase source)", () => {
     expect(eqCalls).toContainEqual({ table: "detail_key_points", column: "key_point_story_id", value: "s1" });
   });
 
-  it("maps the Phase 2c second_analytic + 5 key points in index order", async () => {
-    // WHY: SP4 additively reads story_analytics (1:1) + detail_key_points (ordered).
+  it("maps the analytic_panels (1:N, slot-ordered) + detail_category + 5 key points", async () => {
+    // WHY: the fetch reads story_analytics as a 1:N ordered list (one panel per
+    // template slot) + detail_key_points (ordered) + the story's detail_category.
     // This fails if the analytic columns are swapped, the JSONB rows are dropped,
-    // or the key points come back unordered (Rule 9).
+    // a panel slot is lost, or the lists come back unordered (Rule 9).
     const { client, orderCalls } = makeFakeClient(sampleResults());
 
     const detail = await fetchStoryDetail("s1", client);
 
-    expect(detail.second_analytic).not.toBeNull();
-    expect(detail.second_analytic?.analytic_kind).toBe("market_impact");
-    expect(detail.second_analytic?.analytic_tab_label).toBe("MARKET IMPACT");
-    expect(detail.second_analytic?.analytic_is_grounded).toBe(true);
-    expect(detail.second_analytic?.analytic_rows).toHaveLength(2);
-    expect(detail.second_analytic?.analytic_rows[0].analytic_row_value).toBe("~20%");
+    // The authoritative category the UI picks its template from.
+    expect(detail.detail_category).toBe("markets");
+
+    // Two panels, in slot order, with the right kinds + labels.
+    expect(detail.analytic_panels.map((p) => p.analytic_slot_index)).toEqual([0, 1]);
+    expect(detail.analytic_panels.map((p) => p.analytic_kind)).toEqual(["market_impact", "by_the_numbers"]);
+    expect(detail.analytic_panels[0].analytic_tab_label).toBe("MARKET IMPACT");
+    expect(detail.analytic_panels[0].analytic_is_grounded).toBe(true);
+    expect(detail.analytic_panels[0].analytic_rows).toHaveLength(2);
+    expect(detail.analytic_panels[0].analytic_rows[0].analytic_row_value).toBe("~20%");
     // Direction-only row carries null value (ungrounded number dropped upstream).
-    expect(detail.second_analytic?.analytic_rows[1].analytic_row_value).toBeNull();
-    expect(detail.second_analytic?.analytic_rows[1].analytic_row_direction).toBe("up");
+    expect(detail.analytic_panels[0].analytic_rows[1].analytic_row_value).toBeNull();
+    expect(detail.analytic_panels[0].analytic_rows[1].analytic_row_direction).toBe("up");
 
     expect(detail.detail_key_points?.map((p) => p.key_point_index)).toEqual([0, 1, 2, 3, 4]);
     expect(detail.detail_key_points?.[0].key_point_text).toBe("First bullet.");
     // Ordering requested from Postgres, not the test data accidentally.
     expect(orderCalls).toContainEqual({ table: "detail_key_points", column: "key_point_index" });
+    expect(orderCalls).toContainEqual({ table: "story_analytics", column: "analytic_slot_index" });
   });
 
   it("maps the Phase 2c partisan-mode coverage fields off story_trust", async () => {
@@ -374,16 +423,17 @@ describe("fetchStoryDetail (supabase source)", () => {
     expect(detail.trust_summary.coverage_notable_outlets).toEqual(["Reuters", "BBC News", "AP"]);
   });
 
-  it("returns second_analytic as null when the story has no story_analytics row", async () => {
-    // WHY: story_analytics is 1:1 but optional — a story without one renders no
-    // second-analytic tab. A mapping that fabricated an empty analytic would lie.
+  it("returns empty analytic_panels when the story has no story_analytics rows", async () => {
+    // WHY: story_analytics is now 1:N but optional — a pre-migration story with no
+    // rows renders no analytic tabs. A mapping that fabricated a panel would lie;
+    // the UI null-guards an empty list.
     const results = sampleResults();
-    results.story_analytics = { mode: "single", data: null, error: null };
+    results.story_analytics = { mode: "list", data: [], error: null };
     const { client } = makeFakeClient(results);
 
     const detail = await fetchStoryDetail("s1", client);
 
-    expect(detail.second_analytic).toBeNull();
+    expect(detail.analytic_panels).toEqual([]);
   });
 
   it("carries a NULL blindspot through as null (no-blindspot story renders no chip)", async () => {
