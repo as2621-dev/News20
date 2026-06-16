@@ -53,11 +53,12 @@ from agents.pipeline.orchestrator import (  # noqa: E402
     render_audio_bytes,
 )
 from agents.pipeline.persist import AUDIO_BUCKET, upload_to_bucket  # noqa: E402
+from agents.pipeline.detail_templates import detail_category_for_segment  # noqa: E402
 from agents.pipeline.persist_helpers import (  # noqa: E402
     build_caption_sentence_rows,
     build_detail_key_point_rows,
     build_digest_row,
-    build_story_analytics_row,
+    build_story_analytics_rows,
     build_story_timeline_rows,
     script_speaker_order,
 )
@@ -263,9 +264,12 @@ async def _regenerate_story(
     )
     supabase.table("caption_sentences").insert(caption_rows).execute()
 
-    # ── 5. Re-enrich with the new segment→kind map; replace the analytics rows ──
+    # ── 5. Re-enrich with the per-category template; replace the analytics rows ──
+    # Reason: this offline regen has no GDELT census, so no breaking signal — the
+    # story falls to its plain topic template (detail_category from the segment).
+    detail_category = detail_category_for_segment(segment_slug, is_breaking=False)
     enrichment = await run_detail_enrichment(
-        story=story, script=script, llm_client=llm_client, segment_slug=segment_slug
+        story=story, script=script, llm_client=llm_client, detail_category=detail_category
     )
     supabase.table("story_timeline").delete().eq(
         "timeline_story_id", story_id
@@ -280,9 +284,9 @@ async def _regenerate_story(
     timeline_rows = build_story_timeline_rows(story_id, enrichment.timeline)
     if timeline_rows:
         supabase.table("story_timeline").insert(timeline_rows).execute()
-    supabase.table("story_analytics").insert(
-        build_story_analytics_row(story_id, enrichment.second_analytic)
-    ).execute()
+    analytics_rows = build_story_analytics_rows(story_id, enrichment.analytic_panels)
+    if analytics_rows:
+        supabase.table("story_analytics").insert(analytics_rows).execute()
     key_point_rows = build_detail_key_point_rows(story_id, enrichment.key_points)
     if key_point_rows:
         supabase.table("detail_key_points").insert(key_point_rows).execute()
@@ -290,17 +294,20 @@ async def _regenerate_story(
         {
             "story_key_figure_value": enrichment.key_figure.key_figure_value,
             "story_key_figure_label": enrichment.key_figure.key_figure_label,
+            "story_detail_category": detail_category,
         }
     ).eq("story_id", story_id).execute()
 
+    analytic_kinds = [panel.analytic_kind for panel in enrichment.analytic_panels]
     logger.info(
         "regen_story_completed",
         story_id=story_id,
         digest_id=digest_id,
         audio_duration_ms=audio_duration_ms,
-        analytic_kind=enrichment.second_analytic.analytic_kind,
+        detail_category=detail_category,
+        analytic_kinds=analytic_kinds,
     )
-    return f"regenerated ({enrichment.second_analytic.analytic_kind})"
+    return f"regenerated ({detail_category}: {', '.join(analytic_kinds)})"
 
 
 async def _run() -> int:

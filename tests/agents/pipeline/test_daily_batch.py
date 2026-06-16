@@ -52,7 +52,15 @@ async def test_run_daily_pipeline_updates_weights_first_then_produces_only_gated
         order.append("gate")
         # The gate keeps only s-keep; s-drop is rejected.
         keep = [s for s in stories if s.canonical_story_id == "s-keep"]
-        decisions = [SimpleNamespace(should_produce=True) for _ in keep]
+        decisions = [
+            SimpleNamespace(
+                story_id=s.canonical_story_id,
+                should_produce=True,
+                importance_score=0.5,
+                freshness_score=0.5,
+            )
+            for s in keep
+        ]
         return keep, decisions
 
     async def fake_orchestrate(*, story, **_k):
@@ -78,6 +86,11 @@ async def test_run_daily_pipeline_updates_weights_first_then_produces_only_gated
     monkeypatch.setattr(
         daily_batch, "_load_has_current_digest", fake_has_current_digest
     )
+    # The per-category cap loads the active-user allocations before the gate; this
+    # test exercises ordering/gating, so stub those seams (no allocations → the
+    # default per-category cap keeps the single gated story).
+    monkeypatch.setattr(daily_batch, "_load_active_user_ids", lambda *_a, **_k: ["u1"])
+    monkeypatch.setattr(daily_batch, "_load_category_allocation", lambda *_a, **_k: {})
     monkeypatch.setattr(daily_batch, "load_active_user_inputs", fake_load_inputs)
     monkeypatch.setattr(daily_batch, "assemble_daily_feeds", fake_assemble)
 

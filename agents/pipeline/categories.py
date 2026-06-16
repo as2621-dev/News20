@@ -98,6 +98,23 @@ SLUG_TO_CATEGORY: dict[str, FeedCategory] = {
 # Keeps every story classifiable into exactly one topic category (no gap, no crash).
 DEFAULT_CATEGORY: FeedCategory = "culture"
 
+# Reason: the default "Build your 30" allocation a user inherits until they
+# customize it — the ONE source of truth is the frontend
+# ``src/lib/feedBuckets.ts`` ``DEFAULT_ALLOCATION_SEGMENTS`` (the onboarding
+# screen's pre-filled default). Mirrored here so the produce cap can treat a user
+# who never built their 30 as having this exact distribution (Rule 7: keep the two
+# in sync — if the TS default changes, change this too). Sums to 30.
+DEFAULT_FEED_ALLOCATION: dict[FeedCategory, int] = {
+    "breaking": 2,
+    "world_politics": 4,
+    "tech_science": 5,
+    "youtube": 6,
+    "markets": 4,
+    "sport": 3,
+    "x": 3,
+    "culture": 3,
+}
+
 
 def category_for_slug(interest_slug: str) -> FeedCategory:
     """Resolve an interest slug to its screen ``FeedCategory`` (best-fit).

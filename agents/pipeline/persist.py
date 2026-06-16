@@ -41,7 +41,7 @@ from agents.pipeline.persist_helpers import (
     build_detail_chunk_rows,
     build_detail_key_point_rows,
     build_digest_row,
-    build_story_analytics_row,
+    build_story_analytics_rows,
     build_story_interest_rows,
     build_story_row,
     build_story_source_rows,
@@ -54,6 +54,7 @@ from agents.pipeline.persist_helpers import (
     resolve_segment_from_tags,
     script_speaker_order,
 )
+from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.stages.detail_enrichment import DetailEnrichment
 from agents.pipeline.stages.forced_alignment import CaptionTrack
 from agents.shared.exceptions import PipelineStageError
@@ -260,7 +261,7 @@ def persist_digest(
     suggested_questions: list[str] | None = None,
     story_id: str | None = None,
     audio_content_type: str = "audio/mpeg",
-    poster_content_type: str = "image/png",
+    poster_content_type: str = "image/webp",
     enrichment: DetailEnrichment | None = None,
     coverage_report: CoverageReport | None = None,
     interest_segment_lookup: dict[str, str] | None = None,
@@ -280,7 +281,7 @@ def persist_digest(
         audio_bytes: The rendered digest audio file bytes.
         audio_duration_ms: Real assembled audio duration in ms.
         story_interest_tags: The story's ``story_interests`` tag payloads (SP1).
-        poster_bytes: The graded poster PNG bytes (None if generation failed).
+        poster_bytes: The graded poster WebP bytes (None if generation failed).
         suggested_questions: Optional suggested-question strings.
         story_id: Optional explicit ``stories.story_id`` (defaults to a stable
             slug derived from the canonical id). The live e2e passes a
@@ -338,7 +339,7 @@ def persist_digest(
 
     poster_url: str | None = None
     if poster_bytes:
-        poster_object_path = f"{resolved_story_id}/poster.png"
+        poster_object_path = f"{resolved_story_id}/poster.webp"
         result.poster_object_path = poster_object_path
         poster_url = upload_to_bucket(
             supabase_client,
@@ -353,6 +354,12 @@ def persist_digest(
     coverage_counts = derive_coverage_counts(story.covering_outlets)
     blindspot_lean = derive_blindspot_lean(coverage_counts)
 
+    # Reason: a story is "breaking" when the GDELT coverage census reads its spread
+    # as a tight, fresh cluster (owner decision 2026-06-16). That flag, plus the
+    # segment, fixes the Detail panel template the client renders (migration 0015).
+    is_breaking = coverage_report is not None and coverage_report.coverage_is_breaking
+    detail_category = detail_category_for_segment(segment_slug, is_breaking)
+
     # ── 3. Insert stories (text PK — record explicitly) ──
     story_row = build_story_row(
         story=story,
@@ -362,6 +369,8 @@ def persist_digest(
         coverage_counts=coverage_counts,
         blindspot_lean=blindspot_lean,
         key_figure=enrichment.key_figure if enrichment else None,
+        detail_category=detail_category,
+        is_breaking=is_breaking,
     )
     _insert_rows(supabase_client, "stories", [story_row], result, pk_column=None)
     result.created_table_row_ids.setdefault("stories", []).append(resolved_story_id)
@@ -530,8 +539,9 @@ def _persist_detail_enrichment(
     """Insert the Phase 2c Detail-analytics children for one story (INSERT only).
 
     The ``stories`` parent (carrying the key figure) is already written; this adds
-    the FK children: ``story_timeline`` (contiguous index order), the 1:1
-    ``story_analytics`` row (each ``analytic_rows`` element validated as an
+    the FK children: ``story_timeline`` (contiguous index order; empty for source
+    categories with no timeline panel), the 1-3 ``story_analytics`` rows (one per
+    Detail template ``analytic`` slot, each ``analytic_rows`` element validated as an
     ``AnalyticRow`` in the builder), and the 5 ``detail_key_points`` (0-based).
     """
     timeline_rows = build_story_timeline_rows(story_id, enrichment.timeline)
@@ -545,15 +555,16 @@ def _persist_detail_enrichment(
         )
         result.timeline_event_count = len(timeline_rows)
 
-    analytics_row = build_story_analytics_row(story_id, enrichment.second_analytic)
-    _insert_rows(
-        supabase_client,
-        "story_analytics",
-        [analytics_row],
-        result,
-        pk_column="story_analytic_id",
-    )
-    result.story_analytics_written = True
+    analytics_rows = build_story_analytics_rows(story_id, enrichment.analytic_panels)
+    if analytics_rows:
+        _insert_rows(
+            supabase_client,
+            "story_analytics",
+            analytics_rows,
+            result,
+            pk_column="story_analytic_id",
+        )
+        result.story_analytics_written = True
 
     key_point_rows = build_detail_key_point_rows(story_id, enrichment.key_points)
     if key_point_rows:

@@ -39,6 +39,7 @@ from agents.pipeline.feed_assembly import (
     assemble_user_feed,
     write_daily_feed,
 )
+from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import CoverageReport, DigestScript
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
@@ -58,6 +59,7 @@ from agents.pipeline.stages.forced_alignment import (
     align_turn_windows_to_audio,
     split_transcript_into_sentences,
 )
+from agents.pipeline.stages.editorial import run_editorial_rewrite
 from agents.pipeline.stages.scripting import run_single_source_scripting
 from agents.pipeline.stages.verification import run_single_source_verification
 from agents.shared.exceptions import VerificationHaltError
@@ -233,7 +235,7 @@ def build_caption_track(
 
 
 def _read_poster_bytes(poster_path: str | None) -> bytes | None:
-    """Read the graded poster PNG bytes from disk (None if absent/unreadable)."""
+    """Read the graded poster WebP bytes from disk (None if absent/unreadable)."""
     if not poster_path:
         return None
     path = Path(poster_path)
@@ -315,24 +317,21 @@ async def _run_detail_stages(
     outlets_lookup: dict[str, str] | None,
     gdelt_adapter: GdeltDocAdapter | None,
 ) -> tuple[DetailEnrichment, CoverageReport | None]:
-    """Run the Phase 2c detail stages (enrichment + GDELT coverage) for one story.
+    """Run the Phase 2c detail stages (GDELT coverage + enrichment) for one story.
 
-    Both are optional and dependency-gated: enrichment always runs when wired (it
-    needs only the LLM); the GDELT coverage census runs only when a shared
-    ``gdelt_adapter`` + an ``outlets_lookup`` are injected (else coverage stays the
-    legacy static derivation at persist time). The coverage call passes the SAME
-    ``segment_slug`` the enrichment uses, so the second-analytic kind and the
-    coverage mode agree (Decisions #2/#3).
+    Both are optional and dependency-gated. The GDELT coverage census runs FIRST
+    (when a shared ``gdelt_adapter`` + an ``outlets_lookup`` are injected) because
+    its ``coverage_momentum`` decides whether the story is "breaking", which —
+    together with ``segment_slug`` — fixes the Detail panel template the enrichment
+    must produce (owner decision 2026-06-16). Without the GDELT wiring there is no
+    breaking signal, so the story falls to its plain topic template. The coverage
+    call passes the SAME ``segment_slug``, so the coverage mode and the analytic
+    panels agree.
 
     Returns:
-        ``(enrichment, coverage_report)`` — either may be None (un-wired path).
+        ``(enrichment, coverage_report)`` — ``coverage_report`` is None on the
+        un-wired path.
     """
-    enrichment = await run_detail_enrichment(
-        story=story,
-        script=script,
-        llm_client=llm_client,
-        segment_slug=segment_slug,
-    )
     coverage_report: CoverageReport | None = None
     if gdelt_adapter is not None and outlets_lookup is not None:
         # Reason: the GDELT census shares the ingestion adapter's <=1-req/5s throttle
@@ -344,6 +343,19 @@ async def _run_detail_stages(
             outlets_lookup=outlets_lookup,  # type: ignore[arg-type]
             adapter=gdelt_adapter,
         )
+
+    # Reason: breaking wins the template (Breaking = What we know + reach_lite
+    # Coverage) regardless of the underlying topic; persist re-derives the same
+    # category from the same coverage_report so the stored + enriched views agree.
+    is_breaking = coverage_report is not None and coverage_report.coverage_is_breaking
+    detail_category = detail_category_for_segment(segment_slug, is_breaking)
+
+    enrichment = await run_detail_enrichment(
+        story=story,
+        script=script,
+        llm_client=llm_client,
+        detail_category=detail_category,
+    )
     return enrichment, coverage_report
 
 
@@ -358,6 +370,7 @@ async def orchestrate_story(
     story_id: str | None = None,
     suggested_questions: list[str] | None = None,
     enable_detail_enrichment: bool = False,
+    enable_editorial_rewrite: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: GdeltDocAdapter | None = None,
@@ -444,6 +457,22 @@ async def orchestrate_story(
             skip_reason="verification_halt",
         )
 
+    # ── 2b. Editorial rewrite (gated) — republish-safe headline + long-form body ──
+    # Runs AFTER verification (the spoken digest is grounded vs the ORIGINAL source),
+    # so paraphrasing here never weakens the audio. Everything downstream — the poster
+    # concept, the persisted feed headline, and the detail_chunks body — reads from
+    # editorial_story; on any rewrite failure it stays the original story (fail safe).
+    editorial_story = story
+    if enable_editorial_rewrite:
+        rewrite = await run_editorial_rewrite(story=story, llm_client=llm_client)
+        if rewrite is not None:
+            editorial_story = story.model_copy(
+                update={
+                    "canonical_title": rewrite.headline,
+                    "canonical_body_text": rewrite.body,
+                }
+            )
+
     # ── 3. TTS (M0) → audio bytes + duration ──
     audio_bytes, audio_duration_ms, segment_timings = await render_audio_bytes(
         script, tts_client
@@ -454,9 +483,9 @@ async def orchestrate_story(
         script, audio_duration_ms, segment_timings, audio_bytes=audio_bytes
     )
 
-    # ── 5. Poster (M0) — non-fatal ──
+    # ── 5. Poster (M0) — non-fatal — uses the rewritten headline/body when present ──
     poster_bytes = generate_poster_bytes(
-        story=story,
+        story=editorial_story,
         script=script,
         poster_genai_client=poster_genai_client,
         poster_builder=poster_builder,
@@ -467,7 +496,7 @@ async def orchestrate_story(
     coverage_report: CoverageReport | None = None
     if enable_detail_enrichment:
         enrichment, coverage_report = await _run_detail_stages(
-            story=story,
+            story=editorial_story,
             script=script,
             segment_slug=segment_slug,
             llm_client=llm_client,
@@ -478,7 +507,7 @@ async def orchestrate_story(
     # ── 7. Persist (SP3 + SP4) ──
     persist_result = persist_digest(
         supabase_client=supabase_client,
-        story=story,
+        story=editorial_story,
         script=script,
         caption_track=caption_track,
         audio_bytes=audio_bytes,

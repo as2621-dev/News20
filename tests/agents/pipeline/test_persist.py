@@ -375,7 +375,7 @@ class TestPersistColumnMapping:
         assert result.story_id == "FIXTURE-SP3-test"
         assert result.digest_id
         assert result.audio_object_path == "FIXTURE-SP3-test/digest.mp3"
-        assert result.poster_object_path == "FIXTURE-SP3-test/poster.png"
+        assert result.poster_object_path == "FIXTURE-SP3-test/poster.webp"
         assert result.audio_url and result.poster_url
 
     def test_persist_without_poster_still_publishes(

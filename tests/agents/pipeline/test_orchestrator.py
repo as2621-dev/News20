@@ -185,8 +185,8 @@ class TestOrchestrateHappyPath:
         tts = _tts_returning_audio()
         supabase = FakeSupabaseClient()
 
-        poster_file = tmp_path / "poster.png"
-        poster_file.write_bytes(b"\x89PNG-FAKE")
+        poster_file = tmp_path / "poster.webp"
+        poster_file.write_bytes(b"RIFF-FAKE-WEBP")
 
         def fake_builder(digest, client):  # noqa: ARG001
             report = MagicMock()
@@ -206,7 +206,7 @@ class TestOrchestrateHappyPath:
         assert result.published is True
         assert result.persist_result.poster_url is not None
         assert (
-            result.persist_result.poster_object_path == "FIXTURE-SP3-poster/poster.png"
+            result.persist_result.poster_object_path == "FIXTURE-SP3-poster/poster.webp"
         )
 
 

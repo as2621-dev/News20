@@ -1,41 +1,41 @@
-"""Stage: LLM detail-enrichment — the grounded richer Detail payload (Phase 2c SP3).
+"""Stage: LLM detail-enrichment — the grounded, CATEGORY-shaped Detail payload.
 
 Produces the richer Story Detail payload the M2 design calls for, constrained to
 the **single source** (Decision #4) and **verification-gated** for numbers
 (Decision #5 / Rule 12): a hero ``KeyFigure``, ordered ``DetailTimelineEvent``s
-("HOW IT DEVELOPED"), the segment-skinned ``SecondAnalytic``, and exactly 5
-``DetailKeyPoint``s.
+("HOW IT DEVELOPED", when the category has a timeline panel), the category's 1-3
+ordered ``SecondAnalytic`` panels, and exactly 5 ``DetailKeyPoint``s.
+
+Which analytic panels a story gets — their kinds, tab labels, slot order, and
+whether a timeline is drafted — is fixed by the story's **detail category**
+template (``agents/pipeline/detail_templates.DETAIL_TEMPLATES``), in code, NEVER
+by the LLM (Rule 5). e.g. a Markets story draws MARKET IMPACT + BY THE NUMBERS;
+Culture draws PROFILE + WHY IT MATTERS; source stories draw three source panels
+and no timeline/coverage.
 
 The LLM drafts the narrative; **the grounding of every numeric value is decided
-in code, not by the model** (Rule 5). A market number that the source body does
-not contain is dropped to direction-only and ``analytic_is_grounded`` is set
-False — a fabricated figure must NEVER publish as a fact. The same gate applies
-to the hero key figure.
+in code, not by the model** (Rule 5), per panel. A number the source body does
+not contain is dropped to direction-only and that panel's ``analytic_is_grounded``
+is set False — a fabricated figure must NEVER publish as a fact. The same gate
+applies to the hero key figure.
 
-The segment → ``analytic_kind`` selection is a PURE function
-(:func:`select_analytic_kind`) — deterministic in code, never the LLM
-(Decision #2 / Rule 5).
-
-``DetailEnrichment`` is defined LOCALLY here: SP1 shipped the leaf models
-(``KeyFigure`` / ``DetailTimelineEvent`` / ``SecondAnalytic`` / ``DetailKeyPoint``)
-in ``agents/pipeline/models.py`` but no aggregate, and this sub-phase must not
-edit ``models.py``. SP4 imports this aggregate to persist the payload.
+``DetailEnrichment`` is defined LOCALLY here (the persist layer imports it).
 
 The Gemini call is mocked at the ``LLMClient`` boundary in every test — no live
 call, no cost (CLAUDE.md mocking mandate).
 
-Input:  a ``CanonicalStory`` (SP1) + its ``DigestScript`` (SP2) + an ``LLMClient``
-        + the resolved ``segment_slug`` (SP4 resolves it; defaults to wildcard)
+Input:  a ``CanonicalStory`` + its ``DigestScript`` + an ``LLMClient`` + the
+        resolved ``detail_category`` (the orchestrator computes it)
 Output: a grounded :class:`DetailEnrichment`
 
 Example:
     >>> from agents.pipeline.stages.detail_enrichment import run_detail_enrichment
     >>> enrichment = await run_detail_enrichment(  # doctest: +SKIP
     ...     story=canonical_story, script=digest_script,
-    ...     llm_client=client, segment_slug="geopolitics",
+    ...     llm_client=client, detail_category="markets",
     ... )
-    >>> enrichment.second_analytic.analytic_kind
-    'subject_profile'
+    >>> [p.analytic_kind for p in enrichment.analytic_panels]
+    ['market_impact', 'by_the_numbers']
 """
 
 from __future__ import annotations
@@ -47,6 +47,13 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory
+from agents.pipeline.detail_templates import (
+    DETAIL_TEMPLATES,
+    DEFAULT_DETAIL_CATEGORY,
+    DetailCategory,
+    PanelSpec,
+    analytic_panel_specs,
+)
 from agents.pipeline.json_utils import extract_json_from_llm_response
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import (
@@ -61,6 +68,8 @@ from agents.pipeline.models import (
 from agents.pipeline.prompts import (
     DETAIL_ANALYTIC_INSTRUCTIONS,
     DETAIL_ENRICHMENT_PROMPT,
+    DETAIL_TIMELINE_CONTRACT,
+    DETAIL_TIMELINE_PRODUCE,
 )
 from agents.shared.exceptions import PipelineStageError
 from agents.shared.logger import get_logger
@@ -79,36 +88,20 @@ _MAX_SOURCE_BODY_CHARS = 8000
 # first 5 (most-important-first); fewer is a hard failure (fail loud, Rule 12).
 _REQUIRED_KEY_POINTS = 5
 
-# Reason: the deterministic segment → analytic_kind map (2026-06-12 product
-# decision, supersedes Decision #2's original table): MARKET IMPACT exists ONLY
-# for markets + tech stories; every other segment gets the PROFILE of the
-# story's central person/organization. Any slug not in this map (incl. future/
-# unknown values) falls back to why_it_matters — the always-safe kind that
-# needs no domain figures.
-_SEGMENT_TO_ANALYTIC_KIND: dict[str, AnalyticKind] = {
-    "geopolitics": "subject_profile",
-    "markets": "market_impact",
-    "tech": "market_impact",
-    "sport": "subject_profile",
-    "wildcard": "subject_profile",
-}
+# Reason: which analytic kinds a story produces is now chosen from its detail
+# CATEGORY template (``detail_templates.DETAIL_TEMPLATES``), not a segment map —
+# the per-category panel set + slot order + tab labels all live there (Rule 7,
+# single source of truth). This stage just reads the template's analytic panels.
 
-# The human tab label per analytic_kind (Decision #2 table). Fixed by the kind, not
-# drafted by the model — keeps the UI label trustworthy.
-_ANALYTIC_TAB_LABELS: dict[AnalyticKind, str] = {
-    "market_impact": "MARKET IMPACT",
-    "ripple": "RIPPLE",
-    "impact": "IMPACT",
-    "stakes": "STAKES",
-    "why_it_matters": "WHY IT MATTERS",
-    "subject_profile": "PROFILE",
-}
-
-# Reason: subject_profile rows explicitly noted as background (well-known facts
-# about famous public figures, the ONE sanctioned exception to the single-source
-# rule) are exempt from the numeric source-grounding drop — a birth year or
-# papacy start date will legitimately not appear in the day's article.
+# Reason: panels whose rows may carry well-known background facts (the sanctioned
+# exceptions to the single-source rule) are exempt from the numeric grounding drop
+# — a birth year, a career record, a creator's prior work will legitimately not
+# appear in the day's article. The panel's prompt instruction requires such rows to
+# carry analytic_row_note='background'.
 _BACKGROUND_NOTE_VALUE = "background"
+_BACKGROUND_EXEMPT_KINDS: frozenset[AnalyticKind] = frozenset(
+    {"subject_profile", "recent_form", "source_context"}
+)
 
 # Reason: a "value carries a number" test. Any run of 2+ digits, or a single digit
 # next to a unit/symbol ($ % bn etc.), means the value asserts a figure that MUST be
@@ -127,20 +120,22 @@ class DetailEnrichment(BaseModel):
     """The complete grounded Detail enrichment for one story (LOCAL aggregate).
 
     Defined here (not in ``models.py``) because SP1 shipped only the leaf models
-    and this sub-phase must not edit ``models.py``. SP4 imports this to persist:
+    and this sub-phase must not edit ``models.py``. The persist layer imports this:
     ``key_figure`` → ``stories.story_key_figure_*``, ``timeline`` →
-    ``story_timeline`` rows, ``second_analytic`` → the ``story_analytics`` row,
-    ``key_points`` → ``detail_key_points`` rows.
+    ``story_timeline`` rows, ``analytic_panels`` → the ``story_analytics`` rows
+    (one per slot), ``key_points`` → ``detail_key_points`` rows.
 
     Every numeric value carried here has already passed the source-grounding gate:
-    an unsupported number was dropped to direction-only and
-    ``second_analytic.analytic_is_grounded`` reflects the verdict (Decision #5).
+    an unsupported number was dropped to direction-only and each panel's
+    ``analytic_is_grounded`` reflects its own verdict (Decision #5).
 
     Attributes:
         enrichment_story_id: The story this enrichment is for (FK stories.story_id).
         key_figure: The hero key-figure card (both fields may be None).
-        timeline: Ordered "HOW IT DEVELOPED" events (by ``timeline_event_index``).
-        second_analytic: The segment-skinned second-analytic tab.
+        timeline: Ordered "HOW IT DEVELOPED" events (by ``timeline_event_index``);
+            empty for source categories whose template has no timeline panel.
+        analytic_panels: The category's analytic panels, ordered by
+            ``analytic_slot_index`` (1-3, one per ``analytic`` slot in the template).
         key_points: Exactly 5 at-a-glance bullets (ordered by index).
 
     Example:
@@ -148,11 +143,12 @@ class DetailEnrichment(BaseModel):
         ...     enrichment_story_id="s1",
         ...     key_figure=KeyFigure(),
         ...     timeline=[],
-        ...     second_analytic=SecondAnalytic(
-        ...         analytic_story_id="s1", analytic_kind="why_it_matters",
+        ...     analytic_panels=[SecondAnalytic(
+        ...         analytic_story_id="s1", analytic_slot_index=0,
+        ...         analytic_kind="why_it_matters",
         ...         analytic_tab_label="WHY IT MATTERS", analytic_headline="h",
         ...         analytic_summary_text="s",
-        ...     ),
+        ...     )],
         ...     key_points=[DetailKeyPoint(key_point_index=i, key_point_text="x") for i in range(5)],
         ... )
         >>> len(enrichment.key_points)
@@ -169,38 +165,13 @@ class DetailEnrichment(BaseModel):
         default_factory=list,
         description="Ordered 'HOW IT DEVELOPED' events (by timeline_event_index)",
     )
-    second_analytic: SecondAnalytic = Field(
-        ..., description="The segment-skinned second-analytic tab"
+    analytic_panels: list[SecondAnalytic] = Field(
+        ...,
+        description="The category's analytic panels, ordered by analytic_slot_index",
     )
     key_points: list[DetailKeyPoint] = Field(
         ..., description="Exactly 5 at-a-glance bullets (ordered by index)"
     )
-
-
-def select_analytic_kind(segment_slug: str) -> AnalyticKind:
-    """Map a story's ``segment_slug`` to its ``analytic_kind`` (PURE, deterministic).
-
-    The second-analytic kind is chosen by code from the segment, NEVER by the LLM
-    (Decision #2 / Rule 5). MARKET IMPACT exists only for markets + tech; the
-    other segments get the subject PROFILE. Unknown segments fall back to
-    ``why_it_matters`` — the always-safe kind that asserts no domain figure.
-
-    Args:
-        segment_slug: The story's ``story_segment_slug`` ('geopolitics', 'markets',
-            'tech', 'sport', 'wildcard', or any other value).
-
-    Returns:
-        The deterministic ``AnalyticKind`` for that segment.
-
-    Example:
-        >>> select_analytic_kind("markets")
-        'market_impact'
-        >>> select_analytic_kind("geopolitics")
-        'subject_profile'
-        >>> select_analytic_kind("something-unknown")
-        'why_it_matters'
-    """
-    return _SEGMENT_TO_ANALYTIC_KIND.get(segment_slug, "why_it_matters")
 
 
 def _source_digit_stream(source_body: str) -> str:
@@ -273,17 +244,18 @@ def _ground_analytic_rows(
     source digit stream; otherwise the value is DROPPED to None (direction-only)
     and the analytic is marked ungrounded.
 
-    EXCEPTION (the one sanctioned hole in the single-source rule): a
-    ``subject_profile`` row whose note is ``"background"`` may carry numbers not
-    in the article (a birth year, a career figure) — these are well-known facts
-    about famous public figures the prompt allows from general knowledge, and
-    they are kept verbatim without affecting ``analytic_is_grounded``.
+    EXCEPTION (the sanctioned holes in the single-source rule): a row of a
+    background-exempt kind (:data:`_BACKGROUND_EXEMPT_KINDS` — subject_profile,
+    recent_form, source_context) whose note is ``"background"`` may carry numbers
+    not in the article (a birth year, a career record, a channel's prior work) —
+    these are well-known facts the prompt allows from general knowledge, and they
+    are kept verbatim without affecting ``analytic_is_grounded``.
 
     Args:
         raw_rows: The model's drafted row objects (untrusted dicts).
         source_digits: The source body's digit stream.
         story_id: The story id (for logging the dropped-number event).
-        analytic_kind: The code-chosen kind (gates the background exemption).
+        analytic_kind: The code-chosen panel kind (gates the background exemption).
 
     Returns:
         ``(validated_rows, all_numbers_grounded)`` — the second element is False if
@@ -301,13 +273,13 @@ def _ground_analytic_rows(
         direction = _clean_direction(raw_row.get("analytic_row_direction"))
         note = _clean_optional_str(raw_row.get("analytic_row_note"))
 
-        is_background_profile_row = (
-            analytic_kind == "subject_profile"
+        is_background_row = (
+            analytic_kind in _BACKGROUND_EXEMPT_KINDS
             and note is not None
             and note.lower() == _BACKGROUND_NOTE_VALUE
         )
         if (
-            not is_background_profile_row
+            not is_background_row
             and _value_has_number(value)
             and not _is_number_grounded(value, source_digits)
         ):
@@ -473,12 +445,44 @@ def _build_key_points(raw_points: Any, story_id: str) -> list[DetailKeyPoint]:
     ]
 
 
-def _build_system_prompt(story: CanonicalStory, analytic_kind: AnalyticKind) -> str:
-    """Fill the detail-enrichment prompt with this story's source + analytic kind.
+def _build_panel_instructions(analytic_specs: list[PanelSpec]) -> str:
+    """Render the ANALYTIC PANELS block — one labeled instruction per analytic slot.
+
+    Each analytic panel of the template becomes a stanza naming its
+    ``analytic_slot_index`` + fixed tab label, followed by that kind's drafting
+    guidance (:data:`DETAIL_ANALYTIC_INSTRUCTIONS`). The slot index a panel is
+    given here is the index the model must echo back in ``analytic_panels`` and the
+    index the panel is persisted at.
+
+    Args:
+        analytic_specs: The template's ``analytic`` PanelSpecs, in slot order.
+
+    Returns:
+        The multi-stanza instruction block for ``{PANEL_INSTRUCTIONS}``.
+    """
+    stanzas: list[str] = []
+    for slot_index, spec in enumerate(analytic_specs):
+        # analytic_kind / analytic_tab_label are always set on an ``analytic`` spec.
+        instruction = DETAIL_ANALYTIC_INSTRUCTIONS[spec.analytic_kind]
+        stanzas.append(
+            f'Panel analytic_slot_index {slot_index} — tab label "{spec.analytic_tab_label}".\n'
+            f"{instruction}"
+        )
+    return "\n\n".join(stanzas)
+
+
+def _build_system_prompt(
+    story: CanonicalStory, analytic_specs: list[PanelSpec], *, include_timeline: bool
+) -> str:
+    """Fill the detail-enrichment prompt with this story's source + panel set.
 
     Args:
         story: The canonical story whose body/headline/outlet seed the prompt.
-        analytic_kind: The code-chosen second-analytic kind (drives the instruction).
+        analytic_specs: The template's ``analytic`` PanelSpecs (in slot order) the
+            model must draft.
+        include_timeline: Whether the template has a timeline panel — when False
+            (source categories) the timeline produce-instruction + contract are
+            omitted so the model does not draft one.
 
     Returns:
         The system prompt with every ``{PLACEHOLDER}`` substituted.
@@ -490,13 +494,93 @@ def _build_system_prompt(story: CanonicalStory, analytic_kind: AnalyticKind) -> 
     outlet = (
         story.canonical_primary_outlet_name or story.canonical_primary_outlet_domain
     )
-    instruction = DETAIL_ANALYTIC_INSTRUCTIONS[analytic_kind]
     return (
-        DETAIL_ENRICHMENT_PROMPT.replace("{ANALYTIC_INSTRUCTION}", instruction)
+        DETAIL_ENRICHMENT_PROMPT.replace(
+            "{TIMELINE_PRODUCE}", DETAIL_TIMELINE_PRODUCE if include_timeline else ""
+        )
+        .replace(
+            "{TIMELINE_CONTRACT}", DETAIL_TIMELINE_CONTRACT if include_timeline else ""
+        )
+        .replace("{PANEL_INSTRUCTIONS}", _build_panel_instructions(analytic_specs))
         .replace("{SOURCE_HEADLINE}", story.canonical_title)
         .replace("{SOURCE_OUTLET}", outlet)
         .replace("{SOURCE_PUBLISHED}", published)
         .replace("{SOURCE_BODY}", body)
+    )
+
+
+def _index_raw_panels(raw_panels: Any) -> tuple[dict[int, dict], list[dict]]:
+    """Index the model's drafted ``analytic_panels`` by declared slot + by position.
+
+    The model is asked to echo each panel's ``analytic_slot_index``, but is not
+    trusted to — so callers match a template slot to a raw panel by its declared
+    index when present, falling back to positional order. Non-dict entries are
+    dropped.
+
+    Args:
+        raw_panels: The model's drafted ``analytic_panels`` value (untrusted).
+
+    Returns:
+        ``(by_slot, positional)`` — a dict of declared-slot → raw panel (first
+        wins on a duplicate) and the in-order list of raw panel dicts.
+    """
+    by_slot: dict[int, dict] = {}
+    positional: list[dict] = []
+    if not isinstance(raw_panels, list):
+        return by_slot, positional
+    for raw_panel in raw_panels:
+        if not isinstance(raw_panel, dict):
+            continue
+        positional.append(raw_panel)
+        declared_slot = raw_panel.get("analytic_slot_index")
+        if isinstance(declared_slot, int) and declared_slot not in by_slot:
+            by_slot[declared_slot] = raw_panel
+    return by_slot, positional
+
+
+def _build_analytic_panel(
+    raw_panel: dict,
+    spec: PanelSpec,
+    slot_index: int,
+    source_digits: str,
+    story_id: str,
+) -> SecondAnalytic:
+    """Build one grounded :class:`SecondAnalytic` panel from a raw model panel.
+
+    The kind + tab label come from the template ``spec`` (authoritative, never the
+    model); the narrative + rows come from ``raw_panel``. Numeric row values are
+    gated against the source digit stream — an ungrounded number is dropped and the
+    panel is flagged ungrounded.
+
+    Args:
+        raw_panel: The model's drafted panel object (untrusted; may be empty).
+        spec: The template's analytic PanelSpec for this slot (kind + label).
+        slot_index: The 0-based slot this panel occupies (persisted as is).
+        source_digits: The source body's digit stream.
+        story_id: The story id.
+
+    Returns:
+        A grounded, slot-indexed :class:`SecondAnalytic`.
+    """
+    label = spec.analytic_tab_label or ""
+    rows, rows_grounded = _ground_analytic_rows(
+        raw_panel.get("analytic_rows", []) or [],
+        source_digits,
+        story_id,
+        spec.analytic_kind,
+    )
+    return SecondAnalytic(
+        analytic_story_id=story_id,
+        analytic_slot_index=slot_index,
+        analytic_kind=spec.analytic_kind,
+        analytic_tab_label=label,
+        analytic_headline=str(raw_panel.get("analytic_headline", "")).strip()
+        or label.title(),
+        analytic_summary_text=str(raw_panel.get("analytic_summary_text", "")).strip()
+        or "See the source article for detail.",
+        analytic_rows=rows,
+        # Reason: grounded only when EVERY numeric row value survived the source gate.
+        analytic_is_grounded=rows_grounded,
     )
 
 
@@ -505,28 +589,32 @@ async def run_detail_enrichment(
     script: DigestScript,
     llm_client: LLMClient,
     *,
-    segment_slug: str = "wildcard",
+    detail_category: DetailCategory = DEFAULT_DETAIL_CATEGORY,
 ) -> DetailEnrichment:
-    """Produce the grounded Detail enrichment for one canonical story.
+    """Produce the grounded, category-shaped Detail enrichment for one story.
 
     Single Gemini call. The story's ``canonical_body_text`` is the ONLY source of
-    facts; the second-analytic kind is chosen in code from ``segment_slug``
-    (Decision #2). Every numeric value the model drafts is then gated against the
-    source body in code (Decision #5 / Rule 12): an unsupported number is dropped
-    to direction-only and ``analytic_is_grounded`` is set False — a fabricated
-    figure NEVER publishes as a fact.
+    facts. The set of analytic panels (1-3), their kinds, tab labels, slot order,
+    and whether a timeline is drafted are all fixed in code by the story's
+    ``detail_category`` template (``detail_templates.DETAIL_TEMPLATES``), NEVER by
+    the model (Rule 5). Every numeric value the model drafts is then gated against
+    the source body in code, per panel (Decision #5 / Rule 12): an unsupported
+    number is dropped to direction-only and that panel's ``analytic_is_grounded``
+    is set False — a fabricated figure NEVER publishes as a fact.
 
     Args:
         story: The canonical story to enrich. Must carry ``canonical_body_text``.
         script: The digest script (carried for provenance / the story id; the
             grounding corpus is the story body, not the script).
         llm_client: An initialized ``LLMClient`` (mocked in tests).
-        segment_slug: The resolved ``story_segment_slug`` (SP4 resolves it). Drives
-            the deterministic second-analytic kind; defaults to ``wildcard``.
+        detail_category: The resolved Detail category (the orchestrator computes it
+            via ``detail_templates.detail_category_for``). Selects the panel
+            template; defaults to ``culture`` for safety.
 
     Returns:
-        A grounded :class:`DetailEnrichment` (5 key points, ordered timeline, a
-        segment-correct ``SecondAnalytic``, a grounded hero key figure).
+        A grounded :class:`DetailEnrichment` (5 key points, the template's timeline
+        when present, the template's analytic panels in slot order, a grounded hero
+        key figure).
 
     Raises:
         PipelineStageError: If the story has no body text, the model returns a
@@ -534,10 +622,10 @@ async def run_detail_enrichment(
 
     Example:
         >>> enrichment = await run_detail_enrichment(  # doctest: +SKIP
-        ...     story=story, script=script, llm_client=client, segment_slug="markets",
+        ...     story=story, script=script, llm_client=client, detail_category="markets",
         ... )
-        >>> enrichment.second_analytic.analytic_kind
-        'market_impact'
+        >>> [p.analytic_kind for p in enrichment.analytic_panels]
+        ['market_impact', 'by_the_numbers']
     """
     source_body = (story.canonical_body_text or "").strip()
     if not source_body:
@@ -547,17 +635,25 @@ async def run_detail_enrichment(
             fix_suggestion="Ensure SP1 extracted canonical_body_text before enrichment",
         )
 
-    analytic_kind = select_analytic_kind(segment_slug)
+    if detail_category not in DETAIL_TEMPLATES:
+        detail_category = DEFAULT_DETAIL_CATEGORY
+    template = DETAIL_TEMPLATES[detail_category]
+    analytic_specs = analytic_panel_specs(detail_category)
+    include_timeline = any(spec.panel_kind == "timeline" for spec in template)
+
     start_time = time.monotonic()
     logger.info(
         "detail_enrichment_started",
         story_id=story.canonical_story_id,
-        segment_slug=segment_slug,
-        analytic_kind=analytic_kind,
+        detail_category=detail_category,
+        analytic_kinds=[spec.analytic_kind for spec in analytic_specs],
+        include_timeline=include_timeline,
         source_chars=len(source_body),
     )
 
-    system_prompt = _build_system_prompt(story, analytic_kind)
+    system_prompt = _build_system_prompt(
+        story, analytic_specs, include_timeline=include_timeline
+    )
     user_prompt = (
         "Produce the Detail enrichment now. Use ONLY the SOURCE_ARTICLE; copy every "
         "number verbatim or omit it. Output ONLY the JSON object."
@@ -580,36 +676,29 @@ async def run_detail_enrichment(
     story_id = story.canonical_story_id
 
     key_figure = _ground_key_figure(parsed.get("key_figure"), source_digits, story_id)
-    timeline = _build_timeline(parsed.get("timeline"))
+    timeline = _build_timeline(parsed.get("timeline")) if include_timeline else []
     key_points = _build_key_points(parsed.get("key_points"), story_id)
 
-    raw_analytic = parsed.get("second_analytic")
-    if not isinstance(raw_analytic, dict):
-        raw_analytic = {}
-    rows, rows_grounded = _ground_analytic_rows(
-        raw_analytic.get("analytic_rows", []) or [],
-        source_digits,
-        story_id,
-        analytic_kind,
-    )
-    second_analytic = SecondAnalytic(
-        analytic_story_id=story_id,
-        analytic_kind=analytic_kind,
-        analytic_tab_label=_ANALYTIC_TAB_LABELS[analytic_kind],
-        analytic_headline=str(raw_analytic.get("analytic_headline", "")).strip()
-        or _ANALYTIC_TAB_LABELS[analytic_kind].title(),
-        analytic_summary_text=str(raw_analytic.get("analytic_summary_text", "")).strip()
-        or "See the source article for detail.",
-        analytic_rows=rows,
-        # Reason: grounded only when EVERY numeric row value survived the source gate.
-        analytic_is_grounded=rows_grounded,
-    )
+    # Match each template analytic slot to a drafted panel (by declared slot, else
+    # by position); a missing panel still produces a placeholder so the slot count
+    # stays stable (Rule 12 — never silently drop a category's panel).
+    by_slot, positional = _index_raw_panels(parsed.get("analytic_panels"))
+    analytic_panels: list[SecondAnalytic] = []
+    for slot_index, spec in enumerate(analytic_specs):
+        raw_panel = by_slot.get(slot_index)
+        if raw_panel is None and slot_index < len(positional):
+            raw_panel = positional[slot_index]
+        analytic_panels.append(
+            _build_analytic_panel(
+                raw_panel or {}, spec, slot_index, source_digits, story_id
+            )
+        )
 
     enrichment = DetailEnrichment(
         enrichment_story_id=story_id,
         key_figure=key_figure,
         timeline=timeline,
-        second_analytic=second_analytic,
+        analytic_panels=analytic_panels,
         key_points=key_points,
     )
 
@@ -617,10 +706,10 @@ async def run_detail_enrichment(
     logger.info(
         "detail_enrichment_completed",
         story_id=story_id,
-        analytic_kind=analytic_kind,
+        detail_category=detail_category,
         timeline_event_count=len(timeline),
-        analytic_row_count=len(rows),
-        analytic_is_grounded=second_analytic.analytic_is_grounded,
+        analytic_panel_count=len(analytic_panels),
+        analytic_panels_grounded=[p.analytic_is_grounded for p in analytic_panels],
         key_figure_present=key_figure.key_figure_value is not None,
         elapsed_ms=elapsed_ms,
     )

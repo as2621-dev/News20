@@ -27,13 +27,18 @@ from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.memory.session_processor import ProfileUpdateResult, run_profile_update_job
-from agents.pipeline.categories import CategoryAllocation
+from agents.pipeline.categories import DEFAULT_FEED_ALLOCATION, CategoryAllocation
 from agents.pipeline.feed_assembly import ScoredCandidate
 from agents.pipeline.orchestrator import (
     DailyFeedsBatchResult,
     ActiveUserFeedInputs,
     assemble_daily_feeds,
     orchestrate_story,
+)
+from agents.pipeline.produce_caps import (
+    cap_stories_per_category,
+    compute_category_produce_caps,
+    enforce_overall_ceiling,
 )
 from agents.pipeline.produce_gate import select_stories_to_produce
 from agents.pipeline.stages.ranking import (
@@ -50,6 +55,11 @@ logger = get_logger("pipeline.daily_batch")
 # concurrent fan-out so a large pool does not stampede the LLM/TTS quotas.
 DEFAULT_MAX_CONCURRENT_PRODUCTIONS = 4
 
+# Reason: per-category produce cap used ONLY when no active user has any explicit
+# user_feed_allocation row (decision: explicit budgets drive the caps; this is the
+# safe fallback so a freshly-seeded DB without allocations still stays balanced).
+DEFAULT_PER_CATEGORY_CAP = 8
+
 # Type of the injected ingest stage: returns the deduped, ancestor-tagged pool.
 IngestFn = Callable[[], Awaitable[tuple[list[CanonicalStory], list[StoryInterestTag]]]]
 
@@ -63,6 +73,7 @@ class DailyPipelineResult(BaseModel):
         candidate_story_count: Stories in the ingested pool (stage B).
         produced_story_count: Stories produced into digests this run (stage C).
         skipped_by_gate_count: Stories the produce-once gate rejected.
+        capped_count: Gate-passed stories the per-category cap then dropped (stage C).
         feeds: The per-user allocation summary (stages D+E).
 
     Example:
@@ -74,6 +85,7 @@ class DailyPipelineResult(BaseModel):
     candidate_story_count: int = Field(default=0, ge=0)
     produced_story_count: int = Field(default=0, ge=0)
     skipped_by_gate_count: int = Field(default=0, ge=0)
+    capped_count: int = Field(default=0, ge=0)
     feeds: DailyFeedsBatchResult | None = Field(default=None)
 
 
@@ -215,6 +227,33 @@ def _load_followed_entities(
             )
         )
     return entities_by_user
+
+
+def _load_active_user_ids(supabase_client: Any) -> list[str]:
+    """Load the distinct active user ids (those with ≥1 interest profile row).
+
+    The per-category produce cap needs every active user's allocation BEFORE the
+    produce gate runs (Stage C), so it loads the active-user set here rather than
+    waiting for the Stage D :func:`load_active_user_inputs`. An active user = one
+    with at least one ``user_interest_profile`` row (same definition Stage D uses).
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+
+    Returns:
+        The distinct active user ids (deterministic order: sorted).
+    """
+    rows = (
+        getattr(
+            supabase_client.table("user_interest_profile")
+            .select("profile_user_id")
+            .execute(),
+            "data",
+            None,
+        )
+        or []
+    )
+    return sorted({str(row["profile_user_id"]) for row in rows})
 
 
 def _load_category_allocation(
@@ -383,6 +422,7 @@ async def _produce_story_pool(
     poster_genai_client: Any | None,
     max_concurrent: int,
     enable_detail_enrichment: bool = False,
+    enable_editorial_rewrite: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
@@ -415,6 +455,7 @@ async def _produce_story_pool(
                     poster_genai_client=poster_genai_client,
                     story_id=story.canonical_story_id,
                     enable_detail_enrichment=enable_detail_enrichment,
+                    enable_editorial_rewrite=enable_editorial_rewrite,
                     interest_segment_lookup=interest_segment_lookup,
                     outlets_lookup=outlets_lookup,
                     gdelt_adapter=gdelt_adapter,
@@ -445,7 +486,9 @@ async def run_daily_pipeline(
     now_utc: datetime | None = None,
     since_utc: datetime | None = None,
     max_concurrent_productions: int = DEFAULT_MAX_CONCURRENT_PRODUCTIONS,
+    max_total_productions: int | None = None,
     enable_detail_enrichment: bool = False,
+    enable_editorial_rewrite: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
@@ -470,6 +513,10 @@ async def run_daily_pipeline(
         now_utc: Time for freshness + ``profile_updated_at`` (defaults to utcnow).
         since_utc: Only aggregate signals at/after this time (stage A).
         max_concurrent_productions: Bounded fan-out width for stage C.
+        max_total_productions: Optional overall ceiling on the produced pool, applied
+            AFTER the per-category caps and trimmed round-robin across categories so
+            balance is preserved (the re-purposed ``MAX_PRODUCE``). ``None``/``<=0``
+            leaves the per-category caps as the only bound.
         enable_detail_enrichment: Phase 2c gate — when True, each produced story
             also gets grounded detail enrichment + the GDELT coverage census.
             Defaults False (the M1 produce path) until the production wiring passes
@@ -503,6 +550,35 @@ async def run_daily_pipeline(
     to_produce, _decisions = select_stories_to_produce(
         stories, story_interest_tags, has_current_digest, now_utc=now
     )
+    gated_count = len(to_produce)
+
+    # ── Per-category produce cap — bound reels/category at the cross-user max ──
+    # (the "Build your 30" budgets). Stops a single-topic pool (e.g. 39 markets
+    # candidates) from rendering 39 markets reels and starving every other category.
+    active_user_ids = _load_active_user_ids(supabase_client)
+    allocation_by_user = _load_category_allocation(supabase_client, active_user_ids)
+    caps, breaking_headroom = compute_category_produce_caps(
+        allocation_by_user, active_user_ids, DEFAULT_FEED_ALLOCATION
+    )
+    to_produce = cap_stories_per_category(
+        to_produce,
+        _decisions,
+        story_interest_tags,
+        interest_nodes,
+        caps,
+        breaking_headroom,
+        default_cap=DEFAULT_PER_CATEGORY_CAP,
+    )
+    if max_total_productions and max_total_productions > 0:
+        to_produce = enforce_overall_ceiling(
+            to_produce,
+            _decisions,
+            story_interest_tags,
+            interest_nodes,
+            max_total_productions,
+        )
+    capped_count = gated_count - len(to_produce)
+
     produced_stories = await _produce_story_pool(
         stories_to_produce=to_produce,
         story_interest_tags=story_interest_tags,
@@ -512,6 +588,7 @@ async def run_daily_pipeline(
         poster_genai_client=poster_genai_client,
         max_concurrent=max_concurrent_productions,
         enable_detail_enrichment=enable_detail_enrichment,
+        enable_editorial_rewrite=enable_editorial_rewrite,
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=gdelt_adapter,
@@ -536,6 +613,7 @@ async def run_daily_pipeline(
         feed_date=target_date.isoformat(),
         candidate_story_count=len(stories),
         produced_story_count=len(produced_stories),
+        capped_count=capped_count,
         feeds_written=feeds.feeds_written,
     )
     return DailyPipelineResult(
@@ -543,6 +621,7 @@ async def run_daily_pipeline(
         profile_update=profile_update,
         candidate_story_count=len(stories),
         produced_story_count=len(produced_stories),
-        skipped_by_gate_count=len(stories) - len(to_produce),
+        skipped_by_gate_count=len(stories) - gated_count,
+        capped_count=capped_count,
         feeds=feeds,
     )

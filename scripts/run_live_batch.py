@@ -15,8 +15,12 @@ with enrichment OFF), this runner:
 SAFETY (this run costs real paid Gemini calls):
   * **Dry-run by default** — prints the preflight (active users, active interests,
     enrichment lookups) and EXITS without paying. Set ``RUN_LIVE_BATCH=1`` to pay.
-  * ``MAX_PRODUCE`` caps the paid render fan-out for a safe first run (default 8).
-    Set ``MAX_PRODUCE=0`` for uncapped full scale.
+  * Reels are bounded per category at the cross-user max "Build your 30" budget
+    (the per-category produce cap, applied inside ``run_daily_pipeline`` after the
+    gate) — so no single category can dominate the batch.
+  * ``MAX_PRODUCE`` is an OPTIONAL overall ceiling on top of those caps (default 8),
+    trimmed round-robin across categories so balance is preserved. Set
+    ``MAX_PRODUCE=0`` to let the per-category caps be the only bound (full scale).
   * ``LOOKBACK_DAYS`` (default 2) bounds GDELT recency.
   * ``INGEST_SOURCE`` (default ``doc``) — set ``bigquery`` to ingest AND run the
     Phase-2c coverage census via the unthrottled GDELT BigQuery dataset instead of
@@ -54,9 +58,15 @@ from agents.ingestion.interest_keyed_pipeline import (  # noqa: E402
     ingest_active_interests,
 )
 from agents.ingestion.models import InterestNode  # noqa: E402
+from agents.pipeline.categories import DEFAULT_FEED_ALLOCATION  # noqa: E402
 from agents.pipeline.daily_batch import (  # noqa: E402
+    DEFAULT_PER_CATEGORY_CAP,
+    _load_category_allocation,
     build_story_id_resolver,
     run_daily_pipeline,
+)
+from agents.pipeline.produce_caps import (  # noqa: E402
+    compute_category_produce_caps,
 )
 from agents.pipeline.llm_clients import LLMClient  # noqa: E402
 from agents.pipeline.persist_helpers import load_outlets_lookup  # noqa: E402
@@ -299,6 +309,26 @@ async def _run() -> int:
     print(f"  distinct followed interests ... {len(followed_ids)}")
     print(f"  outlets bias lookup ........... {len(outlets_lookup)}")
 
+    # Per-category produce caps preview: the cross-user max "Build your 30" budget
+    # per category — the ceiling on reels generated for each. This is the number
+    # the run will enforce after the gate (no single category can exceed it).
+    allocation_by_user = _load_category_allocation(supabase, active_user_ids)
+    caps, breaking_headroom = compute_category_produce_caps(
+        allocation_by_user, active_user_ids, DEFAULT_FEED_ALLOCATION
+    )
+    print("  per-category produce caps ....")
+    if caps:
+        for category, cap in sorted(caps.items()):
+            print(f"      {category:<16} {cap}")
+        print(f"      (breaking headroom: top-{breaking_headroom} by importance)")
+    else:
+        print(
+            f"      none — no active users (fallback default cap = "
+            f"{DEFAULT_PER_CATEGORY_CAP}/category)"
+        )
+    if max_produce > 0:
+        print(f"  overall ceiling (MAX_PRODUCE) . {max_produce}")
+
     if not active_user_ids or not followed_ids:
         print(
             "\nFAIL preflight: no active users / followed interests to ingest for.\n"
@@ -334,12 +364,10 @@ async def _run() -> int:
             f"  ingest: {result.total_candidates_fetched} candidates → "
             f"{len(stories)} canonical stories"
         )
-        # Cost ceiling for a safe first run: cap the produced pool.
-        if max_produce > 0 and len(stories) > max_produce:
-            stories = stories[:max_produce]
-            keep = {s.canonical_story_id for s in stories}
-            tags = [t for t in tags if t.story_interest_story_id in keep]
-            print(f"  CAP: truncated pool to {max_produce} stories (MAX_PRODUCE)")
+        # Reason: the volume bound is the per-category produce cap + the optional
+        # MAX_PRODUCE overall ceiling, both applied INSIDE run_daily_pipeline AFTER
+        # the gate (category-balanced). The old front-slice here truncated an
+        # interest-ordered pool and skewed every reel into one category — removed.
         return stories, tags
 
     print("\n--- PAID RUN (live GDELT ingest → produce + enrich → allocate) ---")
@@ -351,7 +379,9 @@ async def _run() -> int:
         ingest_fn=ingest_fn,
         interest_nodes=interest_nodes,
         poster_genai_client=poster_client,
+        max_total_productions=max_produce,
         enable_detail_enrichment=True,
+        enable_editorial_rewrite=True,
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=gdelt_adapter,

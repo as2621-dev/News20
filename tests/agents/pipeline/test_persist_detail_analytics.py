@@ -138,7 +138,7 @@ def story_interest_tags() -> list[StoryInterestTag]:
 
 @pytest.fixture
 def enrichment() -> DetailEnrichment:
-    """A grounded geopolitics enrichment (market_impact analytic, 5 key points)."""
+    """A grounded enrichment with TWO analytic panels (slots 0+1), 5 key points."""
     return DetailEnrichment(
         enrichment_story_id="cand-iran-001",
         key_figure=KeyFigure(
@@ -156,26 +156,41 @@ def enrichment() -> DetailEnrichment:
                 timeline_what_text="Iran issues new transit rules for Hormuz.",
             ),
         ],
-        second_analytic=SecondAnalytic(
-            analytic_story_id="cand-iran-001",
-            analytic_kind="market_impact",
-            analytic_tab_label="MARKET IMPACT",
-            analytic_headline="Oil markets brace on Hormuz tension",
-            analytic_summary_text="A closure would choke ~20% of seaborne crude.",
-            analytic_rows=[
-                AnalyticRow(
-                    analytic_row_label="Hormuz oil share",
-                    analytic_row_value="~20%",
-                    analytic_row_note="of global transit",
-                ),
-                AnalyticRow(
-                    analytic_row_label="Brent crude",
-                    analytic_row_value=None,
-                    analytic_row_direction="up",
-                ),
-            ],
-            analytic_is_grounded=True,
-        ),
+        analytic_panels=[
+            SecondAnalytic(
+                analytic_story_id="cand-iran-001",
+                analytic_slot_index=0,
+                analytic_kind="market_impact",
+                analytic_tab_label="MARKET IMPACT",
+                analytic_headline="Oil markets brace on Hormuz tension",
+                analytic_summary_text="A closure would choke ~20% of seaborne crude.",
+                analytic_rows=[
+                    AnalyticRow(
+                        analytic_row_label="Hormuz oil share",
+                        analytic_row_value="~20%",
+                        analytic_row_note="of global transit",
+                    ),
+                    AnalyticRow(
+                        analytic_row_label="Brent crude",
+                        analytic_row_value=None,
+                        analytic_row_direction="up",
+                    ),
+                ],
+                analytic_is_grounded=True,
+            ),
+            SecondAnalytic(
+                analytic_story_id="cand-iran-001",
+                analytic_slot_index=1,
+                analytic_kind="by_the_numbers",
+                analytic_tab_label="BY THE NUMBERS",
+                analytic_headline="The figures behind the Hormuz threat",
+                analytic_summary_text="The chokepoint's scale, by the numbers.",
+                analytic_rows=[
+                    AnalyticRow(analytic_row_label="Trade value", analytic_row_value="$81.6B"),
+                ],
+                analytic_is_grounded=True,
+            ),
+        ],
         key_points=[
             DetailKeyPoint(key_point_index=i, key_point_text=f"Key point {i}.")
             for i in range(5)
@@ -250,6 +265,9 @@ class TestPersistDetailAnalytics:
         assert story_row["story_segment_slug"] == "geopolitics"
         assert story_row["story_key_figure_value"] == "~20%"
         assert story_row["story_key_figure_label"] == "of global oil transits Hormuz"
+        # Detail category: geopolitics → "world", and not breaking (no coverage report).
+        assert story_row["story_detail_category"] == "world"
+        assert story_row["story_is_breaking"] is False
 
         # story_timeline: contiguous index order, right columns.
         timeline_rows = inserts["story_timeline"]
@@ -258,9 +276,11 @@ class TestPersistDetailAnalytics:
         assert timeline_rows[0]["timeline_when_label"] == "08:10"
         assert timeline_rows[1]["timeline_what_text"].startswith("Iran issues")
 
-        # story_analytics (1:1): segment-correct kind + JSONB rows are plain dicts
-        # (validated through AnalyticRow.model_dump — never raw dicts at the boundary).
-        analytics_row = inserts["story_analytics"][0]
+        # story_analytics (1:N): one row per slot, in slot order; JSONB rows are plain
+        # dicts (validated through AnalyticRow.model_dump — never raw dicts).
+        analytics_rows = inserts["story_analytics"]
+        assert [r["analytic_slot_index"] for r in analytics_rows] == [0, 1]
+        analytics_row = analytics_rows[0]
         assert analytics_row["analytic_story_id"] == "FIXTURE-SP4-iran"
         assert analytics_row["analytic_kind"] == "market_impact"
         assert analytics_row["analytic_tab_label"] == "MARKET IMPACT"
@@ -272,6 +292,8 @@ class TestPersistDetailAnalytics:
         # Direction-only row (ungrounded number dropped upstream) survives as None.
         assert rows[1]["analytic_row_value"] is None
         assert rows[1]["analytic_row_direction"] == "up"
+        # The second slot is the BY THE NUMBERS panel.
+        assert analytics_rows[1]["analytic_kind"] == "by_the_numbers"
 
         # detail_key_points: exactly 5, 0-based contiguous order.
         kp_rows = inserts["detail_key_points"]
@@ -343,6 +365,40 @@ class TestPersistDetailAnalytics:
             "BBC News",
             "AP",
         ]
+
+    def test_breaking_coverage_report_flags_story_and_category(
+        self, canonical_story, digest_script, story_interest_tags, enrichment
+    ) -> None:
+        """A breaking coverage census makes the story use the Breaking template (DoD).
+
+        WHY (owner decision 2026-06-16): breaking detection is the GDELT spread
+        signal, and it must WIN the detail category over the underlying topic —
+        a breaking geopolitics story becomes detail_category 'breaking', not 'world'.
+        """
+        from agents.pipeline.models import CoverageReport
+
+        report = CoverageReport(
+            coverage_mode="partisan",
+            coverage_outlet_count=31,
+            coverage_is_breaking=True,
+        )
+        client = FakeSupabaseClient()
+        persist_digest(
+            supabase_client=client,
+            story=canonical_story,
+            script=digest_script,
+            caption_track=_make_track(canonical_story),
+            audio_bytes=b"FAKE",
+            audio_duration_ms=55000,
+            story_interest_tags=story_interest_tags,
+            story_id="FIXTURE-SP4-breaking",
+            enrichment=enrichment,
+            coverage_report=report,
+            interest_segment_lookup={"int-world": "geopolitics"},
+        )
+        story_row = client.captured_inserts["stories"][0]
+        assert story_row["story_is_breaking"] is True
+        assert story_row["story_detail_category"] == "breaking"
 
 
 class TestLoadOutletsLookup:

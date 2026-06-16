@@ -212,6 +212,8 @@ def build_story_row(
     coverage_counts: dict[str, int],
     blindspot_lean: str | None,
     key_figure: KeyFigure | None = None,
+    detail_category: str | None = None,
+    is_breaking: bool = False,
 ) -> dict[str, Any]:
     """Build the ``stories`` insert payload (reference/supabase-schema.md).
 
@@ -225,6 +227,12 @@ def build_story_row(
         key_figure: The grounded hero ``KeyFigure`` (Phase 2c SP3 enrichment);
             ``None`` (or all-None fields) when the story has no key figure. Both
             ``stories.story_key_figure_*`` columns are nullable.
+        detail_category: The resolved Detail-page category (one of the 9 buckets;
+            ``detail_templates.detail_category_for`` output). Drives the Detail
+            panel template. ``None`` only on legacy/unspecified callers (column is
+            nullable; the UI null-guards).
+        is_breaking: Whether the story is flagged breaking (from the GDELT coverage
+            census). Persisted as ``stories.story_is_breaking``.
 
     Returns:
         A column dict for ``stories``.
@@ -249,6 +257,11 @@ def build_story_row(
         # reaches this column (Decision #5).
         "story_key_figure_value": key_figure.key_figure_value if key_figure else None,
         "story_key_figure_label": key_figure.key_figure_label if key_figure else None,
+        # Reason: the Detail page picks its per-category panel template off this key
+        # (migration 0015); is_breaking lets the Breaking template win regardless of
+        # the underlying topic.
+        "story_detail_category": detail_category,
+        "story_is_breaking": is_breaking,
     }
 
 
@@ -469,36 +482,40 @@ def build_story_timeline_rows(
     return rows
 
 
-def build_story_analytics_row(
-    story_id: str, second_analytic: SecondAnalytic
-) -> dict[str, Any]:
-    """Build the 1:1 ``story_analytics`` row from the segment-skinned analytic.
+def build_story_analytics_rows(
+    story_id: str, analytic_panels: list[SecondAnalytic]
+) -> list[dict[str, Any]]:
+    """Build the ordered ``story_analytics`` rows from a story's analytic panels.
 
-    Each ``analytic_rows`` element is re-validated through ``AnalyticRow``
-    (``SecondAnalytic.analytic_rows`` already holds ``AnalyticRow`` models) and
-    serialized to the exact JSONB shape Postgres stores — never a raw dict at the
-    DB boundary (schema §0 types / Rule 9). ``analytic_story_id`` overrides the id
-    on the analytic so the row FKs to the persisted story.
+    Was 1:1 (one row per story); now 1:N (migration 0013) — one row per Detail
+    template ``analytic`` slot, each carrying its ``analytic_slot_index``. Each
+    ``analytic_rows`` element is serialized from its ``AnalyticRow`` model to the
+    exact JSONB shape Postgres stores — never a raw dict at the DB boundary
+    (schema §0 types / Rule 9). ``analytic_story_id`` FKs the row to the story.
 
     Args:
-        story_id: The ``stories.story_id`` (FK; the analytic is 1:1 per story).
-        second_analytic: The grounded ``SecondAnalytic`` (SP3).
+        story_id: The ``stories.story_id`` (FK).
+        analytic_panels: The grounded ``SecondAnalytic`` panels (1-3, slot-ordered).
 
     Returns:
-        A column dict for ``story_analytics``.
+        Ordered column dicts for ``story_analytics`` (one per panel).
     """
-    return {
-        "analytic_story_id": story_id,
-        "analytic_kind": second_analytic.analytic_kind,
-        "analytic_tab_label": second_analytic.analytic_tab_label,
-        "analytic_headline": second_analytic.analytic_headline,
-        "analytic_summary_text": second_analytic.analytic_summary_text,
-        # Reason: validate-then-dump each row so a malformed element can never
-        # reach Postgres (the elements are AnalyticRow models; model_dump emits the
-        # canonical JSONB shape with explicit nulls).
-        "analytic_rows": [row.model_dump() for row in second_analytic.analytic_rows],
-        "analytic_is_grounded": second_analytic.analytic_is_grounded,
-    }
+    return [
+        {
+            "analytic_story_id": story_id,
+            "analytic_slot_index": panel.analytic_slot_index,
+            "analytic_kind": panel.analytic_kind,
+            "analytic_tab_label": panel.analytic_tab_label,
+            "analytic_headline": panel.analytic_headline,
+            "analytic_summary_text": panel.analytic_summary_text,
+            # Reason: validate-then-dump each row so a malformed element can never
+            # reach Postgres (the elements are AnalyticRow models; model_dump emits
+            # the canonical JSONB shape with explicit nulls).
+            "analytic_rows": [row.model_dump() for row in panel.analytic_rows],
+            "analytic_is_grounded": panel.analytic_is_grounded,
+        }
+        for panel in analytic_panels
+    ]
 
 
 def build_detail_key_point_rows(

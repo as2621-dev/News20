@@ -39,20 +39,46 @@ SpeakerLabel = Literal["ALEX", "JORDAN"]
 # either SUPPORTED by the source or it is not (UNSUPPORTED / CONTRADICTED).
 ClaimStatus = Literal["SUPPORTED", "UNSUPPORTED", "CONTRADICTED"]
 
-# ── Detail analytics (Phase 2c) ──────────────────────────────────────────────
-# The segment-skinned "second analytic" tab kind. Chosen DETERMINISTICALLY from
-# story_segment_slug (Decision #2), NEVER by the LLM — code maps the segment to
-# its kind. Mirrors the analytic_kind Postgres enum (supabase-schema.md §1):
-#   geopolitics→market_impact, markets→ripple, tech→impact,
-#   sport→stakes, wildcard→why_it_matters.
+# ── Detail analytics (Phase 2c + category-specific panels) ───────────────────
+# One Detail "analytic panel" kind. Chosen DETERMINISTICALLY from the story's
+# detail CATEGORY (never by the LLM) — ``detail_templates.py`` maps a category to
+# its ordered list of panels, each with one of these kinds. Mirrors the
+# analytic_kind Postgres enum (migrations 0004 + 0011 + 0014).
+#
+# The original Phase-2c kinds (market_impact / ripple / impact / stakes /
+# why_it_matters / subject_profile) plus the category-specific additions:
+#   what_we_know   — Breaking slot 2 (confirmed vs unconfirmed)
+#   by_the_numbers — Markets slot 3 (key figures as rows)
+#   the_concept    — Tech slot 3 (explain the underlying principle)
+#   stat_line      — Sport slot 2 (the event's box-score numbers)
+#   recent_form    — Sport slot 3 (team/player recent record; background allowed)
+#   source_context — Sources slot 1 (the video/episode/gist)   [used phase-5d+]
+#   key_points     — Sources slot 2                            [used phase-5d+]
+#   implications   — Sources slot 3                            [used phase-5d+]
+# ``ripple`` / ``impact`` remain for rows enriched before the 2026-06-12 remap.
 AnalyticKind = Literal[
-    "market_impact", "ripple", "impact", "stakes", "why_it_matters", "subject_profile"
+    "market_impact",
+    "ripple",
+    "impact",
+    "stakes",
+    "why_it_matters",
+    "subject_profile",
+    "what_we_know",
+    "by_the_numbers",
+    "the_concept",
+    "stat_line",
+    "recent_form",
+    "source_context",
+    "key_points",
+    "implications",
 ]
 
 # How the Detail "Coverage" tab is framed. Mirrors the coverage_mode Postgres enum
-# (supabase-schema.md §1). partisan = L·C·R + blindspot (contested / geopolitics);
-# reach = covered-by-N + momentum + who-broke-it. Chosen deterministically by segment.
-CoverageMode = Literal["partisan", "reach"]
+# (migrations 0004 + 0014). partisan = L·C·R + blindspot (contested / world);
+# reach = covered-by-N + momentum + who-broke-it; reach_lite = covered-by-N +
+# notable outlet names ONLY (Breaking — no momentum / who-broke-it). Chosen
+# deterministically by detail category.
+CoverageMode = Literal["partisan", "reach", "reach_lite"]
 
 # Bias lean for outlets / coverage blindspot. Mirrors the bias_lean Postgres enum
 # (supabase-schema.md §1) and the TS BiasLean type (src/types/detail.ts).
@@ -318,17 +344,22 @@ class AnalyticRow(BaseModel):
 
 
 class SecondAnalytic(BaseModel):
-    """The segment-skinned "second analytic" Detail tab — a ``story_analytics`` row.
+    """One Detail "analytic panel" — a ``story_analytics`` row.
 
-    1:1 per story. ``analytic_kind`` is chosen deterministically from the story's
-    segment (Decision #2), which also fixes ``analytic_tab_label``. The narrative
-    (``analytic_headline`` / ``analytic_summary_text``) is LLM-drafted; the rows
-    carry the (grounded) figures. ``analytic_is_grounded`` is the verdict that
-    gates whether numeric values publish as facts (Decision #5).
+    Was strictly 1:1 per story (Phase 2c); now 1:N (migration 0013), so a story
+    carries up to THREE ordered panels — one per ``analytic`` slot in its detail
+    CATEGORY template (``detail_templates.py``). ``analytic_slot_index`` fixes the
+    panel's position on the Detail page. ``analytic_kind`` is chosen
+    deterministically from the template (never by the LLM), which also fixes
+    ``analytic_tab_label``. The narrative (``analytic_headline`` /
+    ``analytic_summary_text``) is LLM-drafted; the rows carry the (grounded)
+    figures. ``analytic_is_grounded`` is the per-panel verdict that gates whether
+    numeric values publish as facts (Decision #5).
 
     Attributes:
         analytic_story_id: The story this analytic belongs to (FK stories.story_id).
-        analytic_kind: The segment-derived analytic kind (drives tab label + accent).
+        analytic_slot_index: 0-based panel order on the Detail page (0 = second tab).
+        analytic_kind: The template-derived analytic kind (drives tab label + accent).
         analytic_tab_label: The display label ("MARKET IMPACT", "STAKES", ...).
         analytic_headline: One-liner under the tab.
         analytic_summary_text: LLM 1–2 sentence so-what.
@@ -338,6 +369,7 @@ class SecondAnalytic(BaseModel):
     Example:
         >>> analytic = SecondAnalytic(
         ...     analytic_story_id="s1",
+        ...     analytic_slot_index=0,
         ...     analytic_kind="market_impact",
         ...     analytic_tab_label="MARKET IMPACT",
         ...     analytic_headline="Oil markets twitch on the Hormuz threat",
@@ -352,8 +384,11 @@ class SecondAnalytic(BaseModel):
     analytic_story_id: str = Field(
         ..., description="Story this analytic belongs to (FK stories.story_id)"
     )
+    analytic_slot_index: int = Field(
+        default=0, ge=0, description="0-based panel order on the Detail page (0 = second tab)"
+    )
     analytic_kind: AnalyticKind = Field(
-        ..., description="Segment-derived analytic kind (drives tab label + accent)"
+        ..., description="Template-derived analytic kind (drives tab label + accent)"
     )
     analytic_tab_label: str = Field(
         ..., min_length=1, description="Display label ('MARKET IMPACT', 'STAKES', ...)"
@@ -394,6 +429,11 @@ class CoverageReport(BaseModel):
         coverage_momentum: reach: 'breaking' | 'developing' | 'settled', or None.
         coverage_originating_outlet_name: reach: who broke it (earliest seendate), or None.
         coverage_notable_outlet_names: reach: up to 5 notable outlet names.
+        coverage_is_breaking: whether the GDELT seendate spread reads as a fresh,
+            tight "breaking" burst. Transport-only (NOT a ``story_trust`` column) —
+            it selects the story's Detail panel template (the Breaking template).
+            Computed for ALL modes, so a partisan/geopolitics story can still be
+            flagged breaking even though partisan reports carry no ``coverage_momentum``.
 
     Example:
         >>> report = CoverageReport(
@@ -438,6 +478,10 @@ class CoverageReport(BaseModel):
         default_factory=list,
         max_length=5,
         description="reach: up to 5 notable outlet names",
+    )
+    coverage_is_breaking: bool = Field(
+        default=False,
+        description="Transport-only: GDELT spread reads breaking → use Breaking template",
     )
 
 

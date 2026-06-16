@@ -459,6 +459,13 @@ async def build_coverage_report(
     else:
         report = _build_reach_report(candidates, distinct_domains)
 
+    # Reason: the breaking signal selects the Detail panel template and must work for
+    # EVERY segment — partisan (geopolitics) reports carry no coverage_momentum, yet
+    # geopolitics is the most breaking-prone category. Derive it from the seendate
+    # spread directly (the same buckets _derive_momentum uses), independent of the
+    # coverage framing mode (owner decision 2026-06-16).
+    report.coverage_is_breaking = _derive_momentum(candidates) == "breaking"
+
     logger.info(
         "coverage_report_completed",
         story_id=story.canonical_story_id,
@@ -466,5 +473,6 @@ async def build_coverage_report(
         coverage_outlet_count=report.coverage_outlet_count,
         blindspot_lean=report.blindspot_lean,
         coverage_momentum=report.coverage_momentum,
+        coverage_is_breaking=report.coverage_is_breaking,
     )
     return report
