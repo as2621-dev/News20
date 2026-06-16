@@ -20,6 +20,36 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 const emailSchema = z.string().trim().email();
 
 /**
+ * Test-only auth bypass flag. When `NEXT_PUBLIC_AUTH_TEST_MODE === "true"` the
+ * onboarding flow swaps the email/magic-link gate for a fixed-password sign-in
+ * (see {@link signInWithTestPassword}) so throwaway emails can be onboarded
+ * without the built-in mailer's 2/hour cap. NEXT_PUBLIC_* vars are inlined at
+ * build time — a build is required to flip this. Leave UNSET in production.
+ */
+export const TEST_AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_TEST_MODE === "true";
+
+/**
+ * The fixed code that doubles as the Supabase password in {@link TEST_AUTH_MODE}.
+ * It MUST be deterministic: the same value is used as the password on every
+ * sign-in, so an existing test user signs back in instead of failing.
+ */
+export const TEST_AUTH_CODE = "123456";
+
+/** Digit count of {@link TEST_AUTH_CODE} — drives the test-mode code input length. */
+export const TEST_AUTH_CODE_LENGTH = TEST_AUTH_CODE.length;
+
+/**
+ * Cheap "is this a valid email" check the onboarding UI uses to validate the
+ * address locally before advancing (test mode has no magic-link send to lean on).
+ *
+ * @param email - The user-entered address.
+ * @returns True when the address passes {@link emailSchema}.
+ */
+export function isLikelyEmail(email: string): boolean {
+  return emailSchema.safeParse(email).success;
+}
+
+/**
  * Length of the emailed one-time code. MUST match the Supabase project's
  * `mailer_otp_length` auth setting (currently 8) — if that setting changes, change
  * this constant with it or every code will be rejected locally.
@@ -172,6 +202,101 @@ export async function verifyEmailOtp(
   } catch (exc) {
     const error_message = exc instanceof Error ? exc.message : "Unknown error verifying the code.";
     logger.error("otp_verify_failed", {
+      error_message,
+      fix_suggestion: "Check network connectivity and the NEXT_PUBLIC_SUPABASE_* env vars.",
+    });
+    return { ok: false, error_message };
+  }
+}
+
+/**
+ * TEST-MODE ONLY sign-in: fixed-password auth that bypasses email verification.
+ *
+ * Active only when {@link TEST_AUTH_MODE}. Uses {@link TEST_AUTH_CODE} as the
+ * Supabase password so a REAL session (and therefore a real `auth.uid()`) is
+ * established — unlike a faked client session, this keeps every RLS-scoped write
+ * (`user_interest_profile`, `user_entity_follows`, `users.user_onboarded_at`)
+ * working. Tries `signInWithPassword` first (returning test user), and on failure
+ * falls back to `signUp` (new test user) — which returns a live session
+ * immediately ONLY when the project has email confirmation disabled.
+ *
+ * Both inputs are validated locally first (Rule 12): the code must equal
+ * {@link TEST_AUTH_CODE} so the password stays deterministic across sign-ins.
+ * The code/password is NEVER logged.
+ *
+ * @param email - The (possibly throwaway) email to onboard.
+ * @param code - The user-entered code; must equal {@link TEST_AUTH_CODE}.
+ * @param client - Optional Supabase client (injected in tests).
+ * @returns `{ ok: true }` once a session is established, else `{ ok: false, error_message }`.
+ *
+ * @example
+ * const result = await signInWithTestPassword("1234@gmail.com", "123456");
+ * if (result.ok) {
+ *   // real session established — onAuthStateChange has fired
+ * }
+ */
+export async function signInWithTestPassword(
+  email: string,
+  code: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<VerifyEmailOtpResult> {
+  const parsedEmail = emailSchema.safeParse(email);
+  if (!parsedEmail.success) {
+    logger.warn("test_auth_invalid_email", {
+      has_at_symbol: email.includes("@"),
+      fix_suggestion: "Enter a valid email address before continuing.",
+    });
+    return { ok: false, error_message: "Enter a valid email address." };
+  }
+  if (code !== TEST_AUTH_CODE) {
+    logger.warn("test_auth_invalid_code", {
+      fix_suggestion: `Test mode expects the fixed code ${TEST_AUTH_CODE}.`,
+    });
+    return { ok: false, error_message: `Enter the test code ${TEST_AUTH_CODE}.` };
+  }
+
+  logger.info("test_auth_sign_in_started", {});
+  try {
+    // Reason: a returning test user already has password TEST_AUTH_CODE — sign in
+    // directly. supabase-js returns "Invalid login credentials" for both a wrong
+    // password and an unknown email, so any error here means "try to create it".
+    const signInResult = await client.auth.signInWithPassword({
+      email: parsedEmail.data,
+      password: TEST_AUTH_CODE,
+    });
+    if (!signInResult.error) {
+      logger.info("test_auth_sign_in_completed", { created: false });
+      return { ok: true };
+    }
+
+    // New test email: create it. With email confirmation disabled this returns a
+    // live session and fires onAuthStateChange + the handle_new_user trigger.
+    const signUpResult = await client.auth.signUp({
+      email: parsedEmail.data,
+      password: TEST_AUTH_CODE,
+    });
+    if (signUpResult.error) {
+      logger.error("test_auth_sign_up_failed", {
+        error_message: signUpResult.error.message,
+        fix_suggestion: "Confirm the test Supabase project has Email provider enabled and 'Confirm email' turned OFF.",
+      });
+      return { ok: false, error_message: signUpResult.error.message };
+    }
+    if (!signUpResult.data.session) {
+      // No session despite no error → email confirmation is still ON.
+      logger.error("test_auth_sign_up_no_session", {
+        fix_suggestion: "Disable 'Confirm email' in Supabase Auth settings so test sign-up returns a session.",
+      });
+      return {
+        ok: false,
+        error_message: "Test sign-up needs email confirmation disabled in Supabase.",
+      };
+    }
+    logger.info("test_auth_sign_in_completed", { created: true });
+    return { ok: true };
+  } catch (exc) {
+    const error_message = exc instanceof Error ? exc.message : "Unknown error during test sign-in.";
+    logger.error("test_auth_sign_in_failed", {
       error_message,
       fix_suggestion: "Check network connectivity and the NEXT_PUBLIC_SUPABASE_* env vars.",
     });

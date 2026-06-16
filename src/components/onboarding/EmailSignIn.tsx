@@ -17,7 +17,7 @@
 
 import { type FormEvent, useState } from "react";
 import { BlipLogo } from "@/components/BlipLogo";
-import { sendMagicLink } from "@/lib/supabase/auth";
+import { isLikelyEmail, sendMagicLink, TEST_AUTH_CODE, TEST_AUTH_MODE } from "@/lib/supabase/auth";
 
 /** The explicit sign-in state machine (phase DoD names these five states). */
 type SignInState = "empty" | "invalid" | "sending" | "sent" | "error";
@@ -28,6 +28,13 @@ export interface EmailSignInProps {
    * advance the onboarding flow; omit it to leave the component standalone.
    */
   onSent?: (email: string) => void;
+  /**
+   * Optional "I already have a code" escape hatch: advances to the code-entry
+   * screen WITHOUT sending an email. Needed because email sends are rate-limited
+   * (built-in mailer: 2/hour) — a user holding a still-valid code from an earlier
+   * email must not be locked out by a failed re-send. Omitted → no link rendered.
+   */
+  onHaveCode?: (email: string) => void;
 }
 
 /**
@@ -35,7 +42,7 @@ export interface EmailSignInProps {
  *
  * @param props - {@link EmailSignInProps}.
  */
-export function EmailSignIn({ onSent }: EmailSignInProps) {
+export function EmailSignIn({ onSent, onHaveCode }: EmailSignInProps) {
   const [emailInput, setEmailInput] = useState("");
   const [signInState, setSignInState] = useState<SignInState>("empty");
   const [errorMessage, setErrorMessage] = useState("");
@@ -48,6 +55,19 @@ export function EmailSignIn({ onSent }: EmailSignInProps) {
       return;
     }
     setErrorMessage("");
+
+    // Test mode: no email is sent — validate locally, then advance straight to the
+    // code-entry screen where the fixed code establishes a real session.
+    if (TEST_AUTH_MODE) {
+      if (!isLikelyEmail(emailInput)) {
+        setErrorMessage("Enter a valid email address.");
+        setSignInState("invalid");
+        return;
+      }
+      onSent?.(emailInput.trim());
+      return;
+    }
+
     setSignInState("sending");
 
     const result = await sendMagicLink(emailInput);
@@ -65,7 +85,7 @@ export function EmailSignIn({ onSent }: EmailSignInProps) {
 
   if (signInState === "sent") {
     return (
-      <section className="flex min-h-full flex-col items-center justify-center gap-5 px-10 text-center">
+      <section className="flex min-h-full flex-1 flex-col items-center justify-center gap-5 px-10 text-center">
         <BlipLogo size={28} glow />
         <div>
           <h1 className="font-sans text-[17px] font-semibold text-text-primary">Check your inbox</h1>
@@ -79,12 +99,14 @@ export function EmailSignIn({ onSent }: EmailSignInProps) {
   }
 
   return (
-    <section className="flex min-h-full flex-col items-center justify-center gap-6 px-10 text-center">
+    <section className="flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-10 text-center">
       <BlipLogo size={28} glow />
       <div>
         <h1 className="font-sans text-[17px] font-semibold text-text-primary">Sign in to blip</h1>
         <p className="mt-2 font-sans text-[13px] leading-relaxed text-text-secondary">
-          Enter your email and we&apos;ll send you a magic link — no password.
+          {TEST_AUTH_MODE
+            ? `Test mode — enter any email, then the code ${TEST_AUTH_CODE}.`
+            : "Enter your email and we'll send you a magic link — no password."}
         </p>
       </div>
 
@@ -123,8 +145,19 @@ export function EmailSignIn({ onSent }: EmailSignInProps) {
           disabled={isSubmitting || emailInput.trim() === ""}
           className="w-full rounded-pill bg-white px-4 py-3 font-sans text-[15px] font-semibold text-background transition-opacity disabled:opacity-40"
         >
-          {isSubmitting ? "Sending…" : "Send magic link"}
+          {isSubmitting ? "Sending…" : TEST_AUTH_MODE ? "Continue" : "Send magic link"}
         </button>
+
+        {onHaveCode ? (
+          <button
+            type="button"
+            disabled={isSubmitting || emailInput.trim() === ""}
+            onClick={() => onHaveCode(emailInput.trim())}
+            className="font-sans text-[13px] text-text-secondary underline underline-offset-4 transition-opacity disabled:opacity-40"
+          >
+            I already have a code
+          </button>
+        ) : null}
       </form>
     </section>
   );

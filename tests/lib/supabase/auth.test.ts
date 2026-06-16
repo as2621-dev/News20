@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { sendMagicLink, signOut, verifyEmailOtp } from "@/lib/supabase/auth";
+import { sendMagicLink, signInWithTestPassword, signOut, TEST_AUTH_CODE, verifyEmailOtp } from "@/lib/supabase/auth";
 
 /**
  * Fake Supabase auth client whose `auth.signInWithOtp` resolves to the given
@@ -103,6 +103,84 @@ describe("verifyEmailOtp", () => {
 
     expect(result).toEqual({ ok: false, error_message: "Token has expired or is invalid" });
     expect(verifyOtp).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Fake Supabase auth client exposing `signInWithPassword` + `signUp` for the
+ * test-mode fixed-password sign-in. `signInError` drives the first call; `signUp`
+ * controls the fallback (its returned session / error). Client-boundary mocking.
+ */
+function makeFakeTestPasswordClient(opts: { signInError?: unknown; signUpSession?: unknown; signUpError?: unknown }) {
+  const signInWithPassword = vi.fn().mockResolvedValue({ data: {}, error: opts.signInError ?? null });
+  const signUp = vi
+    .fn()
+    .mockResolvedValue({ data: { session: opts.signUpSession ?? null }, error: opts.signUpError ?? null });
+  return { client: { auth: { signInWithPassword, signUp } } as never, signInWithPassword, signUp };
+}
+
+describe("signInWithTestPassword", () => {
+  it("signs an EXISTING test user in with the fixed code and never calls signUp", async () => {
+    // WHY: the deterministic-password contract — a returning test email must sign
+    // back in via signInWithPassword (password = the fixed code), NOT create a
+    // duplicate. Fails if signUp is called when sign-in already succeeded.
+    const { client, signInWithPassword, signUp } = makeFakeTestPasswordClient({ signInError: null });
+
+    const result = await signInWithTestPassword("1234@gmail.com", TEST_AUTH_CODE, client);
+
+    expect(result).toEqual({ ok: true });
+    expect(signInWithPassword).toHaveBeenCalledTimes(1);
+    expect(signInWithPassword.mock.calls[0][0]).toEqual({ email: "1234@gmail.com", password: TEST_AUTH_CODE });
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("creates a NEW test user (signUp returns a live session) when sign-in fails", async () => {
+    // WHY: a fresh throwaway email has no account — sign-in errors, and signUp must
+    // create it AND return a session (only happens with email confirmation OFF).
+    const { client, signUp } = makeFakeTestPasswordClient({
+      signInError: { message: "Invalid login credentials" },
+      signUpSession: { user: { id: "test-uid" } },
+    });
+
+    const result = await signInWithTestPassword("new@gmail.com", TEST_AUTH_CODE, client);
+
+    expect(result).toEqual({ ok: true });
+    expect(signUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns ok:false when signUp yields NO session (email confirmation still ON)", async () => {
+    // WHY: if 'Confirm email' is left ON, signUp succeeds without a session — the
+    // user would appear stuck. This must fail loud with a fix hint, not silently ok.
+    const { client } = makeFakeTestPasswordClient({
+      signInError: { message: "Invalid login credentials" },
+      signUpSession: null,
+    });
+
+    const result = await signInWithTestPassword("new@gmail.com", TEST_AUTH_CODE, client);
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("returns ok:false and calls NOTHING for a non-matching code (Rule 12)", async () => {
+    // WHY: the password must stay deterministic — only the fixed code is accepted,
+    // rejected locally with zero API calls so a typo can't mint a second password.
+    const { client, signInWithPassword, signUp } = makeFakeTestPasswordClient({ signInError: null });
+
+    const result = await signInWithTestPassword("1234@gmail.com", "000000", client);
+
+    expect(result.ok).toBe(false);
+    expect(signInWithPassword).not.toHaveBeenCalled();
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("returns ok:false and calls NOTHING for an invalid email (Rule 12)", async () => {
+    // WHY: an obviously bad address must fail locally before any network call.
+    const { client, signInWithPassword } = makeFakeTestPasswordClient({ signInError: null });
+
+    const result = await signInWithTestPassword("not-an-email", TEST_AUTH_CODE, client);
+
+    expect(result.ok).toBe(false);
+    expect(signInWithPassword).not.toHaveBeenCalled();
   });
 });
 
