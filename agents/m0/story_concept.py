@@ -21,21 +21,31 @@ logger = get_logger("m0.story_concept")
 
 _CONCEPT_INSTRUCTION: str = (
     "You distill a news story into a VISUAL concept for a single news poster whose goal is "
-    "that a viewer can grasp the story at a glance, with no text. Be concrete and specific.\n"
-    "- image_search_query: 3-8 words that will surface a strong, real EDITORIAL photo of the "
-    "key subject, ideally shown WITH the defining object/action (prefer named people/places).\n"
-    "- key_subject: the single most important person or entity to SHOW (prefer the named "
-    "person, e.g. 'Nvidia CEO Jensen Huang', 'Pope Leo XIV', 'the University of Houston "
-    "physicist').\n"
-    "- defining_object_or_action: the ONE object or action that makes the story instantly "
-    "legible (e.g. 'holding up the levitating superconductor sample', 'a falling stock chart').\n"
+    "that a viewer can grasp the ENTIRE story from the image alone, with no text. Be concrete "
+    "and specific.\n"
+    "- entity_kind: what the story is fundamentally ABOUT — 'company' (a business/brand is the "
+    "subject), 'person' (a specific named individual), 'country' (a nation/state is the subject), "
+    "or 'other'. Pick the single dominant one.\n"
+    "- entity_name: the ONE named entity to depict for that kind — the company (e.g. 'Nvidia'), the "
+    "person (e.g. 'Jensen Huang'), or the country (e.g. 'France'). Empty string if 'other'.\n"
+    "- image_search_query: 3-8 words to surface a strong, real reference photo of what to SHOW. "
+    "Seed it by entity_kind: company -> '<company> logo'/'<company> sign'; country -> '<country> "
+    "flag'; person -> the named person shown WITH the defining object/action.\n"
+    "- key_subject: the single most important thing to SHOW. For 'company' it is the company's LOGO "
+    "/ branding (e.g. 'the Nvidia logo'); for 'country' it is the national FLAG (e.g. 'the French "
+    "flag'); for 'person' the named person (e.g. 'Nvidia CEO Jensen Huang').\n"
+    "- defining_object_or_action: the ONE object/action/visual METAPHOR that makes the story "
+    "instantly legible. Encode the story's TENSION in it, e.g. an internal company rift -> 'the "
+    "company logo with a crack splitting through it'; two parties clashing -> 'the two subjects in "
+    "side profile facing off'; a country in crisis -> 'the flag torn or storm-lit'; a rise/fall -> "
+    "'a climbing/falling chart line'.\n"
     "- emotional_valence: the TRUE mood, INCLUDING irony — if results are great but the market "
     "punished them, the mood is subdued/deflated despite success, NOT triumphant.\n"
     "- gist: one sentence a viewer should understand from the image alone.\n"
     "- is_person_driven: true if a specific person is the natural hero of the image.\n"
-    "- central_subject_count: how many people are CENTRAL to the story — 1 normally; 2 ONLY for a "
-    "genuine confrontation or partnership (e.g. two named leaders). Co-authors, aides, crowds and "
-    "bystanders do NOT count; the image should have a single hero unless two are truly essential.\n"
+    "- central_subject_count: how many subjects are CENTRAL — 1 normally; 2 ONLY for a genuine "
+    "confrontation or partnership (e.g. two named leaders, or two clashing companies). Co-authors, "
+    "aides, crowds and bystanders do NOT count; a single hero unless two are truly essential.\n"
     "- directional_sentiment: 'down_loss' if the story is fundamentally about a fall/decline/loss "
     "(stock down, defeat), 'up_gain' if a rise/gain/win, else 'none'.\n"
     "Return JSON only."
@@ -97,4 +107,6 @@ def extract_story_concept(headline: str, summary: str, client: genai.Client) -> 
             is_person_driven=True,
             central_subject_count=1,
             directional_sentiment="none",
+            entity_kind="other",
+            entity_name="",
         )

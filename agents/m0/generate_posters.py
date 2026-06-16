@@ -54,6 +54,11 @@ logger = get_logger("m0.generate_posters")
 # unavailable on the key, STOP and report so the orchestrator decides.
 GEMINI_IMAGE_MODEL: str = "gemini-3-pro-image-preview"
 POSTER_ASPECT_RATIO: str = "9:16"
+# Reason: Nano Banana Pro defaults to 1K (~768x1376 at 9:16), which is BELOW our
+# 1080x1920 delivery target — the grade step would upscale it. Request 2K
+# (~1536x2752) so grade_and_brand cleanly DOWNSCALES to 1080 for a sharper poster.
+# Supported values (google-genai ImageConfig.image_size): "1K", "2K", "4K".
+POSTER_IMAGE_SIZE: str = "2K"
 
 # Reason: resolve output dir relative to the repo root (this module lives at
 # agents/m0/), so the driver works regardless of the current working directory.
@@ -186,7 +191,9 @@ def _generate_one_call(
         contents=[types.Content(role="user", parts=[types.Part(text=prompt_text)])],
         config=types.GenerateContentConfig(
             response_modalities=["TEXT", "IMAGE"],
-            image_config=types.ImageConfig(aspect_ratio=POSTER_ASPECT_RATIO),
+            image_config=types.ImageConfig(
+                aspect_ratio=POSTER_ASPECT_RATIO, image_size=POSTER_IMAGE_SIZE
+            ),
         ),
     )
 
@@ -226,7 +233,9 @@ def generate_from_reference(
         ],
         config=types.GenerateContentConfig(
             response_modalities=["TEXT", "IMAGE"],
-            image_config=types.ImageConfig(aspect_ratio=POSTER_ASPECT_RATIO),
+            image_config=types.ImageConfig(
+                aspect_ratio=POSTER_ASPECT_RATIO, image_size=POSTER_IMAGE_SIZE
+            ),
         ),
     )
 

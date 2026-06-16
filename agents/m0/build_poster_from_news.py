@@ -2,7 +2,7 @@
 
 search (Serper) -> gate -> download top N -> score (6 criteria) -> select ->
 recast prompt (Gemini Flash) -> image-conditioned generate (Nano Banana Pro) ->
-grade -> write ``assets/m0/<digest>/poster.png`` + ``selection-report.json``.
+grade -> write ``assets/m0/<digest>/poster.webp`` + ``selection-report.json``.
 
 Each story is independent; a failure is recorded in the report and surfaced
 (Rule 12), it does not raise unless image generation itself errors.
@@ -146,10 +146,10 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
         _write_report(report, output_dir)
         return report
 
-    graded_png = grade_and_brand(raw_bytes, accent_hex)
+    graded_webp = grade_and_brand(raw_bytes, accent_hex)
     output_dir.mkdir(parents=True, exist_ok=True)
-    poster_path = output_dir / "poster.png"
-    poster_path.write_bytes(graded_png)
+    poster_path = output_dir / "poster.webp"
+    poster_path.write_bytes(graded_webp)
     report.poster_path = str(poster_path)
 
     logger.info(

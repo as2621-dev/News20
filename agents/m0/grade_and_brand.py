@@ -22,6 +22,10 @@ logger = get_logger("m0.grade_and_brand")
 
 TARGET_WIDTH_PX: int = 1080
 TARGET_HEIGHT_PX: int = 1920
+# Reason: deliver a compressed WebP (~250-350 KB) instead of a ~2.2 MB lossless
+# PNG so posters load fast in the reel. q80 is visually lossless for a photographic
+# poster; method=6 spends more encode time for a smaller file (a batch job, so fine).
+POSTER_WEBP_QUALITY: int = 80
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
@@ -85,14 +89,14 @@ def _film_grain(image: Image.Image) -> Image.Image:
 
 
 def grade_and_brand(raw_image_bytes: bytes, accent_hex: str) -> bytes:
-    """Apply the house grade to a raw poster and return PNG bytes at 1080×1920.
+    """Apply the house grade to a raw poster and return WebP bytes at 1080×1920.
 
     Args:
         raw_image_bytes: The raw bytes from the image generator.
         accent_hex: The single segment accent for this poster.
 
     Returns:
-        Graded PNG bytes (1080×1920).
+        Graded WebP bytes (1080×1920, q80) — ~250-350 KB vs ~2.2 MB as PNG.
     """
     navy_rgb = _hex_to_rgb(NEAR_BLACK_HEX)
     accent_rgb = _hex_to_rgb(accent_hex)
@@ -119,6 +123,15 @@ def grade_and_brand(raw_image_bytes: bytes, accent_hex: str) -> bytes:
             )
 
     out = io.BytesIO()
-    image.save(out, format="PNG")
-    logger.info("poster_graded", accent_hex=accent_hex, width_px=TARGET_WIDTH_PX, height_px=TARGET_HEIGHT_PX)
-    return out.getvalue()
+    image.save(out, format="WEBP", quality=POSTER_WEBP_QUALITY, method=6)
+    graded_bytes = out.getvalue()
+    logger.info(
+        "poster_graded",
+        accent_hex=accent_hex,
+        width_px=TARGET_WIDTH_PX,
+        height_px=TARGET_HEIGHT_PX,
+        output_format="webp",
+        quality=POSTER_WEBP_QUALITY,
+        byte_size=len(graded_bytes),
+    )
+    return graded_bytes

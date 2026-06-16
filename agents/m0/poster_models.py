@@ -135,6 +135,16 @@ class StoryConcept(BaseModel):
         description="'up_gain' | 'down_loss' | 'none'. If the story is a financial/quantitative "
         "rise or fall, the trend element must be coloured semantically (green up / red down).",
     )
+    entity_kind: str = Field(
+        default="other",
+        description="What the story is fundamentally ABOUT, for image seeding: 'company' (show its "
+        "logo/branding), 'person' (show the person), 'country' (show its flag), or 'other'.",
+    )
+    entity_name: str = Field(
+        default="",
+        description="The single named entity to depict — the company (e.g. 'Nvidia'), person "
+        "(e.g. 'Jensen Huang'), or country (e.g. 'France'). Empty when entity_kind is 'other'.",
+    )
 
 
 class ImageCandidate(BaseModel):

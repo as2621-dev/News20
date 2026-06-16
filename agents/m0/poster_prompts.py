@@ -36,16 +36,52 @@ HOUSE_GRADE_SUFFIX: str = (
 # negatives as HOUSE_GRADE_SUFFIX, but WITHOUT the "editorial-illustration" register
 # clause — because the reference-seeded synth targets a PHOTOREAL + graphic register
 # (the look the user locked from digest-1 variant-b), set in the concept body itself.
-HOUSE_RENDER_SUFFIX: str = (
+_HOUSE_RENDER_GRADE: str = (
     " Near-black background #020617, restrained palette built around the segment accent (with "
     "semantic red/green only on any up/down element), duotone grade toward #020617 plus the accent, "
     "cinematic single-source rim light, deep shadow falloff into black, fine film grain, soft radial "
     "vignette toward the focal point. High contrast, one clear idea, one main subject, legible at "
     "120px thumbnail. Reserve the lower 40% of the frame as quiet dark low-detail negative space for "
     "a caption overlay; 9:16 vertical. "
-    "--no text, no logos, no watermark, no border, no UI, no words, no background people, "
-    "no bystanders, no crowd."
 )
+
+
+def house_render_suffix(entity_kind: str = "other") -> str:
+    """House grade + a negative-prompt tail tuned to the story's entity kind.
+
+    Company and country posters MUST be allowed to show the identifying brand LOGO or
+    national FLAG — that is the whole point: a viewer should recognize the subject at a
+    glance. So the blanket "no logos / no words" negative is relaxed for those kinds;
+    'person' and 'other' keep the strict no-logo/no-text negative.
+
+    Args:
+        entity_kind: The ``StoryConcept.entity_kind`` ('company'|'person'|'country'|'other').
+
+    Returns:
+        The grade clause followed by the entity-appropriate negative prompt.
+
+    Example:
+        >>> "no logos" in house_render_suffix("company")
+        False
+        >>> "no logos" in house_render_suffix("person")
+        True
+    """
+    if entity_kind == "company":
+        # Allow the brand logo/wordmark (it identifies the subject); still no stock junk.
+        negative = "--no watermark, no border, no UI, no stock-site text, no background people, no bystanders, no crowd."
+    elif entity_kind == "country":
+        # Allow the national flag; flags carry no words, so keep "no text".
+        negative = "--no text, no watermark, no border, no UI, no background people, no bystanders, no crowd."
+    else:
+        negative = (
+            "--no text, no logos, no watermark, no border, no UI, no words, no background people, "
+            "no bystanders, no crowd."
+        )
+    return _HOUSE_RENDER_GRADE + negative
+
+
+# Back-compat constant: the strict (person/other) suffix for any legacy caller.
+HOUSE_RENDER_SUFFIX: str = house_render_suffix("other")
 
 
 class PosterPrompt(BaseModel):
