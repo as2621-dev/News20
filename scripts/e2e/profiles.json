@@ -1,0 +1,65 @@
+{
+  "$comment": "Go-live E2E test profiles (/go-live-check). Each profile is one synthetic user driven through the FULL onboarding -> reel -> voice journey by scripts/e2e/drive-profile.ts. picker_selections are label PATHS into src/lib/pickerSeedTree.ts: every element but the last is expanded (.tlabel click), the last element's checkbox (.cbox) is toggled. Labels MUST match pickerSeedTree.ts verbatim.",
+  "profiles": [
+    {
+      "profile_name": "profile-a-tech-ai",
+      "email": "ashesh.srivastava1234+e2e-profile-a@gmail.com",
+      "cdp_port": 9301,
+      "picker_selections": [
+        ["AI", "Foundation models & LLMs", "Labs & models", "OpenAI"],
+        ["AI", "Foundation models & LLMs", "Labs & models", "Anthropic"],
+        ["AI", "AI hardware & compute", "Companies & topics", "Nvidia"],
+        ["Tech", "Semiconductors & chips", "Companies", "TSMC"]
+      ],
+      "picker_custom_topics": [],
+      "source_follows_per_screen": 2,
+      "build_30": { "mode": "save", "boost_bucket": "tech" },
+      "text_question": "What is the most important detail in this story?"
+    },
+    {
+      "profile_name": "profile-b-sport",
+      "email": "ashesh.srivastava1234+e2e-profile-b@gmail.com",
+      "cdp_port": 9302,
+      "picker_selections": [
+        ["Sport", "Cricket", "Leagues", "Indian Premier League (IPL)", "Teams you follow", "Mumbai Indians"],
+        ["Sport", "Cricket", "People to follow", "Virat Kohli"],
+        ["Sport", "Basketball", "Leagues", "NBA", "People to follow", "LeBron James"]
+      ],
+      "picker_custom_topics": [],
+      "source_follows_per_screen": 3,
+      "build_30": { "mode": "save", "boost_bucket": "sport" },
+      "text_question": "Who are the key people involved in this story?"
+    },
+    {
+      "profile_name": "profile-c-markets-geo",
+      "email": "ashesh.srivastava1234+e2e-profile-c@gmail.com",
+      "cdp_port": 9303,
+      "picker_selections": [
+        ["Business", "Macroeconomy", "Indicators", "Inflation"],
+        ["Business", "Markets & investing", "Asset classes", "Stocks & equities"],
+        ["Geopolitics", "Sanctions, tariffs & trade", "Topics", "China tariffs"],
+        ["Geopolitics", "Armed conflict & war", "Conflicts", "Ukraine–Russia"]
+      ],
+      "picker_custom_topics": [],
+      "source_follows_per_screen": 1,
+      "build_30": { "mode": "skip" },
+      "text_question": "What are the market implications of this story?"
+    },
+    {
+      "profile_name": "profile-d-arts-mixed",
+      "email": "ashesh.srivastava1234+e2e-profile-d@gmail.com",
+      "cdp_port": 9304,
+      "picker_selections": [
+        ["Arts", "Music", "Pick genres, then artists", "Pop", "Artists & bands", "Taylor Swift"],
+        ["Environment", "Renewable energy & transition", "Topics", "Nuclear"],
+        ["Environment", "Extreme weather & disasters", "Topics", "Wildfires"]
+      ],
+      "picker_custom_topics": [
+        { "path": ["Environment", "Conservation & biodiversity", "Topics"], "value": "Urban beekeeping" }
+      ],
+      "source_follows_per_screen": 2,
+      "build_30": { "mode": "save", "boost_bucket": "culture" },
+      "text_question": "Why does this story matter?"
+    }
+  ]
+}

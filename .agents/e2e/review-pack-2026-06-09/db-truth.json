@@ -1,0 +1,772 @@
+{
+  "interestRows": [
+    {
+      "profile_user_id": "b57882f4-947b-463f-afcf-2d6ed063db66",
+      "profile_weight": 1.5,
+      "profile_source": "typed",
+      "profile_is_strict": false,
+      "interests": {
+        "depth_level": 1,
+        "interest_slug": "business.inflation",
+        "interest_label": "Inflation"
+      }
+    },
+    {
+      "profile_user_id": "b57882f4-947b-463f-afcf-2d6ed063db66",
+      "profile_weight": 1.5,
+      "profile_source": "typed",
+      "profile_is_strict": false,
+      "interests": {
+        "depth_level": 1,
+        "interest_slug": "business.stocks-equities",
+        "interest_label": "Stocks & equities"
+      }
+    },
+    {
+      "profile_user_id": "b57882f4-947b-463f-afcf-2d6ed063db66",
+      "profile_weight": 1.5,
+      "profile_source": "typed",
+      "profile_is_strict": false,
+      "interests": {
+        "depth_level": 1,
+        "interest_slug": "geopolitics.china-tariffs",
+        "interest_label": "China tariffs"
+      }
+    },
+    {
+      "profile_user_id": "e3c311e2-c9f5-4fda-b22d-4b2eddf06fdf",
+      "profile_weight": 1.5,
+      "profile_source": "typed",
+      "profile_is_strict": false,
+      "interests": {
+        "depth_level": 1,
+        "interest_slug": "environment.nuclear",
+        "interest_label": "Nuclear"
+      }
+    },
+    {
+      "profile_user_id": "e3c311e2-c9f5-4fda-b22d-4b2eddf06fdf",
+      "profile_weight": 1.5,
+      "profile_source": "typed",
+      "profile_is_strict": false,
+      "interests": {
+        "depth_level": 1,
+        "interest_slug": "environment.wildfires",
+        "interest_label": "Wildfires"
+      }
+    }
+  ],
+  "followRows": [
+    {
+      "follow_user_id": "40504599-7107-498c-8752-93395edea85b",
+      "entity_id": "ai/foundation-models-llms/labs-models/openai",
+      "follow_path": [
+        "AI",
+        "Foundation models & LLMs",
+        "OpenAI"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "org",
+        "entity_label": "OpenAI"
+      }
+    },
+    {
+      "follow_user_id": "40504599-7107-498c-8752-93395edea85b",
+      "entity_id": "ai/foundation-models-llms/labs-models/anthropic",
+      "follow_path": [
+        "AI",
+        "Foundation models & LLMs",
+        "Anthropic"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "org",
+        "entity_label": "Anthropic"
+      }
+    },
+    {
+      "follow_user_id": "40504599-7107-498c-8752-93395edea85b",
+      "entity_id": "ai/ai-hardware-compute/companies-topics/nvidia",
+      "follow_path": [
+        "AI",
+        "AI hardware & compute",
+        "Nvidia"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "company",
+        "entity_label": "Nvidia"
+      }
+    },
+    {
+      "follow_user_id": "40504599-7107-498c-8752-93395edea85b",
+      "entity_id": "tech/semiconductors-chips/companies/tsmc",
+      "follow_path": [
+        "Tech",
+        "Semiconductors & chips",
+        "TSMC"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "company",
+        "entity_label": "TSMC"
+      }
+    },
+    {
+      "follow_user_id": "d65af13f-0e92-4997-bca6-57e65094da34",
+      "entity_id": "sport/cricket/leagues/indian-premier-league-ipl/teams-you-follow/mumbai-indians",
+      "follow_path": [
+        "Sport",
+        "Cricket",
+        "Indian Premier League (IPL)",
+        "Mumbai Indians"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "team",
+        "entity_label": "Mumbai Indians"
+      }
+    },
+    {
+      "follow_user_id": "d65af13f-0e92-4997-bca6-57e65094da34",
+      "entity_id": "sport/cricket/people-to-follow/virat-kohli",
+      "follow_path": [
+        "Sport",
+        "Cricket",
+        "Virat Kohli"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "person",
+        "entity_label": "Virat Kohli"
+      }
+    },
+    {
+      "follow_user_id": "d65af13f-0e92-4997-bca6-57e65094da34",
+      "entity_id": "sport/basketball/leagues/nba/people-to-follow/lebron-james",
+      "follow_path": [
+        "Sport",
+        "Basketball",
+        "NBA",
+        "LeBron James"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "person",
+        "entity_label": "LeBron James"
+      }
+    },
+    {
+      "follow_user_id": "e3c311e2-c9f5-4fda-b22d-4b2eddf06fdf",
+      "entity_id": "arts/music/pick-genres-then-artists/pop/artists-bands/taylor-swift",
+      "follow_path": [
+        "Arts",
+        "Music",
+        "Pop",
+        "Taylor Swift"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "person",
+        "entity_label": "Taylor Swift"
+      }
+    },
+    {
+      "follow_user_id": "b57882f4-947b-463f-afcf-2d6ed063db66",
+      "entity_id": "geopolitics/armed-conflict-war/conflicts/ukraine-russia",
+      "follow_path": [
+        "Geopolitics",
+        "Armed conflict & war",
+        "Ukraine–Russia"
+      ],
+      "follow_source": "seed",
+      "follow_weight": 1,
+      "entities": {
+        "entity_kind": "conflict",
+        "entity_label": "Ukraine–Russia"
+      }
+    }
+  ],
+  "feedRows": [
+    {
+      "feed_user_id": "b57882f4-947b-463f-afcf-2d6ed063db66",
+      "feed_story_id": "cand-4380e7978d28",
+      "feed_date": "2026-06-10",
+      "feed_position": 1,
+      "feed_score": 0.21491511293312288,
+      "feed_slot_kind": "breaking",
+      "feed_matched_interest_id": null,
+      "interests": null,
+      "stories": {
+        "story_id": "cand-4380e7978d28",
+        "story_headline": "Prediction: This Artificial Intelligence Semiconductor Stock Will Outperform Nvidia Over the Next 5 Years",
+        "story_segment_slug": "markets"
+      }
+    },
+    {
+      "feed_user_id": "b57882f4-947b-463f-afcf-2d6ed063db66",
+      "feed_story_id": "cand-b90fa40873fe",
+      "feed_date": "2026-06-10",
+      "feed_position": 2,
+      "feed_score": 0.18193807929696315,
+      "feed_slot_kind": "breaking",
+      "feed_matched_interest_id": null,
+      "interests": null,
+      "stories": {
+        "story_id": "cand-b90fa40873fe",
+        "story_headline": "Intel vs TSMC: Which Semiconductor Giant Offers Stronger Outlook for Investors in 2026",
+        "story_segment_slug": "markets"
+      }
+    }
+  ],
+  "globalRows": [
+    {
+      "story_id": "cand-4380e7978d28",
+      "story_headline": "Prediction: This Artificial Intelligence Semiconductor Stock Will Outperform Nvidia Over the Next 5 Years",
+      "story_dek": "Prediction: This Artificial Intelligence Semiconductor Stock Will Outperform Nvidia Over the Next 5 Years",
+      "story_segment_slug": "markets",
+      "story_primary_outlet_name": "yahoo.com",
+      "story_first_reported_utc": "2026-06-06T11:00:00+00:00",
+      "segments": {
+        "segment_label": "Markets"
+      },
+      "digests": [
+        {
+          "digest_id": "4be3088c-8c05-4ab4-a3ea-ca1dcdbb0c50",
+          "digest_audio_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/digest-audio/cand-4380e7978d28/digest.mp3",
+          "caption_sentences": [
+            {
+              "sentence_text": "Jordan, I'm hearing predictions about an AI stock that could outperform Nvidia.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 0
+            },
+            {
+              "sentence_text": "What company are we talking about?",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 1
+            },
+            {
+              "sentence_text": "Alex, the AI cloud company CoreWeave is being highlighted as a potential outperformer over the next five years.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 2
+            },
+            {
+              "sentence_text": "CoreWeave?",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 3
+            },
+            {
+              "sentence_text": "How are they connected to Nvidia, and what makes them a contender?",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 4
+            },
+            {
+              "sentence_text": "They're a key Nvidia partner, providing AI cloud services using Nvidia's technology.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 5
+            },
+            {
+              "sentence_text": "Nvidia even increased its holding in CoreWeave by 95%.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 6
+            },
+            {
+              "sentence_text": "And their growth?",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 7
+            },
+            {
+              "sentence_text": "CoreWeave's revenue grew 112% to $2.1 billion in the first quarter of 2026.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 8
+            },
+            {
+              "sentence_text": "This is faster than Nvidia's 85% revenue growth in its first quarter, partly due to their smaller size.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 9
+            },
+            {
+              "sentence_text": "So, faster growth, but any downsides to this rapid expansion?",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 10
+            },
+            {
+              "sentence_text": "They reported a $740 million loss in the first quarter, and profitability is unlikely soon due to capital expenditures for a $99.4 billion backlog.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 11
+            },
+            {
+              "sentence_text": "Still, their smaller size aids rapid growth.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 12
+            }
+          ],
+          "digest_is_current": true,
+          "digest_duration_ms": 58571,
+          "digest_ambient_poster_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4380e7978d28/poster.png"
+        }
+      ]
+    },
+    {
+      "story_id": "cand-b90fa40873fe",
+      "story_headline": "Intel vs TSMC: Which Semiconductor Giant Offers Stronger Outlook for Investors in 2026",
+      "story_dek": "Intel vs TSMC: Which Semiconductor Giant Offers Stronger Outlook for Investors in 2026",
+      "story_segment_slug": "markets",
+      "story_primary_outlet_name": "ibtimes.com.au",
+      "story_first_reported_utc": "2026-06-05T08:30:00+00:00",
+      "segments": {
+        "segment_label": "Markets"
+      },
+      "digests": [
+        {
+          "digest_id": "8f938c56-587a-4163-8f09-f72db80ce743",
+          "digest_audio_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/digest-audio/cand-b90fa40873fe/digest.mp3",
+          "caption_sentences": [
+            {
+              "sentence_text": "Intel's stock has seen incredible gains this year.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 0
+            },
+            {
+              "sentence_text": "What's the outlook for semiconductor investors in the AI boom?",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 1
+            },
+            {
+              "sentence_text": "Intel's shares have delivered over 200% year-to-date gains as of early June 2026, trading around $111 to $112.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 2
+            },
+            {
+              "sentence_text": "That's a dramatic turnaround for the U.S.-based chip designer.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 3
+            },
+            {
+              "sentence_text": "Wow, 200% is huge!",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 4
+            },
+            {
+              "sentence_text": "How has TSMC, the world's leading chipmaker, performed in comparison?",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 5
+            },
+            {
+              "sentence_text": "TSMC's shares have risen steadily, trading near $445, with strong but less explosive performance than Intel.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 6
+            },
+            {
+              "sentence_text": "TSMC holds about 70% market share in advanced foundry services.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 7
+            },
+            {
+              "sentence_text": "So, they have different market positions.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 8
+            },
+            {
+              "sentence_text": "Which company offers a stronger outlook for investors?",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 9
+            },
+            {
+              "sentence_text": "For conservative, long-term investors seeking stability, TSMC stands out as the stronger core holding.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 10
+            },
+            {
+              "sentence_text": "Intel offers higher-upside potential for those comfortable with its turnaround risks and willing to tolerate more volatility.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 11
+            }
+          ],
+          "digest_is_current": true,
+          "digest_duration_ms": 59171,
+          "digest_ambient_poster_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b90fa40873fe/poster.png"
+        }
+      ]
+    },
+    {
+      "story_id": "s1",
+      "story_headline": "U.S. strikes Iran again as Trump says a deal is “close”",
+      "story_dek": "Washington hits a second site inside Iran while Tehran tightens its grip on the Strait of Hormuz.",
+      "story_segment_slug": "geopolitics",
+      "story_primary_outlet_name": "CNN",
+      "story_first_reported_utc": "2026-05-30T23:41:37.823662+00:00",
+      "segments": {
+        "segment_label": "Geopolitics"
+      },
+      "digests": [
+        {
+          "digest_id": "3cc05d55-53ae-4e87-9dbf-49662fe2df53",
+          "digest_audio_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/digest-audio/digest-1.mp3",
+          "caption_sentences": [
+            {
+              "sentence_text": "The U.S. military hit another target inside Iran overnight — a site Washington says threatened American forces and commercial shipping.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 0
+            },
+            {
+              "sentence_text": "And President Trump says he's confident a deal to end the fighting is close.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 1
+            },
+            {
+              "sentence_text": "But \"close\" isn't \"done.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 2
+            },
+            {
+              "sentence_text": "Right — he made clear he's not satisfied with the terms yet.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 3
+            },
+            {
+              "sentence_text": "And he's willing to restart strikes if Iran doesn't meet U.S. demands.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 4
+            },
+            {
+              "sentence_text": "Meanwhile Tehran is pushing back hard.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 5
+            },
+            {
+              "sentence_text": "It just issued new rules for any ship trying to pass through the Strait of Hormuz.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 6
+            },
+            {
+              "sentence_text": "That's the chokepoint where about a fifth of the world's oil moves.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 7
+            },
+            {
+              "sentence_text": "Iran's trying to formalize control over it — defying U.S. warnings.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 8
+            },
+            {
+              "sentence_text": "So a ceasefire is being talked up, and a flashpoint is heating up — at the same time.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 9
+            },
+            {
+              "sentence_text": "We'll see which one wins.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 10
+            }
+          ],
+          "digest_is_current": true,
+          "digest_duration_ms": 50611,
+          "digest_ambient_poster_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/digest-1.png"
+        }
+      ]
+    },
+    {
+      "story_id": "s2",
+      "story_headline": "Travis Kelce buys a minority stake in the Cleveland Guardians",
+      "story_dek": "The Chiefs tight end becomes part-owner of the baseball team he grew up watching.",
+      "story_segment_slug": "sport",
+      "story_primary_outlet_name": "ESPN",
+      "story_first_reported_utc": "2026-05-30T23:42:15.270491+00:00",
+      "segments": {
+        "segment_label": "Sport"
+      },
+      "digests": [
+        {
+          "digest_id": "9338307e-2487-42d2-8d1f-11abe6cee26b",
+          "digest_audio_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/digest-audio/digest-2.mp3",
+          "caption_sentences": [
+            {
+              "sentence_text": "Travis Kelce is now part-owner of a baseball team.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 0
+            },
+            {
+              "sentence_text": "The Chiefs tight end just bought a minority stake in the Cleveland Guardians — the team he grew up watching.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 1
+            },
+            {
+              "sentence_text": "And this is a hometown story.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 2
+            },
+            {
+              "sentence_text": "Kelce's from Cleveland Heights — as a kid he'd ride the light rail downtown with his dad to catch games.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 3
+            },
+            {
+              "sentence_text": "Before football, he was actually one of the best baseball players in the whole Cleveland area.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 4
+            },
+            {
+              "sentence_text": "He joins a growing club of active stars buying into the MLB — LeBron with the Red Sox, Giannis with the Brewers... ...and his own teammate Patrick Mahomes, who's already part of the Royals.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 5
+            },
+            {
+              "sentence_text": "The size of Kelce's stake?",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 6
+            },
+            {
+              "sentence_text": "Still under wraps.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 7
+            },
+            {
+              "sentence_text": "But the message is clear — top athletes aren't just playing the game anymore.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 8
+            },
+            {
+              "sentence_text": "They're buying it.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 9
+            }
+          ],
+          "digest_is_current": true,
+          "digest_duration_ms": 46000,
+          "digest_ambient_poster_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/digest-2.png"
+        }
+      ]
+    },
+    {
+      "story_id": "s3",
+      "story_headline": "Houston physicists break a 30-year superconductivity record",
+      "story_dek": "A team reaches 151 Kelvin at normal pressure — the highest ever recorded.",
+      "story_segment_slug": "tech",
+      "story_primary_outlet_name": "ScienceDaily",
+      "story_first_reported_utc": "2026-05-30T23:42:17.210439+00:00",
+      "segments": {
+        "segment_label": "Tech & Science"
+      },
+      "digests": [
+        {
+          "digest_id": "7dbac3d3-e8ad-4f53-b15c-cecd011f9fb3",
+          "digest_audio_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/digest-audio/digest-3.mp3",
+          "caption_sentences": [
+            {
+              "sentence_text": "Physicists in Houston just broke a record that stood for more than thirty years.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 0
+            },
+            {
+              "sentence_text": "We're talking superconductivity — materials that carry electricity with zero resistance, no energy lost at all.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 1
+            },
+            {
+              "sentence_text": "The catch has always been the cold.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 2
+            },
+            {
+              "sentence_text": "You needed extreme temperatures to make it work.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 3
+            },
+            {
+              "sentence_text": "The old record, set back in 1993, was 133 Kelvin.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 4
+            },
+            {
+              "sentence_text": "The University of Houston team just pushed that to 151 Kelvin — the highest ever at normal, everyday pressure.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 5
+            },
+            {
+              "sentence_text": "They used a trick called \"pressure quenching\" — squeeze the material, then lock in the new properties after the pressure is gone.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 6
+            },
+            {
+              "sentence_text": "It's still really cold, about minus 122 Celsius — but every degree closer to room temperature matters.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 7
+            },
+            {
+              "sentence_text": "Because if we ever get there: lossless power grids, faster electronics, better fusion and medical scanners.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 8
+            },
+            {
+              "sentence_text": "A thirty-year wall, finally moved.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 9
+            }
+          ],
+          "digest_is_current": true,
+          "digest_duration_ms": 55891,
+          "digest_ambient_poster_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/digest-3.png"
+        }
+      ]
+    },
+    {
+      "story_id": "s4",
+      "story_headline": "Nvidia’s blowout quarter — yet the stock slips",
+      "story_dek": "Data-center revenue nearly doubles, but a stock priced for perfection dips anyway.",
+      "story_segment_slug": "markets",
+      "story_primary_outlet_name": "CNBC",
+      "story_first_reported_utc": "2026-05-30T23:42:19.125348+00:00",
+      "segments": {
+        "segment_label": "Markets"
+      },
+      "digests": [
+        {
+          "digest_id": "868c962d-f506-4bfa-81fc-32d459fece63",
+          "digest_audio_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/digest-audio/digest-4.mp3",
+          "caption_sentences": [
+            {
+              "sentence_text": "Nvidia just reported earnings — and the AI boom shows no sign of cooling.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 0
+            },
+            {
+              "sentence_text": "The chipmaker pulled in 81.6 billion dollars in revenue for the quarter.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 1
+            },
+            {
+              "sentence_text": "Wall Street had expected about 79.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 2
+            },
+            {
+              "sentence_text": "The engine is the data-center business — revenue there nearly doubled from a year ago.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 3
+            },
+            {
+              "sentence_text": "That's the AI gold rush in a single number.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 4
+            },
+            {
+              "sentence_text": "Profit beat too: a dollar eighty-seven a share, against forecasts of a dollar seventy-eight.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 5
+            },
+            {
+              "sentence_text": "And they're not slowing down — Nvidia guided to 91 billion dollars next quarter, well above estimates.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 6
+            },
+            {
+              "sentence_text": "They also rewarded shareholders: an 80 billion dollar buyback, and a dividend hiked from a single penny to twenty-five cents.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 7
+            },
+            {
+              "sentence_text": "So — a blowout.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 8
+            },
+            {
+              "sentence_text": "And yet the stock actually slipped afterward.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 9
+            },
+            {
+              "sentence_text": "When you're priced for perfection, even great isn't always good enough.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 10
+            }
+          ],
+          "digest_is_current": true,
+          "digest_duration_ms": 47492,
+          "digest_ambient_poster_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/digest-4.png"
+        }
+      ]
+    },
+    {
+      "story_id": "s5",
+      "story_headline": "Pope Leo XIV issues his strongest warning yet on AI",
+      "story_dek": "A moral authority steps into a debate usually led by engineers and CEOs.",
+      "story_segment_slug": "wildcard",
+      "story_primary_outlet_name": "TechStartups",
+      "story_first_reported_utc": "2026-05-30T23:42:20.874068+00:00",
+      "segments": {
+        "segment_label": "Wildcard"
+      },
+      "digests": [
+        {
+          "digest_id": "fac1320a-20ff-4adc-9288-e3bc221b6403",
+          "digest_audio_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/digest-audio/digest-5.mp3",
+          "caption_sentences": [
+            {
+              "sentence_text": "The Pope just issued one of his strongest warnings yet — about artificial intelligence.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 0
+            },
+            {
+              "sentence_text": "Pope Leo the Fourteenth urged world leaders to slow down the race to deploy AI, and to agree on international safeguards.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 1
+            },
+            {
+              "sentence_text": "His concern?",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 2
+            },
+            {
+              "sentence_text": "That unchecked AI could deepen misinformation, destabilize societies... ...and push autonomous weapons past meaningful human control.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 3
+            },
+            {
+              "sentence_text": "That last one is the line a lot of people quietly fear.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 4
+            },
+            {
+              "sentence_text": "It's a striking moment — a moral authority stepping into a debate usually led by engineers and CEOs.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 5
+            },
+            {
+              "sentence_text": "And it lands the same week a major report said AI will soon be the single biggest force shaping global cybersecurity.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 6
+            },
+            {
+              "sentence_text": "Two very different voices.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 7
+            },
+            {
+              "sentence_text": "The same message.",
+              "anchor_speaker": "ALEX",
+              "sentence_index": 8
+            },
+            {
+              "sentence_text": "Slow down — before the technology gets ahead of us.",
+              "anchor_speaker": "JORDAN",
+              "sentence_index": 9
+            }
+          ],
+          "digest_is_current": true,
+          "digest_duration_ms": 47371,
+          "digest_ambient_poster_url": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/digest-5.png"
+        }
+      ]
+    }
+  ]
+}
