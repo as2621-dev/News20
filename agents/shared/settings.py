@@ -62,6 +62,13 @@ class Settings(BaseSettings):
         "thumbnail + subscriber count. Optional so existing envs without it "
         "still load; the seeder fails loud at run time when it is missing.",
     )
+    pipeline_trigger_secret: SecretStr = Field(
+        default=SecretStr(""),
+        description="Shared bearer token guarding the worker's pipeline HTTP seam "
+        "(POST /pipeline/daily, POST /feed/assemble-for-user). Empty by default so "
+        "existing envs still load; the worker refuses to serve those endpoints (500) "
+        "until it is set. Never logged.",
+    )
     log_level: str = Field(
         default="INFO",
         description="Minimum log level for the structured JSON logger (DEBUG | INFO | WARNING | ERROR)",

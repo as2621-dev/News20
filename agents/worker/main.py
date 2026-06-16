@@ -47,6 +47,7 @@ from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
 from agents.voice.live_token import EphemeralTokenResponse, mint_ephemeral_token
 from agents.worker.corpus_cache import get_or_load_corpus
+from agents.worker.pipeline_routes import router as pipeline_router
 
 logger = get_logger("worker.qa")
 
@@ -134,6 +135,29 @@ async def rate_limit_paid_endpoints(request: Request, call_next):
         recent.append(now)
         _request_times_by_ip[client_ip] = recent
     return await call_next(request)
+
+
+# ── Pipeline HTTP seam (Phase 7 SP4) — mount the authenticated pipeline router ──
+# The router carries its OWN router-wide bearer-token guard (SP1's
+# require_pipeline_token), so it is included AS-IS — auth must NOT be re-applied
+# here. Its handlers do all heavy pipeline imports LAZILY (inside the request
+# body), so mounting it does not drag the pipeline into the worker's cold-start
+# import graph; /healthz and boot stay cheap.
+app.include_router(pipeline_router)
+
+
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
+    """Liveness probe: returns 200 without touching Supabase / Gemini / the pipeline.
+
+    A dependency-free, side-effect-free check the deploy platform (Railway) and the
+    SP4 boot smoke test hit to confirm the worker is up — distinct from the
+    cost-bearing routes, which are NOT exercised by a health check.
+
+    Returns:
+        ``{"status": "ok"}`` at HTTP 200.
+    """
+    return {"status": "ok"}
 
 
 class QuestionRequest(BaseModel):
