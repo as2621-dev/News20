@@ -1,42 +1,28 @@
 /**
- * SignalOrb — the brand "signal" orb used by the source-swipe curtain + done screen
- * (Phase 5c SP-UI).
+ * SignalOrb — the brand "signal" element used by the source-swipe curtain + done
+ * screen (Phase 5c SP-UI).
  *
- * Ported from the Claude Design "blip" handoff — Source Swipe (`blip-sources.js`
- * `orb(size)` markup + `blip-flow.css` `.orb`/`.orb.brand`). Renders the layered
- * cloud/core gradient discs the CSS animates (breathe + cloud-drift). `responding`
- * adds the `.responding` modifier (faster, brighter pulse) the curtain toggles
- * while "thinking". Size is set inline so one component serves the 100px curtain
- * orb and the 84px done-screen orb.
- *
- * The visual styling lives in `globals.css` under `.sw-screen .orb` (screen-scoped
- * so it does NOT clobber the existing in-news Voice `.orb`).
+ * Now a thin wrapper over the shared {@link SignalMark} (the blip wordmark's radar
+ * signal, scaled up) so the curtain, the done screen, and the in-reel voice Q&A all
+ * render the SAME brand signal. Kept as a named component so its existing callers
+ * (`ProfileCurtain`, `SourceSwipe`) don't change. The old cloud-gradient blob it
+ * used to render has been retired in favour of the radar-ping mark.
  */
 
+import { SignalMark } from "@/components/SignalMark";
+
 export interface SignalOrbProps {
-  /** Disc diameter in px. */
+  /** Mark diameter in px. */
   size: number;
-  /** When true, applies the brighter/faster `.responding` pulse. */
+  /** When true, applies the brighter/faster "thinking" pulse. */
   responding?: boolean;
 }
 
 /**
- * Render the brand signal orb.
+ * Render the brand signal mark (white radar pings on the near-black surface).
  *
  * @param props - {@link SignalOrbProps}.
  */
 export function SignalOrb({ size, responding = false }: SignalOrbProps) {
-  return (
-    <div
-      className={`orb brand${responding ? " responding" : ""}`}
-      style={{ width: size, height: size }}
-      aria-hidden="true"
-    >
-      <i className="c1" />
-      <i className="c2" />
-      <i className="d1" />
-      <i className="d2" />
-      <i className="core" />
-    </div>
-  );
+  return <SignalMark size={size} variant="brand" responding={responding} />;
 }

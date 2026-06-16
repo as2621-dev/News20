@@ -38,6 +38,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
+import { SignalMark } from "@/components/SignalMark";
 import { logger } from "@/lib/logger";
 import { fetchStoryCorpus } from "@/lib/voice/fetchStoryCorpus";
 import { getMicPermissionState, requestMicPermission } from "@/lib/voice/micPermission";
@@ -150,20 +151,12 @@ function VqWave() {
 }
 
 /**
- * The live orb element (prototype `orbEl(responding)`).
+ * The live signal element — the brand radar mark, tinted to the story accent.
  *
- * @param is_responding - Whether to apply the `.responding` modifier class.
+ * @param is_responding - When true, the mark emits faster/brighter (RESPONDING).
  */
 function OrbEl({ is_responding }: { is_responding: boolean }) {
-  return (
-    <div className={`orb story${is_responding ? " responding" : ""}`} style={{ width: 100, height: 100 }}>
-      <i className="c1" />
-      <i className="c2" />
-      <i className="d1" />
-      <i className="d2" />
-      <i className="core" />
-    </div>
-  );
+  return <SignalMark size={100} variant="story" responding={is_responding} />;
 }
 
 /**

@@ -248,200 +248,124 @@ body {
 }
 
 /* ===================================================================== */
-/* SIGNAL ORB (voice + onboarding agent)                                 */
+/* SIGNAL MARK (voice + onboarding) — the blip wordmark signal, scaled up */
+/* A glowing core dot emitting concentric radar pings. Replaces the old   */
+/* cloud-gradient .orb blob. See src/components/SignalMark.tsx.           */
 /* ===================================================================== */
-.orb {
+.signal-mark {
   position: relative;
-  border-radius: 9999px;
-  overflow: hidden;
-  isolation: isolate;
   flex: none;
-  background:
-    radial-gradient(
-      115% 88% at 50% 18%,
-      #fff 0%,
-      #ecf8ff 16%,
-      color-mix(in oklab, var(--voice) 42%, #e2f3ff) 40%,
-      transparent 64%
-    ),
-    linear-gradient(
-      178deg,
-      #ecf8ff 0%,
-      color-mix(in oklab, var(--voice) 52%, #fff) 28%,
-      color-mix(in oklab, var(--voice) 84%, #fff) 58%,
-      color-mix(in oklab, var(--voice) 78%, #0a2a6e) 88%,
-      color-mix(in oklab, var(--voice) 60%, #06184a) 100%
-    );
-  box-shadow:
-    inset 0 -20px 46px color-mix(in oklab, var(--voice) 68%, #06205a),
-    inset 0 14px 32px rgba(255, 255, 255, 0.5),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-    0 30px 78px -24px rgba(0, 0, 0, 0.7),
-    0 0 80px -2px color-mix(in oklab, var(--voice) 55%, transparent);
-  animation: vox-breathe 6s ease-in-out infinite;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  --signal: #ffffff;
 }
-.orb > i {
-  position: absolute;
+.signal-mark.story {
+  /* Tint to the active story accent when one is in scope; story-red otherwise. */
+  --signal: var(--accent, #ef4444);
+}
+
+/* The glowing core dot — mirrors the wordmark .bdot (white center → signal edge). */
+.signal-mark .sm-core {
+  position: relative;
+  z-index: 2;
+  width: 26%;
+  height: 26%;
   border-radius: 9999px;
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-.orb .core {
-  inset: 16%;
-  mix-blend-mode: screen;
-  filter: blur(9px);
-  opacity: 0.85;
   background: radial-gradient(
-    circle at 42% 36%,
-    rgba(255, 255, 255, 0.95) 0%,
-    color-mix(in oklab, var(--voice) 40%, #fff) 34%,
-    transparent 60%
+    circle at 50% 38%,
+    #ffffff 0%,
+    color-mix(in oklab, var(--signal) 65%, #ffffff) 45%,
+    var(--signal) 100%
   );
-  animation: core-drift 6.5s ease-in-out infinite alternate;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--signal) 55%, transparent),
+    0 0 16px 2px color-mix(in oklab, var(--signal) 70%, transparent),
+    0 0 44px 8px color-mix(in oklab, var(--signal) 42%, transparent);
+  animation: sm-core-breathe 2.6s ease-in-out infinite;
 }
-.orb.responding {
-  filter: brightness(1.16) saturate(1.14);
-  animation: vox-breathe 2.6s ease-in-out infinite;
+
+/* Concentric radar pings: each expands from the core edge outward, then fades. */
+.signal-mark .sm-ping {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 26%;
+  height: 26%;
+  border-radius: 9999px;
+  border: 2px solid var(--signal);
+  opacity: 0;
+  transform: scale(1);
+  will-change: transform, opacity;
+  animation: sm-ping 2.6s ease-out infinite;
 }
-.orb.responding .c1 {
-  animation-duration: 5.2s;
+.signal-mark .sm-ping:nth-child(2) {
+  animation-delay: 0.86s;
 }
-.orb.responding .c2 {
-  animation-duration: 6.2s;
+.signal-mark .sm-ping:nth-child(3) {
+  animation-delay: 1.72s;
 }
-.orb.responding .d1 {
-  animation-duration: 4.2s;
-}
-.orb.responding .d2 {
-  animation-duration: 5s;
-}
-.orb.responding .core {
-  animation-duration: 3.4s;
-}
-@keyframes vox-breathe {
-  0%,
-  100% {
-    transform: scale(1, 1);
-  }
-  32% {
-    transform: scale(1.028, 0.992);
-  }
-  64% {
-    transform: scale(0.99, 1.018);
-  }
-}
-@keyframes cloud-a {
+
+@keyframes sm-ping {
   0% {
-    transform: translate(-7%, -4%) rotate(0) scale(1.04);
-    opacity: 0.78;
+    opacity: 0;
+    transform: scale(1);
+    border-width: 2px;
   }
-  50% {
-    transform: translate(3%, 6%) rotate(22deg) scale(1.22);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(7%, 4%) rotate(40deg) scale(1.12);
-    opacity: 0.82;
-  }
-}
-@keyframes cloud-b {
-  0% {
-    transform: translate(5%, 3%) rotate(0) scale(1.06);
-    opacity: 0.72;
-  }
-  50% {
-    transform: translate(-2%, -6%) rotate(-26deg) scale(1.24);
-    opacity: 0.95;
-  }
-  100% {
-    transform: translate(-6%, -4%) rotate(-46deg) scale(1.14);
-    opacity: 0.78;
-  }
-}
-@keyframes cloud-c {
-  0% {
-    transform: translate(-3%, 3%) scale(0.96);
+  10% {
     opacity: 0.5;
   }
-  50% {
-    transform: translate(4%, -3%) scale(1.18);
-    opacity: 0.72;
-  }
   100% {
-    transform: translate(9%, -7%) scale(1.04);
-    opacity: 0.55;
+    opacity: 0;
+    transform: scale(3.7);
+    border-width: 0.5px;
   }
 }
-@keyframes cloud-d {
-  0% {
-    transform: translate(3%, -2%) scale(1.1);
-    opacity: 0.4;
+@keyframes sm-core-breathe {
+  0%,
+  100% {
+    transform: scale(1);
   }
   50% {
-    transform: translate(-3%, 4%) scale(1.26);
-    opacity: 0.62;
-  }
-  100% {
-    transform: translate(-8%, 8%) scale(1);
-    opacity: 0.42;
+    transform: scale(1.08);
   }
 }
-@keyframes core-drift {
-  0% {
-    transform: translate(-10%, -8%) scale(0.92);
-    opacity: 0.7;
+
+/* Responding / building: faster, brighter emission. */
+.signal-mark.responding .sm-core {
+  filter: brightness(1.16);
+  animation-duration: 1.5s;
+}
+.signal-mark.responding .sm-ping {
+  animation-duration: 1.5s;
+}
+.signal-mark.responding .sm-ping:nth-child(2) {
+  animation-delay: 0.5s;
+}
+.signal-mark.responding .sm-ping:nth-child(3) {
+  animation-delay: 1s;
+}
+
+/* Reduced motion: freeze into static concentric rings — still a "signal", no pulse. */
+@media (prefers-reduced-motion: reduce) {
+  .signal-mark .sm-core,
+  .signal-mark .sm-ping {
+    animation: none;
   }
-  50% {
-    transform: translate(8%, 4%) scale(1.12);
-    opacity: 1;
+  .signal-mark .sm-ping {
+    opacity: 0.3;
   }
-  100% {
-    transform: translate(-4%, 10%) scale(0.98);
-    opacity: 0.78;
+  .signal-mark .sm-ping:nth-child(1) {
+    transform: scale(2);
   }
-}
-.orb .c1 {
-  inset: -22%;
-  mix-blend-mode: screen;
-  filter: blur(13px);
-  opacity: 0.9;
-  background:
-    radial-gradient(38% 34% at 34% 28%, rgba(255, 255, 255, 0.92) 0%, transparent 60%),
-    radial-gradient(44% 40% at 70% 60%, color-mix(in oklab, var(--voice) 55%, #fff) 0%, transparent 64%),
-    radial-gradient(52% 50% at 48% 84%, color-mix(in oklab, var(--voice) 85%, #0a2a6e) 0%, transparent 70%);
-  animation: cloud-a 8.5s ease-in-out infinite alternate;
-}
-.orb .c2 {
-  inset: -12%;
-  mix-blend-mode: screen;
-  filter: blur(17px);
-  opacity: 0.8;
-  background:
-    radial-gradient(36% 32% at 60% 24%, rgba(255, 255, 255, 0.95) 0%, transparent 58%),
-    radial-gradient(46% 42% at 34% 64%, color-mix(in oklab, var(--voice) 60%, #fff) 0%, transparent 66%);
-  animation: cloud-b 10.5s ease-in-out infinite alternate;
-}
-.orb .d1 {
-  inset: -4%;
-  mix-blend-mode: multiply;
-  filter: blur(13px);
-  opacity: 0.6;
-  background: radial-gradient(48% 42% at 42% 62%, color-mix(in oklab, var(--voice) 72%, #0a3a7a) 0%, transparent 64%);
-  animation: cloud-c 7s ease-in-out infinite alternate;
-}
-.orb .d2 {
-  inset: -2%;
-  mix-blend-mode: multiply;
-  filter: blur(13px);
-  opacity: 0.45;
-  background: radial-gradient(42% 38% at 66% 72%, color-mix(in oklab, var(--voice) 85%, #06205a) 0%, transparent 62%);
-  animation: cloud-d 9s ease-in-out infinite alternate;
-}
-.orb.brand {
-  --voice: #cdd8ff;
-}
-.orb.story {
-  --voice: #ef4444;
+  .signal-mark .sm-ping:nth-child(2) {
+    transform: scale(2.85);
+    opacity: 0.18;
+  }
+  .signal-mark .sm-ping:nth-child(3) {
+    transform: scale(3.6);
+    opacity: 0.1;
+  }
 }
 
 /* ===================================================================== */
