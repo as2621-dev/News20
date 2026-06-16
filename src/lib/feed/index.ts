@@ -28,26 +28,31 @@ function todayFeedDate(): string {
 /**
  * Resolve the reel feed from the best available source (see module docs).
  *
+ * @param feedDate - Optional ISO `YYYY-MM-DD` to load a SPECIFIC day's briefing
+ *   (the Archive "tap a day → replay" path). Omitted → today's briefing.
  * @returns The stories to play, as canonical {@link Story}[].
  *
  * @example
- * const stories = await getReelFeed();
+ * const stories = await getReelFeed();                 // today
+ * const past = await getReelFeed("2026-06-14");        // a specific archived day
  */
-export async function getReelFeed(): Promise<Story[]> {
+export async function getReelFeed(feedDate?: string): Promise<Story[]> {
   if (process.env.NEXT_PUBLIC_FEED_SOURCE === "fixtures") {
     return getFixtureFeed();
   }
 
+  const requestedDate = feedDate ?? todayFeedDate();
   try {
     const session = await getCurrentSession();
     if (session?.user?.id) {
-      const personalized = await getDailyFeed(session.user.id, todayFeedDate());
+      const personalized = await getDailyFeed(session.user.id, requestedDate);
       if (personalized.length > 0) {
         return personalized;
       }
       logger.info("reel_feed_fallback_global", {
         reason: "no_daily_feeds_for_user",
-        fix_suggestion: "The daily cron has not allocated this user yet; serving the global seed.",
+        feed_date: requestedDate,
+        fix_suggestion: "The daily cron has not allocated this user/date yet; serving the global seed.",
       });
     }
   } catch (sessionError: unknown) {

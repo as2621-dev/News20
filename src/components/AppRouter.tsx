@@ -16,7 +16,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BlipReel } from "@/components/blip/reel/BlipReel";
+import { AppShell } from "@/components/app/AppShell";
 import { PhoneShell } from "@/components/PhoneShell";
 import { resolveRootGate } from "@/lib/auth/routeGuard";
 import { logger } from "@/lib/logger";
@@ -62,7 +62,7 @@ export function AppRouter() {
   if (routerState === "reel") {
     return (
       <PhoneShell>
-        <BlipReel />
+        <AppShell />
       </PhoneShell>
     );
   }

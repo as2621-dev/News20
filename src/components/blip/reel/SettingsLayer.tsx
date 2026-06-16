@@ -2,37 +2,62 @@
 
 /**
  * SettingsLayer — the full-screen Settings surface from the "App Surfaces —
- * Settings, Archive, Sources" design board, replacing the minimal account
- * bottom sheet. Rises over the reel like {@link ArticleLayer} (the sliding
- * `.layer-settings` container is owned by {@link BlipReel}); opened by tapping
- * the blip wordmark.
+ * Settings, Archive, Sources" design board. It is the "Settings" tab of the
+ * 4-tab library ({@link AppShell}); the blip wordmark opens the library here.
+ * (`onClose` is optional — only the legacy overlay mount renders a `← REEL`
+ * back button; as a tab, navigation is the bottom tab bar.)
  *
- * Sections (design chat13/chat14 — inline account rows, no nested Manage page):
+ * Sections:
  *   - Account header — avatar + display name + signed-in email (real session)
- *   - ACCOUNT — email row, delete-account row (danger)
+ *   - ACCOUNT — editable name, email, delete-account row (danger)
+ *   - Sources you're following — followed catalog rows with unfollow
  *   - SUBSCRIPTION — Free→Pro plan card with the cream Upgrade CTA
- *   - MEMORY — what blip noticed about how you listen (empty state until the
- *     memory feature exists; no fabricated lines, Rule 12)
+ *   - YOUR BRIEFING — "Build your 30" re-entry (opens the allocation editor)
  *   - Sign out + app version footer
  *
  * **Stubbed honestly.** Payments and account deletion are not built yet, so
  * Upgrade / Delete taps surface an inline "not yet" note instead of pretending.
  *
  * @example
- * <SettingsLayer onClose={closeOverlay} />
+ * <SettingsLayer />            // as the library Settings tab
+ * <SettingsLayer onClose={closeOverlay} />  // legacy overlay mount
  */
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
+import { BuildYour30 } from "@/components/onboarding/BuildYour30";
 import { logger } from "@/lib/logger";
 import { getProfileDisplayName, PROFILE_DISPLAY_NAME_MAX_LENGTH, saveProfileDisplayName } from "@/lib/profile";
+import { getFollowedSources, unfollowSource } from "@/lib/sources";
 import { getCurrentSession, signOut } from "@/lib/supabase/auth";
+import { type ContentSource, SOURCE_TYPE_CONFIGS } from "@/types/source";
 import packageJson from "../../../../package.json";
 
+/**
+ * Format a subscriber/follower count compactly (e.g. 1200 → "1.2K", 3_400_000 →
+ * "3.4M"). Returns an empty string for null/zero so the meta line stays clean.
+ */
+export function formatSubscriberCount(count: number | null): string {
+  if (!count || count <= 0) {
+    return "";
+  }
+  if (count >= 1_000_000) {
+    return `${(count / 1_000_000).toFixed(1).replace(/\.0$/, "")}M followers`;
+  }
+  if (count >= 1_000) {
+    return `${(count / 1_000).toFixed(1).replace(/\.0$/, "")}K followers`;
+  }
+  return `${count} followers`;
+}
+
 export interface SettingsLayerProps {
-  /** Close the settings layer and return to the reel. */
-  onClose: () => void;
+  /**
+   * Close the settings surface and return to the reel. Optional: when Settings is
+   * a library TAB ({@link AppShell}), navigation is the bottom tab bar, so no
+   * `← REEL` back button is rendered. Provided only in the legacy overlay mount.
+   */
+  onClose?: () => void;
 }
 
 /** Which stubbed action's inline "not yet" note is showing, if any. */
@@ -61,9 +86,9 @@ export function deriveDisplayNameFromEmail(email: string): string {
 }
 
 /**
- * Render the settings layer body: account header + rows, subscription card,
- * memory section, sign out. Sign-out routes to `/onboarding` via
- * `router.replace` (same target as the {@link AppRouter} root gate).
+ * Render the settings layer body: account header + rows, followed sources,
+ * subscription card, the Build-your-30 re-entry, and sign out. Sign-out routes
+ * to `/onboarding` via `router.replace` (same target as the {@link AppRouter} gate).
  */
 export function SettingsLayer({ onClose }: SettingsLayerProps) {
   const router = useRouter();
@@ -71,6 +96,8 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [stubNote, setStubNote] = useState<StubNote>(null);
+  // When true, the "Build your 30" allocation editor is open full-screen over Settings.
+  const [isEditingAllocation, setIsEditingAllocation] = useState<boolean>(false);
   // The saved profile name (migration 0012) — null until loaded / when unset,
   // in which case the email-derived fallback renders.
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -78,6 +105,9 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
   const [nameDraft, setNameDraft] = useState<string>("");
   const [isSavingName, setIsSavingName] = useState<boolean>(false);
   const [nameEditError, setNameEditError] = useState<string | null>(null);
+  // Followed sources — null until the first load resolves (drives the skeleton →
+  // list/empty-state swap). A signed-out / failed read leaves it [] (empty state).
+  const [followedSources, setFollowedSources] = useState<ContentSource[] | null>(null);
 
   // Resolve the signed-in email + saved profile name once on mount (layer
   // mounts only while open).
@@ -107,10 +137,42 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
           fix_suggestion: "Confirm migration 0012 applied; settings falls back to the email-derived name.",
         });
       });
+    getFollowedSources()
+      .then((sources) => {
+        if (isMounted) {
+          setFollowedSources(sources);
+        }
+      })
+      .catch((sourcesError: unknown) => {
+        // Signed-out or read failure: show the empty state, never crash the layer.
+        logger.error("settings_followed_sources_read_failed", {
+          error_message: sourcesError instanceof Error ? sourcesError.message : "unknown",
+          fix_suggestion: "User may be signed out, or confirm migration 0009 + content_sources read access.",
+        });
+        if (isMounted) {
+          setFollowedSources([]);
+        }
+      });
     return () => {
       isMounted = false;
     };
   }, []);
+
+  /** Unfollow a source and drop it from the list optimistically (re-add on failure). */
+  const handleUnfollowSource = async (source: ContentSource): Promise<void> => {
+    setFollowedSources((current) => (current ?? []).filter((item) => item.source_id !== source.source_id));
+    try {
+      await unfollowSource(source.source_id);
+      logger.info("settings_source_unfollowed", { source_id: source.source_id });
+    } catch (unfollowError: unknown) {
+      logger.error("settings_source_unfollow_failed", {
+        source_id: source.source_id,
+        error_message: unfollowError instanceof Error ? unfollowError.message : "unknown",
+        fix_suggestion: "Confirm the user is signed in and user_content_sources allows the delete.",
+      });
+      setFollowedSources((current) => [...(current ?? []), source]);
+    }
+  };
 
   const handleSignOut = async (): Promise<void> => {
     if (isSigningOut) {
@@ -165,9 +227,11 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
   return (
     <>
       <div className="art-top">
-        <button type="button" className="v-back" onClick={onClose}>
-          {ic("back")} REEL
-        </button>
+        {onClose ? (
+          <button type="button" className="v-back" onClick={onClose}>
+            {ic("back")} REEL
+          </button>
+        ) : null}
       </div>
 
       <div className="art-scroll">
@@ -244,6 +308,46 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
           <p className="set-stubnote">Account deletion isn't self-serve yet — email support and we'll handle it.</p>
         ) : null}
 
+        <div className="set-seclabel">Sources you're following</div>
+        {followedSources === null ? (
+          <p className="set-subnote">Loading your sources…</p>
+        ) : followedSources.length === 0 ? (
+          <p className="set-subnote">
+            You're not following any sources yet. Add channels, podcasts and voices to shape your reel.
+          </p>
+        ) : (
+          <div className="set-src-list">
+            {followedSources.map((source) => {
+              const config = SOURCE_TYPE_CONFIGS[source.content_source_type];
+              const metaParts = [config?.label, formatSubscriberCount(source.subscriber_count)].filter(Boolean);
+              return (
+                <div className="set-src-row" key={source.source_id}>
+                  <div className={`set-src-av${config?.tile_shape === "circle" ? " circle" : ""}`}>
+                    {source.thumbnail_url ? (
+                      // biome-ignore lint/performance/noImgElement: small remote avatar in a static export; next/image is inappropriate here.
+                      <img src={source.thumbnail_url} alt="" />
+                    ) : (
+                      <span>{source.source_name.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="set-src-main">
+                    <div className="set-src-name">{source.source_name}</div>
+                    {metaParts.length > 0 ? <div className="set-src-meta">{metaParts.join(" · ")}</div> : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="set-src-unfollow"
+                    aria-label={`Unfollow ${source.source_name}`}
+                    onClick={() => void handleUnfollowSource(source)}
+                  >
+                    Following
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="set-seclabel">Subscription</div>
         <p className="set-subnote">You're on the free plan. Upgrade for longer briefings and unlimited sources.</p>
         <div className="set-plan-card">
@@ -277,14 +381,16 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
         </div>
         {stubNote === "upgrade" ? <p className="set-stubnote">Payments aren't live yet — Pro is coming soon.</p> : null}
 
-        <div className="set-seclabel">Memory</div>
-        <p className="set-subnote" style={{ marginBottom: 10 }}>
-          Things blip has noticed about how you listen.
-        </p>
-        <div className="set-memline first">
-          <span className="set-md" />
-          <p>Nothing yet — blip learns how you listen over time.</p>
-        </div>
+        <div className="set-seclabel">Your briefing</div>
+        <button type="button" className="set-row first" onClick={() => setIsEditingAllocation(true)}>
+          <div className="set-rmain">
+            <div className="set-rlabel">Build your 30</div>
+            <div className="set-rsub">Reorder how your 30 stories are filled</div>
+          </div>
+          <svg className="set-chev" viewBox="0 0 24 24" aria-hidden="true">
+            <use href="#i-chev" />
+          </svg>
+        </button>
 
         <div className="set-signout">
           <button type="button" onClick={handleSignOut} disabled={isSigningOut}>
@@ -294,6 +400,21 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
         </div>
         {signOutError !== null ? <p className="set-stubnote">{signOutError}</p> : null}
       </div>
+
+      {/* Build-your-30 editor opens full-screen over Settings; it seeds from the saved
+          allocation and persists on save. onDone returns to Settings (no onboarding skip). */}
+      {isEditingAllocation ? (
+        <div style={ALLOCATION_EDITOR_OVERLAY_STYLE}>
+          <BuildYour30 onDone={() => setIsEditingAllocation(false)} onSkip={() => setIsEditingAllocation(false)} />
+        </div>
+      ) : null}
     </>
   );
 }
+
+/** Full-screen layer (over Settings + the tab bar) hosting the allocation editor. */
+const ALLOCATION_EDITOR_OVERLAY_STYLE: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 70,
+};

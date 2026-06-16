@@ -1,0 +1,392 @@
+/**
+ * blip-library.css — styling for the 4-tab "library" surfaces (Today · Archive ·
+ * Sources · Settings) introduced by the "App Surfaces" design board.
+ *
+ * Kept SEPARATE from blip-flow.css on purpose: that file is already ~3.6k lines
+ * (well past the 1000-line discipline), so the new surface styling lives here and
+ * is imported by AppShell. Settings reuses the existing `set-*` classes from
+ * blip-flow.css; this file adds the tab bar, the shared library header, and (in
+ * later phases) the archive + sources classes.
+ *
+ * Category color tokens are the SINGLE front-end source of the locked palette
+ * (mirrors src/lib/feedBuckets.ts): Markets green, World & Politics red, Tech &
+ * Science cyan, Sport amber, Culture rose.
+ */
+
+:root {
+  --geo: #ef4444; /* World & Politics — red */
+  --mkt: #22c55e; /* Markets — green */
+  --tech: #22d3ee; /* Tech & Science — cyan */
+  --sport: #f59e0b; /* Sport — amber */
+  --wild: #e8b7bc; /* Culture — rose */
+  --blue: #3b82f6;
+  --yellow: #facc15; /* Breaking — yellow */
+}
+
+/* ---------- library surface container (over the reel) ---------- */
+.app-library {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, #020617);
+  color: #fff;
+}
+
+/* Shared library header (the design's .kicker/.htitle/.hsub — distinct from the
+   shipped settings `set-*` block, which keeps its own header). */
+.kicker {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+.htitle {
+  font-family: "Playfair Display", serif;
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  margin: 7px 0 0;
+  line-height: 1.05;
+}
+.hsub {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 8px 0 0;
+}
+.lib-empty {
+  margin: 28px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- bottom tab bar ---------- */
+.tabbar {
+  display: flex;
+  flex: none;
+  padding: 12px 14px calc(16px + env(safe-area-inset-bottom, 28px));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(to top, var(--bg, #020617) 70%, rgba(2, 6, 23, 0));
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.tab svg {
+  width: 23px;
+  height: 23px;
+  color: rgba(255, 255, 255, 0.34);
+  transition: color 0.18s;
+}
+.tab .tlabel {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.34);
+  letter-spacing: 0.01em;
+  transition: color 0.18s;
+}
+.tab.on svg,
+.tab.on .tlabel {
+  color: #fff;
+}
+
+/* ---------- sources surface ---------- */
+.seclabel {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  margin: 26px 0 4px;
+}
+.mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* universal avatar */
+.av {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  flex: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+  overflow: visible;
+  background: linear-gradient(150deg, #22d3ee, #0b1120 78%);
+}
+.av.sq {
+  border-radius: 13px;
+}
+.av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.av .pbadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #0c1018;
+  border: 2px solid var(--bg, #020617);
+  display: grid;
+  place-items: center;
+}
+.av .pbadge svg {
+  width: 11px;
+  height: 11px;
+  color: #fff;
+}
+
+/* iOS-style toggle */
+.tg {
+  width: 45px;
+  height: 27px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  position: relative;
+  flex: none;
+  transition: background 0.2s;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.tg .knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 21px;
+  height: 21px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s;
+}
+.tg.on {
+  background: #f1ece0;
+}
+.tg.on .knob {
+  transform: translateX(18px);
+}
+
+/* platform summary cards */
+.plat-row {
+  display: flex;
+  gap: 11px;
+  margin-top: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.plat-row::-webkit-scrollbar {
+  display: none;
+}
+.plat-card {
+  flex: none;
+  width: 84px;
+  border-radius: 16px;
+  padding: 13px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+.plat-card .pi {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+}
+.plat-card .pi svg {
+  width: 17px;
+  height: 17px;
+}
+.plat-card .pl {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+}
+.plat-card .pc {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.42);
+  margin-top: 3px;
+}
+
+/* search affordance (stub) */
+.searchbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 0 14px;
+  height: 44px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.searchbar svg {
+  width: 17px;
+  height: 17px;
+  color: rgba(255, 255, 255, 0.4);
+  flex: none;
+}
+.searchbar span {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* interest chips */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 12.5px;
+  color: #dfe2e8;
+}
+.chip .cd {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  flex: none;
+}
+.chip.add {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* followed channels / people */
+.follow-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.follow-row:first-of-type {
+  border-top: none;
+}
+.follow-row .ft {
+  flex: 1;
+  min-width: 0;
+}
+.follow-row .ftn {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.follow-row .fts {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.42);
+  margin-top: 3px;
+}
+.follow-row .fts .actv {
+  color: color-mix(in oklab, var(--mkt) 75%, #fff);
+}
+.follow-row .fts .paus {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ---------- archive surface ---------- */
+.day-group {
+  margin-top: 22px;
+}
+.day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+.day-head .dn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+.day-head .dn .sd {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--accent, #94a3b8);
+  box-shadow: 0 0 10px var(--accent, #94a3b8);
+  flex: none;
+}
+.day-head .dur {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+.brief {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+.brief .bh {
+  font-family: "Playfair Display", serif;
+  font-size: 17.5px;
+  font-weight: 500;
+  line-height: 1.32;
+  color: #fff;
+  letter-spacing: -0.005em;
+}
+.brief .bm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 11px;
+}
+.brief .bmeta {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.day-div {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 18px 0 0;
+}

@@ -159,3 +159,94 @@ export async function fetchChildInterests(
   });
   return interests;
 }
+
+/**
+ * The locked category accent per `segments.segment_slug` (mirrors src/lib/feedBuckets.ts
+ * + blip-library.css tokens): the SINGLE place the Sources interest chips resolve a
+ * category dot color. A slug not in the map (or a null segment) → no dot color.
+ */
+const SEGMENT_ACCENT_HEX: Readonly<Record<string, string>> = {
+  geopolitics: "#EF4444", // World & Politics — red
+  markets: "#22C55E", // Markets — green
+  tech: "#22D3EE", // Tech & Science — cyan
+  sport: "#F59E0B", // Sport — amber
+  wildcard: "#E8B7BC", // Culture — rose
+};
+
+/** One of the authed user's selected interests, shaped for the Sources "Interests" chips. */
+export interface UserInterestChip {
+  /** The `interests.interest_id` (stable key). */
+  interestId: string;
+  /** The interest's display label. */
+  label: string;
+  /** Tree depth (0 = root category) — roots sort first so colored category chips lead. */
+  depthLevel: number;
+  /** The locked category accent hex, or null when the interest carries no segment. */
+  accentHex: string | null;
+}
+
+/** A `user_interest_profile ⋈ interests` row as PostgREST returns it for the chip read. */
+interface UserInterestProfileRow {
+  interests: {
+    interest_id: string;
+    interest_label: string;
+    depth_level: number;
+    interest_segment_slug: string | null;
+  } | null;
+}
+
+/**
+ * Read the authed user's selected interests for display as chips on the Sources
+ * surface — `user_interest_profile` embedded with the joined `interests` node.
+ * Owner-scoped under RLS (the browser client carries the session). A signed-out
+ * read returns `[]` (the chips simply don't render) rather than throwing, since
+ * the Sources surface must still paint for an anon/degraded session (Rule 12).
+ *
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns The user's interests as {@link UserInterestChip}[], roots first.
+ *
+ * @example
+ * const chips = await getUserInterests();
+ * chips[0].accentHex; // "#22C55E" for a Markets pick
+ */
+export async function getUserInterests(
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<UserInterestChip[]> {
+  const { data: authData, error: authError } = await client.auth.getUser();
+  if (authError || !authData.user) {
+    logger.info("get_user_interests_signed_out", { reason: authError?.message ?? "no_session" });
+    return [];
+  }
+
+  const { data, error } = await client
+    .from("user_interest_profile")
+    .select("interests(interest_id,interest_label,depth_level,interest_segment_slug)")
+    .eq("profile_user_id", authData.user.id)
+    .returns<UserInterestProfileRow[]>();
+
+  if (error) {
+    logger.error("get_user_interests_failed", {
+      error_message: error.message,
+      fix_suggestion: "Confirm migration 0003 applied and user_interest_profile↔interests is readable under owner RLS.",
+    });
+    return [];
+  }
+
+  const chips: UserInterestChip[] = [];
+  for (const row of data ?? []) {
+    if (!row.interests) {
+      continue;
+    }
+    const { interest_id, interest_label, depth_level, interest_segment_slug } = row.interests;
+    chips.push({
+      interestId: interest_id,
+      label: interest_label,
+      depthLevel: depth_level,
+      accentHex: interest_segment_slug ? (SEGMENT_ACCENT_HEX[interest_segment_slug] ?? null) : null,
+    });
+  }
+  // Roots (depth 0) first so the colored category chips lead the row.
+  chips.sort((a, b) => a.depthLevel - b.depthLevel);
+  logger.info("get_user_interests_completed", { total: chips.length });
+  return chips;
+}

@@ -10,7 +10,9 @@ import type { ReactElement } from "react";
 /** The icon ids carried by {@link BlipIconDefs} (`#i-<name>`). */
 export type BlipIconName =
   | "arrow"
+  | "archive"
   | "back"
+  | "bell"
   | "check"
   | "chev"
   | "close"
@@ -24,8 +26,11 @@ export type BlipIconName =
   | "save"
   | "search"
   | "send"
+  | "settings"
   | "share"
+  | "sources"
   | "spark"
+  | "today"
   | "undo"
   | "voice"
   | "x";

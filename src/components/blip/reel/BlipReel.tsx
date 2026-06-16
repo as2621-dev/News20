@@ -33,16 +33,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // shipped without it, leaving every blip-flow-classed surface unstyled. Import it
 // here in the reel's root client component so the reel is self-sufficient.
 import "@/styles/blip-flow.css";
+import type { LibraryTab } from "@/components/app/TabBar";
 import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
 import { ArticleLayer } from "@/components/blip/reel/ArticleLayer";
 import { AskSheet, type AskSheetMode } from "@/components/blip/reel/AskSheet";
 import { ReelStage } from "@/components/blip/reel/ReelStage";
 import { ReelToast } from "@/components/blip/reel/ReelToast";
-import { SettingsLayer } from "@/components/blip/reel/SettingsLayer";
 import { AllCaughtUp } from "@/components/reel/AllCaughtUp";
 import { LoadingSkeleton } from "@/components/reel/LoadingSkeleton";
 import { ReelError } from "@/components/reel/ReelError";
 import { TapToStart } from "@/components/reel/TapToStart";
+import { fetchPrimarySourceArticleUrl } from "@/lib/detail/fetchStoryDetail";
 import { getReelFeed } from "@/lib/feed";
 import { getFollowedStoryIds, toggleFollow } from "@/lib/follows";
 import { logger } from "@/lib/logger";
@@ -50,25 +51,37 @@ import { useActiveStoryObserver } from "@/lib/reel/gestures";
 import { computePreloadIndices } from "@/lib/reel/preload";
 import { nextReelStatus, type ReelStatus } from "@/lib/reel/reelStatus";
 import type { NextReelState } from "@/lib/reel/useReelAudio";
+import { shareStory } from "@/lib/share";
 import type { Story } from "@/types/feed";
 
 /**
  * Which overlay is open over the active story, if any.
  * - `{ kind: "sheet", mode }` — the ask sheet (type or voice composer).
  * - `{ kind: "article" }`     — the full-article layer (tap-headline).
- * - `{ kind: "account" }`     — the settings layer (tap the blip wordmark).
  * - `null`                    — the bare reel.
+ *
+ * Settings is no longer a reel overlay — it is a library tab owned by {@link AppShell};
+ * the blip wordmark now opens the library at the Settings tab via `onOpenLibrary`.
  */
-type Overlay = { kind: "sheet"; mode: AskSheetMode } | { kind: "article" } | { kind: "account" } | null;
+type Overlay = { kind: "sheet"; mode: AskSheetMode } | { kind: "article" } | null;
 
 /** How long the follow confirmation toast stays visible (ms). */
 const REEL_TOAST_DURATION_MS = 1800;
+
+export interface BlipReelProps {
+  /** Which day's briefing to load (ISO `YYYY-MM-DD`); omitted → today. */
+  feedDate?: string;
+  /** True while a library surface (Archive/Sources/Settings) covers the reel — pauses narration. */
+  isLibraryOpen?: boolean;
+  /** Open the 4-tab library at a given surface (the blip wordmark opens it at Settings). */
+  onOpenLibrary?: (tab: LibraryTab) => void;
+}
 
 /**
  * Mount the Stage-4 reel: load the feed, wire the status machine + audio unlock +
  * save/follow, and render the dark reel with the ask sheet + article singletons.
  */
-export function BlipReel() {
+export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: BlipReelProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   // Imperative play handle for the ACTIVE story so the TapToStart overlay can
   // start playback SYNCHRONOUSLY inside its tap gesture (iOS audio unlock).
@@ -115,10 +128,10 @@ export function BlipReel() {
   // The active story + the next 1–2 (preload window) get <audio preload="auto">.
   const preloadIndexSet = new Set<number>([activeIndex, ...computePreloadIndices(activeIndex, stories.length)]);
 
-  /** Load (or reload) the feed. Success → `tapstart`; failure → `error`. */
+  /** Load (or reload) the feed for the active day. Success → `tapstart`; failure → `error`. */
   const loadFeed = useCallback((): (() => void) => {
     let isMounted = true;
-    getReelFeed()
+    getReelFeed(feedDate)
       .then((loadedStories) => {
         if (!isMounted) {
           return;
@@ -140,7 +153,7 @@ export function BlipReel() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [feedDate]);
 
   useEffect(() => loadFeed(), [loadFeed]);
 
@@ -273,18 +286,52 @@ export function BlipReel() {
     [followedDigestIds, showToast],
   );
 
+  /**
+   * Per-story source-URL cache for the Share button — a share tap lazily
+   * fetches the story's primary article URL once; repeat taps reuse it.
+   */
+  const sourceUrlByStoryIdRef = useRef<Map<string, string | null>>(new Map());
+
+  /** Share a story: headline + lazily-fetched source article URL (headline-only on miss). */
+  const shareStoryForDigest = useCallback(
+    (story: Story): void => {
+      const cachedArticleUrl = sourceUrlByStoryIdRef.current.get(story.digest_id);
+      const resolveArticleUrl =
+        cachedArticleUrl !== undefined
+          ? Promise.resolve(cachedArticleUrl)
+          : fetchPrimarySourceArticleUrl(story.digest_id).then((articleUrl) => {
+              sourceUrlByStoryIdRef.current.set(story.digest_id, articleUrl);
+              return articleUrl;
+            });
+      void resolveArticleUrl
+        .then((articleUrl) => shareStory({ headline: story.headline, articleUrl }))
+        .then((outcome) => {
+          if (outcome === "copied") {
+            showToast("Link copied");
+          }
+        });
+    },
+    [showToast],
+  );
+
   // ---- overlay open/close (the Stage-4 ask + article plumbing) ----
   const openType = useCallback((): void => setOverlay({ kind: "sheet", mode: "type" }), []);
   const openVoice = useCallback((): void => setOverlay({ kind: "sheet", mode: "voice" }), []);
   const openArticle = useCallback((): void => setOverlay({ kind: "article" }), []);
-  const openAccount = useCallback((): void => setOverlay({ kind: "account" }), []);
+  // The blip wordmark opens the library at the Settings tab (was a reel overlay).
+  const openAccount = useCallback((): void => onOpenLibrary?.("settings"), [onOpenLibrary]);
   const closeOverlay = useCallback((): void => setOverlay(null), []);
 
+  // The reel pauses narration both for its own overlays AND while a library surface covers it.
   const isOverlayOpen = overlay !== null;
+  const isReelCovered = isOverlayOpen || isLibraryOpen;
   // Cascade the active story's accent onto the singletons so their seg-dots/halos match.
   const accentStyle: CSSProperties | undefined = currentStory
     ? ({ "--accent": currentStory.segment_accent_hex } as CSSProperties)
     : undefined;
+
+  // Per-story category accents (feed order) — each top progress segment paints its own colour.
+  const segmentAccents = stories.map((story) => story.segment_accent_hex);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
@@ -300,16 +347,18 @@ export function BlipReel() {
             story={story}
             storyIndex={storyIndex}
             storyCount={stories.length}
+            segmentAccents={segmentAccents}
             isActive={storyIndex === activeIndex}
             isAudioUnlocked={isAudioUnlocked}
             shouldPreload={preloadIndexSet.has(storyIndex)}
-            isOverlayOpen={isOverlayOpen}
+            isOverlayOpen={isReelCovered}
             onRegisterActivePlay={registerActiveStoryPlay}
             onAudioEnded={handleAudioEnded}
             isSaved={savedDigestIds.has(story.digest_id)}
             isFollowed={followedDigestIds.has(story.digest_id)}
             onToggleSave={() => toggleSavedForStory(story.digest_id)}
             onToggleFollow={() => toggleFollowedForStory(story.digest_id)}
+            onShare={() => shareStoryForDigest(story)}
             onOpenType={openType}
             onOpenVoice={openVoice}
             onOpenArticle={openArticle}
@@ -339,9 +388,6 @@ export function BlipReel() {
             onOpenArticle={openArticle}
           />
         ) : null}
-      </div>
-      <div className={`layer-settings${overlay?.kind === "account" ? " on" : ""}`}>
-        {overlay?.kind === "account" ? <SettingsLayer onClose={closeOverlay} /> : null}
       </div>
       <div className={`layer-article${overlay?.kind === "article" ? " on" : ""}`} style={accentStyle}>
         {overlay?.kind === "article" && currentStory ? (

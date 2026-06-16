@@ -236,6 +236,111 @@ export async function getUserSources(
 }
 
 /**
+ * Read the authed user's followed sources joined with their catalog details, for
+ * display (the Settings "Sources you're following" list). Composes
+ * {@link getUserSources} (the owner-scoped follow junction) with a public-read
+ * {@link CONTENT_SOURCES_TABLE} fetch of those `source_id`s, dropping any
+ * `priority='off'` (muted) follow and ordering by `popularity_score desc` to match
+ * the catalog browse.
+ *
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns The followed {@link ContentSource} rows (name, avatar, type, tags).
+ * @throws If unauthenticated or either read fails (surfaced — Rule 12).
+ *
+ * @example
+ * const mine = await getFollowedSources();
+ * mine[0].source_name; // the most popular source the user follows
+ */
+export async function getFollowedSources(
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<ContentSource[]> {
+  const follows = await getUserSources(client);
+  const followedIds = follows.filter((follow) => follow.source_priority !== "off").map((follow) => follow.source_id);
+  if (followedIds.length === 0) {
+    logger.info("get_followed_sources_completed", { returned: 0, reason: "no_active_follows" });
+    return [];
+  }
+
+  const { data, error } = await client
+    .from(CONTENT_SOURCES_TABLE)
+    .select(CONTENT_SOURCE_COLUMNS)
+    .in("source_id", followedIds)
+    .order("popularity_score", { ascending: false })
+    .returns<ContentSource[]>();
+
+  if (error) {
+    logger.error("get_followed_sources_failed", {
+      error_message: error.message,
+      fix_suggestion: "Confirm migration 0009 applied and content_sources allows the read.",
+    });
+    throw new Error(
+      `Failed to read followed sources: ${error.message}. ` +
+        "fix_suggestion: confirm migration 0009 applied and content_sources is readable.",
+    );
+  }
+
+  const rows = data ?? [];
+  logger.info("get_followed_sources_completed", { returned: rows.length });
+  return rows;
+}
+
+/** A followed source joined with its 3-state ingestion priority (for the Sources surface). */
+export interface FollowedSourceWithPriority extends ContentSource {
+  /** The follow's `source_priority` — `off` renders as "Paused", anything else as "Active". */
+  source_priority: SourcePriority;
+}
+
+/**
+ * Read the authed user's followed sources joined with their catalog details AND
+ * their follow priority — UNLIKE {@link getFollowedSources}, this KEEPS `off`
+ * (paused) follows so the "Sources · What you follow" surface can render them with
+ * a working active/paused toggle. Composes {@link getUserSources} (the priorities)
+ * with a public-read catalog fetch of every followed `source_id`.
+ *
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns The followed sources (incl. paused) with their `source_priority`, popularity-ordered.
+ * @throws If unauthenticated or either read fails (surfaced — Rule 12).
+ *
+ * @example
+ * const mine = await getFollowedSourcesWithPriority();
+ * mine.filter((s) => s.source_priority !== "off"); // the active ones
+ */
+export async function getFollowedSourcesWithPriority(
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<FollowedSourceWithPriority[]> {
+  const follows = await getUserSources(client);
+  if (follows.length === 0) {
+    return [];
+  }
+  const priorityBySourceId = new Map<string, SourcePriority>(
+    follows.map((follow) => [follow.source_id, follow.source_priority]),
+  );
+
+  const { data, error } = await client
+    .from(CONTENT_SOURCES_TABLE)
+    .select(CONTENT_SOURCE_COLUMNS)
+    .in("source_id", [...priorityBySourceId.keys()])
+    .order("popularity_score", { ascending: false })
+    .returns<ContentSource[]>();
+
+  if (error) {
+    logger.error("get_followed_sources_with_priority_failed", {
+      error_message: error.message,
+      fix_suggestion: "Confirm migration 0009 applied and content_sources allows the read.",
+    });
+    throw new Error(
+      `Failed to read followed sources: ${error.message}. ` +
+        "fix_suggestion: confirm migration 0009 applied and content_sources is readable.",
+    );
+  }
+
+  return (data ?? []).map((source) => ({
+    ...source,
+    source_priority: priorityBySourceId.get(source.source_id) ?? DEFAULT_SOURCE_PRIORITY,
+  }));
+}
+
+/**
  * Follow a source for the authed user: upsert one owner-scoped
  * `user_content_sources` row. Idempotent against the `(user_id, source_id)` PK —
  * re-following an already-followed source is a no-op write (no duplicate row).

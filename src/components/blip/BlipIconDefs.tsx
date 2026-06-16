@@ -215,6 +215,52 @@ export function BlipIconDefs() {
             strokeLinecap="round"
           />
         </symbol>
+        {/* Tab-bar glyphs (App Surfaces design sprite) — Today/Archive/Sources/Settings + bell. */}
+        <symbol id="i-today" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.7" />
+          <path
+            d="M12 7v5l3.5 2"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </symbol>
+        <symbol id="i-archive" viewBox="0 0 24 24">
+          <path
+            d="M4 7h16M5.5 7l.7-2.5A1 1 0 0 1 7.2 3.7h9.6a1 1 0 0 1 1 .8L18.5 7M6 7v11.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V7M10 11h4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </symbol>
+        <symbol id="i-sources" viewBox="0 0 24 24">
+          <path d="M4 7h9M19 7h1M4 17h1M11 17h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="16" cy="7" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <circle cx="8" cy="17" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+          <path
+            d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </symbol>
+        <symbol id="i-bell" viewBox="0 0 24 24">
+          <path
+            d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6ZM9.5 20a2.5 2.5 0 0 0 5 0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </symbol>
       </defs>
     </svg>
   );
