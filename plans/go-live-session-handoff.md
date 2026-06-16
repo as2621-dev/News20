@@ -6,37 +6,27 @@ records what actually shipped, the live facts, and the environment gotchas.
 
 ---
 
-## ▶ RESUME HERE (updated 2026-06-07) — finish 4c-SP1, then it's enrollment-gated
+## ▶ RESUME HERE (updated 2026-06-07) — 4c-SP1 DONE; next is enrollment-gated or 4a-SP4/5d
 
-**Where the last session stopped:** mid-4c-SP1. Xcode is now installed and the
-native `ios/` project has just been **generated** (`npx cap add ios --packagemanager
-SPM`). It has NOT yet been synced, compiled, or verified. Resume with these 4 steps:
+**4c-SP1 is complete and simulator-verified** (2026-06-07, on this Mac — no longer needs a
+"cloud Mac"). What was done & verified this session:
+- `npm run build && npx cap sync ios` → web export copied into `ios/App/App/public`,
+  `Package.swift` written; SwiftPM resolved **capacitor-swift-pm @ 8.4.0** (`Package.resolved`).
+- **Gotcha that cost a step:** Xcode 26.3 shipped the SDK but **no iOS simulator runtime** —
+  first build failed with "iOS 26.2 is not installed". Fix: `xcodebuild -downloadPlatform iOS`
+  (Apple **public CDN** — needs NO developer-portal agreement, unlike `xcodes install`).
+  Installed **iOS 26.3 (26.3.1)** runtime → iPhone 17/Air/16e sims now available.
+- `xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination
+  'generic/platform=iOS Simulator' build` → **`** BUILD SUCCEEDED **`** (codesigned
+  "Sign to Run Locally" — no Apple account needed for sim).
+- Booted iPhone 17 (iOS 26.3), `simctl install` + `simctl launch com.blip.app` → app runs;
+  the **4b-SP2 auth gate** correctly routes the signed-out user to the dark Blip onboarding
+  ("30 stories. 30 minutes. Caught up." + Get started + EMAIL SIGN-IN). Web→native verified.
+- **Minor cosmetic finding (iOS polish, not a blocker):** the "blip" wordmark is clipped
+  behind the status bar / Dynamic Island — top safe-area inset needs `viewport-fit=cover`
+  + `env(safe-area-inset-top)` padding.
 
-```bash
-# 0. (sanity) confirm the toolchain — should print Xcode 26.3 + iphonesimulator26.2
-xcodebuild -version && xcodebuild -showsdks | grep iphonesimulator
-
-# 1. sync the fresh web export into the native shell (SPM project, NO CocoaPods)
-npm run build && npx cap sync ios
-
-# 2. compile for the simulator — SPM means App.xcodeproj, there is NO .xcworkspace.
-#    First build resolves Swift packages (brief network). No signing needed for sim.
-xcodebuild -project ios/App/App.xcodeproj -scheme App \
-  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
-
-# 3. on a clean BUILD SUCCEEDED, commit the generated project (heavy bits gitignored)
-git add ios && git commit -m "build(ios): generate native iOS project + simulator build (4c-SP1)"
-```
-
-- The `ios/` dir is **already committed as a WIP checkpoint** (see this session's
-  commit) so it's durable — step 3 above only re-commits if `cap sync`/the build
-  changes tracked files. If the build is clean as-is, just flip 4c-SP1 to ✅ here.
-- **Build command note:** SPM generated `ios/App/App.xcodeproj` (+ `ios/App/CapApp-SPM`).
-  There is **no `.xcworkspace`** (that's a CocoaPods artifact). Use `-project … App.xcodeproj`.
-- `.gitignore` already swallows the heavy native artifacts (`ios/App/App/public`,
-  `ios/App/build`, `ios/DerivedData`, `*.xcuserstate`); `git add ios` stages ~19 files.
-
-**After 4c-SP1 is green, what's blocked vs not:**
+**What's blocked vs not (unchanged):**
 - **4c-SP2 (signing) / SP3 (device) / SP4 (TestFlight)** — BLOCKED on Apple Developer
   **enrollment** (submitted 2026-06-06, pending 24–48h → expect ~06-07/06-08). A
   *simulator* build needs none of this; a *device/TestFlight* build does.
@@ -74,7 +64,7 @@ sessions share this tree — **commit only your own paths**; foreign dirty files
 | 4a-SP3 | Live batch (enrichment ON) | ⏸️ DEFERRED → runs on Railway cron (4a-SP4) |
 | 4a-SP4 | Deploy Trigger.dev daily cron | ⬜ NOT started — **runs the real batch** |
 | 4b | Wire SPA to live | ✅ SP1+SP2+SP3 done (SP4 moot); **SP2 auth gate shipped** |
-| 4c-SP1 | Capacitor scaffold (simulator) | 🔄 config ✅ + Xcode 26.3 in + `ios/` generated; **`cap sync`+`xcodebuild` verify pending** (see RESUME HERE) |
+| 4c-SP1 | Capacitor scaffold (simulator) | ✅ DONE + simulator-verified (BUILD SUCCEEDED + app launches + onboarding renders on iPhone 17 / iOS 26.3) |
 | 5d | Source ingestion (YT/podcast/xAI-X) | ⬜ NOT started (in v1) |
 | 4c-SP2..4 | Signing + device + TestFlight | ⛔ BLOCKED on Apple enrollment |
 | review | App Store review pack + submit | ⬜ NOT started |

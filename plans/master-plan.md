@@ -94,6 +94,7 @@ Source of truth: `prototype/` (runnable prototype + `ui-design-decisions.md` + `
 - **M4 — App Store ship:** TestFlight build, polish, accuracy/guardrail review, App Store submission. *True when:* the app is live and the 3x/week metric is instrumented.
 - **M5 — Two-axis personalization (sources + control surface):** the recursive interest picker (topics/entities, arbitrary depth) replaces the M1 chip onboarding; a **sources axis** (YouTube/podcast/X/personalities) with archetype-mapped recommendations + search-add; ingestion of followed sources into the 30-story pool; and the **control surface** (master dial, per-source priority, 30-cell allocation ribbon with live preview, presets, pinned-sources-fill-first). *True when:* a user can follow topics **and** sources, see followed-source content in the feed, and rebalance the 30 slots between "my sources" and discovery. *(Added 2026-06-04. Moves YouTube/podcast ingestion in from Out-of-scope. ⚠ Picker placement undecided — the recursive picker may be pulled into M1 as an onboarding upgrade; pending owner call.)*
 - **M6 — Discovery agent & learned ordering:** a community-signal **research agent** keeps per-archetype source lists fresh (crawl Reddit/X/podcast directories), and feed **ordering** moves from manual to engagement-learned (watch-completion + questions + follow/unfollow — **not** gestures). *True when:* newly-rising voices surface into recommendations without manual curation, and per-user feed order adapts to engagement. *(Added 2026-06-04.)*
+- **M7 — Production feed automation & first-run onboarding feed:** the Python pipeline becomes callable over authenticated HTTP from the Railway worker; a newly-onboarded user immediately gets a (partial-allowed) feed built from the existing catalog with a "past 24 hours — n/30" banner and the finite "see you tomorrow with your 30" end screen; a **deployed midnight-ET Trigger.dev schedule** runs the daily pipeline via HTTP with a 24h ingest window and a 05:00 ET safety-net readiness cron. *True when:* the daily feed is produced automatically every midnight ET without a manual script run, and a brand-new user sees a usable feed the moment onboarding finishes. *(Added 2026-06-16. Decisions: midnight=America/New_York; TS→Python seam = HTTP to Railway worker; image gating = instant-only first, Gemini Batch deferred to Phase 7d.)*
 
 ## Phases
 
@@ -136,6 +137,14 @@ Source of truth: `prototype/` (runnable prototype + `ui-design-decisions.md` + `
 ### M6 — Discovery agent & learned ordering — **CUT 2026-06-06** (both phase files deleted)
 - ~~Phase 6 — Community-signal research agent (crawl→extract→resolve→idempotent upsert into `content_sources`/`personalities`; v4 cron)~~ **CUT** — owner wants curated, profile-keyed recs + cross-medium people-tracking (a Phase 5d ingestion concern), not a Reddit/X rising-source crawler.
 - ~~Phase 6b — Learned ordering from watch-completion + questions + follow/unfollow~~ **CUT** — "Build your 30, in order" is deliberately manual; within-bucket story ranking already comes from 5a's entity-aware Score. (Also depended on the now-removed Phase 5e.)
+
+### M7 — Production feed automation & first-run onboarding feed
+> Generated 2026-06-16 (`/plan-phases`); each phase has 4 sub-phases + a 3-lens self-critique. Decisions: midnight=America/New_York; TS→Python seam = HTTP to Railway worker; image gating = instant-only first.
+- [Phase 7](phase-7-pipeline-http-seam.md) — Expose the pipeline over authenticated HTTP on the Railway worker: `POST /pipeline/daily` (background `202`) + `POST /feed/assemble-for-user` (single-user, partial-friendly, idempotent). *(Keystone — 7b + 7c depend on it.)*
+- [Phase 7b](phase-7b-onboarding-first-run-feed.md) — Onboarding first-run feed from the existing catalog (partial 24/30 allowed) + "past 24 hours — n/30" reel banner + "see you tomorrow with your 30" end-screen copy.
+- [Phase 7c](phase-7c-midnight-trigger-automation.md) — Deployed midnight-ET Trigger.dev schedule → HTTP to worker, ingest window 48h→24h, + 05:00 ET safety-net readiness cron.
+- [Phase 7d](phase-7d-batch-image-instant-gate.md) — **DEFERRED** — Gemini Batch poster submission + `poster_status` + 05:00 ET synchronous instant-fallback gate. Build after the midnight trigger is live.
+- _Suggested order: **Phase 7 first** (keystone), then **Phase 7b ∥ Phase 7c** (both depend on Phase 7's endpoints), then **Phase 7d** later (deferred)._
 
 ## Riskiest assumption (from brief) and how we test it
 
