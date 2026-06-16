@@ -73,3 +73,12 @@ ios/.gradle/
 reference/blip-*.json
 *.iam.gserviceaccount.com.json
 gcp-*-key.json
+
+# ─── Go-live E2E run state — test credentials + Chrome profiles (never commit) ───
+.agents/e2e/state/
+
+# ─── Generated poster candidates — scratch output of the m0 pipeline (~200M) ───
+assets/m0/cand-*/
+
+# ─── Fastlane generated test report ───
+fastlane/report.xml
