@@ -22,6 +22,7 @@
 import "@/styles/blip-flow.css";
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
+import { assembleFirstRunFeed, markFirstRunFeed, todayUtcFeedDate } from "@/lib/feed/assembleFirstRunFeed";
 import { getUserFeedAllocation, saveUserFeedAllocation } from "@/lib/feedAllocation";
 import {
   ALLOCATION_TOTAL,
@@ -272,6 +273,22 @@ export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets }: BuildYo
         persisted_count: result.persisted_count,
         deferred_count: result.deferred_buckets.length,
       });
+      // First-run feed assembly: build the just-onboarded user's feed from the
+      // existing catalog so they land on a populated reel (Phase 7b SP2). This is
+      // NON-FATAL — a worker outage must not block finishing onboarding, so any
+      // failure is swallowed and we still route to the reel (global-feed fallback).
+      // The per-date first-run flag is persisted ONLY on success (SP3 reads it).
+      const feedDate = todayUtcFeedDate();
+      try {
+        const assembled = await assembleFirstRunFeed(feedDate);
+        markFirstRunFeed(feedDate);
+        logger.info("build_your_30_first_run_assembled", { allocated_count: assembled.allocated_count });
+      } catch (assembleError) {
+        logger.warn("build_your_30_first_run_assemble_failed", {
+          error_message: assembleError instanceof Error ? assembleError.message : "unknown",
+          fix_suggestion: "Non-fatal; routing to the global feed. Confirm the worker /feed/assemble-mine is reachable.",
+        });
+      }
       onDone(segments.map((segment) => ({ bucketId: segment.bucketId, count: segment.count })));
     } catch (error) {
       // A persist failure must not silently swallow the user's work (Rule 12). Re-enable the

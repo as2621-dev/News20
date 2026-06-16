@@ -28,7 +28,15 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    status,
+)
 from pydantic import BaseModel, Field
 
 from agents.shared.logger import get_logger
@@ -44,6 +52,12 @@ _INTEREST_COLS = (
     "interest_id,parent_interest_id,interest_slug,interest_label,depth_level,"
     "interest_segment_slug,interest_search_query"
 )
+
+# Reason: this ONE route authenticates with the caller's own Supabase JWT (its own
+# dependency), NOT the shared service-role secret — so the router-wide pipeline-token
+# guard must EXEMPT exactly this path (see ``require_pipeline_token`` + the Phase 7b
+# CSO note: the shared secret must never reach a browser/app client).
+_ASSEMBLE_MINE_PATH = "/feed/assemble-mine"
 
 
 def _build_service_role_supabase() -> Any:
@@ -66,7 +80,103 @@ def _build_service_role_supabase() -> Any:
     )
 
 
-def require_pipeline_token(authorization: str | None = Header(default=None)) -> None:
+def _build_supabase_for_auth() -> Any:
+    """Construct the Supabase client used to VERIFY a caller's access token.
+
+    Built the SAME way as :func:`_build_service_role_supabase` (so tests patch ONE
+    seam) — ``supabase.auth.get_user(jwt)`` validates the JWT explicitly passed to it
+    against Supabase's GoTrue auth server, so the client's own key only needs to reach
+    that endpoint; the verified identity comes from the token, never the client. The
+    import is lazy to keep the worker's cold-start import graph small. Secrets are
+    never logged.
+
+    Returns:
+        A configured Supabase client used only for ``auth.get_user(token)``.
+    """
+    from supabase import create_client
+
+    return create_client(
+        os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    )
+
+
+def verify_supabase_user(authorization: str | None = Header(default=None)) -> str:
+    """FastAPI auth dependency: verify the caller's Supabase JWT, return their user_id.
+
+    Reads the ``Authorization: Bearer <supabase_jwt>`` header and validates it with
+    ``supabase.auth.get_user(token)`` (which checks the token against Supabase's auth
+    server). A missing header, a non-``Bearer`` scheme, an empty / invalid / expired
+    token, or a response with no user → HTTP 401. The returned ``user_id`` is taken
+    ONLY from the verified token's user — NEVER from the request body — so a caller
+    cannot assemble another user's feed (the Phase 7b CSO requirement).
+
+    Args:
+        authorization: The raw ``Authorization`` request header, if present.
+
+    Returns:
+        The verified Supabase ``user.id`` for the caller.
+
+    Raises:
+        HTTPException: HTTP 401 when the bearer token is missing, malformed, expired,
+            or otherwise rejected by Supabase auth.
+    """
+    presented_token = ""
+    if authorization and authorization.startswith("Bearer "):
+        presented_token = authorization[len("Bearer ") :].strip()
+
+    if not presented_token:
+        logger.warning(
+            "assemble_mine_auth_missing_token",
+            error_code="assemble_mine_auth_missing_token",
+            error_message="Missing bearer access token on /feed/assemble-mine",
+            fix_suggestion="Send 'Authorization: Bearer <supabase_access_token>'.",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        supabase = _build_supabase_for_auth()
+        auth_response = supabase.auth.get_user(presented_token)
+    except Exception as exc:  # noqa: BLE001 — any verification error is an auth failure.
+        # Reason: an invalid / expired token makes supabase-py raise; treat ANY
+        # verification failure as 401 (never a 500) so a bad token can't probe the
+        # worker, and never leak the underlying auth error to the caller.
+        logger.warning(
+            "assemble_mine_auth_rejected",
+            error_code="assemble_mine_auth_rejected",
+            error_message=str(exc),
+            fix_suggestion="Send a current, valid Supabase access token for the signed-in user.",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    verified_user = getattr(auth_response, "user", None)
+    verified_user_id = getattr(verified_user, "id", None) if verified_user else None
+    if not verified_user_id:
+        logger.warning(
+            "assemble_mine_auth_no_user",
+            error_code="assemble_mine_auth_no_user",
+            error_message="Supabase auth.get_user returned no user for the token",
+            fix_suggestion="Send a current, valid Supabase access token for the signed-in user.",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return str(verified_user_id)
+
+
+def require_pipeline_token(
+    request: Request, authorization: str | None = Header(default=None)
+) -> None:
     """FastAPI auth dependency: require a correct ``Bearer`` pipeline token.
 
     Reads the expected secret from the shared :class:`Settings`
@@ -76,7 +186,15 @@ def require_pipeline_token(authorization: str | None = Header(default=None)) -> 
     comparison uses :func:`hmac.compare_digest` so a wrong guess cannot be probed
     by timing.
 
+    The JWT-scoped ``/feed/assemble-mine`` route is EXEMPT from this shared-secret
+    guard: it carries its own per-request :func:`verify_supabase_user` dependency, so
+    the client can call it with the user's own access token and never needs the shared
+    ``PIPELINE_TRIGGER_SECRET`` (Phase 7b CSO requirement). This guard short-circuits
+    for that exact path and lets the route's own JWT dependency do the auth.
+
     Args:
+        request: The incoming request (used only to read the target path for the
+            JWT-scoped exemption above).
         authorization: The raw ``Authorization`` request header, if present.
 
     Raises:
@@ -84,6 +202,12 @@ def require_pipeline_token(authorization: str | None = Header(default=None)) -> 
             HTTP 500 when the worker has no ``PIPELINE_TRIGGER_SECRET`` configured
             (an unconfigured guard is a deploy error, not an auth failure — fail loud).
     """
+    if request.url.path == _ASSEMBLE_MINE_PATH:
+        # Reason: this route authenticates with the caller's Supabase JWT via its own
+        # dependency — the shared-secret guard must NOT apply, or the client would
+        # have to ship the service-role secret (the exact thing the CSO flagged).
+        return
+
     expected_token = Settings().pipeline_trigger_secret.get_secret_value()
     if not expected_token:
         # Reason: an empty configured secret would let ANY token through — refuse to
@@ -190,6 +314,24 @@ class AssembleFeedResponse(BaseModel):
         ..., ge=0, description="Stories allocated/written to the feed."
     )
     feed_total: int = Field(..., ge=0, description="Target feed size (slot budget).")
+
+
+class AssembleMineRequest(BaseModel):
+    """Body for ``POST /feed/assemble-mine`` — build the CALLER's own feed.
+
+    The user identity is derived from the verified Supabase access token (see
+    :func:`verify_supabase_user`), NEVER from this body — so the body carries ONLY
+    the optional feed date. There is intentionally NO ``user_id`` field here: a
+    caller cannot ask to assemble someone else's feed.
+
+    Attributes:
+        feed_date: The feed date to assemble for. Defaults to today (UTC) when omitted.
+    """
+
+    feed_date: date | None = Field(
+        default=None,
+        description="Feed date to assemble for (defaults to today UTC when omitted).",
+    )
 
 
 async def _run_daily(
@@ -784,6 +926,72 @@ async def post_feed_assemble_for_user(
             "feed_assemble_for_user_failed",
             user_id=request.user_id,
             feed_date=request.feed_date.isoformat(),
+            error_message=str(exc),
+            fix_suggestion=(
+                "Check SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY on the worker and that "
+                "stories/digests/story_interests are seeded for the ready pool."
+            ),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to assemble the user's feed",
+        ) from exc
+
+    return AssembleFeedResponse(allocated_count=allocated_count, feed_total=feed_total)
+
+
+@router.post(
+    _ASSEMBLE_MINE_PATH,
+    response_model=AssembleFeedResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def post_feed_assemble_mine(
+    request: AssembleMineRequest,
+    verified_user_id: str = Depends(verify_supabase_user),
+) -> AssembleFeedResponse:
+    """Assemble + write the CALLER's OWN feed, scoped by their Supabase JWT (Phase 7b).
+
+    Unlike :func:`post_feed_assemble_for_user` (the service-role, shared-secret seam),
+    this route is safe to call directly from the SPA / Capacitor client: it is
+    authenticated by the caller's own Supabase access token via
+    :func:`verify_supabase_user` and is EXEMPT from the router-wide shared-secret guard
+    (see :func:`require_pipeline_token`). The ``user_id`` is taken ONLY from the
+    verified token — the request body carries no ``user_id`` field, so a caller cannot
+    assemble another user's feed. The body's only field is an optional ``feed_date``
+    (defaults to today UTC). It then runs the SAME :func:`_assemble_for_user` as the
+    service-role route and returns the SAME :class:`AssembleFeedResponse`.
+
+    Args:
+        request: The :class:`AssembleMineRequest` body (optional feed date only).
+        verified_user_id: The caller's user id, injected from the verified JWT.
+
+    Returns:
+        An :class:`AssembleFeedResponse` with the allocated count + target feed size.
+
+    Raises:
+        HTTPException: 401 (from :func:`verify_supabase_user`) on a missing/invalid
+            token; 404 when the verified user has no interest profile; 500 on an
+            unexpected assembly/persistence failure (logged with a fix_suggestion).
+    """
+    feed_date = request.feed_date or datetime.now(timezone.utc).date()
+    try:
+        allocated_count, feed_total = await _assemble_for_user(
+            verified_user_id, feed_date
+        )
+    except LookupError as exc:
+        # Reason: an unknown user (no interest profile) is a 404, not a 500 — the
+        # verified caller has not onboarded (no interests picked yet).
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No interest profile for the authenticated user",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001 — log loudly, then surface as 500.
+        # Reason: a failure here must surface (Rule 12), never be swallowed into a
+        # misleading 200 with an empty feed.
+        logger.error(
+            "feed_assemble_mine_failed",
+            user_id=verified_user_id,
+            feed_date=feed_date.isoformat(),
             error_message=str(exc),
             fix_suggestion=(
                 "Check SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY on the worker and that "

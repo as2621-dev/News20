@@ -37,6 +37,7 @@ import type { LibraryTab } from "@/components/app/TabBar";
 import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
 import { ArticleLayer } from "@/components/blip/reel/ArticleLayer";
 import { AskSheet, type AskSheetMode } from "@/components/blip/reel/AskSheet";
+import { FirstRunBanner } from "@/components/blip/reel/FirstRunBanner";
 import { ReelStage } from "@/components/blip/reel/ReelStage";
 import { ReelToast } from "@/components/blip/reel/ReelToast";
 import { AllCaughtUp } from "@/components/reel/AllCaughtUp";
@@ -52,7 +53,7 @@ import { computePreloadIndices } from "@/lib/reel/preload";
 import { nextReelStatus, type ReelStatus } from "@/lib/reel/reelStatus";
 import type { NextReelState } from "@/lib/reel/useReelAudio";
 import { shareStory } from "@/lib/share";
-import type { Story } from "@/types/feed";
+import type { ReelFeedMeta, Story } from "@/types/feed";
 
 /**
  * Which overlay is open over the active story, if any.
@@ -88,6 +89,8 @@ export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: Bli
   const activeStoryPlayRef = useRef<(() => Promise<void>) | null>(null);
 
   const [stories, setStories] = useState<Story[]>([]);
+  // Partial / first-run meta for the day-one banner (null until the feed resolves).
+  const [feedMeta, setFeedMeta] = useState<ReelFeedMeta | null>(null);
   const [reelStatus, setReelStatus] = useState<ReelStatus>("loading");
   const [isAudioUnlocked, setIsAudioUnlocked] = useState<boolean>(false);
   const [savedDigestIds, setSavedDigestIds] = useState<Set<string>>(() => new Set());
@@ -132,11 +135,12 @@ export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: Bli
   const loadFeed = useCallback((): (() => void) => {
     let isMounted = true;
     getReelFeed(feedDate)
-      .then((loadedStories) => {
+      .then((loadedFeed) => {
         if (!isMounted) {
           return;
         }
-        setStories(loadedStories);
+        setStories(loadedFeed.stories);
+        setFeedMeta(loadedFeed.meta);
         setReelStatus((current) => nextReelStatus(current, "feed_loaded"));
       })
       .catch((feedError: unknown) => {
@@ -333,6 +337,13 @@ export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: Bli
   // Per-story category accents (feed order) — each top progress segment paints its own colour.
   const segmentAccents = stories.map((story) => story.segment_accent_hex);
 
+  // The day-one "past 24 hours" banner shows ONLY on a first-run AND partial feed
+  // (and only until the user dismisses it — that state lives in FirstRunBanner).
+  // The dismiss flag is keyed by the SAME feed date getReelFeed resolved (UTC, today
+  // when the prop is omitted), so it matches SP2's per-date first-run flag.
+  const bannerFeedDate = feedDate ?? new Date().toISOString().slice(0, 10);
+  const shouldShowFirstRunBanner = Boolean(feedMeta?.is_first_run && feedMeta?.is_partial);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
       <BlipIconDefs />
@@ -394,6 +405,15 @@ export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: Bli
           <ArticleLayer story={currentStory} onClose={closeOverlay} onOpenType={openType} onOpenVoice={openVoice} />
         ) : null}
       </div>
+
+      {/* ---- day-one partial-feed banner (first-run + partial only; dismiss persists) ---- */}
+      {shouldShowFirstRunBanner && feedMeta ? (
+        <FirstRunBanner
+          allocatedCount={feedMeta.allocated_count}
+          feedTotal={feedMeta.feed_total}
+          feedDate={bannerFeedDate}
+        />
+      ) : null}
 
       {/* ---- follow confirmation toast ---- */}
       <ReelToast message={toastMessage} />

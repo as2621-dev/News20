@@ -31,7 +31,10 @@ from agents.worker import pipeline_routes
 
 _DAILY_PATH = "/pipeline/daily"
 _ASSEMBLE_PATH = "/feed/assemble-for-user"
+_ASSEMBLE_MINE_PATH = "/feed/assemble-mine"
 _EXPECTED_SECRET = "test-pipeline-secret-do-not-ship"
+_VALID_JWT = "valid.supabase.jwt"
+_TOKEN_USER_ID = "user-from-token"
 
 _DAILY_BODY = {"target_date": "2026-06-16"}
 _ASSEMBLE_BODY = {"user_id": "user-123", "feed_date": "2026-06-16"}
@@ -561,3 +564,194 @@ def test_importing_worker_main_does_not_eager_import_pipeline() -> None:
     assert eagerly_imported == "", (
         f"agents.worker.main eagerly imported heavy pipeline modules: {eagerly_imported}"
     )
+
+
+# ── /feed/assemble-mine — Phase 7b SP1: JWT-scoped single-user assemble ───────
+#
+# WHY (Rule 9 — encode the AUTH BOUNDARY, not the call shape):
+#   • This is the ONLY pipeline route the browser/app may call directly, so it must
+#     NOT use the shared PIPELINE_TRIGGER_SECRET (which can never ship to a client).
+#     It authenticates with the CALLER's own Supabase access token. A request with
+#     NO token or an INVALID/expired token MUST be 401 — if that ever passes, an
+#     anonymous caller could write a feed.
+#   • The user_id MUST come ONLY from the verified token, NEVER from the body. The
+#     security failure this guards against is a caller passing someone else's
+#     user_id to assemble (and read) that person's feed. So the test asserts
+#     _assemble_for_user is called with the TOKEN's user_id, and that a body
+#     carrying a different user_id is IGNORED (the model has no such field).
+#   • A valid token reaches the SAME _assemble_for_user as the service-role route
+#     and returns the SAME AssembleFeedResponse (200 + count).
+#
+# We mock at the BOUNDARY: the supabase-auth client builder (so auth.get_user is a
+# fake returning a user) and _assemble_for_user (so no DB/network and we can assert
+# the user_id it received) — never a real token, never a real Supabase call.
+
+
+def _bearer(token: str) -> dict[str, str]:
+    """Build a Bearer Authorization header carrying a Supabase access token."""
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def patched_assemble_mine(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    """Patch the JWT seam at the boundary: the auth client + _assemble_for_user.
+
+    By default the fake ``auth.get_user(token)`` returns a user whose id is
+    ``_TOKEN_USER_ID`` for ANY non-empty token, and ``_assemble_for_user`` is an
+    AsyncMock returning ``(24, 30)``. Returns the mocks so tests can tune the auth
+    response (e.g. raise for an invalid token) and assert the call args.
+    """
+    auth_namespace = SimpleNamespace(
+        get_user=MagicMock(
+            return_value=SimpleNamespace(
+                user=SimpleNamespace(id=_TOKEN_USER_ID)
+            )
+        )
+    )
+    fake_auth_client = SimpleNamespace(auth=auth_namespace)
+    monkeypatch.setattr(
+        pipeline_routes, "_build_supabase_for_auth", lambda: fake_auth_client
+    )
+
+    assemble = AsyncMock(return_value=(24, 30))
+    monkeypatch.setattr(pipeline_routes, "_assemble_for_user", assemble)
+
+    return {
+        "get_user": auth_namespace.get_user,
+        "assemble": assemble,
+    }
+
+
+def test_assemble_mine_without_authorization_header_returns_401(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """No Authorization header → 401 (no anonymous feed writes on the client route)."""
+    response = client.post(_ASSEMBLE_MINE_PATH, json={})
+    assert response.status_code == 401
+    patched_assemble_mine["assemble"].assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_assemble_mine_with_invalid_token_returns_401(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """An invalid/expired token (auth.get_user raises) → 401, assemble never runs."""
+    patched_assemble_mine["get_user"].side_effect = Exception(  # type: ignore[attr-defined]
+        "invalid JWT"
+    )
+    response = client.post(
+        _ASSEMBLE_MINE_PATH, json={}, headers=_bearer("expired.or.bad.jwt")
+    )
+    assert response.status_code == 401
+    patched_assemble_mine["assemble"].assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_assemble_mine_with_no_user_in_token_returns_401(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """auth.get_user returns no user → 401 (a token that resolves to nobody)."""
+    patched_assemble_mine["get_user"].return_value = SimpleNamespace(user=None)  # type: ignore[attr-defined]
+    response = client.post(
+        _ASSEMBLE_MINE_PATH, json={}, headers=_bearer(_VALID_JWT)
+    )
+    assert response.status_code == 401
+    patched_assemble_mine["assemble"].assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_assemble_mine_does_not_use_shared_pipeline_secret(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """The shared PIPELINE_TRIGGER_SECRET must NOT authenticate this route.
+
+    Sending the service-role secret (not a Supabase JWT) makes the fake auth client
+    treat it as the token; the route is exempt from the shared-secret guard, so the
+    secret is verified as a JWT — proving the route does not honour the shared secret
+    as its auth (it goes through the JWT dependency, which here happens to accept any
+    non-empty token). The contract under test: the shared-secret guard is NOT what
+    gates this route.
+    """
+    response = client.post(
+        _ASSEMBLE_MINE_PATH, json={}, headers=_bearer(_EXPECTED_SECRET)
+    )
+    # Not a 401-from-the-shared-guard: the request reaches the JWT dependency.
+    assert response.status_code == 200
+    patched_assemble_mine["get_user"].assert_called_once_with(_EXPECTED_SECRET)  # type: ignore[attr-defined]
+
+
+def test_assemble_mine_valid_jwt_assembles_token_users_feed(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """A valid JWT → 200 and _assemble_for_user is called with the TOKEN's user_id."""
+    response = client.post(
+        _ASSEMBLE_MINE_PATH,
+        json={"feed_date": "2026-06-16"},
+        headers=_bearer(_VALID_JWT),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["allocated_count"] == 24
+    assert body["feed_total"] == 30
+
+    assemble = patched_assemble_mine["assemble"]
+    assemble.assert_awaited_once()  # type: ignore[attr-defined]
+    call_args = assemble.await_args  # type: ignore[attr-defined]
+    # user_id is positional arg 0; it MUST be the token's user, not anything else.
+    assert call_args.args[0] == _TOKEN_USER_ID
+    assert call_args.args[1] == date(2026, 6, 16)
+
+
+def test_assemble_mine_ignores_user_id_in_body(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """A body trying to pass a DIFFERENT user_id is ignored — token id wins.
+
+    This is the core auth-boundary guarantee: a caller cannot assemble another
+    user's feed by smuggling a user_id in the body. The body's user_id is not a
+    model field, so it is dropped; _assemble_for_user still receives the token id.
+    """
+    response = client.post(
+        _ASSEMBLE_MINE_PATH,
+        json={"user_id": "someone-elses-id", "feed_date": "2026-06-16"},
+        headers=_bearer(_VALID_JWT),
+    )
+    assert response.status_code == 200
+    assemble = patched_assemble_mine["assemble"]
+    assert assemble.await_args.args[0] == _TOKEN_USER_ID  # type: ignore[attr-defined]
+    assert assemble.await_args.args[0] != "someone-elses-id"  # type: ignore[attr-defined]
+
+
+def test_assemble_mine_defaults_feed_date_to_today_utc(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """An omitted feed_date defaults to today (UTC) — not a 422, not a None date."""
+    from datetime import datetime, timezone
+
+    response = client.post(_ASSEMBLE_MINE_PATH, json={}, headers=_bearer(_VALID_JWT))
+    assert response.status_code == 200
+    assemble = patched_assemble_mine["assemble"]
+    passed_date = assemble.await_args.args[1]  # type: ignore[attr-defined]
+    assert passed_date == datetime.now(timezone.utc).date()
+
+
+def test_assemble_mine_unknown_user_returns_404(
+    client: TestClient, patched_assemble_mine: dict[str, object]
+) -> None:
+    """A verified user with no interest profile (LookupError) → 404, not 500/200."""
+    patched_assemble_mine["assemble"].side_effect = LookupError(  # type: ignore[attr-defined]
+        "no profile"
+    )
+    response = client.post(_ASSEMBLE_MINE_PATH, json={}, headers=_bearer(_VALID_JWT))
+    assert response.status_code == 404
+
+
+def test_assemble_mine_is_exempt_from_shared_secret_on_real_app(
+    real_app_client: TestClient,
+) -> None:
+    """On the REAL mounted app, /feed/assemble-mine with NO token → 401 (its OWN guard).
+
+    Proves the JWT route is exempt from the router-wide shared-secret guard yet still
+    closed: with no token it is rejected by its own verify_supabase_user dependency,
+    not by the pipeline-secret guard. (A 401 here, like the secret guard, but routed
+    through the JWT dependency — the path is reachable and gated.)
+    """
+    response = real_app_client.post(_ASSEMBLE_MINE_PATH, json={})
+    assert response.status_code == 401

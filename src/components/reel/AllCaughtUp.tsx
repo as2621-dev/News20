@@ -67,7 +67,7 @@ export function AllCaughtUp({ onReplay, storyCount = FEED_TOTAL }: AllCaughtUpPr
         </motion.h1>
 
         <motion.p variants={fadeUp} className="mt-5 font-sans text-[15px] leading-relaxed text-white/55">
-          That&rsquo;s the whole world today. No infinite scroll waiting &mdash; come back tomorrow.
+          You&rsquo;re all caught up. We&rsquo;ll see you tomorrow with your 30 stories, 30 reels.
         </motion.p>
 
         <motion.div variants={fadeUp} className="my-7 h-px w-12 bg-white/15" aria-hidden="true" />

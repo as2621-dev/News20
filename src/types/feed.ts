@@ -105,6 +105,38 @@ export interface Digest {
 }
 
 /**
+ * Day-one / partial-feed metadata for the reel (Phase 7b SP3).
+ *
+ * `getReelFeed` returns this alongside the resolved {@link Story}[] so the reel can
+ * decide whether to show the "Showing you the past 24 hours — n/30" first-run
+ * banner. `allocated_count` is the number of rows actually resolved (not a stored
+ * count); `is_partial` is derived from it vs {@link feed_total}; `is_first_run`
+ * comes from SP2's per-date `localStorage` flag (`firstRunFlagKey(feed_date)`).
+ */
+export interface ReelFeedMeta {
+  /** Number of stories actually resolved for the feed (the live row count). */
+  allocated_count: number;
+  /** The finite-briefing target (`FEED_TOTAL`, currently 30). */
+  feed_total: number;
+  /** True when fewer than `feed_total` stories resolved (`allocated_count < feed_total`). */
+  is_partial: boolean;
+  /** True when this is the user's day-one first-run feed for the shown `feed_date`. */
+  is_first_run: boolean;
+}
+
+/**
+ * The reel feed plus its {@link ReelFeedMeta} — the return shape of
+ * `getReelFeed` (Phase 7b SP3). Bundling rows + meta keeps the single seam the
+ * reel imports while exposing the partial/first-run signals the banner needs.
+ */
+export interface ReelFeedResult {
+  /** The stories to play, in feed order. */
+  stories: Story[];
+  /** Partial / first-run metadata for the day-one banner. */
+  meta: ReelFeedMeta;
+}
+
+/**
  * One reel story in canonical shape — a `stories` row joined to its current
  * `digests` row and its `segments` accent. This is what `getFeed()` returns and
  * what the reel UI renders.
