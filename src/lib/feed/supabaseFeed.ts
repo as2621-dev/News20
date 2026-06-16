@@ -28,7 +28,7 @@ import type { AnchorSpeaker, CaptionSentence, SegmentKey, Story, WordToken } fro
  * and that digest's caption sentences (with the word_tokens JSONB array).
  */
 const FEED_SELECT =
-  "story_id,story_headline,story_segment_slug," +
+  "story_id,story_headline,story_segment_slug,story_detail_category," +
   "segments(segment_label,segment_accent_hex)," +
   "digests!inner(digest_id,digest_audio_url,digest_duration_ms,digest_ambient_poster_url,digest_is_current," +
   "caption_sentences(sentence_index,anchor_speaker,sentence_text,highlight_keyword,sentence_start_ms,sentence_end_ms,word_tokens))";
@@ -73,6 +73,7 @@ interface StoryRow {
   story_id: string;
   story_headline: string;
   story_segment_slug: SegmentKey;
+  story_detail_category: string | null;
   segments: SegmentRow | SegmentRow[] | null;
   digests: DigestRow[];
 }
@@ -128,6 +129,7 @@ function mapStoryRow(row: StoryRow): Story {
     digest_id: row.story_id,
     headline: row.story_headline,
     segment_key: row.story_segment_slug,
+    story_detail_category: row.story_detail_category,
     segment_label: segment.segment_label,
     segment_accent_hex: segment.segment_accent_hex,
     anchors: deriveAnchors(captionSentences),

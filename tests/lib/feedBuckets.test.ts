@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   ALLOCATION_TOTAL,
+  ALWAYS_INCLUDED_CATEGORY_BUCKET,
   buildDefaultSegments,
+  buildSegmentsForSelectedCategories,
+  categoryBucketsFromFollows,
   DESIGN_BUCKET_IDS,
   DESIGN_BUCKET_TO_ENUM,
+  DESIGN_BUCKETS,
   type DesignBucketId,
   ENUM_TO_DESIGN_BUCKET,
   type FeedCategoryEnum,
@@ -88,5 +92,84 @@ describe("buildDefaultSegments (the seed for a user with no saved allocation)", 
     for (const segment of buildDefaultSegments()) {
       expect(DESIGN_BUCKET_IDS).toContain(segment.bucketId);
     }
+  });
+});
+
+describe("categoryBucketsFromFollows (picker selections → the category blocks to seed)", () => {
+  it("maps distinct picker roots to their category buckets (the happy path)", () => {
+    // WHY: this is the whole point of the filter — a user who picked Tech + Markets must
+    // resolve to exactly those two category buckets, so the screen seeds only those blocks.
+    const buckets = categoryBucketsFromFollows([
+      { followId: "tech/ai/llms/openai" },
+      { followId: "business/equities" },
+    ]);
+    expect(buckets).toEqual(["tech", "markets"]);
+  });
+
+  it("folds geopolitics/politics/environment into ONE 'world' bucket (deduped)", () => {
+    // WHY: three distinct picker roots map to the single World & Politics block; if they
+    // didn't collapse, the screen would seed (or try to seed) a duplicate world block.
+    const buckets = categoryBucketsFromFollows([
+      { followId: "geopolitics/elections" },
+      { followId: "politics/us-congress" },
+      { followId: "environment/climate" },
+    ]);
+    expect(buckets).toEqual(["world"]);
+  });
+
+  it("drops an unmapped root instead of mis-bucketing it (Rule 12 — the failure case)", () => {
+    // WHY: a wrong category is exactly the bug this filter removes — an unknown picker root
+    // must NOT silently resurrect a category the user didn't pick (e.g. fall through to culture).
+    const buckets = categoryBucketsFromFollows([{ followId: "tech/ai" }, { followId: "totally-unknown-root/x" }]);
+    expect(buckets).toEqual(["tech"]);
+  });
+
+  it("returns an empty array for no selections (edge — signals 'fall back to full default')", () => {
+    expect(categoryBucketsFromFollows([])).toEqual([]);
+  });
+});
+
+describe("buildSegmentsForSelectedCategories (the filtered seed for a partial-category pick)", () => {
+  it("keeps breaking + source blocks + only the selected categories (Tech + Markets)", () => {
+    // WHY: encodes the owner-locked rule — breaking is always-on, sources are never filtered,
+    // and every UNpicked category (world/sport/culture) is dropped from the seed.
+    const seededBucketIds = buildSegmentsForSelectedCategories(["tech", "markets"]).map((segment) => segment.bucketId);
+    expect(seededBucketIds).toEqual(["breaking", "tech", "youtube", "markets", "x"]);
+  });
+
+  it("force-includes 'breaking' even when it is not in the selected set", () => {
+    // WHY: breaking is not a pickable interest; omitting it would erase Breaking News from the
+    // 30 for every user. It must appear regardless of the passed category set.
+    const seededBucketIds = buildSegmentsForSelectedCategories([]).map((segment) => segment.bucketId);
+    expect(seededBucketIds).toContain(ALWAYS_INCLUDED_CATEGORY_BUCKET);
+  });
+
+  it("never filters source blocks — every 'src' bucket in the default survives", () => {
+    // WHY: sources come from the source swipe, not the topic picker (owner decision); filtering
+    // them here would drop YouTube/X the user is owed even with zero category picks.
+    const seededBucketIds = new Set(buildSegmentsForSelectedCategories([]).map((segment) => segment.bucketId));
+    const defaultSourceBucketIds = buildDefaultSegments()
+      .map((segment) => segment.bucketId)
+      .filter((bucketId) => DESIGN_BUCKETS[bucketId].kind === "src");
+    for (const sourceBucketId of defaultSourceBucketIds) {
+      expect(seededBucketIds).toContain(sourceBucketId);
+    }
+  });
+
+  it("seeds UNDER 30 for a narrow pick so the screen opens on 'Fill N more' (no auto-rescale)", () => {
+    // WHY: the owner chose to open under-budget rather than rescale; a Tech+Markets pick must
+    // total < 30 (here 20) so the budget CTA prompts the user to fill the rest, not auto-fill.
+    const total = sumSegmentCounts(buildSegmentsForSelectedCategories(["tech", "markets"]));
+    expect(total).toBeLessThan(ALLOCATION_TOTAL);
+    expect(total).toBe(20);
+  });
+
+  it("preserves the default seed order for the surviving blocks", () => {
+    // WHY: order IS the briefing sequence ("the first block plays first") — the filter must not
+    // reorder the kept blocks relative to the default.
+    const seededBucketIds = buildSegmentsForSelectedCategories(["world", "sport", "culture"]).map(
+      (segment) => segment.bucketId,
+    );
+    expect(seededBucketIds).toEqual(["breaking", "world", "youtube", "sport", "x", "culture"]);
   });
 });

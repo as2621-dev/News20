@@ -1830,14 +1830,74 @@ body {
   opacity: 0.7;
   background: radial-gradient(60% 30% at 50% 4%, color-mix(in oklab, var(--accent) 42%, transparent), transparent 72%);
 }
+/* Category-accent tint filling the notch + home-indicator safe areas so the reel
+   reads edge-to-edge. Heights track the real insets (browser-dev 59px/34px fallback). */
+.reel-edge-top,
+.reel-edge-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.reel-edge-top {
+  top: 0;
+  height: env(safe-area-inset-top, 59px);
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--accent) 30%, transparent), transparent);
+}
+.reel-edge-bottom {
+  bottom: 0;
+  height: calc(env(safe-area-inset-bottom, 34px) + 8px);
+  background: linear-gradient(to top, color-mix(in oklab, var(--accent) 26%, transparent), transparent);
+}
+/* Whole-surface tap target → pause/resume. Sits above the background layers but
+   BELOW the chrome (z-index 5/6), so the brand, rails, headline and ask bar keep
+   their own taps; the central caption passes through via pointer-events:none. */
+.reel-tap {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.reel-tap-indicator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  z-index: 6;
+  width: 72px;
+  height: 72px;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+}
+.reel-tap-indicator.on {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.reel-tap-indicator .ico {
+  width: 30px;
+  height: 30px;
+}
 
 .top {
   position: relative;
   z-index: 5;
-  /* Reason: the status-bar offset comes from PhoneShell's safe-area padding
-     (native env() inset; browser-dev 59px fallback) — padding here is only the
-     gap UNDER the status bar, so the reel uses the full screen height. */
-  padding: 14px 20px 0;
+  /* Reason: the reel is now edge-to-edge (PhoneShell no longer pads), so the chrome
+     owns the safe-area offset itself — env() on a real device, 59px Dynamic-Island
+     fallback in browser-dev — plus a 14px gap under the status bar. */
+  padding: calc(14px + env(safe-area-inset-top, 59px)) 20px 0;
 }
 .finite {
   display: flex;
@@ -1849,12 +1909,18 @@ body {
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.18);
   flex: 1;
+  overflow: hidden;
 }
-.fseg.done {
-  background: rgba(255, 255, 255, 0.7);
-}
-.fseg.cur {
-  background: var(--accent);
+/* Inner fill — width is set inline (0 / progress% / 100%) and the colour is the
+   segment's OWN story category accent, so the bar reads as a multicolour timeline.
+   No width transition: the current segment is driven per-frame off the audio clock
+   (~60fps), and a CSS transition would restart every frame and stall the fill on
+   iOS — the same inline-width-no-transition model the old progress bar used. */
+.fseg > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 9999px;
 }
 .toprow {
   display: flex;
@@ -1897,6 +1963,9 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0 26px;
+  /* Let taps in the caption hero fall through to the .reel-tap layer beneath
+     (the karaoke caption is display-only — no interactive children). */
+  pointer-events: none;
 }
 .caption {
   font-family: "Playfair Display", Georgia, serif;
@@ -1912,12 +1981,22 @@ body {
 }
 .caption .w {
   color: rgba(255, 255, 255, 0.3);
+  /* inline-block gives the span a transformable box; transform never reflows
+     neighbours, so the pop can't shift the line layout */
+  display: inline-block;
+  transform: scale(1);
+  transition: transform 0.12s ease-out;
 }
 .caption .w.spoken {
   color: rgba(255, 255, 255, 0.55);
 }
 .caption .w.active {
   color: #fff;
+  transform: scale(1.06);
+}
+.caption.reduced-motion .w {
+  transition: none;
+  transform: none !important;
 }
 .caption .w.hl {
   color: var(--hi);
@@ -1956,83 +2035,6 @@ body {
   text-shadow: 0 1px 18px rgba(2, 6, 23, 0.9);
   cursor: pointer;
 }
-.sp {
-  position: relative;
-  z-index: 5;
-  padding: 18px 20px 0;
-}
-.sp-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 9px;
-}
-.sp-time {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.5);
-}
-.player-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.play-btn {
-  flex: none;
-  width: 48px;
-  height: 48px;
-  border-radius: 9999px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #fff;
-  backdrop-filter: blur(8px);
-  transition:
-    transform 0.14s,
-    background 0.15s;
-}
-.play-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-.play-btn:active {
-  transform: scale(0.9);
-}
-.play-btn .ico {
-  width: 24px;
-  height: 24px;
-}
-.story-progress {
-  flex: 1;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 9999px;
-  overflow: hidden;
-}
-.story-progress > i {
-  display: block;
-  height: 100%;
-  width: 38%;
-  background: #fff;
-  border-radius: 9999px;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-  animation: storyFill 74s linear forwards;
-  animation-play-state: paused;
-}
-.reel.playing .story-progress > i {
-  animation-play-state: running;
-}
-@keyframes storyFill {
-  from {
-    width: 38%;
-  }
-  to {
-    width: 100%;
-  }
-}
-
 .ico {
   width: 24px;
   height: 24px;
@@ -2050,12 +2052,13 @@ body {
   cursor: pointer;
 }
 
-/* right side rail — vertically centered on the poster (moved down from the top chrome) */
+/* right side rail — anchored just above the headline zone, right-aligned.
+   Lives INSIDE .head (position:relative), so bottom:100% tracks the headline
+   top automatically whether the headline wraps to 1 or 3 lines. */
 .ru2 {
   position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 20px; /* matches .head's 20px side padding */
+  bottom: calc(100% + 12px);
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -2139,7 +2142,8 @@ body {
 .r3-bottom {
   position: relative;
   z-index: 5;
-  padding: 16px 18px 28px;
+  /* Reel is edge-to-edge now — add the home-indicator inset to the bottom gap. */
+  padding: 16px 18px calc(28px + env(safe-area-inset-bottom, 34px));
 }
 .r3-row {
   display: flex;
@@ -2813,7 +2817,10 @@ body {
 .art-top {
   position: relative;
   z-index: 5;
-  padding: 54px 20px 10px;
+  /* Reel + its overlay layers are edge-to-edge (PhoneShell no longer pads), so the
+     layer header owns the notch offset itself — env() on device, 47px fallback in
+     browser-dev — plus a gap so the back button clears the status bar. */
+  padding: calc(14px + env(safe-area-inset-top, 47px)) 20px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2841,7 +2848,8 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 0 20px 20px;
+  /* Clear the home-indicator so the last rows (sign out / version) are reachable. */
+  padding: 0 20px calc(24px + env(safe-area-inset-bottom, 34px));
 }
 .art-scroll::-webkit-scrollbar {
   display: none;
@@ -2895,7 +2903,9 @@ body {
 }
 .art-tabs {
   display: flex;
-  gap: 2px;
+  /* 14px: the tab buttons carry an inline padding:0 reset, so this gap is the
+     ONLY separation between the letter-spaced uppercase labels */
+  gap: 14px;
   margin-top: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -3328,6 +3338,77 @@ body {
   line-height: 1.5;
   margin: 8px 0 14px;
 }
+/* Sources-you're-following list */
+.set-src-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.set-src-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.set-src-av {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+}
+.set-src-av.circle {
+  border-radius: 9999px;
+}
+.set-src-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.set-src-main {
+  flex: 1;
+  min-width: 0;
+}
+.set-src-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.set-src-meta {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+.set-src-unfollow {
+  flex: none;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent);
+  border-radius: 9999px;
+  padding: 7px 13px;
+  cursor: pointer;
+}
+.set-src-unfollow:active {
+  transform: scale(0.94);
+}
 .set-plan-card {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
@@ -3468,5 +3549,9 @@ body {
   .orb,
   .orb > i {
     animation: none !important;
+  }
+  .caption .w {
+    transition: none !important;
+    transform: none !important;
   }
 }

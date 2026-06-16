@@ -66,6 +66,19 @@ const SEGMENT_ACCENT_HEX: Record<SegmentKey, string> = {
   wildcard: "#E8B7BC",
 };
 
+/**
+ * Segment slug → Detail category, so fixture stories render the right panel
+ * template. Mirrors the backend `_SEGMENT_TO_DETAIL` (`detail_templates.py`):
+ * wildcard is the Culture catch-all. Fixtures have no breaking signal.
+ */
+const SEGMENT_DETAIL_CATEGORY: Record<SegmentKey, string> = {
+  geopolitics: "world",
+  markets: "markets",
+  tech: "tech",
+  sport: "sport",
+  wildcard: "culture",
+};
+
 /** Story metadata for the 5 M0 digests, positionally `digest-N` ↔ STORIES[N-1]. */
 const FIXTURE_STORY_META: readonly FixtureStoryMeta[] = [
   {
@@ -123,6 +136,7 @@ function buildFixtureStory(meta: FixtureStoryMeta): Story {
     digest_id: meta.digest_id,
     headline: meta.headline,
     segment_key: meta.segment_key,
+    story_detail_category: SEGMENT_DETAIL_CATEGORY[meta.segment_key],
     segment_label: SEGMENT_LABELS[meta.segment_key],
     segment_accent_hex: SEGMENT_ACCENT_HEX[meta.segment_key],
     anchors: meta.anchors,

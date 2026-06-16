@@ -27,6 +27,7 @@ import {
   ALLOCATION_TOTAL,
   type AllocationSegment,
   buildDefaultSegments,
+  buildSegmentsForSelectedCategories,
   DESIGN_BUCKET_IDS,
   DESIGN_BUCKETS,
   type DesignBucket,
@@ -55,6 +56,15 @@ export interface BuildYour30Props {
    * for users with no allocation — phase-5a). Omit to hide the skip control.
    */
   onSkip?: () => void;
+  /**
+   * The CATEGORY buckets the user selected in the interest picker (derived via
+   * {@link categoryBucketsFromFollows}). When provided and NON-EMPTY, the screen seeds
+   * only those category blocks (+ always-on "breaking" + the source blocks) instead of all
+   * 8 — so categories the user skipped no longer appear. Empty/undefined (picker skipped, or
+   * a returning user re-onboarding) falls back to the full default seed, never an empty one.
+   * A saved allocation, when present, still takes precedence over this (returning users).
+   */
+  selectedCategoryBuckets?: DesignBucketId[];
 }
 
 /** The full-bleed scene surface giving `.a-scroll` (position:absolute; inset:0) its sizing context. */
@@ -120,10 +130,15 @@ function SpineCells({ segments }: { segments: AllocationSegment[] }) {
  * @example
  * <BuildYour30 onDone={(segments) => router.push("/")} onSkip={() => router.push("/")} />
  */
-export function BuildYour30({ onDone, onSkip }: BuildYour30Props) {
-  // The ordered allocation segments (the prototype's `segs`). Seeded with the default; the
+export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets }: BuildYour30Props) {
+  // The ordered allocation segments (the prototype's `segs`). Seeded from the user's picked
+  // categories when they made any selection (filtered seed), else the full default; the
   // effect below replaces it with the user's saved allocation when one exists.
-  const [segments, setSegments] = useState<AllocationSegment[]>(() => buildDefaultSegments());
+  const [segments, setSegments] = useState<AllocationSegment[]>(() =>
+    selectedCategoryBuckets && selectedCategoryBuckets.length > 0
+      ? buildSegmentsForSelectedCategories(selectedCategoryBuckets)
+      : buildDefaultSegments(),
+  );
   // Whether the Add-block bottom sheet is open.
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   // True while persisting on save — disables the CTA so a double-tap can't double-write.

@@ -9,8 +9,8 @@
  * Wired to {@link fetchStoryDetail} (Sub-phase 4d). On mount it fetches the full
  * {@link StoryDetail} payload keyed on `story.digest_id`, then renders:
  *   - `.art-top` — REEL back button + segment chip
- *   - `.art-scroll` — key-stat card, analytics tabs (timeline/market/coverage),
- *     bullets, read-more → long-form body + opposing view
+ *   - `.art-scroll` — key-stat card, the story's CATEGORY-specific analytics tabs
+ *     (from `detailTemplates.ts`), bullets, read-more → long-form body + opposing view
  *   - `.art-bar` — bottom ask bar wired to `onOpenVoice` / `onOpenType`
  *
  * **Null handling (Rule 12).** Every optional field is guarded — no fabricated
@@ -22,7 +22,7 @@
  *   onOpenType={openTypeSheet} onOpenVoice={openVoiceSheet} />
  */
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
 // Supabase-direct detail (go-live). The live feed's story ids (s1..s5, cand-*)
 // exist only in Supabase — never in the fixture map (digest-1..digest-5) — so the
@@ -30,8 +30,10 @@ import { ic } from "@/components/blip/reel/icons";
 // resolve them. Swap back to the fixture only for offline fixture-feed dev.
 import { fetchStoryDetail } from "@/lib/detail/fetchStoryDetail";
 import { splitChunkTextIntoParagraphs, stripLeadingHeadlineDuplicate } from "@/lib/detail/paragraphs";
+import { type PanelSpec, templateForCategory } from "@/lib/detailTemplates";
 import { logger } from "@/lib/logger";
 import type {
+  CoverageMode,
   DetailChunk,
   DetailKeyPoint,
   SecondAnalytic,
@@ -55,9 +57,6 @@ export interface ArticleLayerProps {
   /** Open the voice-ask sheet from the article's own ask bar. */
   onOpenVoice?: () => void;
 }
-
-/** The three analytics tab identifiers. */
-type AnalyticsTabId = "timeline" | "market" | "coverage";
 
 // ---------------------------------------------------------------------------
 // Sub-renderers (pure functions; no new files per the task constraint)
@@ -102,17 +101,20 @@ function TimelinePanel({ timeline }: { timeline: TimelineEvent[] }) {
 }
 
 /**
- * Render the MARKET IMPACT panel from `second_analytic`.
- * If `second_analytic` is null/absent, shows a neutral "Not available" note.
+ * Render one analytic panel (the generic renderer for EVERY analytic kind —
+ * MARKET IMPACT, STAKES, BY THE NUMBERS, THE CONCEPT, PROFILE, …). All kinds share
+ * the headline + summary + label/value rows shape, so one component serves them
+ * all. If the panel is null/absent (a story with fewer panels than its template),
+ * shows a neutral "Not available" note (Rule 12 — never fabricate).
  *
- * @param secondAnalytic - The segment-skinned analytic, or null.
+ * @param panel - The analytic panel for this slot, or null/undefined.
  * @returns The `.art-panel` element.
  *
  * @example
- * <MarketPanel secondAnalytic={detail.second_analytic} />
+ * <AnalyticPanel panel={detail.analytic_panels[0]} />
  */
-function MarketPanel({ secondAnalytic }: { secondAnalytic: SecondAnalytic | null | undefined }) {
-  if (!secondAnalytic) {
+function AnalyticPanel({ panel }: { panel: SecondAnalytic | null | undefined }) {
+  if (!panel) {
     return (
       <div className="art-panel">
         <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px", fontFamily: "monospace" }}>
@@ -125,15 +127,15 @@ function MarketPanel({ secondAnalytic }: { secondAnalytic: SecondAnalytic | null
   return (
     <div className="art-panel">
       <div className="mk-head">
-        <span className="ac-label">{secondAnalytic.analytic_headline}</span>
-        <span className="mk-tag">{secondAnalytic.analytic_tab_label}</span>
+        <span className="ac-label">{panel.analytic_headline}</span>
+        <span className="mk-tag">{panel.analytic_tab_label}</span>
       </div>
       <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px", marginTop: "8px", lineHeight: 1.5 }}>
-        {secondAnalytic.analytic_summary_text}
+        {panel.analytic_summary_text}
       </p>
-      {secondAnalytic.analytic_rows.length > 0 ? (
+      {panel.analytic_rows.length > 0 ? (
         <div style={{ marginTop: "10px" }}>
-          {secondAnalytic.analytic_rows.map((row, idx) => (
+          {panel.analytic_rows.map((row, idx) => (
             <div
               // Reason: no stable unique id on analytic rows; idx is safe here (static list).
               // biome-ignore lint/suspicious/noArrayIndexKey: static analytic rows with no natural key
@@ -156,15 +158,53 @@ function MarketPanel({ secondAnalytic }: { secondAnalytic: SecondAnalytic | null
 }
 
 /**
- * Render the COVERAGE panel from `trust_summary`.
+ * Render the COVERAGE panel from `trust_summary`, framed by the category template's
+ * coverage mode (NOT `trust_summary.coverage_mode` — the template is the
+ * owner-locked framing):
+ *  - `partisan` (World) → the L·C·R bias bar + blindspot chip.
+ *  - `reach_lite` (Breaking) → "COVERED BY N OUTLETS" + the notable outlet names
+ *    only. No bias bar, no momentum, no who-broke-it (owner decision 2026-06-16).
+ *  - `reach` → treated like `reach_lite` here (no template uses it today).
  *
  * @param trustSummary - The per-story trust/coverage summary.
- * @returns The `.art-panel` element with bias breakdown.
+ * @param mode - The template coverage framing for this story.
+ * @returns The `.art-panel` element.
  *
  * @example
- * <CoveragePanel trustSummary={detail.trust_summary} />
+ * <CoveragePanel trustSummary={detail.trust_summary} mode="partisan" />
  */
-function CoveragePanel({ trustSummary }: { trustSummary: TrustSummary }) {
+function CoveragePanel({ trustSummary, mode }: { trustSummary: TrustSummary; mode: CoverageMode }) {
+  // reach_lite / reach: who is covering it, by count + notable names only.
+  if (mode !== "partisan") {
+    const notableOutlets = trustSummary.coverage_notable_outlets ?? [];
+    return (
+      <div className="art-panel">
+        <div className="cv-head">
+          <span className="ac-label">COVERED BY {trustSummary.coverage_outlet_count} OUTLETS</span>
+        </div>
+        {notableOutlets.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "10px" }}>
+            {notableOutlets.map((outletName) => (
+              <span
+                key={outletName}
+                style={{
+                  color: "rgba(255,255,255,0.75)",
+                  fontSize: "11px",
+                  fontFamily: "monospace",
+                  padding: "3px 8px",
+                  borderRadius: "9999px",
+                  background: "rgba(255,255,255,0.06)",
+                }}
+              >
+                {outletName}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   const total =
     trustSummary.coverage_left_count + trustSummary.coverage_center_count + trustSummary.coverage_right_count;
 
@@ -210,6 +250,42 @@ function CoveragePanel({ trustSummary }: { trustSummary: TrustSummary }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Resolve the ordered Detail tabs for a story from its category template. Each
+ * template slot becomes one tab; analytic slots are matched to their persisted
+ * panel by `analytic_slot_index` (the running count of analytic panels before
+ * them). Returns the tab label + a render thunk per slot.
+ *
+ * @param template - The story's category panel template (ordered specs).
+ * @param detail - The loaded StoryDetail (panels + trust + timeline).
+ * @param storyHeadline - Unused here; kept for symmetry with LongForm callers.
+ * @returns One `{ label, render }` per template slot, in order.
+ */
+function buildDetailTabs(
+  template: readonly PanelSpec[],
+  detail: StoryDetail,
+): { label: string; render: () => ReactNode }[] {
+  let analyticIndex = 0;
+  return template.map((spec) => {
+    if (spec.panel_kind === "timeline") {
+      return { label: "STORY TIMELINE", render: () => <TimelinePanel timeline={detail.timeline} /> };
+    }
+    if (spec.panel_kind === "coverage") {
+      const mode: CoverageMode = spec.coverage_mode ?? "partisan";
+      return {
+        label: "COVERAGE",
+        render: () => <CoveragePanel trustSummary={detail.trust_summary} mode={mode} />,
+      };
+    }
+    // analytic: match the persisted panel by its slot index among analytic panels.
+    const slotIndex = analyticIndex;
+    analyticIndex += 1;
+    const panel = detail.analytic_panels.find((candidate) => candidate.analytic_slot_index === slotIndex);
+    const label = panel?.analytic_tab_label ?? spec.analytic_tab_label ?? "ANALYSIS";
+    return { label, render: () => <AnalyticPanel panel={panel} /> };
+  });
 }
 
 /**
@@ -331,7 +407,9 @@ function LongForm({
 export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: ArticleLayerProps) {
   const [detail, setDetail] = useState<StoryDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<AnalyticsTabId>("timeline");
+  // The active tab is an INDEX into the category template's ordered slots (the
+  // slot count + kinds vary per category), not a fixed id. Slot 0 is always first.
+  const [activeTabIndex, setActiveTabIndex] = useState<number>(0);
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Reason: monotonic token prevents a stale in-flight fetch from overwriting
@@ -343,7 +421,7 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
     requestTokenRef.current = requestToken;
     setDetail(null);
     setLoadError(null);
-    setActiveTab("timeline");
+    setActiveTabIndex(0);
     setIsExpanded(false);
 
     const storyId = story.digest_id;
@@ -378,17 +456,15 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
   }, [story.digest_id]);
 
   // ---------------------------------------------------------------------------
-  // Tab definitions — the middle tab label comes from second_analytic when
-  // present (MARKET IMPACT / PROFILE / …), otherwise a neutral placeholder while
-  // loading or when the analytic is absent.
+  // Tabs — derived from the story's CATEGORY template (`detailTemplates.ts`), not
+  // a fixed timeline/market/coverage triple. The authoritative category comes from
+  // the Supabase-direct detail (correct even on a fixture-backed reel feed),
+  // falling back to the in-memory story, then to the Culture template.
   // ---------------------------------------------------------------------------
-  const marketTabLabel = detail?.second_analytic?.analytic_tab_label ?? "ANALYSIS";
-
-  const TAB_DEFS: { id: AnalyticsTabId; label: string }[] = [
-    { id: "timeline", label: "STORY TIMELINE" },
-    { id: "market", label: marketTabLabel },
-    { id: "coverage", label: "COVERAGE" },
-  ];
+  const template = templateForCategory(detail?.detail_category ?? story.story_detail_category);
+  const tabs = detail !== null ? buildDetailTabs(template, detail) : [];
+  // Clamp the active index in case a newer (shorter) template loaded mid-interaction.
+  const safeTabIndex = Math.min(activeTabIndex, Math.max(0, tabs.length - 1));
 
   return (
     <>
@@ -453,16 +529,18 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
               </div>
             ) : null}
 
-            {/* ---- ANALYTICS TABS --------------------------------------- */}
+            {/* ---- ANALYTICS TABS (category-driven) --------------------- */}
             <div className="art-tabs">
-              {TAB_DEFS.map((tab) => (
+              {tabs.map((tab, tabIndex) => (
                 <button
-                  key={tab.id}
+                  // Reason: tab labels are unique within any one category template, so
+                  // the label is a stable, collision-free key.
+                  key={tab.label}
                   type="button"
-                  className={`art-tab${activeTab === tab.id ? " on" : ""}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  className={`art-tab${safeTabIndex === tabIndex ? " on" : ""}`}
+                  onClick={() => setActiveTabIndex(tabIndex)}
                   style={{ background: "transparent", border: "none", padding: 0 }}
-                  aria-pressed={activeTab === tab.id}
+                  aria-pressed={safeTabIndex === tabIndex}
                 >
                   {tab.label}
                 </button>
@@ -470,13 +548,7 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
             </div>
 
             {/* ---- ACTIVE PANEL ----------------------------------------- */}
-            {activeTab === "timeline" ? (
-              <TimelinePanel timeline={detail.timeline} />
-            ) : activeTab === "market" ? (
-              <MarketPanel secondAnalytic={detail.second_analytic} />
-            ) : (
-              <CoveragePanel trustSummary={detail.trust_summary} />
-            )}
+            {tabs[safeTabIndex]?.render() ?? null}
 
             {/* ---- BULLETS ---------------------------------------------- */}
             <Bullets keyPoints={detail.detail_key_points} fallbackChunks={detail.detail_chunks} />

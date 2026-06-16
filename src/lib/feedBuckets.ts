@@ -20,6 +20,8 @@
  * Static-export safe: pure data + pure helpers, no `window`/server APIs at module scope.
  */
 
+import { logger } from "@/lib/logger";
+
 /** The 9 design bucket ids the "Build your 30" screen draws (verbatim from the prototype). */
 export type DesignBucketId =
   | "breaking"
@@ -157,4 +159,111 @@ export function sumSegmentCounts(segments: ReadonlyArray<{ count: number }>): nu
  */
 export function buildDefaultSegments(): AllocationSegment[] {
   return DEFAULT_ALLOCATION_SEGMENTS.map(([bucketId, count]) => ({ bucketId, count }));
+}
+
+/**
+ * The category bucket the screen ALWAYS seeds, regardless of what the user picked.
+ * "Breaking News" is not a pickable interest — it is a top-importance tier the pipeline
+ * fills across every category (`agents/pipeline/categories.py` excludes `breaking` from
+ * `TOPIC_CATEGORIES`). So it can never be "selected" and must be force-included, else it
+ * would vanish from the 30 for every user (owner decision 2026-06-07).
+ */
+export const ALWAYS_INCLUDED_CATEGORY_BUCKET: DesignBucketId = "breaking";
+
+/**
+ * Picker ROOT slug → its screen CATEGORY design bucket. Keys are the 8 depth-0 ids of the
+ * recursive interest picker (`src/lib/pickerSeedTree.ts`: `ai, geopolitics, business,
+ * environment, politics, tech, sport, arts`); a selection's `followId` is a `/`-joined
+ * path whose FIRST segment is its root.
+ *
+ * This is the FRONTEND twin of `agents/pipeline/categories.py` `SLUG_TO_CATEGORY` (the
+ * backend story-classifier), re-expressed over the PICKER roots and the 5 non-breaking
+ * category buckets the screen draws. The folds mirror that locked map:
+ *  - `ai`/`tech` → `tech` (the AI subtree is part of Tech & Science on the screen).
+ *  - `geopolitics`/`politics`/`environment` → `world` (World & Politics; climate folds in).
+ *  - `business` → `markets` (the markets-accented root).
+ *  - `sport` → `sport`; `arts` → `culture`.
+ *
+ * Source axes (`youtube`/`x`/`podcasts`) are NOT picker roots — they come from the source
+ * swipe, not the topic picker, so they are absent here (and never filtered). A root NOT in
+ * this map is DROPPED (logged), never mis-bucketed (Rule 12) — adding a wrong category is
+ * exactly the bug this filter removes.
+ */
+export const PICKER_ROOT_TO_CATEGORY_BUCKET: Readonly<Record<string, DesignBucketId>> = {
+  ai: "tech",
+  tech: "tech",
+  geopolitics: "world",
+  politics: "world",
+  environment: "world",
+  business: "markets",
+  sport: "sport",
+  arts: "culture",
+};
+
+/**
+ * Derive the DISTINCT category buckets a user selected, from their picker follows.
+ *
+ * Each follow's `followId` is a `/`-joined path (`ai/foundation-models-llms/.../openai`),
+ * so its root segment (`followId.split("/")[0]`) is the picker category root, mapped to a
+ * screen category bucket via {@link PICKER_ROOT_TO_CATEGORY_BUCKET}. Unknown roots are
+ * dropped + logged (never mis-bucketed — Rule 12). The result feeds
+ * {@link buildSegmentsForSelectedCategories}; an EMPTY result means "no category signal"
+ * and the caller falls back to the full default seed.
+ *
+ * @param follows - The user's picker selections (only `followId` is read).
+ * @returns The distinct category bucket ids the user picked (first-seen order).
+ *
+ * @example
+ * categoryBucketsFromFollows([{ followId: "tech/ai/llms/openai" }, { followId: "business/equities" }]);
+ * // ["tech", "markets"]
+ */
+export function categoryBucketsFromFollows(follows: ReadonlyArray<{ followId: string }>): DesignBucketId[] {
+  const selectedBuckets = new Set<DesignBucketId>();
+  for (const follow of follows) {
+    const rootSegment = follow.followId.split("/")[0];
+    const categoryBucketId = PICKER_ROOT_TO_CATEGORY_BUCKET[rootSegment];
+    if (categoryBucketId === undefined) {
+      logger.warn("category_bucket_root_unmapped", {
+        follow_id: follow.followId,
+        root_segment: rootSegment,
+        fix_suggestion:
+          "Add the picker root to PICKER_ROOT_TO_CATEGORY_BUCKET if it should seed a 'Build your 30' category block.",
+      });
+      continue;
+    }
+    selectedBuckets.add(categoryBucketId);
+  }
+  return [...selectedBuckets];
+}
+
+/**
+ * Build the seed segments for a user who picked a SUBSET of categories — the default
+ * allocation filtered to the buckets they actually chose, so "Build your 30" no longer
+ * shows categories the user skipped (the phase-5a behaviour was: always all 8 blocks).
+ *
+ * Kept in the seed:
+ *  - every SOURCE bucket (`youtube`/`x`/`podcasts`) — sources come from the source swipe,
+ *    not the topic picker, so they are NOT filtered here (owner decision 2026-06-07);
+ *  - {@link ALWAYS_INCLUDED_CATEGORY_BUCKET} ("breaking") — always-on;
+ *  - every category bucket in `allowedCategoryBuckets`.
+ * All other category buckets are dropped. Counts are the prototype defaults — the kept
+ * blocks may total UNDER 30, so the screen opens on "Fill N more" (owner decision: no
+ * auto-rescale), which the budget CTA already handles.
+ *
+ * @param allowedCategoryBuckets - The category buckets the user selected (see
+ *   {@link categoryBucketsFromFollows}). "breaking" need not be included — it is forced in.
+ * @returns A fresh, mutable ordered segment list (same order as the default seed).
+ *
+ * @example
+ * // User picked only Tech + Markets → keeps breaking, tech, youtube, markets, x (= 20 slots):
+ * buildSegmentsForSelectedCategories(["tech", "markets"]);
+ */
+export function buildSegmentsForSelectedCategories(
+  allowedCategoryBuckets: Iterable<DesignBucketId>,
+): AllocationSegment[] {
+  const allowed = new Set<DesignBucketId>(allowedCategoryBuckets);
+  allowed.add(ALWAYS_INCLUDED_CATEGORY_BUCKET);
+  return DEFAULT_ALLOCATION_SEGMENTS.filter(
+    ([bucketId]) => DESIGN_BUCKETS[bucketId].kind === "src" || allowed.has(bucketId),
+  ).map(([bucketId, count]) => ({ bucketId, count }));
 }

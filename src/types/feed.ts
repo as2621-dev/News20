@@ -116,6 +116,13 @@ export interface Story {
   headline: string;
   /** Segment slug (`stories.story_segment_slug`). */
   segment_key: SegmentKey;
+  /**
+   * The story's Detail-page category (`stories.story_detail_category`; one of the 9
+   * {@link import("@/lib/detailTemplates").DetailCategory} buckets), or `null` for a
+   * pre-migration story. Drives which panel template the Detail page renders. The
+   * Detail page reads `DETAIL_TEMPLATES[story_detail_category]` (`detailTemplates.ts`).
+   */
+  story_detail_category: string | null;
   /** Human-readable segment label, e.g. `"Geopolitics"` (`segments.segment_label`). */
   segment_label: string;
   /** Per-story accent hex, e.g. `"#EF4444"` (`segments.segment_accent_hex`) → `--accent`. */

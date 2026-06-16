@@ -26,7 +26,7 @@ export interface OnboardingSplashProps {
  */
 export function OnboardingSplash({ onGetStarted }: OnboardingSplashProps) {
   return (
-    <section className="flex min-h-full flex-col items-center justify-center gap-7 px-10 text-center">
+    <section className="flex min-h-full flex-1 flex-col items-center justify-center gap-7 px-10 text-center">
       <BlipLogo size={36} glow />
 
       <div>

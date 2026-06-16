@@ -16,11 +16,12 @@
  * tile vertically. The ask sheet + article layer are root singletons in
  * {@link BlipReel}, OVER the active story (matching the prototype's sibling mount).
  *
- * **Play model.** No whole-surface tap-to-pause — the prototype uses an explicit
- * `.play-btn`. The first-tap iOS audio unlock is the TapToStart overlay (owned by
- * {@link BlipReel}); after unlock, the play button toggles. The per-story progress
- * bar is driven inline off the real audio clock (overriding the CSS `storyFill`
- * keyframe) so it tracks what is actually audible.
+ * **Play model.** Tapping the reel surface (the transparent `.reel-tap` layer,
+ * below the interactive chrome) toggles play/pause and surfaces a center
+ * `.reel-tap-indicator`. The first-tap iOS audio unlock is the TapToStart overlay
+ * (owned by {@link BlipReel}). There is no bottom audio control — playback progress
+ * is shown by the top `.finite` segment bar, whose current segment fills inline off
+ * the real audio clock so it tracks what is actually audible.
  *
  * **Pause-under-overlay.** When an ask sheet / article opens over the active
  * story, `isOverlayOpen` flips true → narration pauses; on close it resumes only
@@ -28,25 +29,18 @@
  */
 import { useReducedMotion } from "framer-motion";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BlipLogo } from "@/components/BlipLogo";
 import { ic } from "@/components/blip/reel/icons";
 import { KaraokeCaption } from "@/components/reel/KaraokeCaption";
-import { captionStateAtTime } from "@/lib/captions/captionState";
 import { type NextReelState, useReelAudio } from "@/lib/reel/useReelAudio";
-import type { AnchorSpeaker, Story } from "@/types/feed";
+import type { Story } from "@/types/feed";
 
 /** A `--accent` CSS custom property carrier (typed escape from `CSSProperties`). */
 type AccentStyle = CSSProperties & { "--accent": string };
 
 /** Legacy iOS Safari inline-audio attribute (forwarded verbatim by React). */
 const IOS_INLINE_AUDIO_ATTRS: Record<string, string> = { "webkit-playsinline": "true" };
-
-/** Fixed anchor identity colours (NOT segment accents) — prototype `app.js`. */
-const SPEAKER_IDENTITY_COLOR: Record<AnchorSpeaker, string> = {
-  ALEX: "#6C8CFF",
-  JORDAN: "#C792EA",
-};
 
 /**
  * Format today's date as the briefing chrome label, e.g. `"THU · MAY 29"`.
@@ -63,14 +57,6 @@ function formatCounter(storyIndex: number, storyCount: number): string {
   return `${String(storyIndex + 1).padStart(2, "0")} / ${storyCount}`;
 }
 
-/** Format an audio clock value in ms as `m:ss` (e.g. `46000` → `"0:46"`). */
-function formatClock(milliseconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
 export interface ReelStageProps {
   /** The story to render. */
   story: Story;
@@ -78,6 +64,8 @@ export interface ReelStageProps {
   storyIndex: number;
   /** Total feed length (for auto-advance math in the audio hook). */
   storyCount: number;
+  /** Per-story category accent hexes (feed order) — paints each progress segment its own colour. */
+  segmentAccents: string[];
   /** Whether this is the currently-active (snapped) story. */
   isActive: boolean;
   /** Whether audio has been unlocked by the first user tap (gates auto-play). */
@@ -98,6 +86,8 @@ export interface ReelStageProps {
   onToggleSave: () => void;
   /** Toggle followed for this story. */
   onToggleFollow: () => void;
+  /** Share this story (native share sheet with headline + source link). */
+  onShare: () => void;
   /** Open the type-ask sheet (tap the question field). */
   onOpenType: () => void;
   /** Open the voice-ask sheet (tap the white signal button). */
@@ -116,6 +106,7 @@ export function ReelStage({
   story,
   storyIndex,
   storyCount,
+  segmentAccents,
   isActive,
   isAudioUnlocked,
   shouldPreload,
@@ -126,6 +117,7 @@ export function ReelStage({
   isFollowed,
   onToggleSave,
   onToggleFollow,
+  onShare,
   onOpenType,
   onOpenVoice,
   onOpenArticle,
@@ -178,18 +170,11 @@ export function ReelStage({
     }
   }, [isOverlayOpen, isActive]);
 
-  // Current speaker from THIS story's clock (drives the speaker chip + colour).
-  const currentSpeaker = useMemo(
-    () =>
-      captionStateAtTime(story.caption_sentences, audioController.currentTimeMs, story.speech_end_ms).current_speaker,
-    [story.caption_sentences, story.speech_end_ms, audioController.currentTimeMs],
-  );
-
+  // Drives the current segment's fill off THIS story's real audio clock.
   const progressPercent =
     story.audio_duration_ms > 0
       ? Math.min(100, Math.max(0, (audioController.currentTimeMs / story.audio_duration_ms) * 100))
       : 0;
-  const speakerColor = currentSpeaker ? SPEAKER_IDENTITY_COLOR[currentSpeaker] : "rgba(255,255,255,.5)";
 
   const reelStyle: AccentStyle = { "--accent": story.segment_accent_hex };
   const reelClassName = `reel${audioController.isPlaying ? " playing" : ""}${isOverlayOpen && isActive ? " dimmed" : ""}`;
@@ -221,20 +206,24 @@ export function ReelStage({
         <div className="reel-scrim-top" aria-hidden="true" />
         <div className="reel-halo" aria-hidden="true" />
         <div className="reel-scrim" aria-hidden="true" />
+        {/* category-accent tint bleeding into the notch + home-indicator safe areas */}
+        <div className="reel-edge-top" aria-hidden="true" />
+        <div className="reel-edge-bottom" aria-hidden="true" />
+
+        {/* whole-surface tap target → pause/resume (below the chrome z-layers) */}
+        <button type="button" className="reel-tap" aria-label="Pause or resume" onClick={audioController.togglePlay} />
 
         {/* top chrome: finite bar + wordmark/date (tap → account) + counter */}
         <div className="top">
           <div className="finite">
             {Array.from({ length: storyCount }, (_unused, segmentIndex) => {
-              let stateClass = "";
-              if (segmentIndex < storyIndex) {
-                stateClass = " done";
-              } else if (segmentIndex === storyIndex) {
-                stateClass = " cur";
-              }
+              // Past stories full; the current one fills to the live audio clock; future grey.
+              const fillPercent = segmentIndex < storyIndex ? 100 : segmentIndex === storyIndex ? progressPercent : 0;
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length positional bar; index IS the identity.
-                <div key={segmentIndex} className={`fseg${stateClass}`} />
+                <div key={segmentIndex} className="fseg">
+                  <i style={{ width: `${fillPercent}%`, background: segmentAccents[segmentIndex] }} />
+                </div>
               );
             })}
           </div>
@@ -267,33 +256,33 @@ export function ReelStage({
           </div>
         </div>
 
-        {/* right action rail: save / share / follow */}
-        <div className="ru2">
-          <button
-            type="button"
-            className={`um${isSaved ? " on" : ""}`}
-            aria-label="Save"
-            aria-pressed={isSaved}
-            onClick={onToggleSave}
-          >
-            {ic("save")}
-          </button>
-          <button type="button" className="um" aria-label="Share" onClick={onOpenType}>
-            {ic("share")}
-          </button>
-          <button
-            type="button"
-            className={`um${isFollowed ? " follow-on" : ""}`}
-            aria-label="Follow"
-            aria-pressed={isFollowed}
-            onClick={onToggleFollow}
-          >
-            {ic("following")}
-          </button>
-        </div>
-
         {/* headline zone — tap the headline for the full article */}
         <div className="head">
+          {/* right action rail: save / share / follow — anchored just above the
+              headline via .ru2's bottom:100% (relative to this .head) */}
+          <div className="ru2">
+            <button
+              type="button"
+              className={`um${isSaved ? " on" : ""}`}
+              aria-label="Save"
+              aria-pressed={isSaved}
+              onClick={onToggleSave}
+            >
+              {ic("save")}
+            </button>
+            <button type="button" className="um" aria-label="Share" onClick={onShare}>
+              {ic("share")}
+            </button>
+            <button
+              type="button"
+              className={`um${isFollowed ? " follow-on" : ""}`}
+              aria-label="Follow"
+              aria-pressed={isFollowed}
+              onClick={onToggleFollow}
+            >
+              {ic("following")}
+            </button>
+          </div>
           <div className="seg-chip" style={{ color: story.segment_accent_hex }}>
             <span className="seg-dot" />
             {story.segment_label}
@@ -310,28 +299,6 @@ export function ReelStage({
           </button>
         </div>
 
-        {/* speaker label + per-story progress + play/pause */}
-        <div className="sp">
-          <div className="sp-row">
-            <span className="seg-chip" style={{ color: "rgba(255,255,255,.8)" }}>
-              <span className="seg-dot" style={{ background: speakerColor, boxShadow: `0 0 12px ${speakerColor}` }} />
-              {currentSpeaker ?? " "}
-            </span>
-            <span className="sp-time">
-              {formatClock(audioController.currentTimeMs)} / {formatClock(story.audio_duration_ms)}
-            </span>
-          </div>
-          <div className="player-row">
-            <button type="button" className="play-btn" aria-label="Play or pause" onClick={audioController.togglePlay}>
-              {ic(audioController.isPlaying ? "pause" : "play")}
-            </button>
-            <div className="story-progress">
-              {/* inline width + animation:none — drive the fill off the real audio clock, not the CSS keyframe */}
-              <i style={{ width: `${progressPercent}%`, animation: "none" }} />
-            </div>
-          </div>
-        </div>
-
         {/* ask bar — white signal (voice) + question field (type) */}
         <div className="r3-bottom">
           <div className="r3-row">
@@ -345,6 +312,11 @@ export function ReelStage({
               <span className="kbd">{ic("keyboard")}</span>
             </button>
           </div>
+        </div>
+
+        {/* center pause/resume indicator — display-only; shows the play glyph when paused */}
+        <div className={`reel-tap-indicator${audioController.isPlaying ? "" : " on"}`} aria-hidden="true">
+          {ic(audioController.isPlaying ? "pause" : "play")}
         </div>
       </div>
 

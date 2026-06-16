@@ -14,6 +14,8 @@
  *   </PhoneShell>
  */
 
+import { Capacitor } from "@capacitor/core";
+
 export interface PhoneShellProps {
   /** Status-bar clock text (dev cosmetic only). */
   status_bar_time?: string;
@@ -30,6 +32,15 @@ export interface PhoneShellProps {
  * (59px) and home-indicator (34px) values in a plain browser.
  */
 export function PhoneShell({ status_bar_time = "7:18", children }: PhoneShellProps) {
+  // Per port-map §1 the native Capacitor build drops the simulated frame entirely:
+  // the real device + OS status bar replace it. Content fills the screen, padded
+  // by the REAL safe-area insets (viewport-fit=cover is set in layout.tsx).
+  if (Capacitor.isNativePlatform()) {
+    // Edge-to-edge: the reel paints full-bleed (incl. notch + home-indicator) and
+    // owns its own safe-area offsets via env() in blip-flow.css (.top / .r3-bottom).
+    return <div className="h-dvh w-full bg-background">{children}</div>;
+  }
+
   return (
     <div className="grid min-h-screen place-items-center bg-background p-6">
       <div className="device">
@@ -66,16 +77,10 @@ export function PhoneShell({ status_bar_time = "7:18", children }: PhoneShellPro
             </span>
           </div>
 
-          {/* App content, padded clear of the island + home indicator */}
-          <div
-            className="absolute inset-0"
-            style={{
-              paddingTop: "env(safe-area-inset-top, 59px)",
-              paddingBottom: "env(safe-area-inset-bottom, 34px)",
-            }}
-          >
-            {children}
-          </div>
+          {/* App content, edge-to-edge — the reel owns its own safe-area offsets
+              (env() in blip-flow.css) so its accent tint bleeds into the island +
+              home-indicator bands. */}
+          <div className="absolute inset-0">{children}</div>
 
           <div className="island" />
           <div className="home-indicator" />
