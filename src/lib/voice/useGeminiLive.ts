@@ -141,6 +141,10 @@ export interface GeminiLiveController {
  * @param params - The model/voice/instruction/tools to encode.
  * @returns The `{ setup: {...} }` object to JSON-send as the first WS frame.
  *
+ * The session also pins a low `temperature` so the corpus-in-context voice path
+ * answers faithfully from the injected STORY CONTEXT (mirrors the server's
+ * `ANSWER_TEMPERATURE = 0.2` on the text Q&A path).
+ *
  * @example
  * buildSetupFrame({ model: "m", voiceName: "Charon", systemInstruction: "hi", tools: [] }).setup.generationConfig.responseModalities;
  * // ["AUDIO"]
@@ -155,6 +159,7 @@ export function buildSetupFrame(params: {
     model: string;
     generationConfig: {
       responseModalities: string[];
+      temperature: number;
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: string } } };
     };
     systemInstruction: { parts: { text: string }[] };
@@ -169,6 +174,12 @@ export function buildSetupFrame(params: {
       model: params.model.startsWith("models/") ? params.model : `models/${params.model}`,
       generationConfig: {
         responseModalities: ["AUDIO"],
+        // Reason: pin a low temperature so the corpus-in-context voice path answers
+        // faithfully from the injected STORY CONTEXT (mirrors the server's
+        // ANSWER_TEMPERATURE = 0.2 on the text Q&A path). The v1alpha constrained
+        // endpoint accepts temperature inside generationConfig alongside speechConfig;
+        // if it ever 1007-rejects it, move/remove it (verified by the manual voice eval).
+        temperature: 0.2,
         // Reason: speechConfig MUST sit INSIDE generationConfig on the v1alpha
         // constrained endpoint — at the `setup` top level the server closes the
         // socket with 1007 `Unknown name "speechConfig" at 'setup'`.

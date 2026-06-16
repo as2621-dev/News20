@@ -210,6 +210,10 @@ describe("buildSetupFrame — the setup-frame contract (gotcha 3, pure)", () => 
     });
     expect(frame.setup.model).toBe("models/gemini-x");
     expect(frame.setup.generationConfig.responseModalities).toEqual(["AUDIO"]);
+    // WHY: a low temperature keeps the corpus-in-context voice path faithful to the
+    // injected STORY CONTEXT (mirrors the server's ANSWER_TEMPERATURE = 0.2). A drift
+    // here would let the native-audio model paraphrase loosely / drift off-corpus.
+    expect(frame.setup.generationConfig.temperature).toBe(0.2);
     // speechConfig MUST live INSIDE generationConfig — top-level → WS close 1007.
     expect(frame.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Charon");
     expect(frame.setup.systemInstruction.parts[0].text).toBe("ground in the story");

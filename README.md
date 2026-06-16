@@ -18,6 +18,12 @@ Cross-phase feed contract: `src/types/feed.ts`. Reel UI: `src/components/reel/`,
 
 Karaoke caption timing is produced server-side by **acoustic forced alignment** (`agents/pipeline/stages/acoustic_alignment.py` — offline torchaudio Wav2Vec2 CTC, no paid API; requires `torch`/`torchaudio`/`num2words` from `requirements.txt`, ~360MB model auto-downloaded to the torch cache on first run). If those deps are absent the pipeline falls back to heuristic char-weight slicing (`forced_alignment.py`).
 
+### Environment variables
+
+| Variable | Default | What it does |
+|---|---|---|
+| `NEXT_PUBLIC_VOICE_CORPUS_IN_CONTEXT` | off | Live-voice grounding mode. **On** (`1`/`true`): the story's full grounding corpus is injected into the voice session so the model answers corpus-answerable questions directly. **Off** (default): legacy path — every factual question is forced through the `ask_about_story` tool round-trip. The trade-off is latency (on is faster) vs. grounding strictness (off keeps the server's two-guardrail verification). |
+
 > The sections below document the **Claude Code template** this project was scaffolded from.
 
 ## Use this template for a new project

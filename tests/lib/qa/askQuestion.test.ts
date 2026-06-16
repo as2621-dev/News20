@@ -67,6 +67,37 @@ describe("askQuestion conversation turns", () => {
     expect(parsedBody.conversation_turns[5].text).toBe("question number 9");
   });
 
+  it("adds web_only:true to the body when web_only is true (voice tool path)", async () => {
+    // WHY (SP3 contract): the live Voice tool fires only on a STORY CONTEXT miss, so
+    // it asks the worker to SKIP the wasted corpus answer+verify and answer from web
+    // search. That intent is carried purely by web_only:true in the POST body.
+    const fetchMock = buildFetchMock(GROUNDED_BODY);
+
+    await askQuestion("s1", "Related fact?", [], fetchMock, true);
+
+    const requestInit = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    const parsedBody = JSON.parse(requestInit.body as string);
+    expect(parsedBody.web_only).toBe(true);
+    expect(parsedBody.question_text).toBe("Related fact?");
+  });
+
+  it("omits web_only entirely when false — Detail-view body is byte-identical (default)", async () => {
+    // WHY (Rule 3 / DoD): the Detail-view Q&A path must be unchanged. The body for a
+    // first question with the default web_only=false is EXACTLY { question_text } —
+    // no web_only key, no conversation_turns key.
+    const fetchMock = buildFetchMock(GROUNDED_BODY);
+
+    // Pass the mock as fetchImpl with web_only left at its default (false). The body
+    // for a first question must be EXACTLY { question_text } — proving the default
+    // path is unchanged.
+    await askQuestion("s1", "Why does this matter?", [], fetchMock);
+
+    const mockedInit = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0][1] as RequestInit;
+    const parsedBody = JSON.parse(mockedInit.body as string);
+    expect(parsedBody).toEqual({ question_text: "Why does this matter?" });
+    expect("web_only" in parsedBody).toBe(false);
+  });
+
   it("still degrades to the safe refusal on network failure (failure case)", async () => {
     const fetchMock = vi.fn(async () => {
       throw new Error("network down");

@@ -35,7 +35,11 @@ from pydantic import BaseModel, Field
 
 from agents.ingestion.adapters.x_resolver import XHandleParseError, resolve_x_handle
 from agents.pipeline.llm_clients import LLMClient
-from agents.qa.agent import answer_question, build_refusal_answer
+from agents.qa.agent import (
+    answer_from_web_only,
+    answer_question,
+    build_refusal_answer,
+)
 from agents.qa.corpus import load_grounding_corpus
 from agents.qa.models import ConversationTurn, QuestionAnswer, StoryQaCacheRow
 from agents.shared.exceptions import GroundingCorpusError
@@ -67,7 +71,7 @@ _ALLOWED_ORIGINS = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
-    allow_methods=["POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["content-type", "authorization"],
     allow_credentials=False,
 )
@@ -152,6 +156,15 @@ class QuestionRequest(BaseModel):
         default_factory=list,
         max_length=12,
         description="Recent prior thread turns, most-recent-last; empty on a first question.",
+    )
+    web_only: bool = Field(
+        default=False,
+        description=(
+            "When True, skip the corpus answer+verify (and the SP4 answer cache) and "
+            "answer from web search only — used by the voice tool whose "
+            "corpus-in-context already failed to answer. Default False keeps the typed "
+            "Detail-view Q&A path byte-identical."
+        ),
     )
 
 
@@ -353,17 +366,21 @@ async def post_story_question(
     # Reason: SP4 answer cache — a verified turn for this EXACT (story, question)
     # is served straight from story_qa, skipping the whole LLM + verification
     # round-trip. Layers ON TOP of the per-story corpus context cache below.
-    # BYPASSED (read AND write) when conversation turns are present: a follow-up's
-    # answer depends on the thread, so it must neither be served from nor poison
-    # the context-free (story, question) cache key.
+    # BYPASSED (read AND write) when conversation turns are present (a follow-up's
+    # answer depends on the thread) OR when web_only is set (the voice tool's
+    # web-search answer is not the corpus-grounded answer the cache key represents,
+    # so it must neither be served from nor poison the (story, question) cache).
     has_conversation_context = bool(request.conversation_turns)
+    skip_answer_cache = has_conversation_context or request.web_only
     if has_conversation_context:
         logger.info(
             "qa_cache_bypassed_conversation",
             story_id=story_id,
             turn_count=len(request.conversation_turns),
         )
-    else:
+    if request.web_only:
+        logger.info("qa_cache_bypassed_web_only", story_id=story_id)
+    if not skip_answer_cache:
         cached_answer = _read_cached_answer(
             supabase_client, story_id, request.question_text
         )
@@ -398,12 +415,24 @@ async def post_story_question(
         return build_refusal_answer()
 
     try:
-        live_answer = await answer_question(
-            question_text=request.question_text,
-            corpus=corpus,
-            llm_client=LLMClient(),
-            conversation_turns=request.conversation_turns or None,
-        )
+        if request.web_only:
+            # Reason: the voice tool only fires AFTER the corpus-in-context failed
+            # to answer at the model, so the corpus answer+verify would be wasted
+            # work — go straight to the web-search fallback (corpus still loaded
+            # above for its relatedness context block).
+            live_answer = await answer_from_web_only(
+                question_text=request.question_text,
+                corpus=corpus,
+                llm_client=LLMClient(),
+                conversation_turns=request.conversation_turns or None,
+            )
+        else:
+            live_answer = await answer_question(
+                question_text=request.question_text,
+                corpus=corpus,
+                llm_client=LLMClient(),
+                conversation_turns=request.conversation_turns or None,
+            )
     except Exception as exc:  # noqa: BLE001 — boundary: never 5xx
         _log_error_response(
             error_code="qa_answer_unexpected",
@@ -416,12 +445,117 @@ async def post_story_question(
     # Reason: persist this verified turn (grounded OR refusal) so the identical
     # (story, question) is served from cache next time. Best-effort: a write
     # failure logs + returns the live answer (never breaks the HTTP-200 contract).
-    # Context-dependent (conversation) answers are NOT cached — see bypass above.
-    if not has_conversation_context:
+    # Context-dependent (conversation) AND web_only answers are NOT cached — see
+    # the bypass above.
+    if not skip_answer_cache:
         _write_cached_answer(
             supabase_client, story_id, request.question_text, live_answer
         )
     return live_answer
+
+
+class StoryCorpusResponse(BaseModel):
+    """The rendered grounding-corpus context block for a story (voice hybrid SP1).
+
+    Returned by ``GET /api/story/{story_id}/corpus`` so the live-voice client can
+    inject the story's whole corpus into its session ``systemInstruction`` and
+    answer corpus-answerable questions directly (no Railway hop). The block is the
+    same labeled, passage-id-tagged text the typed Q&A prompt grounds on
+    (``GroundingCorpus.render_context_block``).
+
+    GRACEFUL CONTRACT: on ANY failure the endpoint returns this with an EMPTY
+    ``context_block`` (and ``approx_token_count`` 0) at HTTP 200, so the client
+    degrades to tool-only voice rather than breaking the session (mirrors the Q&A
+    route; never a 5xx).
+
+    Attributes:
+        context_block: The newline-joined ``[<passage_id>] <text>`` block, or ``""``
+            when the corpus could not be loaded.
+        approx_token_count: The corpus's advisory chars/4 token estimate, or ``0``
+            on failure (for client-side prompt-budget logging only).
+    """
+
+    context_block: str = Field(
+        ...,
+        description="The rendered '[<passage_id>] <text>' block, or '' on any failure.",
+    )
+    approx_token_count: int = Field(
+        ...,
+        ge=0,
+        description="Advisory chars/4 token estimate of the corpus (0 on failure).",
+    )
+
+
+@app.get("/api/story/{story_id}/corpus")
+async def get_story_corpus(story_id: str) -> StoryCorpusResponse:
+    """Return the story's grounding-corpus context block for in-context voice.
+
+    Reuses the SAME server-side, per-story-cached corpus assembly the Q&A endpoint
+    uses (:func:`agents.worker.corpus_cache.get_or_load_corpus` →
+    :func:`load_grounding_corpus`), so the corpus lives in ONE place. The client
+    injects the returned ``context_block`` into the Live session's
+    ``systemInstruction`` to answer corpus-answerable questions directly.
+
+    GRACEFUL boundary (mirrors :func:`post_story_question`): on missing Supabase
+    config (``KeyError``), :class:`GroundingCorpusError`, or ANY unexpected error,
+    logs a typed ``ErrorResponse`` and returns HTTP 200 with an EMPTY block so the
+    client degrades to tool-only voice — NEVER a 5xx.
+
+    This GET is intentionally OUTSIDE the per-IP rate-limit allowlist (the
+    middleware only throttles the cost-bearing POST paths) — it is a cheap,
+    per-story-cached read with no LLM call.
+
+    Args:
+        story_id: The story to load the grounding corpus for (path param).
+
+    Returns:
+        A :class:`StoryCorpusResponse` with the rendered context block + token
+        count, or an empty block (HTTP 200) on any failure.
+    """
+    logger.info("corpus_request_received", story_id=story_id)
+    try:
+        supabase_client = _build_service_role_client()
+    except KeyError as exc:
+        _log_error_response(
+            error_code="corpus_supabase_config_missing",
+            error_message=f"missing Supabase env var: {exc}",
+            story_id=story_id,
+            fix_suggestion="Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the worker env",
+        )
+        return StoryCorpusResponse(context_block="", approx_token_count=0)
+
+    try:
+        corpus = get_or_load_corpus(
+            story_id=story_id,
+            supabase_client=supabase_client,
+            loader=load_grounding_corpus,
+        )
+    except GroundingCorpusError as exc:
+        _log_error_response(
+            error_code="corpus_unavailable",
+            error_message=exc.message,
+            story_id=story_id,
+            fix_suggestion=exc.fix_suggestion,
+        )
+        return StoryCorpusResponse(context_block="", approx_token_count=0)
+    except Exception as exc:  # noqa: BLE001 — boundary: never 5xx, degrade to tool-only
+        _log_error_response(
+            error_code="corpus_load_unexpected",
+            error_message=str(exc)[:200],
+            story_id=story_id,
+            fix_suggestion="Unexpected corpus-load error; client degrades to tool-only voice",
+        )
+        return StoryCorpusResponse(context_block="", approx_token_count=0)
+
+    logger.info(
+        "corpus_request_completed",
+        story_id=story_id,
+        approx_token_count=corpus.approx_token_count,
+    )
+    return StoryCorpusResponse(
+        context_block=corpus.render_context_block(),
+        approx_token_count=corpus.approx_token_count,
+    )
 
 
 # ---------------------------------------------------------------------------

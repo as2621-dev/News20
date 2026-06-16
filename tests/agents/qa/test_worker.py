@@ -216,7 +216,10 @@ class TestConversationTurnsCacheBypass:
         "question_text": "What about its margins?",
         "conversation_turns": [
             {"role": "user", "text": "What is the current PE of TSMC?"},
-            {"role": "model", "text": "TSMC trades at approximately 24x forward earnings."},
+            {
+                "role": "model",
+                "text": "TSMC trades at approximately 24x forward earnings.",
+            },
         ],
     }
 
@@ -255,7 +258,9 @@ class TestConversationTurnsCacheBypass:
 
         write_calls: list[str] = []
 
-        def _write(_client: Any, _story_id: str, question_text: str, _answer: Any) -> None:
+        def _write(
+            _client: Any, _story_id: str, question_text: str, _answer: Any
+        ) -> None:
             write_calls.append(question_text)
 
         monkeypatch.setattr(worker_main, "_read_cached_answer", _read_miss)
@@ -285,3 +290,159 @@ class TestConversationTurnsCacheBypass:
             },
         )
         assert response.status_code == 422
+
+
+class TestStoryCorpusEndpoint:
+    """voice-latency-hybrid SP1: GET /api/story/{id}/corpus + graceful empty block.
+
+    WHY: the live-voice client injects this corpus into its systemInstruction to
+    answer corpus-answerable questions directly. The block must be the same
+    rendered text the Q&A path grounds on, and any failure must degrade to an
+    EMPTY block (HTTP 200) so voice falls back to tool-only — never a 5xx.
+    """
+
+    _CORPUS_PATH = "/api/story/s1/corpus"
+
+    def test_happy_path_returns_rendered_block_and_token_count(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A loadable corpus → its rendered context block + token count at HTTP 200."""
+
+        class _FakeCorpus:
+            approx_token_count = 42
+
+            def render_context_block(self) -> str:
+                return "[detail_chunk:0] Hormuz carries ~20% of global oil."
+
+        monkeypatch.setattr(
+            worker_main, "get_or_load_corpus", lambda **_kwargs: _FakeCorpus()
+        )
+
+        response = client.get(self._CORPUS_PATH)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["context_block"] == (
+            "[detail_chunk:0] Hormuz carries ~20% of global oil."
+        )
+        assert body["approx_token_count"] == 42
+
+    def test_corpus_error_returns_http_200_empty_block(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A GroundingCorpusError (missing story) → HTTP 200 with an EMPTY block.
+
+        The graceful seam: a corpus that cannot be assembled must let voice fall
+        back to tool-only, so the endpoint returns an empty block, never a 5xx.
+        """
+
+        def _raise(**_kwargs: Any) -> Any:
+            raise GroundingCorpusError(
+                story_id="s1",
+                message="no grounding passages found",
+                fix_suggestion="Seed detail_chunks",
+            )
+
+        monkeypatch.setattr(worker_main, "get_or_load_corpus", _raise)
+
+        response = client.get(self._CORPUS_PATH)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["context_block"] == ""
+        assert body["approx_token_count"] == 0
+
+    def test_unexpected_error_returns_http_200_empty_block(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unexpected load error → HTTP 200 empty block (never a 5xx)."""
+
+        def _raise(**_kwargs: Any) -> Any:
+            raise RuntimeError("supabase unreachable")
+
+        monkeypatch.setattr(worker_main, "get_or_load_corpus", _raise)
+
+        response = client.get(self._CORPUS_PATH)
+
+        assert response.status_code == 200
+        assert response.json()["context_block"] == ""
+
+    def test_missing_supabase_config_returns_http_200_empty_block(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Missing Supabase env config → HTTP 200 empty block, not a crash."""
+
+        def _raise() -> Any:
+            raise KeyError("SUPABASE_URL")
+
+        monkeypatch.setattr(worker_main, "_build_service_role_client", _raise)
+
+        response = client.get(self._CORPUS_PATH)
+
+        assert response.status_code == 200
+        assert response.json()["context_block"] == ""
+
+
+class TestWebOnlyAnswerPath:
+    """voice-latency-hybrid SP1: web_only=True skips corpus answer+verify + cache.
+
+    WHY: the voice tool fires only AFTER corpus-in-context failed at the model, so
+    re-running the corpus answer+verify server-side is wasted work. web_only routes
+    straight to the web path and bypasses the answer cache (read AND write); the
+    default web_only=False path must stay byte-identical to today.
+    """
+
+    _WEB_BODY = {"question_text": "What is TSMC's PE ratio?", "web_only": True}
+
+    def test_web_only_calls_web_path_and_skips_corpus_answer_and_cache(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """web_only=True → answer_from_web_only used; answer_question + cache skipped."""
+        read_spy = AsyncMock()  # would explode if awaited; we assert not-called
+        write_spy = AsyncMock()
+        monkeypatch.setattr(worker_main, "_read_cached_answer", read_spy)
+        monkeypatch.setattr(worker_main, "_write_cached_answer", write_spy)
+        monkeypatch.setattr(
+            worker_main, "get_or_load_corpus", lambda **_kwargs: object()
+        )
+        answer_question_mock = AsyncMock(return_value=_grounded_answer())
+        monkeypatch.setattr(worker_main, "answer_question", answer_question_mock)
+        web_mock = AsyncMock(return_value=_grounded_answer())
+        monkeypatch.setattr(worker_main, "answer_from_web_only", web_mock)
+
+        response = client.post(_QUESTION_PATH, json=self._WEB_BODY)
+
+        assert response.status_code == 200
+        assert response.json()["answer_is_grounded"] is True
+        # Reason: the corpus answer+verify path is bypassed entirely.
+        answer_question_mock.assert_not_called()
+        web_mock.assert_awaited_once()
+        # Reason: the answer cache is bypassed read AND write for web_only.
+        read_spy.assert_not_called()
+        write_spy.assert_not_called()
+
+    def test_web_only_false_keeps_corpus_answer_and_cache_path(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """web_only=False (default) → answer_question used, web path untouched."""
+        monkeypatch.setattr(worker_main, "_read_cached_answer", lambda *_a, **_k: None)
+        write_calls: list[str] = []
+        monkeypatch.setattr(
+            worker_main,
+            "_write_cached_answer",
+            lambda _c, _s, question_text, _a: write_calls.append(question_text),
+        )
+        monkeypatch.setattr(
+            worker_main, "get_or_load_corpus", lambda **_kwargs: object()
+        )
+        answer_question_mock = AsyncMock(return_value=_grounded_answer())
+        monkeypatch.setattr(worker_main, "answer_question", answer_question_mock)
+        web_mock = AsyncMock(return_value=_grounded_answer())
+        monkeypatch.setattr(worker_main, "answer_from_web_only", web_mock)
+
+        response = client.post(_QUESTION_PATH, json=_BODY)
+
+        assert response.status_code == 200
+        answer_question_mock.assert_awaited_once()
+        web_mock.assert_not_called()
+        assert write_calls == [_BODY["question_text"]]

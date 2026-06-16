@@ -142,6 +142,12 @@ function isAnswerCitation(value: unknown): value is AnswerCitation {
  *   follow-up resolution; only the last {@link MAX_CONVERSATION_TURNS_SENT} are
  *   sent, and the field is omitted entirely on a first question.
  * @param fetchImpl - Injectable fetch (defaults to the global `fetch`; tests pass a mock).
+ * @param web_only - When `true`, asks the worker to SKIP the corpus answer+verify
+ *   pipeline and answer from web search only (`web_only: true` is added to the POST
+ *   body). Used by the live Voice tool, whose corpus already failed AT THE MODEL, so
+ *   re-running the server corpus path is wasted work. Defaults to `false`, which
+ *   keeps the Detail-view Q&A request body byte-identical to before (the flag is
+ *   OMITTED from the body when false).
  * @returns The grounded answer, or a refusal on any failure.
  *
  * @example
@@ -151,12 +157,17 @@ function isAnswerCitation(value: unknown): value is AnswerCitation {
  * } else {
  *   // render the ⌀ CAN'T ANSWER FROM SOURCE refusal card
  * }
+ *
+ * @example
+ * // Voice tool path — web-only fallback (corpus already missed at the model):
+ * const answer = await askQuestion("s1", "Related fact?", [], fetch, true);
  */
 export async function askQuestion(
   story_id: string,
   question_text: string,
   conversation_turns: QaConversationTurn[] = [],
   fetchImpl: typeof fetch = fetch,
+  web_only = false,
 ): Promise<QuestionAnswer> {
   const endpoint = `${getQaApiBaseUrl()}/api/story/${encodeURIComponent(story_id)}/question`;
   const trimmedTurns = conversation_turns.slice(-MAX_CONVERSATION_TURNS_SENT);
@@ -173,6 +184,9 @@ export async function askQuestion(
       body: JSON.stringify({
         question_text,
         ...(trimmedTurns.length > 0 ? { conversation_turns: trimmedTurns } : {}),
+        // Reason: omit web_only entirely when false so the Detail-view Q&A body
+        // stays byte-identical to before this change (SP3 contract).
+        ...(web_only ? { web_only: true } : {}),
       }),
     });
 

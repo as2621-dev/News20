@@ -48,10 +48,10 @@ export const ASK_ABOUT_STORY_TOOL_NAME = "ask_about_story";
 export const askAboutStoryDeclaration: GeminiToolDeclaration = {
   name: ASK_ABOUT_STORY_TOOL_NAME,
   description:
-    "Answer the user's question about THIS news story (or anything related to it) using its " +
-    "verified sources, with a web-search fallback for related questions the sources don't cover. " +
-    "Call this for every factual question; it returns a sourced answer with citations, or a " +
-    "refusal/pushback when the question can't be answered or is unrelated to the story.",
+    "Use ONLY for questions the story context does not cover (a related fact the story " +
+    "doesn't state). Fetches a web-searched answer with citations, or a refusal/off-topic " +
+    "pushback when the question can't be answered or is unrelated to the story. Do NOT call " +
+    "this for anything already answerable from the STORY CONTEXT — answer those directly.",
   parameters: {
     type: "object",
     properties: {
@@ -65,15 +65,38 @@ export const askAboutStoryDeclaration: GeminiToolDeclaration = {
 };
 
 /**
- * The system-instruction clause that FORBIDS answering without the tool.
+ * The system-instruction clause for the corpus-first / tool-on-miss / web-only path.
  *
- * Appended to the in-news instruction via `buildInNewsSystemInstruction`'s
- * `tool_grounding_clause` arg. It mechanizes Decision #5 / Rule 9: the model must
- * call {@link askAboutStoryDeclaration} for every factual question, must speak back
- * the tool's `answer_text` (and only that), and — when `answer_is_grounded` is
- * false — must deliver that refusal text verbatim, never guessing or adding facts.
+ * Appended LAST to the corpus-in-context instruction via
+ * `buildInNewsSystemInstructionWithCorpus`'s `tool_grounding_clause` arg (the
+ * latency-fix hybrid). It mechanizes the new contract: the full story already lives
+ * in the model's STORY CONTEXT, so it answers corpus-answerable questions DIRECTLY;
+ * it calls {@link askAboutStoryDeclaration} ONLY when the answer is NOT in that
+ * context (a related fact the story doesn't state). Before calling the tool it says
+ * one short filler line ("let me check that") to mask the round-trip; it then speaks
+ * the tool's `answer_text` verbatim, and — when `answer_is_grounded` is false —
+ * delivers it as a brief refusal/pushback, adding nothing of its own.
  */
 export const STORY_QA_TOOL_GROUNDING_CLAUSE =
+  "You have the full story in your STORY CONTEXT. Answer questions from it directly — that is the fast path. " +
+  `Call ${ASK_ABOUT_STORY_TOOL_NAME}(question_text) ONLY when the answer is NOT in your STORY CONTEXT ` +
+  "(for example, a related fact the story doesn't state). Before calling it, say ONE short filler line like " +
+  '"let me check that." Then speak the tool\'s answer_text verbatim. ' +
+  "When the tool returns answer_is_grounded false, deliver its answer_text as a brief refusal or pushback and DO NOT guess, invent, or add any facts of your own.";
+
+/**
+ * The legacy tool-forced clause — the PRE-hybrid behavior, kept for the
+ * `NEXT_PUBLIC_VOICE_CORPUS_IN_CONTEXT` flag's OFF path (clean A/B, SP4).
+ *
+ * This is the original `STORY_QA_TOOL_GROUNDING_CLAUSE` wording (recovered
+ * byte-for-byte from git HEAD) BEFORE it was rewritten to corpus-first semantics.
+ * It FORBIDS the model answering any factual question from its own knowledge and
+ * forces a tool call for EVERY such question — there is no injected STORY CONTEXT
+ * on the flag-OFF path, so the model has no corpus to answer from and must route
+ * everything through {@link buildAskAboutStoryHandler}. Flag ON uses the new
+ * corpus-first {@link STORY_QA_TOOL_GROUNDING_CLAUSE}; flag OFF uses this.
+ */
+export const LEGACY_TOOL_FORCED_CLAUSE =
   `You have one tool, ${ASK_ABOUT_STORY_TOOL_NAME}(question_text). ` +
   "You MUST NOT answer any factual question about this story — or related to it — from your own knowledge. " +
   `For every such question, call ${ASK_ABOUT_STORY_TOOL_NAME} with the user's question, then speak ONLY the tool's answer_text. ` +
@@ -139,7 +162,11 @@ export function buildAskAboutStoryHandler(
     });
 
     try {
-      const answer = await askQuestion(story_id, question_text);
+      // Reason: the corpus already failed AT THE MODEL (this tool fires only on a
+      // STORY CONTEXT miss), so route to the server's web-only path — skipping the
+      // wasted corpus answer+verify. web_only is the 5th positional arg; pass the
+      // defaults for conversation_turns + fetchImpl unchanged.
+      const answer = await askQuestion(story_id, question_text, [], fetch, true);
       logger.info("ask_about_story_tool_completed", {
         story_id,
         tool_call_id: toolCall.id,

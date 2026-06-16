@@ -27,7 +27,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from agents.pipeline.llm_clients import LLMClient
-from agents.qa.agent import answer_question
+from agents.qa.agent import answer_from_web_only, answer_question
 from agents.qa.prompts import OFF_TOPIC_ANSWER_TEXT, REFUSAL_ANSWER_TEXT
 
 
@@ -419,3 +419,47 @@ class TestConversationThreading:
         assert "question number 1" not in system_prompt
         assert "question number 2" in system_prompt
         assert "question number 7" in system_prompt
+
+
+class TestAnswerFromWebOnly:
+    """voice-latency-hybrid SP1: the public web-only wrapper skips corpus answer+verify.
+
+    WHY: the voice tool calls this only AFTER corpus-in-context failed at the
+    model, so the corpus answer (``call_gemini``) + verify must NOT run — only the
+    web-search call. It must still gate on relatedness via the web path.
+    """
+
+    @pytest.mark.asyncio
+    async def test_web_only_answers_from_web_without_calling_corpus_answerer(
+        self, s1_corpus
+    ) -> None:
+        """A related question → web answer with web citations; no corpus call."""
+        client = _llm_client_returning()  # call_gemini RAISES if invoked
+        _stub_web_search(
+            client,
+            _web_response(True, "TSMC trades at ~24x forward earnings."),
+            web_sources=[{"source_title": "Reuters", "source_url": "https://r.com/x"}],
+        )
+
+        answer = await answer_from_web_only("What is TSMC's PE?", s1_corpus, client)
+
+        assert answer.answer_is_grounded is True
+        assert answer.answer_text == "TSMC trades at ~24x forward earnings."
+        assert answer.answer_citations[0].passage_id == "web:0"
+        # Reason: the corpus answer+verify path was never invoked.
+        assert client.call_gemini.await_count == 0
+        assert client.call_gemini_with_search.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_web_only_unrelated_question_gets_off_topic_pushback(
+        self, s1_corpus
+    ) -> None:
+        """An unrelated question still gets the off-topic pushback (relatedness gate)."""
+        client = _llm_client_returning()
+        _stub_web_search(client, _web_response(False, ""))
+
+        answer = await answer_from_web_only("Best pizza topping?", s1_corpus, client)
+
+        assert answer.answer_is_grounded is False
+        assert answer.answer_text == OFF_TOPIC_ANSWER_TEXT
+        assert client.call_gemini.await_count == 0

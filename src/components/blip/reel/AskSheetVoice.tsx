@@ -39,13 +39,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
 import { logger } from "@/lib/logger";
+import { fetchStoryCorpus } from "@/lib/voice/fetchStoryCorpus";
 import { getMicPermissionState, requestMicPermission } from "@/lib/voice/micPermission";
 import {
   askAboutStoryDeclaration,
   buildAskAboutStoryHandler,
+  LEGACY_TOOL_FORCED_CLAUSE,
   STORY_QA_TOOL_GROUNDING_CLAUSE,
 } from "@/lib/voice/storyQaTool";
-import { buildGreetingNudge, buildInNewsSystemInstruction } from "@/lib/voice/storyVoicePrompts";
+import {
+  buildGreetingNudge,
+  buildInNewsSystemInstruction,
+  buildInNewsSystemInstructionWithCorpus,
+} from "@/lib/voice/storyVoicePrompts";
 import { GEMINI_LIVE_DEFAULT_VOICE, GEMINI_LIVE_JORDAN_VOICE, useGeminiLive } from "@/lib/voice/useGeminiLive";
 import type { Story } from "@/types/feed";
 
@@ -60,6 +66,26 @@ const SILENT_MIC_AMPLITUDE_FLOOR = 0.01;
 
 /** How long (ms) the session may stay silent before the mic hint shows. */
 const SILENT_MIC_HINT_DELAY_MS = 8000;
+
+/**
+ * Whether the corpus-in-context hybrid voice path is enabled
+ * (`NEXT_PUBLIC_VOICE_CORPUS_IN_CONTEXT`, default OFF).
+ *
+ * ON  → fetch the story corpus + inject it into the Live system instruction so the
+ *       native-audio model answers corpus-answerable questions directly (low latency).
+ * OFF → pre-phase legacy behavior: skip the corpus fetch entirely and force every
+ *       factual question through the `ask_about_story` tool round-trip (grounded by
+ *       the server's two-guardrail path, but slower).
+ *
+ * The env value is a string; "1" or "true" (case-insensitive) is ON, anything else
+ * or undefined is OFF.
+ *
+ * @returns `true` when the hybrid corpus-in-context path is enabled.
+ */
+function isVoiceCorpusInContextEnabled(): boolean {
+  const raw = (process.env.NEXT_PUBLIC_VOICE_CORPUS_IN_CONTEXT ?? "").toLowerCase();
+  return raw === "1" || raw === "true";
+}
 
 /**
  * The 4 render states of this component. `permission` = before grant;
@@ -189,6 +215,18 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     return readVoiceGrantedFlag() ? "listening" : "permission";
   });
 
+  // The A/B feature flag: ON = hybrid corpus-in-context path; OFF = legacy
+  // tool-forced path. Read once on mount (the env value is build-time-static).
+  const corpusInContextEnabled = useMemo(() => isVoiceCorpusInContextEnabled(), []);
+
+  // The story's grounding corpus, injected into the Live systemInstruction so the
+  // native-audio model answers corpus-answerable questions DIRECTLY (no Railway hop).
+  // Starts "" so connect() never blocks on it — the builder falls back to the
+  // tool-only voice on an empty corpus (graceful seam). Filled by the mount effect
+  // below ONLY when the flag is ON, which runs CONCURRENTLY with the user's mic
+  // gesture + the token mint. When the flag is OFF this stays "" (no corpus fetch).
+  const [storyCorpus, setStoryCorpus] = useState<string>("");
+
   // Accumulate the spoken turns so we can render the full conversation thread.
   const [turns, setTurns] = useState<VoiceTurn[]>([]);
   // Tracks whether a request is in flight (prevents double-click on CTA).
@@ -243,8 +281,53 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   const [showSilentMicHint, setShowSilentMicHint] = useState<boolean>(false);
   const peakAmplitudeRef = useRef<number>(0);
 
+  // Fetch the grounding corpus as soon as the story is known. This runs on mount —
+  // CONCURRENTLY with the user reading the permission CTA, tapping "Enable
+  // microphone", and the token mint that happens INSIDE useGeminiLive.connect()
+  // (useGeminiLive.ts mints the ephemeral token after connect() is awaited). The
+  // corpus therefore overlaps that latency rather than adding a serial hop in front
+  // of it. If it isn't ready when connect() runs, systemInstruction is built from
+  // "" → the builder falls back to the tool-only voice; the corpus simply enriches
+  // a later session if it lands first. fetchStoryCorpus never throws (returns "").
+  //
+  // Gated on the flag: when corpus-in-context is OFF we SKIP the corpus GET entirely
+  // (no wasted request) and leave storyCorpus = "" so the legacy tool-forced path runs.
+  useEffect(() => {
+    if (!corpusInContextEnabled) {
+      return;
+    }
+    let isCurrent = true;
+    void fetchStoryCorpus(story.digest_id).then((corpus_context_block) => {
+      if (!isCurrent) {
+        return;
+      }
+      setStoryCorpus(corpus_context_block);
+      logger.info("ask_sheet_voice_corpus_fetched", {
+        story_id: story.digest_id,
+        corpus_context_block_length: corpus_context_block.length,
+        corpus_is_present: corpus_context_block.length > 0,
+      });
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [story.digest_id, corpusInContextEnabled]);
+
+  // Build the Live system instruction. Flag ON → corpus-in-context hybrid (corpus
+  // injected; corpus-first / tool-on-miss clause). Flag OFF → legacy tool-only voice
+  // with the tool-FORCED clause (every factual question routes through the tool) —
+  // a true revert to pre-phase behavior (no STORY CONTEXT, no corpus fetch).
+  const systemInstruction = corpusInContextEnabled
+    ? buildInNewsSystemInstructionWithCorpus(
+        story.headline,
+        story.digest_id,
+        storyCorpus,
+        STORY_QA_TOOL_GROUNDING_CLAUSE,
+      )
+    : buildInNewsSystemInstruction(story.headline, story.digest_id, LEGACY_TOOL_FORCED_CLAUSE);
+
   const { status, isSetupComplete, inputAmplitude, connect, disconnect } = useGeminiLive({
-    systemInstruction: buildInNewsSystemInstruction(story.headline, story.digest_id, STORY_QA_TOOL_GROUNDING_CLAUSE),
+    systemInstruction,
     tools: [askAboutStoryDeclaration],
     onToolCall,
     onTranscript: handleTranscript,

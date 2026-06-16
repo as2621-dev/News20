@@ -343,6 +343,48 @@ async def _answer_from_web(
     )
 
 
+async def answer_from_web_only(
+    question_text: str,
+    corpus: GroundingCorpus,
+    llm_client: LLMClient,
+    conversation_turns: list[ConversationTurn] | None = None,
+) -> QuestionAnswer:
+    """Answer a question from web search only, skipping the corpus answer+verify.
+
+    The public entry point for the SP1 ``web_only`` path: the voice tool fires
+    ``ask_about_story`` only AFTER the corpus-in-context already failed to answer
+    at the model, so re-running the corpus answer + verification server-side is
+    wasted work. This delegates straight to :func:`_answer_from_web`, which still
+    needs the corpus to render the relatedness context block (an unrelated
+    question gets the off-topic pushback; a related one is web-answered with web
+    citations). A thin public wrapper keeps the module-private ``_answer_from_web``
+    from being imported across modules.
+
+    Args:
+        question_text: The reader's question.
+        corpus: The story's loaded grounding corpus (renders the relatedness
+            context block; the caller injects it).
+        llm_client: An initialized ``LLMClient`` (mocked in tests).
+        conversation_turns: Prior thread turns (most-recent-last) for pronoun
+            resolution; None/empty on a first question.
+
+    Returns:
+        A web-answered :class:`QuestionAnswer`, the off-topic pushback, or the
+        plain refusal when the web call fails / returns nothing usable.
+
+    Example:
+        >>> answer = await answer_from_web_only("What is its PE ratio?", corpus, client)  # doctest: +SKIP
+        >>> answer.answer_is_grounded
+        True
+    """
+    return await _answer_from_web(
+        question_text=question_text,
+        corpus=corpus,
+        llm_client=llm_client,
+        conversation_turns=conversation_turns,
+    )
+
+
 async def answer_question(
     question_text: str,
     corpus: GroundingCorpus,

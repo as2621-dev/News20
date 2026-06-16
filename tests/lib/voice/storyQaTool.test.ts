@@ -40,9 +40,10 @@ import {
   ASK_ABOUT_STORY_TOOL_NAME,
   askAboutStoryDeclaration,
   buildAskAboutStoryHandler,
+  LEGACY_TOOL_FORCED_CLAUSE,
   STORY_QA_TOOL_GROUNDING_CLAUSE,
 } from "@/lib/voice/storyQaTool";
-import { buildInNewsSystemInstruction } from "@/lib/voice/storyVoicePrompts";
+import { buildInNewsSystemInstructionWithCorpus } from "@/lib/voice/storyVoicePrompts";
 import type { GeminiToolCall } from "@/lib/voice/useGeminiLive";
 
 const askQuestionMock = vi.mocked(askQuestion);
@@ -97,20 +98,57 @@ describe("askAboutStoryDeclaration", () => {
 });
 
 describe("STORY_QA_TOOL_GROUNDING_CLAUSE in the assembled system instruction", () => {
-  it("forbids answering without calling the tool", () => {
-    // WHY (Rule 9): the clause is what mechanically pushes the model onto the
-    // grounded path. The assembled instruction must actually carry it (not just the
-    // softer base persona) or the model could answer from its own knowledge.
-    const instruction = buildInNewsSystemInstruction(
+  it("enforces corpus-first answering with tool-on-miss + a spoken filler line", () => {
+    // WHY (Rule 9): the clause mechanizes the latency-fix contract — answer from the
+    // injected STORY CONTEXT directly, and call the tool ONLY on a corpus miss, after
+    // a short spoken filler. The assembled instruction must actually carry it (not
+    // just the softer base persona) or the model would route every question through
+    // the slow tool path (defeating the whole latency fix) or answer ungrounded.
+    const instruction = buildInNewsSystemInstructionWithCorpus(
       "Why does Hormuz matter?",
       STORY_ID,
+      "[p0] About 20% of global oil passes through the Strait of Hormuz.",
       STORY_QA_TOOL_GROUNDING_CLAUSE,
     );
 
     expect(instruction).toContain(STORY_QA_TOOL_GROUNDING_CLAUSE);
     expect(instruction).toContain("ask_about_story");
-    expect(instruction).toMatch(/MUST NOT answer/);
-    expect(instruction).toMatch(/answer_is_grounded false/);
+    // Corpus-first: answer from STORY CONTEXT directly.
+    expect(instruction).toMatch(/STORY CONTEXT/);
+    expect(STORY_QA_TOOL_GROUNDING_CLAUSE).toMatch(/Answer questions from it directly/);
+    // Tool-on-miss only.
+    expect(STORY_QA_TOOL_GROUNDING_CLAUSE).toMatch(/ONLY when the answer is NOT in your STORY CONTEXT/);
+    // Spoken filler before the round-trip.
+    expect(STORY_QA_TOOL_GROUNDING_CLAUSE).toMatch(/let me check that/);
+    // Verbatim relay + refusal handling preserved.
+    expect(STORY_QA_TOOL_GROUNDING_CLAUSE).toMatch(/answer_text verbatim/);
+    expect(STORY_QA_TOOL_GROUNDING_CLAUSE).toMatch(/answer_is_grounded false/);
+  });
+
+  it("keeps a separate LEGACY_TOOL_FORCED_CLAUSE for the flag-OFF A/B path", () => {
+    // WHY (Rule 9): the NEXT_PUBLIC_VOICE_CORPUS_IN_CONTEXT=off path must be a TRUE
+    // revert to pre-phase behavior — every factual question forced through the tool,
+    // never answered from the model's own knowledge (there is no STORY CONTEXT on the
+    // OFF path). If this legacy clause silently drifts to corpus-first wording, flag-OFF
+    // would stop forcing the tool and could answer ungrounded. These assertions encode
+    // the original tool-forced contract.
+    expect(LEGACY_TOOL_FORCED_CLAUSE).toContain("You MUST NOT answer any factual question");
+    expect(LEGACY_TOOL_FORCED_CLAUSE).toMatch(/For every such question, call ask_about_story/);
+    expect(LEGACY_TOOL_FORCED_CLAUSE).toMatch(/answer_is_grounded false/);
+    // The legacy clause is tool-FORCED, NOT corpus-first: it must not tell the model it
+    // already has the story in a STORY CONTEXT (the OFF path injects no corpus).
+    expect(LEGACY_TOOL_FORCED_CLAUSE).not.toMatch(/STORY CONTEXT/);
+    // And it is distinct from the new corpus-first clause (clean A/B).
+    expect(LEGACY_TOOL_FORCED_CLAUSE).not.toBe(STORY_QA_TOOL_GROUNDING_CLAUSE);
+  });
+
+  it("declaration description scopes the tool to web-only fallback usage", () => {
+    // WHY: the model reads the declaration description to decide WHEN to call the
+    // tool. It must say "only for questions the story context does not cover" so the
+    // common (corpus-answerable) case never pays the round-trip.
+    expect(askAboutStoryDeclaration.description).toMatch(/story context does not cover/i);
+    expect(askAboutStoryDeclaration.description).toMatch(/web-searched answer with citations/i);
+    expect(askAboutStoryDeclaration.description).toMatch(/refusal|pushback/i);
   });
 });
 
@@ -121,9 +159,12 @@ describe("buildAskAboutStoryHandler — on-topic grounded round-trip", () => {
 
     const response = await handler(makeToolCall({ question_text: "Why does Hormuz matter?" }));
 
-    // Round-trip: the grounded path is hit exactly once, scoped to THIS story.
+    // Round-trip: the grounded path is hit exactly once, scoped to THIS story, with
+    // web_only=true (the tool fires only on a corpus miss → server skips the wasted
+    // corpus answer+verify and answers from web search). The 5th positional arg is
+    // the load-bearing contract this whole latency fix relies on.
     expect(askQuestionMock).toHaveBeenCalledTimes(1);
-    expect(askQuestionMock).toHaveBeenCalledWith(STORY_ID, "Why does Hormuz matter?");
+    expect(askQuestionMock).toHaveBeenCalledWith(STORY_ID, "Why does Hormuz matter?", [], fetch, true);
 
     // The response the model speaks back carries the grounded answer + its citations.
     expect(response.answer_is_grounded).toBe(true);
@@ -159,11 +200,11 @@ describe("buildAskAboutStoryHandler — malformed tool call (Rule 12)", () => {
     const handler = buildAskAboutStoryHandler(STORY_ID);
 
     const missingArg = await handler(makeToolCall({}));
-    expect(askQuestionMock).toHaveBeenLastCalledWith(STORY_ID, "");
+    expect(askQuestionMock).toHaveBeenLastCalledWith(STORY_ID, "", [], fetch, true);
     expect(missingArg.answer_is_grounded).toBe(false);
 
     const nonStringArg = await handler(makeToolCall({ question_text: 42 }));
-    expect(askQuestionMock).toHaveBeenLastCalledWith(STORY_ID, "");
+    expect(askQuestionMock).toHaveBeenLastCalledWith(STORY_ID, "", [], fetch, true);
     expect(nonStringArg.answer_is_grounded).toBe(false);
   });
 });
