@@ -38,9 +38,10 @@ from agents.shared.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Reason: GDELT timespan is coarse (1d–3d); a 2-day lookback is a sensible daily
-# default that tolerates a missed run without re-ingesting stale news.
-_DEFAULT_LOOKBACK_DAYS = 2
+# Reason: the pipeline runs daily at midnight ET, so a 24h window keeps the
+# catalog to "today's" news; a missed run is self-healed by the 05:00 ET
+# readiness cron (Phase 7c SP3) rather than a wider lookback.
+_DEFAULT_LOOKBACK_DAYS = 1
 
 
 def build_active_interest_set(
@@ -151,7 +152,7 @@ async def ingest_active_interests(
         interest_nodes: Taxonomy map ``interest_id -> InterestNode``.
         adapter: A BaseNewsAdapter (GDELT in prod; a mock in tests).
         clusterer: Optional StoryClusterer (defaults to one with standard thresholds).
-        since_utc: Lower-bound publish time (defaults to ~2 days ago).
+        since_utc: Lower-bound publish time (defaults to ~1 day ago).
         extract_bodies: When True, fetch + extract each canonical story's body.
         resolve_existing_story_ids: Optional ``(normalized_urls) -> {url: story_id}``
             cross-day identity resolver (migration 0006 / ``story_url_aliases``).

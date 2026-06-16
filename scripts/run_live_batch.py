@@ -21,7 +21,7 @@ SAFETY (this run costs real paid Gemini calls):
   * ``MAX_PRODUCE`` is an OPTIONAL overall ceiling on top of those caps (default 8),
     trimmed round-robin across categories so balance is preserved. Set
     ``MAX_PRODUCE=0`` to let the per-category caps be the only bound (full scale).
-  * ``LOOKBACK_DAYS`` (default 2) bounds GDELT recency.
+  * ``LOOKBACK_DAYS`` (default 1) bounds GDELT recency.
   * ``INGEST_SOURCE`` (default ``doc``) — set ``bigquery`` to ingest AND run the
     Phase-2c coverage census via the unthrottled GDELT BigQuery dataset instead of
     the rate-limited DOC API (needs ``GOOGLE_APPLICATION_CREDENTIALS``; optional
@@ -238,7 +238,7 @@ async def _run() -> int:
 
     paid = os.environ.get("RUN_LIVE_BATCH") == "1"
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
-    lookback_days = int(os.environ.get("LOOKBACK_DAYS", "2"))
+    lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
 
     supabase = create_client(
         os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]

@@ -10,13 +10,14 @@ resilience (one source failure does not abort the batch).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.dedup import normalize_url
 from agents.ingestion.interest_keyed_pipeline import (
+    _DEFAULT_LOOKBACK_DAYS,
     build_active_interest_set,
     ingest_active_interests,
 )
@@ -261,3 +262,75 @@ class TestCrossDayIdentityResolver:
         assert not arsenal.canonical_story_id.startswith("EXISTING")
         assert adapter.extract_calls == 1
         assert arsenal.canonical_body_text is not None
+
+
+class _SinceRecordingAdapter(BaseNewsAdapter):
+    """Records the ``since_utc`` lower bound the pipeline passes to ``search``.
+
+    WHY: the catalog window is only correct if the pipeline derives ``since`` from
+    ``_DEFAULT_LOOKBACK_DAYS`` when no override is given. Capturing the value the
+    adapter actually receives is the behavioural proof of that window.
+    """
+
+    def __init__(self) -> None:
+        self.received_since_utc: datetime | None = None
+
+    async def search(self, search_query, since_utc, **kwargs):
+        self.received_since_utc = since_utc
+        return []
+
+    async def extract_body(self, candidate, **kwargs):
+        return candidate
+
+
+class TestCatalogWindowDefaultLookback:
+    """The default ingest window is 24h, and an explicit override is honoured.
+
+    WHY this matters (Phase 7c SP1): the pipeline runs daily at midnight ET and
+    should ingest only "today's" news. A wider default would re-surface stale
+    stories; a narrower-but-overridable window lets ops widen it deliberately
+    (e.g. ``LOOKBACK_DAYS=2`` after a missed run) without a code change.
+    """
+
+    def test_default_lookback_constant_is_one_day(self) -> None:
+        """The 24h window is encoded in the module constant (DoD: constant == 1)."""
+        assert _DEFAULT_LOOKBACK_DAYS == 1
+
+    @pytest.mark.asyncio
+    async def test_default_since_is_now_minus_one_day(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """With no ``since_utc`` override, ``since`` is ~now − 1 day (24h window)."""
+        adapter = _SinceRecordingAdapter()
+        before = datetime.now(timezone.utc)
+        await ingest_active_interests(
+            [interest_ids["arsenal"]],
+            interest_nodes,
+            adapter,
+        )
+        after = datetime.now(timezone.utc)
+
+        assert adapter.received_since_utc is not None
+        # since == now − 1 day, computed at call time; bound it by the call window.
+        assert (before - timedelta(days=1)) <= adapter.received_since_utc <= (
+            after - timedelta(days=1)
+        )
+
+    @pytest.mark.asyncio
+    async def test_explicit_since_override_is_honoured(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """An explicit ``since_utc`` (e.g. a 2-day window) overrides the default.
+
+        WHY: this is the path ``LOOKBACK_DAYS=2`` drives — ``run_live_batch``
+        computes ``now − LOOKBACK_DAYS`` and passes it as ``since_utc``.
+        """
+        adapter = _SinceRecordingAdapter()
+        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        await ingest_active_interests(
+            [interest_ids["arsenal"]],
+            interest_nodes,
+            adapter,
+            since_utc=two_days_ago,
+        )
+        assert adapter.received_since_utc == two_days_ago
