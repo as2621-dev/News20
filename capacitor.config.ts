@@ -17,7 +17,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * this config is the machine-independent half scaffolded ahead of that.
  */
 const config: CapacitorConfig = {
-  appId: "com.blip.app",
+  appId: "com.blipnews.app",
   appName: "Blip",
   webDir: "out",
 };

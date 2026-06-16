@@ -1,0 +1,219 @@
+default_platform(:ios)
+
+API_KEY_ID = "N935XPMF7T"
+ISSUER_ID = "e2ee3c1e-b9f6-41ed-a45c-700a2a19b632"
+KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_N935XPMF7T.p8")
+APP_ID = "com.blipnews.app"
+TEAM_ID = "TKWY2S7X9L"
+
+def setup_token
+  app_store_connect_api_key(
+    key_id: API_KEY_ID,
+    issuer_id: ISSUER_ID,
+    key_filepath: KEY_PATH,
+    duration: 1200,
+    in_house: false
+  )
+end
+
+platform :ios do
+  desc "Register the bundle ID via App Store Connect API (no Apple ID password needed)"
+  lane :prep do
+    setup_token
+    require "spaceship"
+    existing = Spaceship::ConnectAPI::BundleId.all.find { |b| b.identifier == APP_ID }
+    if existing
+      UI.success("Bundle ID #{APP_ID} already registered ✅")
+    else
+      Spaceship::ConnectAPI::BundleId.create(name: "Blip", identifier: APP_ID, platform: "IOS")
+      UI.success("Registered bundle ID #{APP_ID} ✅")
+    end
+  end
+
+  desc "Check whether the App Store Connect app record exists"
+  lane :check_app do
+    setup_token
+    require "spaceship"
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    if app
+      UI.success("APP_EXISTS name=#{app.name} id=#{app.id}")
+    else
+      UI.important("APP_MISSING — create it in App Store Connect (My Apps -> + -> New App)")
+    end
+  end
+
+  desc "Create internal testing group, add tester, assign latest build"
+  lane :setup_internal do |opts|
+    setup_token
+    require "spaceship"
+    email = opts[:email]
+    UI.user_error!("pass email:...") if email.to_s.empty?
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+
+    group = app.get_beta_groups.find { |g| g.is_internal_group }
+    if group
+      UI.message("Using existing internal group: #{group.name}")
+    else
+      # create_beta_group always sends publicLinkLimitEnabled which internal groups reject,
+      # so POST a clean body directly.
+      body = {
+        data: {
+          attributes: { name: "Internal", isInternalGroup: true, hasAccessToAllBuilds: true },
+          relationships: { app: { data: { id: app.id, type: "apps" } } },
+          type: "betaGroups"
+        }
+      }
+      Spaceship::ConnectAPI.client.test_flight_request_client.post("v1/betaGroups", body)
+      group = app.get_beta_groups.find { |g| g.is_internal_group }
+      UI.success("Created internal group 'Internal' ✅")
+    end
+
+    begin
+      Spaceship::ConnectAPI.client.test_flight_request_client.post_beta_tester_assignment(
+        beta_group_ids: [group.id],
+        attributes: { email: email, firstName: "Ashesh", lastName: "Srivastava" }
+      )
+      UI.success("Added #{email} to internal group ✅")
+    rescue => e
+      UI.important("Tester add note: #{e.message}")
+    end
+    # Internal groups have hasAccessToAllBuilds=true, so the build is auto-available.
+  end
+
+  desc "Invite a personal Apple ID onto the team (so it can be an internal tester)"
+  lane :invite do |opts|
+    setup_token
+    require "spaceship"
+    email = opts[:email]
+    UI.user_error!("pass email:...") if email.to_s.empty?
+    existing = Spaceship::ConnectAPI::User.all.find { |u| u.email == email } rescue nil
+    invited = Spaceship::ConnectAPI::UserInvitation.all.find { |i| i.email == email } rescue nil
+    if existing
+      UI.success("#{email} is already a team member ✅")
+    elsif invited
+      UI.success("#{email} already has a pending invitation ✅")
+    else
+      Spaceship::ConnectAPI::UserInvitation.create(
+        email: email,
+        first_name: "Ashesh",
+        last_name: "Srivastava",
+        roles: ["DEVELOPER"],
+        provisioning_allowed: false,
+        all_apps_visible: true
+      )
+      UI.success("Invitation sent to #{email} ✅ — accept it from the email, then sign in.")
+    end
+  end
+
+  desc "List team users + beta groups so we know tester options"
+  lane :testers do
+    setup_token
+    require "spaceship"
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.header("App Store Connect Users (eligible internal testers)")
+    Spaceship::ConnectAPI::User.all.each do |u|
+      UI.message("#{u.email} — roles=#{u.roles}")
+    end
+    UI.header("Beta groups")
+    groups = app.get_beta_groups
+    if groups.empty?
+      UI.important("(none)")
+    else
+      groups.each { |g| UI.message("#{g.name} internal=#{g.is_internal_group}") }
+    end
+  end
+
+  desc "Clear export compliance (no non-exempt encryption) on the latest build"
+  lane :compliance do
+    setup_token
+    require "spaceship"
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    build = app.get_builds(includes: "buildBetaDetail").first
+    UI.message("Patching build #{build.version} (#{build.id})")
+    build.update(attributes: { usesNonExemptEncryption: false })
+    UI.success("Export compliance cleared on build #{build.version} ✅")
+  end
+
+  desc "List beta testers and their state"
+  lane :list_testers do
+    setup_token
+    require "spaceship"
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    testers = Spaceship::ConnectAPI::BetaTester.all(
+      filter: { apps: app.id },
+      includes: "betaGroups,apps",
+      limit: 50
+    )
+    if testers.empty?
+      UI.important("No beta testers found for the app")
+    else
+      testers.each do |t|
+        groups = (t.beta_groups || []).map(&:name).join(",")
+        UI.message("#{t.email} firstName=#{t.first_name} groups=[#{groups}]")
+      end
+    end
+  end
+
+  desc "Report build processing status + internal tester groups"
+  lane :status do
+    setup_token
+    require "spaceship"
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.message("App: #{app.name} (#{app.id})")
+    builds = app.get_builds(includes: "preReleaseVersion,buildBetaDetail")
+    builds.first(5).each do |b|
+      detail = b.build_beta_detail
+      UI.message("Build #{b.version} (#{b.app_version || b.pre_release_version&.version}) state=#{detail&.internal_build_state} processing=#{b.processing_state}")
+    end
+    groups = app.get_beta_groups
+    if groups.empty?
+      UI.important("No internal testing groups exist yet.")
+    else
+      groups.each { |g| UI.message("Group: #{g.name} internal=#{g.is_internal_group}") }
+    end
+  end
+
+  desc "Cert -> profile -> build -> upload to TestFlight (run AFTER the app record exists)"
+  lane :ship do
+    api_key = setup_token
+
+    cert(
+      api_key: api_key,
+      output_path: "build/certs"
+    )
+
+    sigh(
+      api_key: api_key,
+      app_identifier: APP_ID,
+      output_path: "build/profiles",
+      force: true
+    )
+
+    profile_name = lane_context[SharedValues::SIGH_NAME]
+
+    build_app(
+      project: "ios/App/App.xcodeproj",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "Blip",
+      xcargs: "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=\"Apple Distribution\" PROVISIONING_PROFILE_SPECIFIER=\"#{profile_name}\" DEVELOPMENT_TEAM=#{TEAM_ID}",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: TEAM_ID,
+        provisioningProfiles: {
+          APP_ID => profile_name
+        }
+      }
+    )
+
+    pilot(
+      api_key: api_key,
+      ipa: "build/Blip.ipa",
+      skip_submission: true,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
