@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DAILY_FEED_CRON, easternCalendarDate, runDailyPipelineSchedule } from "../../../trigger/dailyPipeline";
+import {
+  cronEnabled,
+  DAILY_FEED_CRON,
+  easternCalendarDate,
+  runDailyPipelineSchedule,
+} from "../../../trigger/dailyPipeline";
 
 /**
  * dailyPipeline.ts — the midnight-ET Trigger.dev v4 schedule that drives the
@@ -47,6 +52,31 @@ describe("dailyPersonalizedFeedTask cron", () => {
       pattern: "0 0 * * *",
       timezone: "America/New_York",
     });
+  });
+});
+
+describe("cronEnabled (kill-switch)", () => {
+  afterEach(() => {
+    delete process.env.PIPELINE_CRON_ENABLED;
+  });
+
+  // WHY (Rule 9): the crons must stay frozen unless EXPLICITLY enabled. Off-by-default
+  // is the safety contract — a truthy-but-not-"true" value (or unset) must NOT run.
+  it("is false when PIPELINE_CRON_ENABLED is unset", () => {
+    delete process.env.PIPELINE_CRON_ENABLED;
+    expect(cronEnabled()).toBe(false);
+  });
+
+  it("is false for any value other than the literal 'true'", () => {
+    for (const value of ["false", "1", "yes", "TRUE", ""]) {
+      process.env.PIPELINE_CRON_ENABLED = value;
+      expect(cronEnabled()).toBe(false);
+    }
+  });
+
+  it("is true only when PIPELINE_CRON_ENABLED === 'true'", () => {
+    process.env.PIPELINE_CRON_ENABLED = "true";
+    expect(cronEnabled()).toBe(true);
   });
 });
 

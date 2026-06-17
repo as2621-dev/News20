@@ -334,6 +334,82 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
         last_rank = rank
 
 
+def test_breaking_block_sits_at_its_allocation_sort_order() -> None:
+    """The breaking tier is placed at the breaking row's OWN ``allocation_sort_order``,
+    NOT hard-forced to the front.
+
+    WHY (Rule 9): "Build your 30" promises the user's chosen #1 category leads the
+    feed. ash dialed ``tech_science`` to sort_order 0 and ``breaking`` to 1, yet the
+    old allocator put breaking at positions #1/#2 — so the first card was a breaking
+    markets story, not his Tech & Science. This asserts the contract that fixes that:
+    with breaking at sort_order 1, the tech_science slots come FIRST, then the
+    contiguous breaking block, then world_politics. This test fails the moment
+    breaking is forced ahead of a lower-sort_order topic again.
+    """
+    # tech_science + world_politics each hold exactly their budget of normal stories;
+    # two distinct high-Importance spikes (one tagged tech, one world) are what the
+    # breaking tier promotes (and are removed from their topic buckets).
+    stories: list[CanonicalStory] = []
+    tags: list[StoryInterestTag] = []
+    for index in range(3):
+        story_id = f"tech_science-{index}"
+        stories.append(_story(story_id, outlet_count=4))
+        tags.append(_tag(story_id, _CATEGORY_INTEREST["tech_science"]))
+    for index in range(2):
+        story_id = f"world_politics-{index}"
+        stories.append(_story(story_id, outlet_count=4))
+        tags.append(_tag(story_id, _CATEGORY_INTEREST["world_politics"]))
+    stories += [
+        _story("tech_science-break", outlet_count=40),
+        _story("world_politics-break", outlet_count=38),
+    ]
+    tags += [
+        _tag("tech_science-break", _CATEGORY_INTEREST["tech_science"]),
+        _tag("world_politics-break", _CATEGORY_INTEREST["world_politics"]),
+    ]
+
+    allocation = [
+        CategoryAllocation(
+            allocation_category="tech_science",
+            allocation_slot_count=3,
+            allocation_sort_order=0,
+        ),
+        CategoryAllocation(
+            allocation_category="breaking",
+            allocation_slot_count=2,
+            allocation_sort_order=1,
+        ),
+        CategoryAllocation(
+            allocation_category="world_politics",
+            allocation_slot_count=2,
+            allocation_sort_order=2,
+        ),
+    ]
+
+    slots = assemble_user_feed(
+        profile_interests=_ALL_TOPIC_PROFILE,
+        stories=stories,
+        story_interest_tags=tags,
+        interest_nodes=_INTEREST_NODES,
+        category_allocation=allocation,
+        now_utc=_NOW,
+    )
+
+    assert len(slots) == 7, "3 tech + 2 breaking + 2 world"
+    # tech_science (sort_order 0) leads — NOT breaking.
+    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots[:3])
+    assert all(_category_of(s.feed_story_id) == "tech_science" for s in slots[:3])
+    # The breaking block sits NEXT (sort_order 1), contiguous, and is the 2 spikes.
+    assert [s.feed_slot_kind for s in slots[3:5]] == [SLOT_KIND_BREAKING] * 2
+    assert {s.feed_story_id for s in slots[3:5]} == {
+        "tech_science-break",
+        "world_politics-break",
+    }
+    # world_politics (sort_order 2) comes last.
+    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots[5:7])
+    assert all(_category_of(s.feed_story_id) == "world_politics" for s in slots[5:7])
+
+
 def test_source_budget_rolls_into_topics_so_feed_totals_30() -> None:
     """The 9 source slots (youtube 6 + x 3) roll into topics so ``len(feed) == 30``.
 

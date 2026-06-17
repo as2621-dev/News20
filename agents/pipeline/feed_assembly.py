@@ -546,13 +546,30 @@ def assemble_user_feed(
                 placed_topic_slots += len(extra)
                 remaining_capacity -= len(extra)
 
-    # ── Order: breaking first, then topic categories in the user's sequence ──
-    ordered.extend(breaking)
-    slot_kinds.extend([SLOT_KIND_BREAKING] * len(breaking))
-    for category in topic_sequence:
+    # ── Order: walk the user's sequence, emitting the breaking BLOCK at the
+    # breaking row's own allocation_sort_order (contiguous), and each topic category
+    # at its row. The default allocation gives breaking sort_order 0, so default /
+    # pre-screen users keep breaking-first; a user who placed breaking later in
+    # "Build your 30" gets their chosen #1 category first (owner, 2026-06-16). ──
+    breaking_emitted = False
+    emitted_categories: set[FeedCategory] = set()
+    for row in ordered_allocation:
+        category = row.allocation_category
+        if category == "breaking":
+            if breaking_emitted:
+                continue  # one breaking block even if the allocation duplicates the row
+            ordered.extend(breaking)
+            slot_kinds.extend([SLOT_KIND_BREAKING] * len(breaking))
+            breaking_emitted = True
+            continue
+        if category in SOURCE_CATEGORIES:
+            continue  # source budgets were already soft-rolled into topics (Pass 4)
+        if category in emitted_categories:
+            continue  # a category emits once even if duplicated in the allocation
         taken = filled_by_category.get(category, [])
         ordered.extend(taken)
         slot_kinds.extend([SLOT_KIND_INTEREST] * len(taken))
+        emitted_categories.add(category)
 
     # ── Materialize ordered slots (cap at the budget; assign 1-based positions) ──
     slots: list[AllocatedSlot] = []

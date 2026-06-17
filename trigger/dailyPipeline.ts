@@ -58,12 +58,27 @@ export function easternCalendarDate(instant: Date): string {
 
 /** Result envelope returned by the scheduled run (for the Trigger.dev run log). */
 export interface DailyPipelineRunResult {
-  /** Always `true` — the schedule fired and the worker accepted the run. */
-  scheduled: true;
+  /** `true` when the schedule fired and the worker accepted the run; `false` when
+   * the `PIPELINE_CRON_ENABLED` kill-switch skipped it (no worker call made). */
+  scheduled: boolean;
   /** The ET calendar date posted to the worker as `target_date`. */
   targetDate: string;
-  /** The worker's HTTP status (expected `202 Accepted`). */
+  /** The worker's HTTP status (expected `202 Accepted`; `0` when skipped). */
   workerStatus: number;
+}
+
+/**
+ * Master kill-switch for the feed crons. Both scheduled tasks run ONLY when
+ * `PIPELINE_CRON_ENABLED` is exactly `"true"`; any other value (or unset) makes
+ * them log a skip and early-return without touching the worker or Supabase.
+ *
+ * Off by default so the crons stay provably frozen until explicitly re-enabled —
+ * reversible by setting the env var. Exported so it is directly unit-testable.
+ *
+ * @returns `true` only when the env var equals the literal string `"true"`.
+ */
+export function cronEnabled(): boolean {
+  return process.env.PIPELINE_CRON_ENABLED === "true";
 }
 
 /**
@@ -127,5 +142,21 @@ export const dailyPersonalizedFeedTask = schedules.task({
   // HTTP round-trip.
   maxDuration: 120,
   retry: { maxAttempts: 1 },
-  run: async (payload) => runDailyPipelineSchedule(payload.timestamp),
+  run: async (payload): Promise<DailyPipelineRunResult> => {
+    const targetDate = easternCalendarDate(payload.timestamp);
+    if (!cronEnabled()) {
+      // Reason: kill-switch is OFF by default — log the skip (no worker POST) so a
+      // frozen cron is auditable, and re-enable by setting PIPELINE_CRON_ENABLED=true.
+      console.log(
+        JSON.stringify({
+          event: "daily_pipeline_cron_skipped_disabled",
+          task_id: "daily-personalized-feed",
+          target_date: targetDate,
+          fix_suggestion: "PIPELINE_CRON_ENABLED is not 'true'; set it to re-enable the daily feed cron.",
+        }),
+      );
+      return { scheduled: false, targetDate, workerStatus: 0 };
+    }
+    return runDailyPipelineSchedule(payload.timestamp);
+  },
 });

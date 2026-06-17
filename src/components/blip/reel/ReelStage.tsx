@@ -33,6 +33,7 @@ import { useEffect, useRef, useState } from "react";
 import { BlipLogo } from "@/components/BlipLogo";
 import { ic } from "@/components/blip/reel/icons";
 import { KaraokeCaption } from "@/components/reel/KaraokeCaption";
+import { DESIGN_BUCKETS } from "@/lib/feedBuckets";
 import { type NextReelState, useReelAudio } from "@/lib/reel/useReelAudio";
 import type { Story } from "@/types/feed";
 
@@ -283,10 +284,19 @@ export function ReelStage({
               {ic("following")}
             </button>
           </div>
-          <div className="seg-chip" style={{ color: story.segment_accent_hex }}>
-            <span className="seg-dot" />
-            {story.segment_label}
-          </div>
+          {story.feed_slot_kind === "breaking" ? (
+            // Reason: a breaking-tier slot is labeled "Breaking" (yellow accent), not
+            // the story's own segment — else a breaking markets story reads as "Markets".
+            <div className="seg-chip" style={{ color: DESIGN_BUCKETS.breaking.color }}>
+              <span className="seg-dot" />
+              Breaking
+            </div>
+          ) : (
+            <div className="seg-chip" style={{ color: story.segment_accent_hex }}>
+              <span className="seg-dot" />
+              {story.segment_label}
+            </div>
+          )}
           {/* The headline IS the article tap target (the explicit tap-cue hint
               line was removed) — a button-wrapped heading keeps it reachable. */}
           <button

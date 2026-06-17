@@ -26,7 +26,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { schedules } from "@trigger.dev/sdk";
-import { easternCalendarDate, runDailyPipelineSchedule } from "./dailyPipeline";
+import { cronEnabled, easternCalendarDate, runDailyPipelineSchedule } from "./dailyPipeline";
 
 /**
  * Cron for the readiness safety net: 05:00 US Eastern, DST handled by zone name.
@@ -257,5 +257,24 @@ export const feedReadinessCheckTask = schedules.task({
   // head-only; a 120s ceiling is well above the few round-trips this makes.
   maxDuration: 120,
   retry: { maxAttempts: 1 },
-  run: async (payload) => runFeedReadinessCheck(payload.timestamp, createServiceRoleClient()),
+  run: async (payload): Promise<FeedReadinessRunResult> => {
+    const targetDate = easternCalendarDate(payload.timestamp);
+    if (!cronEnabled()) {
+      // Reason: kill-switch is OFF by default — early-return BEFORE building the
+      // service-role client so a frozen cron never reads SUPABASE_SERVICE_ROLE_KEY.
+      logEvent("feed_readiness_cron_skipped_disabled", {
+        task_id: "feed-readiness-check",
+        target_date: targetDate,
+        fix_suggestion: "PIPELINE_CRON_ENABLED is not 'true'; set it to re-enable the readiness cron.",
+      });
+      return {
+        targetDate,
+        activeUserCount: 0,
+        todaysFeedCount: 0,
+        missingPosterCount: 0,
+        reranPipeline: false,
+      };
+    }
+    return runFeedReadinessCheck(payload.timestamp, createServiceRoleClient());
+  },
 });

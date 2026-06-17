@@ -175,6 +175,8 @@ export async function getFeed(client: SupabaseClient = getSupabaseBrowserClient(
 /** A `daily_feeds` row with its embedded story (the same {@link StoryRow} shape). */
 interface DailyFeedRow {
   feed_position: number;
+  /** The slot tier that placed this story: `breaking` (top-Importance) or `interest`. */
+  feed_slot_kind: string | null;
   stories: StoryRow | StoryRow[];
 }
 
@@ -204,7 +206,7 @@ export async function getDailyFeed(
 ): Promise<Story[]> {
   const { data, error } = await client
     .from("daily_feeds")
-    .select(`feed_position,stories!inner(${FEED_SELECT})`)
+    .select(`feed_position,feed_slot_kind,stories!inner(${FEED_SELECT})`)
     .eq("feed_user_id", userId)
     .eq("feed_date", feedDate)
     .order("feed_position", { ascending: true })
@@ -219,7 +221,10 @@ export async function getDailyFeed(
 
   // Reason: same finite-briefing cap as getFeed — the allocator writes ~30
   // slots, but the UI contract is AT MOST 30 stories.
-  return (data ?? [])
-    .slice(0, FEED_TOTAL)
-    .map((row) => mapStoryRow(Array.isArray(row.stories) ? row.stories[0] : row.stories));
+  return (data ?? []).slice(0, FEED_TOTAL).map((row) => ({
+    ...mapStoryRow(Array.isArray(row.stories) ? row.stories[0] : row.stories),
+    // Reason: carry the slot tier so the reel chip can show "Breaking" for the
+    // breaking tier; any non-"breaking" value (incl. null) is a normal interest slot.
+    feed_slot_kind: row.feed_slot_kind === "breaking" ? "breaking" : "interest",
+  }));
 }

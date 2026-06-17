@@ -31,6 +31,7 @@ import { ic } from "@/components/blip/reel/icons";
 import { fetchStoryDetail } from "@/lib/detail/fetchStoryDetail";
 import { splitChunkTextIntoParagraphs, stripLeadingHeadlineDuplicate } from "@/lib/detail/paragraphs";
 import { type PanelSpec, templateForCategory } from "@/lib/detailTemplates";
+import { DESIGN_BUCKETS } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
 import type {
   CoverageMode,
@@ -482,10 +483,19 @@ export function ArticleLayer({ story, onClose, onOpenType, onOpenVoice }: Articl
           {ic("back")}
           REEL
         </button>
-        <span className="seg-chip" style={{ color: story.segment_accent_hex }}>
-          <span className="seg-dot" />
-          {story.segment_label.toUpperCase()}
-        </span>
+        {story.feed_slot_kind === "breaking" ? (
+          // Reason: mirror the reel chip — a breaking-tier slot reads "BREAKING"
+          // (yellow accent), not the story's own segment label.
+          <span className="seg-chip" style={{ color: DESIGN_BUCKETS.breaking.color }}>
+            <span className="seg-dot" />
+            BREAKING
+          </span>
+        ) : (
+          <span className="seg-chip" style={{ color: story.segment_accent_hex }}>
+            <span className="seg-dot" />
+            {story.segment_label.toUpperCase()}
+          </span>
+        )}
       </div>
 
       {/* ------------------------------------------------------------------ */}

@@ -145,6 +145,9 @@ function buildFixtureStory(meta: FixtureStoryMeta): Story {
     speech_end_ms: secondsToMs(m0Track.speech_end_s),
     poster_url: `/fixtures/posters/${meta.digest_id}.png`,
     caption_sentences: captionSentences,
+    // Reason: mark the first fixture as a breaking slot so dev mode (fixtures feed)
+    // can QA the "Breaking" chip without a backend; the rest are normal interest slots.
+    feed_slot_kind: meta.digest_id === "digest-1" ? "breaking" : "interest",
   };
 }
 

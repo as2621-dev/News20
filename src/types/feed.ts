@@ -171,4 +171,12 @@ export interface Story {
   poster_url: string;
   /** The word-timed karaoke caption track, ordered by `sentence_index`. */
   caption_sentences: CaptionSentence[];
+  /**
+   * The daily-feed slot tier that placed this story (`daily_feeds.feed_slot_kind`):
+   * `"breaking"` for the top-Importance breaking tier, `"interest"` for a
+   * category-filled slot. `undefined` on the global/fixture feed (no slot tier).
+   * Drives the reel's "Breaking" chip override (otherwise the chip shows the
+   * story's own {@link segment_label}).
+   */
+  feed_slot_kind?: "breaking" | "interest";
 }
