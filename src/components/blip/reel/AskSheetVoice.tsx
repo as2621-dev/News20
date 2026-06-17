@@ -156,7 +156,7 @@ function VqWave() {
  * @param is_responding - When true, the mark emits faster/brighter (RESPONDING).
  */
 function OrbEl({ is_responding }: { is_responding: boolean }) {
-  return <SignalMark size={100} variant="story" responding={is_responding} />;
+  return <SignalMark size={120} variant="story" responding={is_responding} />;
 }
 
 /**
