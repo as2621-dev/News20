@@ -281,6 +281,24 @@ async def _run() -> int:
         )
         active_user_ids = sorted({str(r["profile_user_id"]) for r in profile_rows})
 
+    # ── Optional: scope the whole batch to ONE user (single-user regen) ───────
+    # Set ONLY_USER_EMAIL to regenerate reels for a single profile. The
+    # per-category produce caps then equal THAT user's "Build your 30"
+    # allocation exactly (no cross-user max inflation), the ingest only touches
+    # that user's followed interests, and only their daily_feeds are written.
+    # The 2-user DoD checks at the end will report FAIL by design in this mode
+    # (only one feed) — that is expected; verify the single user's feed directly.
+    only_user_email = os.environ.get("ONLY_USER_EMAIL", "").strip()
+    if only_user_email:
+        only_uid = _get_or_create_user(supabase, only_user_email)
+        profile_rows = [
+            r for r in profile_rows if str(r["profile_user_id"]) == only_uid
+        ]
+        active_user_ids = [only_uid]
+        print(
+            f"\n--- SCOPED TO SINGLE USER: {only_user_email} ({only_uid}) ---"
+        )
+
     followed_ids = sorted({str(r["profile_interest_id"]) for r in profile_rows})
 
     # ── Phase-2c enrichment lookups (loaded once per batch) ───────────────────
