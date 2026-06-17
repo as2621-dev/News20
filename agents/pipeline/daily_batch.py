@@ -6,7 +6,8 @@ the Trigger.dev v4 schedule (`trigger/dailyPipeline.ts`) fires:
     A. update interest weights   → agents.memory.session_processor.run_profile_update_job
     B. ingest + tag news         → INJECTED ingest_fn (live GDELT pipeline, or a
                                     fixture pool in the live e2e)
-    C. produce digests ONCE      → produce-gate select + orchestrate_story fan-out
+    C. produce digests ONCE      → gate select → write fan-out → batch review →
+                                    render fan-out
     D. score per user            ┐ both inside
     E. allocate ~30-slot feed    ┘ assemble_daily_feeds → daily_feeds
 
@@ -29,11 +30,13 @@ from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestT
 from agents.memory.session_processor import ProfileUpdateResult, run_profile_update_job
 from agents.pipeline.categories import DEFAULT_FEED_ALLOCATION, CategoryAllocation
 from agents.pipeline.feed_assembly import ScoredCandidate
+from agents.pipeline.models import WritePhaseResult
 from agents.pipeline.orchestrator import (
     DailyFeedsBatchResult,
     ActiveUserFeedInputs,
     assemble_daily_feeds,
-    orchestrate_story,
+    render_phase,
+    write_phase,
 )
 from agents.pipeline.produce_caps import (
     cap_stories_per_category,
@@ -42,6 +45,7 @@ from agents.pipeline.produce_caps import (
 )
 from agents.pipeline.produce_dedup import dedupe_produce_shortlist
 from agents.pipeline.produce_gate import select_stories_to_produce
+from agents.pipeline.stages.batch_review import review_reel_pool
 from agents.pipeline.stages.ranking import (
     FOLLOW_SOURCE_WEIGHT,
     FollowedEntity,
@@ -441,19 +445,31 @@ async def _produce_story_pool(
     max_concurrent: int,
     enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
+    enable_batch_review: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
 ) -> list[CanonicalStory]:
-    """Produce each gated story into a digest, bounded-concurrently (stage C).
+    """Produce each gated story into a digest, in two bounded waves (stage C).
 
-    Returns the subset of stories that published (a verification-halt or a render
-    error skips that story but never aborts the batch — the feed still builds from
-    whatever produced).
+    Split into a WRITE wave (script → verify → editorial rewrite, all in memory)
+    and a RENDER wave (TTS → caption → poster → enrich → persist), with an optional
+    pool-level BATCH REVIEW barrier between them. The barrier lets one showrunner
+    read every reel side by side and diversify repetitive cross-reel scaffolding
+    BEFORE any expensive TTS — something no per-reel pass can do, because each reel
+    is otherwise written in isolation. Both waves share one ``max_concurrent``
+    semaphore; the barrier fully drains the write wave before any render starts.
+
+    Each reel carries its production-pool index into the write wave so scripting can
+    rotate the opener archetype + handoff style (cross-reel diversity, Layer 2).
+
+    Returns the subset of stories that published (a verification halt at write, or a
+    render error, skips that story but never aborts the batch — the feed still
+    builds from whatever produced). Order is preserved.
 
     The Phase 2c detail-enrichment lookups (``enable_detail_enrichment`` +
     ``interest_segment_lookup`` / ``outlets_lookup`` / ``gdelt_adapter``) are passed
-    straight through to ``orchestrate_story`` — injected so the batch is
+    straight through to the render phase — injected so the batch is
     enrichment-capable without this module reading the DB itself.
     """
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -461,35 +477,73 @@ async def _produce_story_pool(
     for tag in story_interest_tags:
         tags_by_story.setdefault(tag.story_interest_story_id, []).append(tag)
 
-    async def _produce_one(story: CanonicalStory) -> CanonicalStory | None:
+    # ── WRITE wave — script + verify + editorial rewrite (bounded, in-memory) ──
+    async def _write_one(
+        story: CanonicalStory, pool_index: int
+    ) -> WritePhaseResult | None:
         async with semaphore:
             try:
-                result = await orchestrate_story(
-                    story=story,
+                return await write_phase(
+                    story,
                     story_interest_tags=tags_by_story.get(story.canonical_story_id, []),
                     llm_client=llm_client,
-                    tts_client=tts_client,
-                    supabase_client=supabase_client,
-                    poster_genai_client=poster_genai_client,
                     story_id=story.canonical_story_id,
-                    enable_detail_enrichment=enable_detail_enrichment,
                     enable_editorial_rewrite=enable_editorial_rewrite,
+                    interest_segment_lookup=interest_segment_lookup,
+                    pool_index=pool_index,
+                )
+            except Exception as exc:  # noqa: BLE001 — one bad write never aborts the batch
+                logger.error(
+                    "produce_write_failed",
+                    story_id=story.canonical_story_id,
+                    error_message=str(exc),
+                    fix_suggestion="Script/verify failed; skipped (feed builds from the rest).",
+                )
+                return None
+
+    write_results = await asyncio.gather(
+        *(_write_one(story, index) for index, story in enumerate(stories_to_produce))
+    )
+    survivors = [wr for wr in write_results if wr is not None]
+
+    # ── BARRIER — pool-level cross-reel diversity pass (fail-open) ──
+    if enable_batch_review and survivors:
+        survivors = await review_reel_pool(survivors, llm_client)
+
+    # ── RENDER wave — TTS + caption + poster + enrich + persist (bounded) ──
+    async def _render_one(write_result: WritePhaseResult) -> str | None:
+        async with semaphore:
+            try:
+                result = await render_phase(
+                    write_result,
+                    tts_client,
+                    supabase_client,
+                    llm_client=llm_client,
+                    poster_genai_client=poster_genai_client,
+                    enable_detail_enrichment=enable_detail_enrichment,
                     interest_segment_lookup=interest_segment_lookup,
                     outlets_lookup=outlets_lookup,
                     gdelt_adapter=gdelt_adapter,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error(
-                    "produce_story_failed",
-                    story_id=story.canonical_story_id,
+                    "produce_render_failed",
+                    story_id=write_result.canonical_story_id,
                     error_message=str(exc),
                     fix_suggestion="Story render failed; skipped (feed builds from the rest).",
                 )
                 return None
-            return story if result.published else None
+            return write_result.canonical_story_id if result.published else None
 
-    produced = await asyncio.gather(*(_produce_one(s) for s in stories_to_produce))
-    return [story for story in produced if story is not None]
+    rendered = await asyncio.gather(*(_render_one(wr) for wr in survivors))
+    published_ids = {story_id for story_id in rendered if story_id is not None}
+
+    # Reason: return the ORIGINAL stories (in pool order) whose render published —
+    # the downstream scorer/allocator (assemble_daily_feeds) matches on
+    # canonical_story_id, identical on the original and editorial views.
+    return [
+        wr.original_story for wr in survivors if wr.canonical_story_id in published_ids
+    ]
 
 
 async def run_daily_pipeline(
@@ -508,6 +562,7 @@ async def run_daily_pipeline(
     enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
     enable_produce_dedup: bool = True,
+    enable_batch_review: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
@@ -544,6 +599,11 @@ async def run_daily_pipeline(
             near-angle duplicates from the produce shortlist BEFORE the paid
             generation fan-out (so two outlets' takes on one event are not both
             produced). Fail-open — a judge error leaves the shortlist unchanged.
+        enable_batch_review: When True, a pool-level showrunner reads every written
+            reel side by side BEFORE any TTS and rewrites repetitive cross-reel
+            scaffolding (openers/reactions/handoffs), re-verifying any reel it
+            touches. Fail-open. Defaults False so the legacy produce path is byte-
+            for-byte unchanged until the pass is verified.
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
             story's ``story_segment_slug`` (and the enrichment's analytic kind /
             coverage mode). Injected per batch; ``None`` → ``wildcard`` fallback.
@@ -622,6 +682,7 @@ async def run_daily_pipeline(
         max_concurrent=max_concurrent_productions,
         enable_detail_enrichment=enable_detail_enrichment,
         enable_editorial_rewrite=enable_editorial_rewrite,
+        enable_batch_review=enable_batch_review,
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=gdelt_adapter,

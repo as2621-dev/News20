@@ -41,7 +41,7 @@ from agents.pipeline.feed_assembly import (
 )
 from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.llm_clients import LLMClient
-from agents.pipeline.models import CoverageReport, DigestScript
+from agents.pipeline.models import CoverageReport, DigestScript, WritePhaseResult
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
 from agents.pipeline.persist_helpers import resolve_segment_from_tags
 from agents.pipeline.stages.coverage_gdelt import build_coverage_report
@@ -359,69 +359,42 @@ async def _run_detail_stages(
     return enrichment, coverage_report
 
 
-async def orchestrate_story(
+async def write_phase(
     story: CanonicalStory,
     story_interest_tags: list[StoryInterestTag],
     llm_client: LLMClient,
-    tts_client: GeminiTTSClient,
-    supabase_client: Any,
-    poster_genai_client: Any | None = None,
-    poster_builder: Any | None = None,
+    *,
     story_id: str | None = None,
     suggested_questions: list[str] | None = None,
-    enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
-    outlets_lookup: dict[str, str] | None = None,
-    gdelt_adapter: GdeltDocAdapter | None = None,
-) -> OrchestratorResult:
-    """Run the full per-story pipeline: script → verify → TTS → caption → poster → enrich → persist.
+    pool_index: int | None = None,
+) -> WritePhaseResult | None:
+    """WRITE phase (stages 1–2b): script → verify (HALT → skip) → editorial rewrite.
 
-    The verification guardrail is the hard gate: a ``VerificationHaltError`` is
-    caught and the story is skipped (never persisted). Every other stage reuses a
-    locked M0/SP2 module. All clients are injected.
+    The light, in-memory half of the per-story pipeline. Produces a grounded
+    :class:`WritePhaseResult` (script + editorial/original story views + carried
+    context) WITHOUT touching TTS, posters, or the DB — so a pool-level batch
+    review pass can run across all write results before any expensive render.
 
     Args:
         story: The gated canonical story (must carry ``canonical_body_text``).
         story_interest_tags: The story's ``story_interests`` tag payloads (SP1).
-        llm_client: Gemini text client (scripting + verification + enrichment).
-        tts_client: Gemini multi-speaker TTS client (audio).
-        supabase_client: Service-role supabase client (persist).
-        poster_genai_client: ``google.genai`` client for the poster (None to
-            skip posters — the digest still publishes).
-        poster_builder: Optional poster-builder override (tests inject a stub).
-        story_id: Optional explicit ``stories.story_id`` (the live e2e passes a
-            ``FIXTURE-SP3-`` id).
-        suggested_questions: Optional suggested-question strings.
-        enable_detail_enrichment: Phase 2c gate. When True, runs the grounded
-            detail-enrichment stage (a paid LLM call) + the optional GDELT coverage
-            census, persisting the key figure / timeline / second analytic / 5
-            bullets / reach coverage. Defaults False so the SP3 produce path is
-            unchanged until the batch loader feeds the Phase 2c lookups.
-        interest_segment_lookup: ``{interest_id: segment_slug}`` (Phase 2c; injected
-            per batch). Resolves the story's ``story_segment_slug`` from its matched
-            interest, which fixes the second-analytic kind + coverage mode. ``None``
-            → ``wildcard``.
-        outlets_lookup: ``{outlet_domain: bias_lean}`` (Phase 2c; loaded once per
-            batch). Required (with ``gdelt_adapter``) for the GDELT coverage census;
-            ``None`` skips it (legacy static coverage).
-        gdelt_adapter: The SHARED ``GdeltDocAdapter`` (Phase 2c; honors the
-            <=1-req/5s throttle). ``None`` skips the GDELT census.
+        llm_client: Gemini text client (scripting + verification).
+        story_id: Optional explicit ``stories.story_id`` (e2e fixture id).
+        suggested_questions: Optional suggested-question strings (carried to render).
+        enable_editorial_rewrite: When True, paraphrases the headline/body into
+            ``editorial_story`` (fail-safe: stays the original on rewrite failure).
+        interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves the
+            segment ONCE here so render's detail + persist agree.
+        pool_index: Zero-based position in the day's production pool, threaded into
+            scripting to rotate the opener archetype + handoff style (cross-reel
+            diversity). ``None`` → generic opener/handoff (single-story callers).
 
     Returns:
-        An :class:`OrchestratorResult`. ``published`` is True only when the digest
-        was grounded, rendered, and persisted.
-
-    Raises:
-        PipelineStageError / TTSRenderError: On non-verification stage failures
-            (these are real errors, not the graceful verification skip).
-
-    Example:
-        >>> result = await orchestrate_story(story, tags, llm, tts, supabase)  # doctest: +SKIP
-        >>> result.published
-        True
+        A :class:`WritePhaseResult`, or ``None`` when verification HALTs (the story
+        is ungrounded vs its single source and must never publish).
     """
-    start_time = time.monotonic()
     # Reason: resolve the segment ONCE — both detail stages + persist must agree
     # (the second-analytic kind, coverage mode, and stored story_segment_slug all
     # derive from it).
@@ -429,14 +402,17 @@ async def orchestrate_story(
         story_interest_tags, interest_segment_lookup
     )
     logger.info(
-        "orchestrate_story_started",
+        "write_phase_started",
         story_id=story.canonical_story_id,
         interest_tag_count=len(story_interest_tags),
         segment_slug=segment_slug,
+        pool_index=pool_index,
     )
 
     # ── 1. Script (SP2) ──
-    script = await run_single_source_scripting(story=story, llm_client=llm_client)
+    script = await run_single_source_scripting(
+        story=story, llm_client=llm_client, pool_index=pool_index
+    )
 
     # ── 2. Verify (SP2) — HALT on ungrounded; skip, never publish ──
     try:
@@ -445,17 +421,13 @@ async def orchestrate_story(
         )
     except VerificationHaltError as halt:
         logger.error(
-            "orchestrate_story_verification_halt",
+            "write_phase_verification_halt",
             story_id=story.canonical_story_id,
             unsupported_count=halt.unsupported_count,
             contradicted_count=halt.contradicted_count,
             fix_suggestion="Digest ungrounded vs its single source; skipped (never published).",
         )
-        return OrchestratorResult(
-            story_id=story.canonical_story_id,
-            published=False,
-            skip_reason="verification_halt",
-        )
+        return None
 
     # ── 2b. Editorial rewrite (gated) — republish-safe headline + long-form body ──
     # Runs AFTER verification (the spoken digest is grounded vs the ORIGINAL source),
@@ -472,6 +444,58 @@ async def orchestrate_story(
                     "canonical_body_text": rewrite.body,
                 }
             )
+
+    return WritePhaseResult(
+        canonical_story_id=story.canonical_story_id,
+        story_id=story_id,
+        script=script,
+        editorial_story=editorial_story,
+        original_story=story,
+        story_interest_tags=story_interest_tags,
+        suggested_questions=suggested_questions,
+        segment_slug=segment_slug,
+    )
+
+
+async def render_phase(
+    write_result: WritePhaseResult,
+    tts_client: GeminiTTSClient,
+    supabase_client: Any,
+    *,
+    llm_client: LLMClient | None = None,
+    poster_genai_client: Any | None = None,
+    poster_builder: Any | None = None,
+    enable_detail_enrichment: bool = False,
+    interest_segment_lookup: dict[str, str] | None = None,
+    outlets_lookup: dict[str, str] | None = None,
+    gdelt_adapter: GdeltDocAdapter | None = None,
+) -> OrchestratorResult:
+    """RENDER phase (stages 3–7): TTS → caption → poster → enrich → persist.
+
+    The heavy half: consumes the in-memory :class:`WritePhaseResult` (whose
+    ``script`` may have been revised by the batch review pass) and produces the
+    persisted digest. ``llm_client`` is only needed when detail enrichment is on.
+
+    Args:
+        write_result: The WRITE-phase artifacts (script, editorial/original story,
+            tags, suggested questions, segment).
+        tts_client: Gemini multi-speaker TTS client (audio).
+        supabase_client: Service-role supabase client (persist).
+        llm_client: Gemini text client — required only when
+            ``enable_detail_enrichment`` is True (the enrichment LLM call).
+        poster_genai_client: ``google.genai`` client (None to skip posters).
+        poster_builder: Optional poster-builder override (tests inject a stub).
+        enable_detail_enrichment: Phase 2c gate (grounded enrichment + GDELT census).
+        interest_segment_lookup: ``{interest_id: segment_slug}`` (persist lookup).
+        outlets_lookup: ``{outlet_domain: bias_lean}`` (GDELT census).
+        gdelt_adapter: The SHARED ``GdeltDocAdapter`` (None skips the GDELT census).
+
+    Returns:
+        An :class:`OrchestratorResult` with ``published=True`` once persisted.
+    """
+    start_time = time.monotonic()
+    script = write_result.script
+    editorial_story = write_result.editorial_story
 
     # ── 3. TTS (M0) → audio bytes + duration ──
     audio_bytes, audio_duration_ms, segment_timings = await render_audio_bytes(
@@ -495,10 +519,14 @@ async def orchestrate_story(
     enrichment: DetailEnrichment | None = None
     coverage_report: CoverageReport | None = None
     if enable_detail_enrichment:
+        if llm_client is None:
+            raise ValueError(
+                "render_phase requires llm_client when enable_detail_enrichment=True"
+            )
         enrichment, coverage_report = await _run_detail_stages(
             story=editorial_story,
             script=script,
-            segment_slug=segment_slug,
+            segment_slug=write_result.segment_slug,
             llm_client=llm_client,
             outlets_lookup=outlets_lookup,
             gdelt_adapter=gdelt_adapter,
@@ -512,10 +540,10 @@ async def orchestrate_story(
         caption_track=caption_track,
         audio_bytes=audio_bytes,
         audio_duration_ms=audio_duration_ms,
-        story_interest_tags=story_interest_tags,
+        story_interest_tags=write_result.story_interest_tags,
         poster_bytes=poster_bytes,
-        suggested_questions=suggested_questions,
-        story_id=story_id,
+        suggested_questions=write_result.suggested_questions,
+        story_id=write_result.story_id,
         enrichment=enrichment,
         coverage_report=coverage_report,
         interest_segment_lookup=interest_segment_lookup,
@@ -523,17 +551,106 @@ async def orchestrate_story(
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
     logger.info(
-        "orchestrate_story_completed",
-        story_id=story.canonical_story_id,
+        "render_phase_completed",
+        story_id=write_result.canonical_story_id,
         persisted_story_id=persist_result.story_id,
         digest_id=persist_result.digest_id,
         published=True,
         elapsed_ms=elapsed_ms,
     )
     return OrchestratorResult(
-        story_id=story.canonical_story_id,
+        story_id=write_result.canonical_story_id,
         published=True,
         persist_result=persist_result,
+    )
+
+
+async def orchestrate_story(
+    story: CanonicalStory,
+    story_interest_tags: list[StoryInterestTag],
+    llm_client: LLMClient,
+    tts_client: GeminiTTSClient,
+    supabase_client: Any,
+    poster_genai_client: Any | None = None,
+    poster_builder: Any | None = None,
+    story_id: str | None = None,
+    suggested_questions: list[str] | None = None,
+    enable_detail_enrichment: bool = False,
+    enable_editorial_rewrite: bool = False,
+    interest_segment_lookup: dict[str, str] | None = None,
+    outlets_lookup: dict[str, str] | None = None,
+    gdelt_adapter: GdeltDocAdapter | None = None,
+    pool_index: int | None = None,
+) -> OrchestratorResult:
+    """Run the full per-story pipeline: script → verify → TTS → caption → poster → enrich → persist.
+
+    Thin wrapper that chains :func:`write_phase` then :func:`render_phase` — the
+    single-story entry point, preserved so existing callers (the live e2e + the
+    orchestrator unit tests) keep their exact contract. The batch path in
+    ``daily_batch`` calls the two phases directly with a review barrier between
+    them; this wrapper has no barrier. A ``VerificationHaltError`` is caught inside
+    ``write_phase`` and surfaces here as a skipped (never-persisted) result.
+
+    Args:
+        story: The gated canonical story (must carry ``canonical_body_text``).
+        story_interest_tags: The story's ``story_interests`` tag payloads (SP1).
+        llm_client: Gemini text client (scripting + verification + enrichment).
+        tts_client: Gemini multi-speaker TTS client (audio).
+        supabase_client: Service-role supabase client (persist).
+        poster_genai_client: ``google.genai`` client for the poster (None to
+            skip posters — the digest still publishes).
+        poster_builder: Optional poster-builder override (tests inject a stub).
+        story_id: Optional explicit ``stories.story_id`` (the live e2e passes a
+            ``FIXTURE-SP3-`` id).
+        suggested_questions: Optional suggested-question strings.
+        enable_detail_enrichment: Phase 2c gate (grounded enrichment + GDELT census).
+        enable_editorial_rewrite: When True, paraphrases the headline/body.
+        interest_segment_lookup: ``{interest_id: segment_slug}`` (Phase 2c).
+        outlets_lookup: ``{outlet_domain: bias_lean}`` (GDELT census).
+        gdelt_adapter: The SHARED ``GdeltDocAdapter`` (None skips the GDELT census).
+        pool_index: Optional production-pool position for opener/handoff rotation.
+
+    Returns:
+        An :class:`OrchestratorResult`. ``published`` is True only when the digest
+        was grounded, rendered, and persisted.
+
+    Raises:
+        PipelineStageError / TTSRenderError: On non-verification stage failures
+            (these are real errors, not the graceful verification skip).
+
+    Example:
+        >>> result = await orchestrate_story(story, tags, llm, tts, supabase)  # doctest: +SKIP
+        >>> result.published
+        True
+    """
+    write_result = await write_phase(
+        story,
+        story_interest_tags,
+        llm_client,
+        story_id=story_id,
+        suggested_questions=suggested_questions,
+        enable_editorial_rewrite=enable_editorial_rewrite,
+        interest_segment_lookup=interest_segment_lookup,
+        pool_index=pool_index,
+    )
+    if write_result is None:
+        return OrchestratorResult(
+            story_id=story.canonical_story_id,
+            published=False,
+            skip_reason="verification_halt",
+        )
+
+    return await render_phase(
+        write_result,
+        tts_client,
+        supabase_client,
+        llm_client=llm_client,
+        poster_genai_client=poster_genai_client,
+        poster_builder=poster_builder,
+        enable_detail_enrichment=enable_detail_enrichment,
+        interest_segment_lookup=interest_segment_lookup,
+        outlets_lookup=outlets_lookup,
+        gdelt_adapter=gdelt_adapter,
     )
 
 
@@ -721,6 +838,9 @@ def assemble_daily_feeds(
 __all__ = [
     "OrchestratorResult",
     "orchestrate_story",
+    "write_phase",
+    "render_phase",
+    "WritePhaseResult",
     "render_audio_bytes",
     "build_caption_track",
     "generate_poster_bytes",

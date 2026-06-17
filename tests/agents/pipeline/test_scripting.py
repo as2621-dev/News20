@@ -20,8 +20,12 @@ import pytest
 
 from agents.pipeline.models import DigestScript
 from agents.pipeline.stages.scripting import (
+    HANDOFF_STYLES,
     MAX_WORDS,
+    OPENER_ARCHETYPES,
     _parse_json_dialogue,
+    _select_handoff_style,
+    _select_opener_archetype,
     run_single_source_scripting,
 )
 from agents.shared.exceptions import PipelineStageError
@@ -117,6 +121,68 @@ class TestSingleSourceConstraint:
         assert source_body in system_prompt
         # The constraint is reinforced in the user prompt too.
         assert "ONLY the SOURCE_ARTICLE" in call_kwargs["prompt"]
+
+
+class TestOpenerHandoffRotation:
+    """Cross-reel diversity (Layer 2): the opener/handoff SHAPE rotates by pool index.
+
+    WHY (Rule 9): every reel is scripted in isolation, so without a per-reel shape
+    the model converges on one favorite opener + handoff across the whole pool — the
+    repetition the listener hears. These assert the rotation actually reaches the
+    system prompt and is deterministic by index, so two adjacent reels get different
+    shapes; a regression that stopped injecting the archetype would fail here.
+    """
+
+    def test_selection_is_deterministic_modulo_deck_length(self) -> None:
+        """Edge: the same pool index always maps to the same shape; it wraps cleanly."""
+        assert _select_opener_archetype(0) == _select_opener_archetype(
+            len(OPENER_ARCHETYPES)
+        )
+        assert _select_handoff_style(0) == _select_handoff_style(len(HANDOFF_STYLES))
+        # Adjacent indices differ (the whole point — no two neighbors share a shape).
+        assert _select_opener_archetype(0) != _select_opener_archetype(1)
+
+    def test_none_index_falls_back_to_generic_guidance(self) -> None:
+        """Edge: single-story callers (pool_index=None) get the pre-rotation hook."""
+        generic_opener = _select_opener_archetype(None)
+        generic_handoff = _select_handoff_style(None)
+        assert "curiosity hook" in generic_opener
+        assert generic_opener not in OPENER_ARCHETYPES
+        assert generic_handoff not in HANDOFF_STYLES
+
+    @pytest.mark.asyncio
+    async def test_pool_index_injects_rotated_shapes_into_system_prompt(
+        self, canonical_story, make_llm_client
+    ) -> None:
+        """The archetype + handoff for this pool index reach the model, placeholders gone."""
+        client = make_llm_client(
+            _two_host_script_json("Arsenal won?", "Yes, two to one, Saka scored both.")
+        )
+
+        await run_single_source_scripting(
+            story=canonical_story, llm_client=client, pool_index=1
+        )
+
+        system_prompt = client.call_gemini.call_args.kwargs["system"]
+        assert _select_opener_archetype(1) in system_prompt
+        assert _select_handoff_style(1) in system_prompt
+        # The placeholders must be fully substituted (no leftover template tokens).
+        assert "{OPENER_ARCHETYPE}" not in system_prompt
+        assert "{HANDOFF_STYLE}" not in system_prompt
+
+    @pytest.mark.asyncio
+    async def test_default_call_uses_generic_opener(
+        self, canonical_story, make_llm_client
+    ) -> None:
+        """Back-compat: omitting pool_index keeps the generic opener (prior behavior)."""
+        client = make_llm_client(
+            _two_host_script_json("Arsenal won?", "Yes, two to one.")
+        )
+
+        await run_single_source_scripting(story=canonical_story, llm_client=client)
+
+        system_prompt = client.call_gemini.call_args.kwargs["system"]
+        assert _select_opener_archetype(None) in system_prompt
 
 
 class TestScriptingFailureAndEdge:

@@ -46,15 +46,97 @@ logger = get_logger("pipeline.stages.scripting")
 SPOKEN_WPM = 170
 
 # Reason: News20's locked digest budget (Decision #4 / reference/reuse-map.md):
-# ~50-55s of audio. At 170 WPM that is ~140 words; the ceiling caps padding.
-TARGET_WORDS = 140
-MAX_WORDS = 160
+# ~55s of audio. At 170 WPM that is ~150 words; the ceiling caps padding. Turn
+# bounds widened (was 4-10) so the per-turn ~140-char cap + same-speaker
+# clustering (the naturalness levers) have room to breathe.
+TARGET_WORDS = 150
+MAX_WORDS = 170
 TARGET_SECONDS = 55
-MIN_TURNS = 4
-MAX_TURNS = 10
+MIN_TURNS = 6
+MAX_TURNS = 14
 
 # Reason: the donor uses 0.7 for natural dialogue variety; kept.
 SCRIPTING_TEMPERATURE = 0.7
+
+# Reason: cross-reel sameness fix (Layer 2). Each reel is scripted in isolation,
+# so the model converges on one favorite opener shape ("Wait, what?") and one
+# favorite handoff across the whole pool. We rotate a DISTINCT opener archetype
+# and handoff style per reel by its position in the production pool, in code
+# (deterministic, testable — CLAUDE.md Rule 5), so the model only writes prose
+# for the shape it is handed. The two decks are deliberately different lengths and
+# selected with an offset (see _select_opener_archetype / _select_handoff_style)
+# so the opener and handoff cycles do not lock into the same pairing every reel.
+OPENER_ARCHETYPES: tuple[str, ...] = (
+    "Open on a FLAT DECLARATIVE — state what happened as a plain, almost "
+    "deadpan fact, no question. Let the weight of the statement be the hook.",
+    "Open NUMBER-FIRST — lead with the single most striking figure or quantity "
+    "from the article, then let it land before saying what it measures.",
+    "Open by SETTING THE SCENE — put the listener in the place or moment the "
+    "story happens in one vivid line, then pull back to what's going on.",
+    "Open on a WRY UNDERSTATEMENT — name the situation with dry, deadpan "
+    "irony (never at the expense of accuracy or of a tragedy).",
+    "Open on the DIRECT STAKES — lead with who this actually touches or why the "
+    "listener should care, stated plainly.",
+    "Open on a SHARP CONTRAST — set up what everyone assumed or expected, then "
+    "pivot to what the article says actually happened.",
+    "Open MID-ACTION — drop the listener straight into the most active, "
+    "surprising thing the article describes, as if catching it already moving.",
+    "Open on a GENUINE QUESTION the listener would ask — but a specific, "
+    "story-anchored one, never a generic 'wait, what?' filler hook.",
+)
+
+HANDOFF_STYLES: tuple[str, ...] = (
+    "Close by simply moving on — a plain 'Alright, next one.' energy.",
+    "Close by gesturing forward — a 'let's see what else is going on' energy.",
+    "Close on a beat of momentum — a 'okay, keep it rolling' energy.",
+    "Close with a short reflective sign-off on THIS story before moving on — a "
+    "'that's one to sit with' energy, then onward.",
+    "Close on a light exhale — a 'wild one, anyway—' energy before the next.",
+)
+
+# Reason: when no pool position is known (single-story callers, tests), fall back
+# to the pre-rotation generic guidance so existing behavior is unchanged.
+_DEFAULT_OPENER_ARCHETYPE = (
+    "Open with a one-line curiosity hook about what happened — playful or wry "
+    "where the story allows it."
+)
+_DEFAULT_HANDOFF_STYLE = (
+    "Vary the phrasing naturally (in the spirit of 'Okay, what's next?', "
+    "'Alright — on to the next one.'); do not default to the same handoff."
+)
+
+
+def _select_opener_archetype(pool_index: int | None) -> str:
+    """Pick the opener archetype for a reel by its production-pool position.
+
+    Args:
+        pool_index: Zero-based position of this reel in the day's production pool,
+            or ``None`` for single-story callers (generic fallback).
+
+    Returns:
+        The archetype instruction injected at ``{OPENER_ARCHETYPE}``.
+    """
+    if pool_index is None:
+        return _DEFAULT_OPENER_ARCHETYPE
+    return OPENER_ARCHETYPES[pool_index % len(OPENER_ARCHETYPES)]
+
+
+def _select_handoff_style(pool_index: int | None) -> str:
+    """Pick the handoff style for a reel by its production-pool position.
+
+    A prime-ish offset is added so the handoff cycle does not stay phase-locked to
+    the opener cycle (different deck lengths already help, the offset guarantees it).
+
+    Args:
+        pool_index: Zero-based pool position, or ``None`` for the generic fallback.
+
+    Returns:
+        The handoff instruction injected at ``{HANDOFF_STYLE}``.
+    """
+    if pool_index is None:
+        return _DEFAULT_HANDOFF_STYLE
+    return HANDOFF_STYLES[(pool_index + 2) % len(HANDOFF_STYLES)]
+
 
 # Reason: the single-source body fed to the writer is capped so a very long
 # article doesn't blow the context budget; the lede carries the digest-worthy
@@ -156,11 +238,15 @@ def _compute_script_metrics(turns: list[DialogueTurn]) -> tuple[int, int]:
     return total_words, estimated_seconds
 
 
-def _build_system_prompt(story: CanonicalStory) -> str:
+def _build_system_prompt(story: CanonicalStory, pool_index: int | None = None) -> str:
     """Fill the single-source scripting prompt with this story's source article.
 
     Args:
         story: The canonical story whose body/headline/outlet seed the prompt.
+        pool_index: Zero-based position of this reel in the day's production pool,
+            used to rotate the opener archetype + handoff style so the pool does
+            not converge on one shape. ``None`` → generic fallback (single-story
+            callers / tests), leaving prior behavior unchanged.
 
     Returns:
         The system prompt with every ``{PLACEHOLDER}`` substituted.
@@ -179,6 +265,8 @@ def _build_system_prompt(story: CanonicalStory) -> str:
         .replace("{TARGET_SECONDS}", str(TARGET_SECONDS))
         .replace("{MIN_TURNS}", str(MIN_TURNS))
         .replace("{MAX_TURNS}", str(MAX_TURNS))
+        .replace("{OPENER_ARCHETYPE}", _select_opener_archetype(pool_index))
+        .replace("{HANDOFF_STYLE}", _select_handoff_style(pool_index))
         .replace("{SOURCE_HEADLINE}", story.canonical_title)
         .replace("{SOURCE_OUTLET}", outlet)
         .replace("{SOURCE_PUBLISHED}", published)
@@ -189,6 +277,7 @@ def _build_system_prompt(story: CanonicalStory) -> str:
 async def run_single_source_scripting(
     story: CanonicalStory,
     llm_client: LLMClient,
+    pool_index: int | None = None,
 ) -> DigestScript:
     """Generate a single-source ALEX/JORDAN digest script for one canonical story.
 
@@ -201,6 +290,10 @@ async def run_single_source_scripting(
         story: The deduped canonical story to narrate. Must carry
             ``canonical_body_text`` (trafilatura body from SP1).
         llm_client: An initialized ``LLMClient`` (mocked in tests).
+        pool_index: Zero-based position of this reel in the day's production pool.
+            Rotates the opener archetype + handoff style so the pool stays varied
+            (cross-reel diversity, Layer 2). ``None`` for single-story callers
+            uses the generic opener/handoff guidance (prior behavior).
 
     Returns:
         A validated :class:`DigestScript` with ALEX/JORDAN turns, word count,
@@ -228,9 +321,10 @@ async def run_single_source_scripting(
         story_id=story.canonical_story_id,
         source_outlet=story.canonical_primary_outlet_domain,
         body_chars=len(story.canonical_body_text or ""),
+        pool_index=pool_index,
     )
 
-    system_prompt = _build_system_prompt(story)
+    system_prompt = _build_system_prompt(story, pool_index=pool_index)
     user_prompt = (
         "Write the single-source digest now. Use ONLY the SOURCE_ARTICLE. "
         'Output ONLY a JSON array of {"speaker", "text"} turn objects.'

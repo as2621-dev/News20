@@ -26,7 +26,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from agents.ingestion.models import CanonicalStory, StoryInterestTag
 
 # Speaker labels are the locked News20 anchor duo (reference/reuse-map.md:
 # ALEX → Leda, JORDAN → Sadaltager). Unlike the donor, there is no CLIP speaker
@@ -164,6 +166,69 @@ class DigestScript(BaseModel):
     source_url: str = Field(
         default="",
         description="The single source article URL the script is constrained to",
+    )
+
+
+class WritePhaseResult(BaseModel):
+    """In-memory artifacts produced by the WRITE phase of the per-story pipeline.
+
+    The SP3 orchestrator is split into a WRITE phase (script → verify → optional
+    editorial rewrite) and a RENDER phase (TTS → caption → poster → enrich →
+    persist) so a pool-level batch review/diversity pass (``stages.batch_review``)
+    can run AFTER every reel is written but BEFORE any TTS. This model carries
+    everything the RENDER phase needs across that barrier. A ``None`` write result
+    (not an instance of this model) means the story was skipped at the write phase
+    (verification HALT) and never reaches render.
+
+    The batch review pass may rewrite ONLY ``script.turns`` (the spoken
+    scaffolding); it must touch NEITHER ``editorial_story`` (the rewritten
+    headline/body that poster + persist read) NOR ``original_story`` (the
+    verification source a revised reel is re-checked against).
+
+    Attributes:
+        canonical_story_id: ``story.canonical_story_id`` — the pool's stable key.
+        story_id: Optional explicit ``stories.story_id`` passthrough (the live
+            e2e passes a ``FIXTURE-SP3-`` id); render forwards it to persist.
+        script: The grounded digest script (stage 1; possibly revised by review).
+        editorial_story: The (optionally) rewritten headline/body view that the
+            poster, persisted feed headline, and detail_chunks read. Equals
+            ``original_story`` when editorial rewrite is off or failed.
+        original_story: The ORIGINAL source story — the verification grounding
+            source; needed to re-verify a reel the review pass modified.
+        story_interest_tags: The story's ``story_interests`` tag payloads (SP1).
+        suggested_questions: Optional suggested-question strings.
+        segment_slug: The segment resolved ONCE in write (detail + persist agree).
+
+    Example:
+        >>> # constructed by orchestrator.write_phase; see that module.
+        >>> WritePhaseResult.__name__
+        'WritePhaseResult'
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=False)
+
+    canonical_story_id: str = Field(
+        ..., description="story.canonical_story_id — the production pool's stable key"
+    )
+    story_id: str | None = Field(
+        default=None,
+        description="Explicit stories.story_id passthrough (e2e fixture id)",
+    )
+    script: DigestScript = Field(..., description="The grounded digest script")
+    editorial_story: CanonicalStory = Field(
+        ..., description="Rewritten headline/body view (poster + persist read this)"
+    )
+    original_story: CanonicalStory = Field(
+        ..., description="Original source story (verification grounding source)"
+    )
+    story_interest_tags: list[StoryInterestTag] = Field(
+        default_factory=list, description="The story's story_interests tag payloads"
+    )
+    suggested_questions: list[str] | None = Field(
+        default=None, description="Optional suggested-question strings"
+    )
+    segment_slug: str = Field(
+        ..., description="Segment resolved once in write (detail + persist agree)"
     )
 
 
@@ -385,7 +450,9 @@ class SecondAnalytic(BaseModel):
         ..., description="Story this analytic belongs to (FK stories.story_id)"
     )
     analytic_slot_index: int = Field(
-        default=0, ge=0, description="0-based panel order on the Detail page (0 = second tab)"
+        default=0,
+        ge=0,
+        description="0-based panel order on the Detail page (0 = second tab)",
     )
     analytic_kind: AnalyticKind = Field(
         ..., description="Template-derived analytic kind (drives tab label + accent)"

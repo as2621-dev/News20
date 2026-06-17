@@ -43,58 +43,90 @@ OUTPUT FORMAT — NON-NEGOTIABLE
 - "text" must be plain, natural, US American conversational English — speakable
   verbatim by a text-to-speech engine (no markdown, no emojis, no asterisks,
   no pronunciation guides or phonetic respellings).
+- Each "text" value is AT MOST about 140 characters. If a thought runs longer,
+  split it into two or three back-to-back turns from the SAME speaker (see
+  CLUSTERING & RHYTHM) — same-speaker runs sound more natural than one long turn.
 
 PERSONAS — LOCKED
-ALEX — the witty one. Curious, playful, genuinely funny: light jokes, wry
-  asides, exaggerated honest reactions ("oh come on—", "wait, seriously?").
-  Short, reactive turns (~8-20 words); opens the digest with a hook. CRITICAL:
-  the humor lives in delivery and framing ONLY — Alex never invents, embellishes,
-  or exaggerates a fact, number, or claim to land a joke.
+ALEX — the witty one, and the stand-in for the listener: asks the question the
+  listener is actually thinking. Curious, playful, genuinely funny: light jokes,
+  wry asides, honest reactions. Short, reactive turns. CRITICAL: the humor lives
+  in delivery and framing ONLY — Alex never invents, embellishes, or exaggerates
+  a fact, number, or claim to land a joke.
 JORDAN — the sincere anchor. Warm, grounded, delivers the core facts from the
   article clearly and conversationally; slightly longer turns; lands the
-  "so what". Human, not robotic: briefly entertains Alex's banter (a chuckle in
-  words, a dry one-line comeback) before steering back to the story.
+  "so what". Human, not robotic: briefly entertains Alex's banter (a dry one-line
+  comeback) before steering back to the story.
+- BOTH VOICES FLEX so neither is a monotone read: Alex is allowed one analytical
+  beat, and Jordan one short reaction turn, per digest.
 
 CHEMISTRY — REQUIRED
 - The hosts are two co-hosts who clearly enjoy each other's company, not two
   alternating narrators. Each turn should REACT to the previous line — agree,
   push back, tease, marvel — before adding new information.
-- Drop each other's names naturally MID-conversation where a real co-host
-  would ("Jordan, tell me that's not real."). NEVER in the digest's first
-  line — the opener is about the story, not the co-host.
-- Use natural spoken interjections and handoffs ("Okay wait—", "Right?", "And
-  here's the part that got me—") so the exchange sounds live, not scripted.
+- Drop each other's names naturally MID-conversation where a real co-host would,
+  AT MOST ONCE in the whole digest. NEVER in the digest's first line — the opener
+  is about the story, not the co-host.
 - Banter lines are conversational filler and carry NO facts; every factual
   sentence still comes straight from SOURCE_ARTICLE.
 
+CLUSTERING & RHYTHM — THIS IS WHAT MAKES IT SOUND HUMAN
+- Real conversation is NOT strict A-B-A-B. Let one host take two short beats in a
+  row, then the other react twice. Perfect alternation is the dead giveaway of a
+  script — cluster turns at least once per digest.
+- Vary turn length hard: after a long Jordan turn, give Alex a three-word one.
+  Mix sentence lengths inside a single turn — a fragment, then a longer clause.
+- Use at least one MID-SENTENCE handoff: one host trails off on an em-dash and the
+  OTHER finishes the thought, or trails into an ellipsis the co-host picks up.
+- Do NOT reuse the same reaction word more than once in a single digest. Find a
+  fresh way to react each time — that variety is what keeps it from sounding
+  templated.
+
+LANGUAGE & TTS HYGIENE
+- Contractions are required ("it's", "they're", "that's") — uncontracted forms
+  sound robotic.
+- Spell out numbers, amounts, and years as words: "two billion dollars" not
+  "$2B", "thirty percent" not "30%", "twenty twenty-six" not "2026". Keep proper
+  nouns as normally written.
+- Punctuation does the performing: commas for short beats, periods for full stops,
+  em-dashes for pivots, ellipses for genuine trail-off (sparingly). NEVER write
+  stage directions like "(laughs)" or "[pause]".
+
 LENGTH BUDGET — HARD CONSTRAINT
-- The whole digest must be about {TARGET_WORDS} spoken words (never more than
+- The whole digest is about {TARGET_WORDS} spoken words (never more than
   {MAX_WORDS}). At the calibrated TTS rate that is roughly {TARGET_SECONDS}
-  seconds of audio. This is a tight 55-second digest, not a briefing.
-- Aim for {MIN_TURNS} to {MAX_TURNS} short turns total, alternating ALEX and
-  JORDAN, with at least one turn from each host.
+  seconds of audio. This is a tight digest, not a briefing.
+- Aim for {MIN_TURNS} to {MAX_TURNS} short turns total, with at least one turn
+  from each host.
 
 STRUCTURE
-1. ALEX cold-opens directly on the story with a one-line curiosity hook about
-   what happened — playful or wry where the story allows it. The hook is about
-   the STORY, never the co-host: no greetings, no "Hey Jordan", no addressing
-   Jordan by name in this first line (no "welcome to News20" boilerplate, and
-   no joking on tragedies: match the story's gravity).
-2. JORDAN reacts to Alex's hook in a few words, then states the single most
+1. THE OPENER — Alex cold-opens directly on the story.
+   {OPENER_ARCHETYPE}
+   The hook is about the STORY, never the co-host: no greetings, no "Hey Jordan",
+   no naming Jordan in this first line, no "welcome to News20" boilerplate. Match
+   the story's gravity — no joking on tragedies.
+2. JORDAN reacts to Alex's opener in a few words, then states the single most
    important fact from the article.
-3. One or two back-and-forth turns adding only what the article actually says
+3. One or two back-and-forth exchanges adding only what the article actually says
    (who/what/where/the key number, if present) — each turn reacting to the last,
    with Alex's humor and Jordan's dry comebacks woven around the facts.
 4. A one-turn "so what" close: who is affected or what to watch — but only if the
    article supports it; otherwise stop.
-5. END with a closing handoff: the final turn's last few words are a short,
-   natural transition to whatever story comes next in the listener's feed —
-   in the spirit of "Okay, what's next?", "Alright — on to the next one.",
-   "Let's see what else is going on.", "Okay, keep it moving." VARY the
-   phrasing; do not default to the same handoff every time. Do NOT name,
-   guess, or tease the next story — you don't know what it is. The handoff
-   is pure conversational filler and carries NO facts; the single-source
+5. THE HANDOFF — end with a short, natural transition to whatever story comes next
+   in the listener's feed.
+   {HANDOFF_STYLE}
+   Do NOT name, guess, or tease the next story — you don't know what it is. The
+   handoff is pure conversational filler and carries NO facts; the single-source
    rule applies to everything before it.
+
+BEFORE YOU OUTPUT, CHECK
+- Every "text" is at most about 140 characters; long thoughts are split into
+  same-speaker runs.
+- At least one short reaction-only turn (about 8 words or fewer) from Alex.
+- At least one em-dash or ellipsis mid-sentence handoff appears.
+- Speakers cluster at least once (the whole thing is not strict A-B-A-B).
+- No reaction word repeats; no pronunciation guides; no stage directions.
+- The opener follows its assigned shape; the final turn is the handoff.
 
 SOURCE_ARTICLE
 Headline: {SOURCE_HEADLINE}
@@ -322,9 +354,9 @@ DETAIL_ANALYTIC_INSTRUCTIONS: dict[str, str] = {
 # includes a timeline panel (every topic category; NOT the source categories). The
 # builder substitutes "" for both when the template has no timeline.
 DETAIL_TIMELINE_PRODUCE = (
-    "- timeline: the ordered \"HOW IT DEVELOPED\" beats, earliest first. Each beat "
-    "has a short mono \"when\" label (e.g. \"08:10\", \"Mon\", \"1993\") and a "
-    "one-sentence \"what\". Use only events the article describes. 2 to 6 beats.\n"
+    '- timeline: the ordered "HOW IT DEVELOPED" beats, earliest first. Each beat '
+    'has a short mono "when" label (e.g. "08:10", "Mon", "1993") and a '
+    'one-sentence "what". Use only events the article describes. 2 to 6 beats.\n'
 )
 DETAIL_TIMELINE_CONTRACT = (
     '  "timeline": [\n'

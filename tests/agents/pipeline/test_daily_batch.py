@@ -63,8 +63,13 @@ async def test_run_daily_pipeline_updates_weights_first_then_produces_only_gated
         ]
         return keep, decisions
 
-    async def fake_orchestrate(*, story, **_k):
+    async def fake_write(story, **_k):
         order.append(f"produce:{story.canonical_story_id}")
+        return SimpleNamespace(
+            canonical_story_id=story.canonical_story_id, original_story=story
+        )
+
+    async def fake_render(write_result, *_a, **_k):
         return SimpleNamespace(published=True)
 
     def fake_has_current_digest(*_a, **_k) -> dict[str, bool]:
@@ -82,7 +87,8 @@ async def test_run_daily_pipeline_updates_weights_first_then_produces_only_gated
 
     monkeypatch.setattr(daily_batch, "run_profile_update_job", fake_profile_update)
     monkeypatch.setattr(daily_batch, "select_stories_to_produce", fake_select)
-    monkeypatch.setattr(daily_batch, "orchestrate_story", fake_orchestrate)
+    monkeypatch.setattr(daily_batch, "write_phase", fake_write)
+    monkeypatch.setattr(daily_batch, "render_phase", fake_render)
     monkeypatch.setattr(
         daily_batch, "_load_has_current_digest", fake_has_current_digest
     )
@@ -212,12 +218,18 @@ async def test_produce_pool_passes_canonical_id_as_story_id(
     story = _story("cand-abc123")
     captured: dict = {}
 
-    async def fake_orchestrate(*, story, story_id, **_k):
+    async def fake_write(story, *, story_id, **_k):
         captured["story_id"] = story_id
         captured["canonical_story_id"] = story.canonical_story_id
+        return SimpleNamespace(
+            canonical_story_id=story.canonical_story_id, original_story=story
+        )
+
+    async def fake_render(write_result, *_a, **_k):
         return SimpleNamespace(published=True)
 
-    monkeypatch.setattr(daily_batch, "orchestrate_story", fake_orchestrate)
+    monkeypatch.setattr(daily_batch, "write_phase", fake_write)
+    monkeypatch.setattr(daily_batch, "render_phase", fake_render)
 
     produced = await daily_batch._produce_story_pool(
         stories_to_produce=[story],
@@ -238,15 +250,21 @@ async def test_produce_pool_forwards_detail_enrichment_inputs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """D3: the batch must thread the Phase 2c enrichment flag + lookups through to
-    orchestrate_story, so the pipeline is enrichment-capable (it defaulted OFF and
+    the RENDER phase, so the pipeline is enrichment-capable (it defaulted OFF and
     the lookups were never passed before)."""
     captured: dict = {}
 
-    async def fake_orchestrate(**kwargs):
+    async def fake_write(story, **_k):
+        return SimpleNamespace(
+            canonical_story_id=story.canonical_story_id, original_story=story
+        )
+
+    async def fake_render(write_result, *_a, **kwargs):
         captured.update(kwargs)
         return SimpleNamespace(published=True)
 
-    monkeypatch.setattr(daily_batch, "orchestrate_story", fake_orchestrate)
+    monkeypatch.setattr(daily_batch, "write_phase", fake_write)
+    monkeypatch.setattr(daily_batch, "render_phase", fake_render)
     segment_lookup = {"int-a": "geopolitics"}
     outlets_lookup = {"cnn.com": "left"}
     adapter = object()
@@ -269,3 +287,90 @@ async def test_produce_pool_forwards_detail_enrichment_inputs(
     assert captured["interest_segment_lookup"] == segment_lookup
     assert captured["outlets_lookup"] == outlets_lookup
     assert captured["gdelt_adapter"] is adapter
+
+
+@pytest.mark.asyncio
+async def test_produce_pool_runs_write_then_review_barrier_then_render(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Layer 3 contract: the pool writes ALL reels, then (only when enabled) runs the
+    pool-level review barrier ONCE, then renders. The barrier must sit between the
+    two waves — running it before all writes finish, or per-story, would defeat the
+    cross-reel diversity it exists for."""
+    order: list[str] = []
+
+    async def fake_write(story, **_k):
+        order.append(f"write:{story.canonical_story_id}")
+        return SimpleNamespace(
+            canonical_story_id=story.canonical_story_id, original_story=story
+        )
+
+    async def fake_render(write_result, *_a, **_k):
+        order.append(f"render:{write_result.canonical_story_id}")
+        return SimpleNamespace(published=True)
+
+    async def fake_review(survivors, _llm, **_k):
+        order.append(f"review:{len(survivors)}")
+        return survivors
+
+    monkeypatch.setattr(daily_batch, "write_phase", fake_write)
+    monkeypatch.setattr(daily_batch, "render_phase", fake_render)
+    monkeypatch.setattr(daily_batch, "review_reel_pool", fake_review)
+
+    produced = await daily_batch._produce_story_pool(
+        stories_to_produce=[_story("a"), _story("b")],
+        story_interest_tags=[],
+        llm_client=object(),
+        tts_client=object(),
+        supabase_client=object(),
+        poster_genai_client=None,
+        max_concurrent=2,
+        enable_batch_review=True,
+    )
+
+    assert len(produced) == 2
+    # The single review barrier sees BOTH survivors, AFTER every write, BEFORE any render.
+    assert "review:2" in order
+    write_indices = [i for i, step in enumerate(order) if step.startswith("write:")]
+    render_indices = [i for i, step in enumerate(order) if step.startswith("render:")]
+    review_index = order.index("review:2")
+    assert max(write_indices) < review_index < min(render_indices)
+
+
+@pytest.mark.asyncio
+async def test_produce_pool_skips_review_barrier_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default-off rollout: with enable_batch_review False the barrier never runs, so
+    the legacy produce path is byte-for-byte unchanged."""
+    called: list[int] = []
+
+    async def fake_write(story, **_k):
+        return SimpleNamespace(
+            canonical_story_id=story.canonical_story_id, original_story=story
+        )
+
+    async def fake_render(write_result, *_a, **_k):
+        return SimpleNamespace(published=True)
+
+    async def fake_review(survivors, _llm, **_k):
+        called.append(len(survivors))
+        return survivors
+
+    monkeypatch.setattr(daily_batch, "write_phase", fake_write)
+    monkeypatch.setattr(daily_batch, "render_phase", fake_render)
+    monkeypatch.setattr(daily_batch, "review_reel_pool", fake_review)
+
+    produced = await daily_batch._produce_story_pool(
+        stories_to_produce=[_story("a"), _story("b")],
+        story_interest_tags=[],
+        llm_client=object(),
+        tts_client=object(),
+        supabase_client=object(),
+        poster_genai_client=None,
+        max_concurrent=2,
+        enable_batch_review=False,
+    )
+
+    assert len(produced) == 2
+    assert called == []  # review pass never invoked

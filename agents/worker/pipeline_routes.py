@@ -444,6 +444,11 @@ async def _run_daily(
             max_total_productions=max_total_productions,
             enable_detail_enrichment=True,
             enable_editorial_rewrite=True,
+            # Reason: pool-level cross-reel diversity pass — rewrites repetitive
+            # scaffolding across the day's reels before TTS, re-verifying any reel
+            # it touches. Fail-open (a judge error leaves reels unchanged) and
+            # self-reverting (an ungrounded rewrite reverts), so it is safe on.
+            enable_batch_review=True,
             interest_segment_lookup=interest_segment_lookup,
             outlets_lookup=outlets_lookup,
             gdelt_adapter=gdelt_adapter,
