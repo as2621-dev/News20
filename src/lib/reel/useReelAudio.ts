@@ -113,6 +113,27 @@ export function useReelAudio({ storyIndex, storyCount, isActive, onEnded }: UseR
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
 
+  // Reason: when play() loses the media-load race (fast-scroll arrival on a
+  // preload="none" element), we arm exactly ONE retry that fires when the element
+  // becomes playable. This ref holds that pending retry's cleanup so we can (a)
+  // guard against stacking a second retry and (b) let the inactive-cancel effect
+  // (Sub-phase 3) cancel a retry the user scrolled away from before it fired.
+  const pendingRetryCleanupRef = useRef<(() => void) | null>(null);
+
+  /**
+   * Cancel any pending one-shot play() retry and clear the ref.
+   *
+   * Safe to call when no retry is armed (no-op). Exposed via a ref so the
+   * inactive-cancel effect (Sub-phase 3) and unmount cleanup can stop a retry
+   * that would otherwise start audio on a reel the user has already left.
+   */
+  const cancelPendingRetry = useCallback((): void => {
+    const cleanup = pendingRetryCleanupRef.current;
+    if (cleanup) {
+      cleanup();
+    }
+  }, []);
+
   const playAudio = useCallback(async (): Promise<void> => {
     const audioElement = audioRef.current;
     if (!audioElement) {
@@ -121,12 +142,71 @@ export function useReelAudio({ storyIndex, storyCount, isActive, onEnded }: UseR
     try {
       await audioElement.play();
     } catch (playError) {
-      // Reason: iOS rejects play() outside a user gesture before unlock. This is
-      // expected pre-first-tap; log once and let the tap handler retry.
+      // Reason: a NotAllowedError is the iOS pre-unlock autoplay block — the tap /
+      // unlock path owns recovery there, so we must NOT arm a retry (retrying would
+      // fight the autoplay policy). Any OTHER rejection (NotSupportedError /
+      // AbortError) or an element that simply is not buffered yet is the not-ready
+      // load race: arm exactly one retry that fires when the element can play.
+      const isNotAllowed = playError instanceof DOMException && playError.name === "NotAllowedError";
+      const isNotReady = !isNotAllowed && audioElement.readyState < HTMLMediaElement.HAVE_CURRENT_DATA;
+
       logger.warn("reel_audio_play_rejected", {
         story_index: storyIndex,
         error_message: playError instanceof Error ? playError.message : "unknown",
         fix_suggestion: "play() must run inside a user-gesture handler until the audio element is unlocked (iOS).",
+      });
+
+      // Reason: only the not-ready load race self-heals. Skip the retry for the iOS
+      // autoplay block, and skip if a retry is already armed (no stacking).
+      if (isNotAllowed || pendingRetryCleanupRef.current !== null) {
+        return;
+      }
+      if (!isNotReady) {
+        return;
+      }
+
+      // Arm a one-shot retry: when the element signals it can play, remove both
+      // listeners, clear the ref, then re-issue play() once (re-checking the
+      // element still exists — it may have been unmounted while we waited).
+      const cleanupRetryListeners = (): void => {
+        audioElement.removeEventListener("canplay", handleCanPlayRetry);
+        audioElement.removeEventListener("loadeddata", handleCanPlayRetry);
+        pendingRetryCleanupRef.current = null;
+      };
+      const handleCanPlayRetry = (): void => {
+        cleanupRetryListeners();
+        const currentElement = audioRef.current;
+        if (!currentElement) {
+          return;
+        }
+        // Reason: await the retried play() so we can distinguish self-heal success
+        // from the single retry being used up. Settled in an IIFE because DOM event
+        // listeners are sync `void`-returning; the catch must NOT swallow the error
+        // (CLAUDE.md slop rule) — it logs `retry_exhausted` so the field still sees it.
+        void (async (): Promise<void> => {
+          try {
+            await currentElement.play();
+            logger.info("reel_audio_play_retry_succeeded", {
+              story_index: storyIndex,
+            });
+          } catch (retryError) {
+            logger.warn("reel_audio_play_retry_exhausted", {
+              story_index: storyIndex,
+              error_message: retryError instanceof Error ? retryError.message : "unknown",
+              fix_suggestion:
+                "audio element failed to play even after a canplay retry; check the audio URL is reachable and the media decodes.",
+            });
+          }
+        })();
+      };
+      audioElement.addEventListener("canplay", handleCanPlayRetry);
+      audioElement.addEventListener("loadeddata", handleCanPlayRetry);
+      pendingRetryCleanupRef.current = cleanupRetryListeners;
+
+      logger.info("reel_audio_play_retry_armed", {
+        story_index: storyIndex,
+        ready_state: audioElement.readyState,
+        fix_suggestion: "Retry will fire on the element's next canplay/loadeddata event.",
       });
     }
   }, [storyIndex]);
@@ -198,13 +278,28 @@ export function useReelAudio({ storyIndex, storyCount, isActive, onEnded }: UseR
     if (isActive) {
       return;
     }
+    // Reason: cancel any armed one-shot play() retry FIRST. If the user scrolled
+    // away while the element was still buffering, a canplay/loadeddata firing after
+    // this point would re-issue play() on a now-inactive reel — starting a second
+    // narration over the new active reel. Cancelling here closes that race.
+    cancelPendingRetry();
     const audioElement = audioRef.current;
     if (audioElement) {
       audioElement.pause();
       audioElement.currentTime = 0;
     }
     setCurrentTimeMs(0);
-  }, [isActive]);
+  }, [isActive, cancelPendingRetry]);
+
+  // Reason: on unmount, cancel any armed one-shot play() retry so its canplay /
+  // loadeddata listener cannot leak past the element's lifetime. Sub-phase 3 adds
+  // the inactive-cancel call (so a retry never fires on a reel the user left); this
+  // unmount guard is the minimal leak-safety SP1 owns.
+  useEffect(() => {
+    return () => {
+      cancelPendingRetry();
+    };
+  }, [cancelPendingRetry]);
 
   return { audioRef, currentTimeMs, isPlaying, playAudio, pauseAudio, togglePlay };
 }

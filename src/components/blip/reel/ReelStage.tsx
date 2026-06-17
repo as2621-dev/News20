@@ -147,9 +147,20 @@ export function ReelStage({
 
   // Auto-play the active story once audio is unlocked (the hook pauses + rewinds
   // when it goes inactive, so this only ever starts the snapped story).
+  // Reason: a reel reached by a fast scroll was preload="none" and flips to
+  // preload="auto" at the same render it becomes active, so readyState is still
+  // HAVE_NOTHING and the first play() loses the load race. Explicitly kick the
+  // fetch here when the element hasn't started loading so a `canplay` is
+  // guaranteed to fire for useReelAudio's retry-on-ready to hook (phase 7e-1).
+  // Guarded on readyState===HAVE_NOTHING so we never restart an already-buffered
+  // download or interrupt in-flight playback.
   // biome-ignore lint/correctness/useExhaustiveDependencies: playAudio is stable; intentionally omitted.
   useEffect(() => {
     if (isActive && isAudioUnlocked) {
+      const audioElement = audioController.audioRef.current;
+      if (audioElement && audioElement.readyState === HTMLMediaElement.HAVE_NOTHING) {
+        audioElement.load();
+      }
       void audioController.playAudio();
     }
   }, [isActive, isAudioUnlocked]);
