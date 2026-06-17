@@ -99,19 +99,27 @@ def _load_has_current_digest(
     """
     if not story_ids:
         return {}
-    rows = (
-        getattr(
-            supabase_client.table("digests")
-            .select("digest_story_id")
-            .in_("digest_story_id", story_ids)
-            .eq("digest_is_current", True)
-            .execute(),
-            "data",
-            None,
+    # Reason: chunk the .in_() so a large candidate pool (BigQuery ingest emits
+    # ~1000s of canonical stories) doesn't overflow the request URL length.
+    chunk_size = 150
+    has_digest: dict[str, bool] = {}
+    for start in range(0, len(story_ids), chunk_size):
+        chunk = story_ids[start : start + chunk_size]
+        rows = (
+            getattr(
+                supabase_client.table("digests")
+                .select("digest_story_id")
+                .in_("digest_story_id", chunk)
+                .eq("digest_is_current", True)
+                .execute(),
+                "data",
+                None,
+            )
+            or []
         )
-        or []
-    )
-    return {str(row["digest_story_id"]): True for row in rows}
+        for row in rows:
+            has_digest[str(row["digest_story_id"])] = True
+    return has_digest
 
 
 def _load_prior_feed_story_ids(
@@ -319,23 +327,32 @@ def build_story_id_resolver(
         ``(normalized_urls) -> {normalized_url: existing_story_id}``.
     """
 
+    # Reason: a single .in_() of every candidate URL overflows the request URL
+    # length once the pool is large (BigQuery ingest returns ~1000s of candidates,
+    # vs the DOC API's 250 cap). Chunk the lookup so the GET query string stays
+    # well under server/proxy URL limits while preserving produce-once semantics.
+    _URL_CHUNK = 150
+
     def _resolve(normalized_urls: list[str]) -> dict[str, str]:
         if not normalized_urls:
             return {}
-        rows = (
-            getattr(
-                supabase_client.table("story_url_aliases")
-                .select("alias_normalized_url,alias_story_id")
-                .in_("alias_normalized_url", normalized_urls)
-                .execute(),
-                "data",
-                None,
+        resolved: dict[str, str] = {}
+        for start in range(0, len(normalized_urls), _URL_CHUNK):
+            chunk = normalized_urls[start : start + _URL_CHUNK]
+            rows = (
+                getattr(
+                    supabase_client.table("story_url_aliases")
+                    .select("alias_normalized_url,alias_story_id")
+                    .in_("alias_normalized_url", chunk)
+                    .execute(),
+                    "data",
+                    None,
+                )
+                or []
             )
-            or []
-        )
-        return {
-            str(row["alias_normalized_url"]): str(row["alias_story_id"]) for row in rows
-        }
+            for row in rows:
+                resolved[str(row["alias_normalized_url"])] = str(row["alias_story_id"])
+        return resolved
 
     return _resolve
 
