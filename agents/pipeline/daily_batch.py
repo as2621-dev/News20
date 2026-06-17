@@ -40,6 +40,7 @@ from agents.pipeline.produce_caps import (
     compute_category_produce_caps,
     enforce_overall_ceiling,
 )
+from agents.pipeline.produce_dedup import dedupe_produce_shortlist
 from agents.pipeline.produce_gate import select_stories_to_produce
 from agents.pipeline.stages.ranking import (
     FOLLOW_SOURCE_WEIGHT,
@@ -506,6 +507,7 @@ async def run_daily_pipeline(
     max_total_productions: int | None = None,
     enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
+    enable_produce_dedup: bool = True,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
@@ -538,6 +540,10 @@ async def run_daily_pipeline(
             also gets grounded detail enrichment + the GDELT coverage census.
             Defaults False (the M1 produce path) until the production wiring passes
             the lookups below.
+        enable_produce_dedup: When True (default), an LLM judge drops same-event /
+            near-angle duplicates from the produce shortlist BEFORE the paid
+            generation fan-out (so two outlets' takes on one event are not both
+            produced). Fail-open — a judge error leaves the shortlist unchanged.
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
             story's ``story_segment_slug`` (and the enrichment's analytic kind /
             coverage mode). Injected per batch; ``None`` → ``wildcard`` fallback.
@@ -568,6 +574,16 @@ async def run_daily_pipeline(
         stories, story_interest_tags, has_current_digest, now_utc=now
     )
     gated_count = len(to_produce)
+
+    # ── Pre-generation dedup — drop same-event / near-angle duplicates the
+    # ingestion clusterer (URL + 0.85 title) missed, BEFORE caps so the caps
+    # backfill freed capacity with genuinely different stories. Fail-open. ──
+    dedup_dropped_count = 0
+    if enable_produce_dedup:
+        to_produce, dedup_decisions = await dedupe_produce_shortlist(
+            to_produce, llm_client
+        )
+        dedup_dropped_count = len(dedup_decisions)
 
     # ── Per-category produce cap — bound reels/category at the cross-user max ──
     # (the "Build your 30" budgets). Stops a single-topic pool (e.g. 39 markets
@@ -630,6 +646,7 @@ async def run_daily_pipeline(
         feed_date=target_date.isoformat(),
         candidate_story_count=len(stories),
         produced_story_count=len(produced_stories),
+        dedup_dropped_count=dedup_dropped_count,
         capped_count=capped_count,
         feeds_written=feeds.feeds_written,
     )
