@@ -56,6 +56,39 @@ TRACKING_PARAMS: frozenset[str] = frozenset(
 
 _DEFAULT_TITLE_THRESHOLD = 0.85
 
+# Reason: the canonical outlet domains for source-origin candidates (Phase 5d).
+# A YouTube upload carries 'youtube.com'; an X post carries 'x.com' (set by the
+# youtube.py / x_account.py adapters). Membership in this set is how the rest of
+# the pipeline (produce_gate, the poster-skip seam) recognises a followed-source
+# story vs a topic-news story — see is_source_origin_domain.
+SOURCE_ORIGIN_DOMAINS: frozenset[str] = frozenset({"youtube.com", "x.com"})
+
+
+def is_source_origin_domain(outlet_domain: str | None) -> bool:
+    """Return True when an outlet domain marks a followed-source candidate.
+
+    Source-origin candidates (a YouTube upload / an X post from a *followed*
+    source) are intrinsically wanted regardless of news coverage — the user asked
+    for that creator. Their outlet domain is the natural, already-set distinguisher
+    (the youtube/x adapters stamp ``candidate_outlet_domain`` = ``youtube.com`` /
+    ``x.com``), so no extra flag is needed on the model.
+
+    Args:
+        outlet_domain: A candidate/story outlet domain (case-insensitive), or None.
+
+    Returns:
+        True when the domain is one of :data:`SOURCE_ORIGIN_DOMAINS`.
+
+    Example:
+        >>> is_source_origin_domain("youtube.com")
+        True
+        >>> is_source_origin_domain("cnn.com")
+        False
+    """
+    if not outlet_domain:
+        return False
+    return outlet_domain.strip().lower() in SOURCE_ORIGIN_DOMAINS
+
 
 def normalize_url(url: str) -> str:
     """Normalize a URL for deduplication comparison (PORT from TLDW).
@@ -294,3 +327,98 @@ class StoryClusterer:
             canonical_matched_interest_ids=matched_interest_ids,
             member_candidate_ids=[m.candidate_external_id for m in cluster.members],
         )
+
+
+# ----------------------------------------------------------------------
+# Source-item dedup (Phase 5d SP3) — followed-source candidates
+# ----------------------------------------------------------------------
+
+
+def source_item_dedup_key(candidate: CandidateStory) -> str:
+    """Compute the stable dedup key for a source-origin candidate.
+
+    Followed-source items (a YouTube upload, an X post) dedup on their stable
+    identity, NOT on cross-outlet title clustering: each upload/tweet is a single
+    distinct item from one source. The key is the candidate's ``external_id`` (the
+    canonical watch / tweet URL) normalized so tracking params / scheme / ``www.``
+    differences do not split one item into two. Falls back to the raw external_id
+    when normalization yields nothing (defensive — should not happen for the
+    adapter-built URLs).
+
+    Args:
+        candidate: A source-origin :class:`CandidateStory`.
+
+    Returns:
+        The normalized dedup key for the item.
+
+    Example:
+        >>> from datetime import datetime, timezone
+        >>> c = CandidateStory(
+        ...     candidate_external_id="https://www.youtube.com/watch?v=abc",
+        ...     candidate_title="t", candidate_url="https://www.youtube.com/watch?v=abc",
+        ...     candidate_outlet_domain="youtube.com",
+        ...     candidate_published_utc=datetime(2026, 6, 17, tzinfo=timezone.utc),
+        ... )
+        >>> source_item_dedup_key(c)
+        'https://youtube.com/watch?v=abc'
+    """
+    normalized = normalize_url(candidate.candidate_external_id)
+    return normalized or candidate.candidate_external_id
+
+
+def dedup_source_items(
+    candidates: list[CandidateStory],
+    *,
+    already_ingested_keys: set[str] | None = None,
+) -> list[CandidateStory]:
+    """Drop already-ingested + intra-batch-duplicate followed-source items.
+
+    Unlike :meth:`StoryClusterer.cluster_candidates` (which merges near-duplicate
+    NEWS articles across outlets and counts coverage), source items are deduped by
+    their own stable identity — one YouTube upload / X post is one item. This:
+
+      1. drops a candidate whose dedup key is in ``already_ingested_keys`` (it was
+         ingested on a prior run — ``content_source_items`` / ``story_url_aliases``),
+      2. drops an intra-batch duplicate (the same item surfaced twice this run),
+
+    preserving first-seen order. The existing news dedup path is untouched.
+
+    Args:
+        candidates: The source-origin candidates fetched this run (across sources).
+        already_ingested_keys: Dedup keys (see :func:`source_item_dedup_key`) of
+            items already ingested on a prior run. When None, only intra-batch
+            duplicates are dropped (the pure / fixture path).
+
+    Returns:
+        The deduped candidates (first-seen order), with already-ingested + repeat
+        items removed.
+
+    Example:
+        >>> dedup_source_items([])
+        []
+    """
+    seen_prior = already_ingested_keys or set()
+    seen_this_batch: set[str] = set()
+    kept: list[CandidateStory] = []
+    dropped_already_ingested = 0
+    dropped_intra_batch = 0
+
+    for candidate in candidates:
+        key = source_item_dedup_key(candidate)
+        if key in seen_prior:
+            dropped_already_ingested += 1
+            continue
+        if key in seen_this_batch:
+            dropped_intra_batch += 1
+            continue
+        seen_this_batch.add(key)
+        kept.append(candidate)
+
+    logger.info(
+        "source_items_deduped",
+        total_candidates=len(candidates),
+        kept=len(kept),
+        dropped_already_ingested=dropped_already_ingested,
+        dropped_intra_batch=dropped_intra_batch,
+    )
+    return kept

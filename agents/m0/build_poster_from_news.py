@@ -16,7 +16,11 @@ from pathlib import Path
 from google import genai
 
 from agents.m0.digests_input import Digest
-from agents.m0.download_candidates import DownloadedCandidate, download_candidate
+from agents.m0.download_candidates import (
+    DownloadedCandidate,
+    _fetch,
+    download_candidate,
+)
 from agents.m0.generate_posters import _extract_image_bytes, generate_from_reference
 from agents.m0.grade_and_brand import grade_and_brand
 from agents.m0.image_scorer import score_candidates, select_winner
@@ -42,12 +46,31 @@ def _summary_from_digest(digest: Digest) -> str:
     return " ".join(turn.text for turn in digest.turns)
 
 
-def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionReport:
+def build_poster_for_digest(
+    digest: Digest,
+    client: genai.Client,
+    *,
+    supplied_poster_image_url: str | None = None,
+) -> SelectionReport:
     """Run the full seed→generate→grade pipeline for one digest.
+
+    **Source-origin skip (Phase 5d SP3):** when ``supplied_poster_image_url`` is
+    given (a followed YouTube channel's video thumbnail, or a rendered X tweet
+    screenshot — ``CandidateStory.candidate_social_image_url`` carried through the
+    orchestrator), the SERP→score→Nano-Banana generation is SKIPPED entirely: the
+    supplied image is downloaded and put through the SAME deterministic house grade
+    (so it matches the reel format), then written as the poster. The real
+    thumbnail/tweet is more trustworthy + recognisable than a synthetic poster
+    (plans/phase-5d-source-ingestion.md "Locked decisions"). The Gemini ``client``
+    is then unused (no generation, no SERP). On any download/grade failure the
+    report records it (Rule 12 — no silent skip) and returns posterless rather than
+    falling through to a (wrong) generated poster for a source item.
 
     Args:
         digest: The story (headline + dialogue turns).
-        client: Initialized google-genai client.
+        client: Initialized google-genai client (unused on the supplied-image path).
+        supplied_poster_image_url: Optional source-origin image URL/path. When set,
+            generation is skipped and this image becomes the poster.
 
     Returns:
         A SelectionReport (also written to disk as selection-report.json).
@@ -65,6 +88,16 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
         refined_query="",
         candidate_count=0,
     )
+
+    # (S) Source-origin short-circuit: a followed-source story supplies its own
+    # image (thumbnail / tweet screenshot) — grade it directly, skip generation.
+    if supplied_poster_image_url:
+        return _build_poster_from_supplied_image(
+            report=report,
+            supplied_poster_image_url=supplied_poster_image_url,
+            accent_hex=accent_hex,
+            output_dir=output_dir,
+        )
 
     # (0) concept-first (poster-pipeline §4): drives query, scoring, and synthesis.
     concept = extract_story_concept(headline, summary, client)
@@ -157,6 +190,103 @@ def build_poster_for_digest(digest: Digest, client: genai.Client) -> SelectionRe
         digest_id=digest.digest_id,
         winner_candidate_id=report.winner_candidate_id,
         poster_path=str(poster_path),
+    )
+    _write_report(report, output_dir)
+    return report
+
+
+def _read_supplied_image_bytes(supplied_poster_image_url: str) -> bytes | None:
+    """Read a supplied source image's bytes from a local path or a URL.
+
+    The X adapter saves a rendered tweet screenshot to the local assets dir (a
+    filesystem path), while the YouTube adapter supplies a remote thumbnail URL —
+    so accept both: a path that exists on disk is read directly; otherwise the
+    value is fetched over HTTP. Returns None (logged) on any failure.
+
+    Args:
+        supplied_poster_image_url: A local file path or an http(s) image URL.
+
+    Returns:
+        The image bytes, or None when the path is missing / the fetch failed.
+    """
+    candidate_path = Path(supplied_poster_image_url)
+    try:
+        if candidate_path.is_file():
+            return candidate_path.read_bytes()
+    except OSError:
+        # Reason: a URL string can raise on is_file() on some platforms; fall
+        # through to the HTTP fetch rather than crash the poster step.
+        pass
+    return _fetch(supplied_poster_image_url)
+
+
+def _build_poster_from_supplied_image(
+    report: SelectionReport,
+    supplied_poster_image_url: str,
+    accent_hex: str,
+    output_dir: Path,
+) -> SelectionReport:
+    """Grade a supplied source image into the poster, skipping generation.
+
+    Downloads/reads the supplied source-origin image (YouTube thumbnail or X tweet
+    screenshot), runs it through the SAME deterministic house grade as a generated
+    poster (cover-fit 1080x1920 + brand pass), and writes it as ``poster.webp``.
+    A failure is recorded on the report and returned posterless (Rule 12 — no
+    silent fall-through to a generated poster for a source item).
+
+    Args:
+        report: The in-progress selection report to annotate + return.
+        supplied_poster_image_url: The source image path/URL.
+        accent_hex: The brand accent for the grade pass.
+        output_dir: ``assets/m0/<digest_id>/`` output dir.
+
+    Returns:
+        The selection report with ``poster_path`` set on success, else with
+        ``notes`` explaining the failure.
+    """
+    report.refined_query = "source_origin_supplied_image"
+    report.notes = (
+        f"source-origin poster from supplied image: {supplied_poster_image_url}"
+    )
+
+    raw_bytes = _read_supplied_image_bytes(supplied_poster_image_url)
+    if not raw_bytes:
+        report.notes = f"source-origin supplied image could not be read: {supplied_poster_image_url}"
+        logger.error(
+            "poster_source_image_unavailable",
+            digest_id=report.digest_id,
+            supplied_poster_image_url=supplied_poster_image_url,
+            fix_suggestion="Verify the thumbnail URL / screenshot path is reachable; "
+            "the digest will publish without a poster.",
+        )
+        _write_report(report, output_dir)
+        return report
+
+    try:
+        graded_webp = grade_and_brand(raw_bytes, accent_hex)
+    except Exception as exc:  # noqa: BLE001 — grading must not crash the run.
+        report.notes = f"source-origin image grade failed: {type(exc).__name__}"
+        logger.error(
+            "poster_source_image_grade_failed",
+            digest_id=report.digest_id,
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:300],
+            fix_suggestion="The supplied image bytes did not decode/grade; "
+            "publishing without a poster.",
+        )
+        _write_report(report, output_dir)
+        return report
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    poster_path = output_dir / "poster.webp"
+    poster_path.write_bytes(graded_webp)
+    report.poster_path = str(poster_path)
+    logger.info(
+        "poster_source_image_used",
+        digest_id=report.digest_id,
+        supplied_poster_image_url=supplied_poster_image_url,
+        poster_path=str(poster_path),
+        generation_skipped=True,
     )
     _write_report(report, output_dir)
     return report

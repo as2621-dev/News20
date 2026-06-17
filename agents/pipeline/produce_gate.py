@@ -41,6 +41,7 @@ import math
 from collections.abc import Iterable
 from datetime import datetime, timezone
 
+from agents.ingestion.dedup import is_source_origin_domain
 from agents.ingestion.models import CanonicalStory, StoryInterestTag
 from agents.pipeline.models import ProduceDecision
 from agents.shared.logger import get_logger
@@ -141,6 +142,7 @@ def evaluate_story_for_production(
     now_utc: datetime | None = None,
     min_importance: float = _DEFAULT_MIN_IMPORTANCE,
     min_freshness: float = _DEFAULT_MIN_FRESHNESS,
+    is_source_origin: bool = False,
 ) -> ProduceDecision:
     """Decide whether one canonical story should be produced into a digest.
 
@@ -149,17 +151,31 @@ def evaluate_story_for_production(
     existing-digest lookup. The first failing check short-circuits and is named
     in ``skip_reason``; only a story passing all three is produced.
 
+    **Source-origin exemption (Phase 5d SP3):** a story that came from a *followed*
+    source (a YouTube upload / X post — ``is_source_origin=True``) is intrinsically
+    wanted by the user who follows that source, so it BYPASSES checks 1 and 2: it
+    needs no ``story_interests`` tag (it is tagged to the user directly, not to an
+    interest) and is not gated out for a low outlet count (a single-source item has
+    ``story_outlet_count`` 1 by nature). The produce-once check (3) STILL applies —
+    a source item already produced is not re-produced. Topic-news gating is
+    unchanged when ``is_source_origin=False``.
+
     Args:
         story: The deduped canonical story (carries ``story_outlet_count`` and
             ``canonical_published_utc``).
         story_interest_tags: The story's ``story_interests`` tag payloads (SP1
-            output). A story with zero tags serves no active interest.
+            output). A story with zero tags serves no active interest. Ignored for
+            the interest check when ``is_source_origin`` is True.
         has_current_digest: Injected lookup — True if ``digests`` already holds a
             ``digest_is_current = true`` row for ``story.canonical_story_id``.
         now_utc: Current time for the freshness decay (defaults to ``utcnow``);
             injected so tests are deterministic.
         min_importance: Importance floor a story must clear.
         min_freshness: Freshness floor a story must clear.
+        is_source_origin: True when the story came from a followed source (YouTube /
+            X). Exempts it from the interest-membership and importance/freshness
+            floor checks (it is intrinsically wanted); the produce-once check still
+            applies.
 
     Returns:
         A :class:`ProduceDecision` with the verdict, the failing reason (if any),
@@ -188,8 +204,15 @@ def evaluate_story_for_production(
     freshness_score = compute_freshness_score(story.canonical_published_utc, now)
 
     skip_reason = ""
+    if is_source_origin:
+        # Reason: a followed-source item is intrinsically wanted — it serves the
+        # user who follows that source, not an interest, and a single-source item
+        # has outlet count 1, so checks 1 + 2 would wrongly gate it out. Only the
+        # produce-once economics (check 3) apply.
+        if has_current_digest:
+            skip_reason = SKIP_REASON_HAS_CURRENT_DIGEST
     # Check 1 (cheapest): serves at least one active interest.
-    if serves_interest_count == 0:
+    elif serves_interest_count == 0:
         skip_reason = SKIP_REASON_NO_INTEREST
     # Check 2: clears the importance/freshness floor.
     elif importance_score < min_importance or freshness_score < min_freshness:
@@ -207,6 +230,7 @@ def evaluate_story_for_production(
             serves_interest_count=serves_interest_count,
             importance_score=round(importance_score, 4),
             freshness_score=round(freshness_score, 4),
+            is_source_origin=is_source_origin,
         )
     else:
         logger.info(
@@ -216,6 +240,7 @@ def evaluate_story_for_production(
             serves_interest_count=serves_interest_count,
             importance_score=round(importance_score, 4),
             freshness_score=round(freshness_score, 4),
+            is_source_origin=is_source_origin,
             fix_suggestion="Story did not clear the produce-once gate; not generated this run",
         )
 
@@ -267,7 +292,17 @@ def select_stories_to_produce(
 
     to_produce: list[CanonicalStory] = []
     decisions: list[ProduceDecision] = []
+    source_origin_count = 0
     for story in stories:
+        # Reason: a followed-source story is recognised by its outlet domain
+        # (youtube.com / x.com — set by the source adapters), so the batch gate
+        # auto-exempts it from the interest + floor checks without the caller
+        # threading a separate flag. Topic-news stories keep the full gating.
+        is_source_origin = is_source_origin_domain(
+            story.canonical_primary_outlet_domain
+        )
+        if is_source_origin:
+            source_origin_count += 1
         decision = evaluate_story_for_production(
             story=story,
             story_interest_tags=tags_list,
@@ -277,6 +312,7 @@ def select_stories_to_produce(
             now_utc=now,
             min_importance=min_importance,
             min_freshness=min_freshness,
+            is_source_origin=is_source_origin,
         )
         decisions.append(decision)
         if decision.should_produce:
@@ -287,5 +323,6 @@ def select_stories_to_produce(
         total_stories=len(decisions),
         produced=len(to_produce),
         skipped=len(decisions) - len(to_produce),
+        source_origin_stories=source_origin_count,
     )
     return to_produce, decisions

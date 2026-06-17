@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from pydub import AudioSegment
 
 from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter
+from agents.ingestion.dedup import is_source_origin_domain
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline.feed_assembly import (
     FeedWriteResult,
@@ -266,14 +267,35 @@ def generate_poster_bytes(
     Args:
         story: The canonical story (headline seeds the poster concept).
         script: The grounded script (its dialogue seeds the poster summary).
-        poster_genai_client: A ``google.genai.Client`` (None disables posters).
+        poster_genai_client: A ``google.genai.Client`` (None disables posters for
+            news stories; source-origin stories still get a poster from their
+            supplied image since generation is skipped — see below).
         poster_builder: Injectable builder fn (defaults to the M0 entry); tests
             pass a stub returning a report with ``poster_path``.
 
     Returns:
         The graded poster PNG bytes, or None when disabled/failed.
     """
-    if poster_genai_client is None:
+    # Reason (Phase 5d SP4): a source-origin story (followed YouTube channel / X
+    # account — recognised purely by its youtube.com / x.com outlet domain) carries
+    # its own image (video thumbnail / tweet screenshot) on
+    # ``canonical_social_image_url``. Pass it to the builder so the SERP→Nano-Banana
+    # generation is SKIPPED and that image becomes the poster directly (it is more
+    # trustworthy + recognisable than a synthetic poster). For source stories the
+    # builder never touches the genai client, so we proceed even when it is None.
+    supplied_poster_image_url: str | None = None
+    if is_source_origin_domain(story.canonical_primary_outlet_domain):
+        supplied_poster_image_url = story.canonical_social_image_url
+        if not supplied_poster_image_url:
+            logger.warning(
+                "orchestrator_source_story_missing_image",
+                story_id=story.canonical_story_id,
+                outlet_domain=story.canonical_primary_outlet_domain,
+                fix_suggestion="A source-origin story has no canonical_social_image_url; "
+                "check the adapter set the thumbnail / tweet-screenshot.",
+            )
+
+    if poster_genai_client is None and supplied_poster_image_url is None:
         logger.info(
             "orchestrator_poster_skipped",
             story_id=story.canonical_story_id,
@@ -296,7 +318,17 @@ def generate_poster_bytes(
         turns=_to_voice_turns(script),
     )
     try:
-        report = builder(m0_digest, poster_genai_client)
+        # Reason: only pass the source-origin kwarg when we actually have a supplied
+        # image, so the news path's call signature stays identical (builder(digest,
+        # client)) — tests that inject a 2-arg builder are unaffected.
+        if supplied_poster_image_url is not None:
+            report = builder(
+                m0_digest,
+                poster_genai_client,
+                supplied_poster_image_url=supplied_poster_image_url,
+            )
+        else:
+            report = builder(m0_digest, poster_genai_client)
     except Exception as exc:  # noqa: BLE001 — poster failure must not block publish
         logger.error(
             "orchestrator_poster_failed",

@@ -62,6 +62,13 @@ class Settings(BaseSettings):
         "thumbnail + subscriber count. Optional so existing envs without it "
         "still load; the seeder fails loud at run time when it is missing.",
     )
+    xai_api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="xAI / Grok API key (XAI_API_KEY) — used by the X account "
+        "source adapter (Phase 5d SP2) for Live Search discovery of a followed "
+        "handle's recent posts. Empty by default so existing envs still load; the "
+        "adapter returns a clean failed status when it is missing. Never logged.",
+    )
     pipeline_trigger_secret: SecretStr = Field(
         default=SecretStr(""),
         description="Shared bearer token guarding the worker's pipeline HTTP seam "

@@ -27,6 +27,7 @@ reference/supabase-schema.md (`stories`, `story_interests`, `interests`).
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -177,6 +178,59 @@ class CandidateStory(BaseModel):
     )
     candidate_matched_interest_slug: str | None = Field(
         default=None, description="Slug of the matched interest (set by the pipeline)"
+    )
+    candidate_platform_metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Source-origin platform metadata (e.g. a TwitterContentMetadata "
+        "dump for X posts); None for plain news candidates.",
+    )
+
+
+class TwitterContentMetadata(BaseModel):
+    """Platform metadata for one X/Twitter post surfaced by the X account adapter (Phase 5d SP2).
+
+    Travels on a source-origin :class:`CandidateStory` (via ``platform_metadata``)
+    so the downstream pipeline can attribute the post, render the tweet card, and
+    follow quote/thread references. The xAI/Grok Live Search call discovers the
+    post + its canonical tweet URL; the screenshot renderer (``tweet_screenshot.py``)
+    turns that URL into the reel image.
+
+    Attributes:
+        tweet_id: The numeric tweet status id parsed from the canonical tweet URL
+            (e.g. "1799999999999999999"), or the URL itself when the id is not
+            parseable — stable per post for dedup.
+        author_handle: The post author's canonical handle WITHOUT the leading ``@``
+            (e.g. "Reuters"); X handles are case-insensitive.
+        tweet_url: The canonical ``https://x.com/<handle>/status/<id>`` URL.
+        is_quote: True when the post quote-tweets another post.
+        quoted_tweet_url: The quoted post's URL when ``is_quote`` is True, else None.
+        is_thread: True when the post is part of a multi-tweet thread by the author.
+
+    Example:
+        >>> meta = TwitterContentMetadata(
+        ...     tweet_id="1799999999999999999",
+        ...     author_handle="Reuters",
+        ...     tweet_url="https://x.com/Reuters/status/1799999999999999999",
+        ... )
+        >>> meta.author_handle
+        'Reuters'
+    """
+
+    tweet_id: str = Field(
+        ..., description="Numeric tweet status id (or the URL when not parseable)"
+    )
+    author_handle: str = Field(
+        ..., description="Post author's canonical handle without the leading @"
+    )
+    tweet_url: str = Field(..., description="Canonical x.com/<handle>/status/<id> URL")
+    is_quote: bool = Field(
+        default=False, description="True when the post quote-tweets another post"
+    )
+    quoted_tweet_url: str | None = Field(
+        default=None, description="The quoted post's URL when is_quote is True"
+    )
+    is_thread: bool = Field(
+        default=False, description="True when the post is part of an author thread"
     )
 
 

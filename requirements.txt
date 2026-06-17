@@ -20,6 +20,19 @@ Pillow>=10.0
 # article body text from the fetched HTML for downstream scripting (SP2).
 trafilatura>=1.6
 
+# ──── Followed-source ingestion: YouTube (Phase 5d SP1) ────
+# yt-dlp pulls a video's transcript (auto-subs / uploaded captions, vtt) + canonical
+# metadata + best thumbnail. Upload detection itself is keyless via the channel RSS
+# feed (no YouTube Data API key); yt-dlp only enriches the videos RSS already found.
+yt-dlp>=2024.0
+
+# ──── Followed-source ingestion: X/Twitter (Phase 5d SP2) ────
+# Discovery uses the xAI/Grok API (XAI_API_KEY) via httpx (already a dep). Playwright
+# headless Chromium renders a screenshot of each tweet card as the reel image (source
+# items skip Nano Banana poster generation). The Railway worker image must also run
+# `playwright install chromium` to fetch the browser binary (flagged for deploy).
+playwright>=1.40
+
 # ──── Audio Processing (needs ffmpeg/ffprobe on PATH) ────
 pydub>=0.25
 

@@ -1,66 +1,164 @@
-# Phase 5d: Ingestion of followed sources
+# Phase 5d: Ingestion of followed sources (YouTube + X)
 
 **Milestone:** M5 — Two-axis personalization (sources + control surface)
 **Status:** Not started
 **Estimated effort:** L
 
 ## Goal
-A followed **YouTube channel / podcast / X account**'s fresh content is detected on a schedule, transcribed, deduped, and promoted into the per-user **story pool** that feeds the existing digest pipeline — so source-driven stories sit alongside topic-driven news.
+A followed **YouTube channel** or **X account**'s fresh content is detected on a
+schedule, transcribed/captured, deduped, and promoted into the per-user **story
+pool** that feeds the existing digest pipeline — so source-driven reels sit
+alongside topic-driven news and the `youtube`/`x` feed categories stop
+soft-rolling into topics.
+
+## Locked decisions (owner, 2026-06-17)
+- **Scope = YouTube + X only.** Podcast ingestion is explicitly deferred (see Out of scope).
+- **YouTube upload detection = channel RSS** (`https://www.youtube.com/feeds/videos.xml?channel_id=<id>`):
+  keyless, returns latest ~15 videos + `media:thumbnail`. **No YouTube Data API key.**
+- **YouTube transcript = `yt-dlp`** (auto-subs / uploaded captions, `--skip-download
+  --write-auto-sub --write-sub --sub-format vtt`). Caption-less videos → `failed` (skipped).
+- **X content = xAI / Grok API** (`XAI_API_KEY`, already in `.env`) with Live Search
+  to surface recent substantive posts from a followed handle + their tweet URLs.
+- **Images — NO generated posters for source items:**
+  - **YouTube → the video thumbnail** (`maxresdefault`/`hqdefault` from RSS or yt-dlp metadata).
+  - **X → a screenshot of the tweet**, rendered by **Playwright headless Chromium**
+    loading the X embed/publish widget for the tweet URL → PNG.
+  - The poster stage **skips Nano Banana Pro** when a story is source-origin and
+    carries a supplied image; that image becomes the reel poster directly.
 
 ## Why this phase exists
-The sources axis is inert until followed sources actually produce digest content (spec §4). This phase ports TL;DW's battle-tested YouTube + podcast ingestion (Decision #12) and builds the one missing adapter (X). It wires source content into News20's existing `agents/ingestion` + `agents/pipeline` so produced stories are indistinguishable downstream.
+The sources axis is inert until followed sources actually produce digest content
+(spec §4). This phase builds the two adapters the owner named, reusing the TL;DW
+donor's fresh-upload trick for YouTube, and wires source content into News20's
+existing `agents/ingestion` + `agents/pipeline` so produced reels are
+indistinguishable downstream — except their image is the real thumbnail/tweet,
+not a generated poster.
 
 ## Context the sub-agents need
-- **Existing News20 ingestion:** `agents/ingestion/` has `adapters/base.py`, `adapters/gdelt_doc.py`, `ancestor_tagging.py`, `dedup.py`, `interest_keyed_pipeline.py`, `models.py`. New adapters must conform to `adapters/base.py`. The produce/script/TTS pipeline lives in `agents/pipeline/` (`orchestrator.py`, `daily_batch.py`, `feed_assembly.py`, `produce_gate.py`, `stages/`). Trigger tasks: `trigger/dailyPipeline.ts`, `trigger/produceStory.ts`.
-- **Donor:** `reference/sources-reuse-map.md` §3–§4 — port `adapters/youtube.py:62-477` (uploads-playlist `"UU"+id` trick; `playlistItems.list` = 1 quota unit; captions-only transcript), `podcast_audio.py` + `adapters/podcast.py` (RSS→Whisper, duration cap + daily cost budget), `scheduler.py` (`CadenceScheduler`), `trigger/ingestion-cron.ts` (2h fan-out). **Drop the Pinecone embed step** (News20 uses in-context grounding — see `news20-qa-incontext-grounding`).
-- **X is build-fresh:** no donor adapter; only the `TwitterContentMetadata` shape (`models.py:436`) is reusable. Decide the X API in 5c's open Q.
-- **Lands in:** `content_source_items` (from Phase 5b migration 0008), then **promoted** into the story pool. Tables already exist after 5b.
-- **Secrets:** `YOUTUBE_API_KEY`, `OPENAI_API_KEY` (Whisper), X API key — via `agents/shared/settings.py` (pydantic-settings), never hardcoded/logged (CLAUDE.md).
-- **Server-side only** — these run in the Python worker / Trigger.dev, never on device.
+- **Adapter contract:** `agents/ingestion/adapters/base.py` — two phases:
+  `search(query, since) -> list[CandidateStory]` and `extract_body(candidate) ->
+  CandidateStory`. Source adapters are *source-keyed* not query-keyed, so they add
+  a `fetch_new_items(source_external_id, since) -> list[CandidateStory]` method
+  (the `source_pipeline` calls that, not `search`); `extract_body` still fills
+  `candidate_body_text` (transcript / tweet text). Emit `CandidateStory` with
+  `candidate_social_image_url` = thumbnail (YT) or rendered-screenshot path (X),
+  `candidate_outlet_domain` = `youtube.com` / `x.com`, `candidate_outlet_name` =
+  channel / `@handle`, `candidate_external_id` = video / tweet URL.
+- **Donor:** `reference/sources-reuse-map.md` §3–§4 — `adapters/youtube.py:62-477`
+  for the uploads-detection shape (but we use **RSS + yt-dlp**, not the Data API),
+  `scheduler.py` `CadenceScheduler`, `trigger/ingestion-cron.ts` fan-out pattern.
+  **Drop Pinecone** (in-context grounding — `news20-qa-incontext-grounding`).
+- **Catalog:** followed sources live in `content_sources` (cols incl.
+  `content_source_type`, `external_id`, `source_name`, `thumbnail_url`,
+  `platform_metadata`) + the user→source follow table from Phase 5b/5c. RSS needs
+  the channel id in `external_id`; X needs the handle.
+- **Poster seam:** the produce pipeline's poster stage (`agents/pipeline` /
+  `agents/m0/build_poster_from_news.py`, model `gemini-3-pro-image-preview`) must
+  branch: source-origin candidate with a supplied image → use it, skip generation.
+- **Secrets:** `XAI_API_KEY` (present). No `YOUTUBE_API_KEY`/`OPENAI_API_KEY` needed
+  (RSS + captions, no Whisper). Via `agents/shared/settings.py`, never hardcoded/logged.
+- **Server-side only** — runs in the Python worker / Trigger.dev, never on device.
+- **New deps:** `yt-dlp` (transcript + metadata), `playwright` + chromium (tweet
+  screenshot). Add to `requirements.txt`; the Railway worker image must install the
+  Playwright browser (`playwright install chromium`) — flag for deploy.
 
 ## Sub-phases
 
-### Sub-phase 1: YouTube + podcast adapters (port)
-- **Files touched:** `agents/ingestion/adapters/youtube.py`, `agents/ingestion/adapters/podcast.py`, `agents/ingestion/podcast_audio.py`, `agents/ingestion/adapters/__init__.py` (register in `get_adapter()`), `agents/shared/settings.py` (add keys if absent).
-- **What ships:** the ported YouTube adapter (fresh-upload detection via uploads playlist + `playlistItems.list`; captions-only transcription via `youtube-transcript-api`; traction score) and podcast adapter (`feedparser` RSS + duration cap + **daily transcription budget**; `podcast_audio.py` stream-download → chunk → Whisper → concat with cost estimate), both implementing `adapters/base.py` and returning `content_source_items`-shaped records.
-- **Definition of done:** given a channel + `since` cutoff, the YouTube adapter returns new video items with transcripts and skips caption-less videos as `failed` (YouTube API **mocked**); given a fixture RSS, the podcast adapter returns episodes within the duration cap and stops at the daily budget, with transcripts (Whisper **mocked**); both pass the `base.py` interface contract. Pytest, external APIs mocked (CLAUDE.md).
-- **Dependencies:** Phase 5b SP1 (schema).
+### Sub-phase 1: YouTube adapter (RSS detect + yt-dlp transcript + thumbnail)
+- **Files touched:** `agents/ingestion/adapters/youtube.py`, `agents/ingestion/adapters/__init__.py`, `agents/shared/settings.py`, `requirements.txt`.
+- **What ships:** an adapter that, given a channel `external_id` + `since` cutoff,
+  reads the channel RSS feed, keeps videos published after the cutoff, and for each
+  uses `yt-dlp` to pull the transcript (auto-subs/captions) + canonical metadata,
+  emitting `CandidateStory` records with `candidate_social_image_url` = the video
+  thumbnail and `candidate_body_text` = the transcript. Caption-less videos are
+  returned `failed` and skipped (never crash the batch).
+- **Definition of done:** given a fixture RSS feed + cutoff, returns new-video
+  `CandidateStory` items with transcript + thumbnail (RSS fetch + `yt-dlp` **mocked**);
+  a caption-less video is skipped as `failed`; conforms to the base interface. Pytest, externals mocked.
+- **Dependencies:** Phase 5b/5c (follow tables).
 
-### Sub-phase 2: X/Twitter adapter (build fresh)
-- **Files touched:** `agents/ingestion/adapters/x_account.py`, `agents/ingestion/models.py` (add `TwitterContentMetadata`).
-- **What ships:** a new adapter polling followed X handles for recent posts via the chosen X API, normalizing each post to a `content_source_items`-shaped record with `platform_metadata` carrying the `TwitterContentMetadata` shape (tweet id, author, thread/quote refs), conforming to `adapters/base.py`.
-- **Definition of done:** given a handle + cutoff, returns recent posts as `content_source_items` records (X API **mocked**); on rate-limit/no-auth it returns a clean `failed` status and logs a structured error with `fix_suggestion` (no crash, no secret leak). Pytest mocked.
-- **Dependencies:** Phase 5b SP1.
+### Sub-phase 2: X adapter (xAI discovery + Playwright tweet screenshot)
+- **Files touched:** `agents/ingestion/adapters/x_account.py`, `agents/ingestion/tweet_screenshot.py` (new), `agents/ingestion/models.py` (add `TwitterContentMetadata`), `agents/shared/settings.py`, `requirements.txt`.
+- **What ships:** an adapter that, given a handle + cutoff, calls the **xAI/Grok API**
+  (Live Search) for recent substantive posts from that handle, normalizes each to a
+  `CandidateStory` (`candidate_body_text` = tweet text, `platform_metadata` =
+  `TwitterContentMetadata`: tweet id, author, quote/thread refs), and renders a
+  **tweet screenshot** via `tweet_screenshot.py` (Playwright headless Chromium loads
+  the X embed for the tweet URL → PNG saved to the assets dir), setting
+  `candidate_social_image_url` to it.
+- **Definition of done:** given a handle + cutoff, returns recent posts as
+  `CandidateStory` records (xAI **mocked**); the screenshot renderer produces a PNG
+  for a tweet URL (Playwright **mocked**/stubbed in tests); on rate-limit/no-auth the
+  adapter returns a clean `failed` + structured error with `fix_suggestion` (no crash,
+  no secret leak). Pytest mocked.
+- **Dependencies:** Phase 5b/5c.
 
-### Sub-phase 3: Source pipeline + cadence + promote-to-story-pool
-- **Files touched:** `agents/ingestion/source_pipeline.py` (new), `agents/ingestion/scheduler.py` (new — port `CadenceScheduler`), `agents/ingestion/dedup.py` (extend), `agents/pipeline/produce_gate.py` (extend to accept source-origin candidates).
-- **What ships:** `run_source_ingestion(user)` — fetch the user's active `user_content_sources` → cadence-filter (YouTube 6h / podcast 12h / X 6h, configurable) → dispatch adapter → dedup (extend `dedup.py` for source items) → upsert `content_source_items` → **promote** substantive items into the deduped story pool tagged to that user (so `produce_gate`/`orchestrator` treat them as story candidates exactly like news).
-- **Definition of done:** a followed channel's new upload becomes a story-pool candidate tagged to the user (adapters **mocked**); the cadence scheduler prevents re-fetch within the window; dedup drops an item already ingested; a promoted item flows through `produce_gate` like a news candidate. Pytest with mocked adapters + test DB.
-- **Dependencies:** Sub-phases 1, 2.
+### Sub-phase 3: Source pipeline + cadence + promote-to-pool + poster-skip
+- **Files touched:** `agents/ingestion/source_pipeline.py` (new), `agents/ingestion/scheduler.py` (new — `CadenceScheduler`), `agents/ingestion/dedup.py` (extend), `agents/pipeline/produce_gate.py` (accept source-origin candidates), poster stage (branch on source image).
+- **What ships:** `run_source_ingestion(user)` — load the user's active followed
+  sources → cadence-filter (YouTube 6h / X 6h, configurable) → dispatch adapter →
+  dedup → **promote** substantive items into the per-user deduped story pool tagged
+  to the user (so `produce_gate`/`orchestrator` treat them as candidates like news);
+  AND the poster-stage branch that uses `candidate_social_image_url` for
+  source-origin stories instead of generating a Nano Banana poster.
+- **Definition of done:** a followed channel's new upload becomes a story-pool
+  candidate tagged to the user, flows through `produce_gate`, and its reel uses the
+  thumbnail (no poster generation) — adapters + poster client **mocked**; cadence
+  blocks re-fetch within the window; dedup drops an already-ingested item. Pytest, mocked.
+- **Dependencies:** SP1, SP2.
 
 ### Sub-phase 4: Trigger.dev source-ingestion cron
-- **Files touched:** `trigger/sourceIngestion.ts` (new), `trigger.config.ts` (if registration needed).
-- **What ships:** a Trigger.dev **v4 `schedules.task`** (e.g. `cron: "0 */2 * * *"`) that lists users with ≥1 active source and fans out `run_source_ingestion` per user (port `ingestion-cron.ts` pattern), with structured per-run logging of items fetched/promoted/dropped (no silent caps).
-- **Definition of done:** the task is a valid v4 `schedules.task` (uses `@trigger.dev/sdk` v4 `schedules.task`, **never** `client.defineJob`); a local/dev trigger fans out per-user ingestion and writes `content_source_items` (against a test DB or mocked worker call); the cron expression is validated; the run logs counts. ⚠ going live makes outward API calls — keep gated to test/dev until M5 deploy.
-- **Dependencies:** Sub-phase 3.
+- **Files touched:** `trigger/sourceIngestion.ts` (new), `trigger.config.ts` (if needed).
+- **What ships:** a Trigger.dev **v4 `schedules.task`** (`cron: "0 */2 * * *"`) that
+  lists users with ≥1 active source and fans out `run_source_ingestion` per user
+  (port `ingestion-cron.ts`), with structured per-run logging of items
+  fetched/promoted/dropped (no silent caps).
+- **Definition of done:** valid v4 `schedules.task` (uses `@trigger.dev/sdk` v4, **never**
+  `client.defineJob`); a dev trigger fans out per-user ingestion and writes promoted
+  candidates (test DB / mocked worker call); cron expression validated; run logs counts.
+  ⚠ live = outward API calls — keep gated to test/dev until M5 deploy.
+- **Dependencies:** SP3.
 
 ## Phase-level definition of done
-On a schedule, each user's followed YouTube/podcast/X sources are polled by cadence, fresh content is fetched + transcribed (captions for YT, Whisper for podcasts, posts for X), deduped, upserted to `content_source_items`, and promoted into the per-user story pool feeding the existing produce pipeline. **Validated by:** the three adapter tests (mocked APIs, incl. caption-less + rate-limit failure paths); the source-pipeline cadence + dedup + promote test; the v4 cron validity + fan-out test.
+On a schedule, each user's followed YouTube/X sources are polled by cadence, fresh
+content is fetched (RSS+yt-dlp captions for YT, xAI posts + Playwright screenshot
+for X), deduped, and promoted into the per-user story pool feeding the existing
+produce pipeline — with the reel image being the **video thumbnail / tweet
+screenshot**, not a generated poster. **Validated by:** the two adapter tests
+(mocked APIs, incl. caption-less + rate-limit failure paths); the screenshot
+renderer test; the source-pipeline cadence + dedup + promote + poster-skip test;
+the v4 cron validity + fan-out test.
 
 ## Out of scope
-- The **control surface** allocation (Phase 5e) — this fills the pool; 5e decides how many slots each source claims.
+- **Podcast ingestion** (RSS + Whisper) — deferred to a later sub-phase per owner.
+- The **control surface** allocation (Phase 5e) — this fills the pool; 5e decides slot counts.
 - The **recommendation/onboarding** UI (Phase 5c).
 - Periodic **catalog refresh** / discovery (Phase 6).
-- Producing the actual digest (audio/caption/poster) — reuses the **existing** `agents/pipeline` unchanged; this phase only feeds it candidates.
+- The digest audio/caption pipeline — reuses existing `agents/pipeline` unchanged.
 
 ## Open questions
-1. **X API** — which one, cost, rate limits, auth model (resolves 5c open Q3 too).
-2. **Promotion criterion** — what makes a source item "substantive" enough to become a story (length? engagement? topic match?) — ties to 5e's "Only their big stuff".
-3. **Transcription cost budget** tuning per source type (donor defaults: podcast 10 episodes/day).
-4. **Dedup across axes** — a story covered by both a followed source and topic news: dedupe to the source-origin (per Decision #11 pinned-first); confirm here.
+1. **xAI Live Search fidelity** — does Grok reliably return a specific handle's
+   recent posts + canonical tweet URLs? If not, fall back to fetching the handle's
+   syndication timeline for URLs, with xAI only for substance scoring.
+2. **Promotion criterion** — what makes a source item "substantive" (transcript
+   length / engagement / topic match) — ties to 5e's "Only their big stuff".
+3. **Playwright on Railway** — confirm the worker image can run headless Chromium
+   (`playwright install chromium` + system deps); if too heavy, fall back to a
+   hosted screenshot API.
+4. **Dedup across axes** — a story covered by both a followed source and topic news:
+   dedupe to the source-origin (Decision #11 pinned-first); confirm here.
 
 ## Self-critique
-**Product lens:** PASS — delivers spec §4 (followed sources flow into the same 30-story pipeline). The "Gavin Baker problem" payoff (following the right people surfaces their content automatically) lands here. Reuses the existing digest pipeline so source stories feel identical to news stories.
-**Engineering lens:** PASS — ports proven donor ingestion (Decision #12), conforms new adapters to the existing `base.py` interface (read existing code first, Rule 8), and drops Pinecone per the in-context-grounding decision rather than blindly porting. Trigger task is held to the v4 `schedules.task` constraint (CLAUDE.md). DoDs are pytest-verifiable with mocked externals. SP4 (cron) lands last and is gated.
-**Risk lens:** PASS with flags. No schema drops (additive code; tables from 5b). ⚠ SP4 cron makes **outward API calls** when live — flagged to stay gated until deploy. Within-phase overlap: `dedup.py` (SP3), `models.py` (SP2), `adapters/__init__.py` (SP1) — distinct sub-phases, no parallel edit. External-API + cost risk surfaced as open questions, not hidden. Test coverage includes the failure paths (caption-less video, X rate-limit) per Rule 9 — a test that fails if errors are swallowed.
-**Irreversible sub-phases:** none (additive code; the live cron is operationally significant but reversible — disable the schedule).
+**Product lens:** PASS — delivers spec §4; following the right creators surfaces
+their content automatically, and the reel shows the real thumbnail/tweet (higher
+trust + recognizability than a synthetic poster).
+**Engineering lens:** PASS — conforms to the existing adapter contract (Rule 8),
+reuses the donor's upload-detection shape but with a keyless RSS path, drops
+Pinecone, and isolates the poster-skip to one branch. DoDs are pytest-verifiable
+with mocked externals. The v4 `schedules.task` constraint is honored.
+**Risk lens:** PASS with flags. New runtime deps (`yt-dlp`, Playwright/chromium) are
+operational weight on the worker image — flagged for deploy. ⚠ SP4 cron makes
+outward API calls when live — gated until deploy. Within-phase file overlap is
+sub-phase-isolated. Failure paths (caption-less video, X rate-limit, screenshot
+render failure) are tested, not swallowed (Rule 9/12).
+**Irreversible sub-phases:** none (additive code; the live cron is reversible — disable the schedule).
