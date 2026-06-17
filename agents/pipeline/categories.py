@@ -77,7 +77,10 @@ SLUG_TO_CATEGORY: dict[str, FeedCategory] = {
     "geopolitics": "world_politics",
     "world": "world_politics",
     "climate": "world_politics",
+    "politics": "world_politics",
+    "environment": "world_politics",
     # Tech & Science
+    "ai": "tech_science",
     "tech": "tech_science",
     "science": "tech_science",
     "health": "tech_science",
@@ -88,6 +91,7 @@ SLUG_TO_CATEGORY: dict[str, FeedCategory] = {
     # Sport
     "sport": "sport",
     # Culture
+    "arts": "culture",
     "entertainment": "culture",
     "lifestyle": "culture",
     "wildcard": "culture",
