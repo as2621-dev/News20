@@ -3,20 +3,21 @@
 /**
  * SourcesScreen — the "Sources · What you follow" library surface (App Surfaces
  * design). Renders, against real data:
- *  - platform summary cards (Topics + a card per source axis the user follows),
+ *  - platform summary cards (Topics + a card per source axis the user follows)
+ *    that act as a tap-to-filter control (tap a card → that axis only; tap again
+ *    to clear). `activeFilter` drives which sections render.
  *  - the user's interest chips with locked category colors ({@link getUserInterests}),
+ *    plus a working "+ Add interest" that opens {@link AddInterestOverlay}.
+ *  - a live search-and-add bar ({@link AddSourceSearch}) for the searchable axes.
  *  - the followed channels/people list with working active/paused toggles
  *    (`source_priority`: `off` = paused, anything else = active).
- *
- * Honest stubs (Rule 12): the search bar is a non-interactive placeholder and
- * "Followed stories" shows the real tracked-thread count with no fabricated
- * "new update" badge. "+ Add interest" is inert for now.
  *
  * Renders as a flex column (header + scroll) so it slots under {@link AppShell}'s
  * `.app-library` with the tab bar pinned below.
  */
 
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { AddInterestOverlay, AddSourceSearch } from "@/components/blip/library/SourcesAddControls";
 import { formatSubscriberCount } from "@/components/blip/reel/SettingsLayer";
 import { getUserInterests, type UserInterestChip } from "@/lib/interests";
 import { logger } from "@/lib/logger";
@@ -40,38 +41,44 @@ function Glyph({ id }: { id: string }) {
   );
 }
 
+/**
+ * Which platform card is filtering the surface. `null` = show everything;
+ * `"topics"` = interests only; a {@link ContentSourceType} = that source axis only.
+ */
+type SourcesFilter = "topics" | ContentSourceType | null;
+
 /** Render the Sources surface against the user's real follows + interests. */
 export function SourcesScreen() {
   // null until the first load resolves (skeleton → list/empty swap).
   const [followed, setFollowed] = useState<FollowedSourceWithPriority[] | null>(null);
   const [interests, setInterests] = useState<UserInterestChip[]>([]);
+  // Active platform-card filter (tap a card to set, tap it again to clear).
+  const [activeFilter, setActiveFilter] = useState<SourcesFilter>(null);
+  // When true, the interest picker overlay is open over the surface.
+  const [isAddingInterest, setIsAddingInterest] = useState<boolean>(false);
+
+  /** (Re-)read the user's followed sources; called on mount + after an add. */
+  const loadFollowed = useCallback(async (): Promise<void> => {
+    try {
+      setFollowed(await getFollowedSourcesWithPriority());
+    } catch (sourcesError: unknown) {
+      logger.error("sources_screen_follows_read_failed", {
+        error_message: sourcesError instanceof Error ? sourcesError.message : "unknown",
+        fix_suggestion: "User may be signed out, or confirm migration 0009 + content_sources read access.",
+      });
+      setFollowed([]);
+    }
+  }, []);
+
+  /** (Re-)read the user's selected interests; called on mount + after an add. */
+  const loadInterests = useCallback(async (): Promise<void> => {
+    setInterests(await getUserInterests());
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    getFollowedSourcesWithPriority()
-      .then((sources) => {
-        if (isMounted) {
-          setFollowed(sources);
-        }
-      })
-      .catch((sourcesError: unknown) => {
-        logger.error("sources_screen_follows_read_failed", {
-          error_message: sourcesError instanceof Error ? sourcesError.message : "unknown",
-          fix_suggestion: "User may be signed out, or confirm migration 0009 + content_sources read access.",
-        });
-        if (isMounted) {
-          setFollowed([]);
-        }
-      });
-    getUserInterests().then((chips) => {
-      if (isMounted) {
-        setInterests(chips);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    void loadFollowed();
+    void loadInterests();
+  }, [loadFollowed, loadInterests]);
 
   /** Toggle a follow between active (`everything`) and paused (`off`), optimistically. */
   const handleToggle = async (source: FollowedSourceWithPriority): Promise<void> => {
@@ -107,6 +114,15 @@ export function SourcesScreen() {
     axisCounts.set(source.content_source_type, (axisCounts.get(source.content_source_type) ?? 0) + 1);
   }
 
+  // Filter wiring: a `null` filter shows both sections; "topics" → interests only;
+  // an axis → the channels list narrowed to that axis only.
+  const showInterests = activeFilter === null || activeFilter === "topics";
+  const showChannels = activeFilter === null || activeFilter !== "topics";
+  const visibleFollowed =
+    activeFilter !== null && activeFilter !== "topics"
+      ? (followed ?? []).filter((source) => source.content_source_type === activeFilter)
+      : (followed ?? []);
+
   return (
     <>
       <div className="art-top" />
@@ -116,7 +132,11 @@ export function SourcesScreen() {
         <p className="hsub">The signal blip listens to so your briefing stays yours.</p>
 
         <div className="plat-row">
-          <div className="plat-card">
+          <button
+            type="button"
+            className={`plat-card${activeFilter === "topics" ? " on" : ""}`}
+            onClick={() => setActiveFilter((current) => (current === "topics" ? null : "topics"))}
+          >
             <div className="pi" style={{ background: "color-mix(in oklab, var(--tech) 20%, transparent)" }}>
               <svg viewBox="0 0 24 24" style={{ color: "var(--tech)" }} aria-hidden="true">
                 <use href="#i-spark" />
@@ -124,9 +144,14 @@ export function SourcesScreen() {
             </div>
             <div className="pl">Topics</div>
             <div className="pc">{interests.length} active</div>
-          </div>
+          </button>
           {([...axisCounts.entries()] as [ContentSourceType, number][]).map(([axis, count]) => (
-            <div className="plat-card" key={axis}>
+            <button
+              type="button"
+              className={`plat-card${activeFilter === axis ? " on" : ""}`}
+              key={axis}
+              onClick={() => setActiveFilter((current) => (current === axis ? null : axis))}
+            >
               <div
                 className="pi"
                 style={{ background: `color-mix(in oklab, ${AXIS_DISPLAY[axis].accent} 20%, transparent)` }}
@@ -137,19 +162,14 @@ export function SourcesScreen() {
               </div>
               <div className="pl">{AXIS_DISPLAY[axis].label}</div>
               <div className="pc">{count} active</div>
-            </div>
+            </button>
           ))}
         </div>
 
-        {/* Honest stub: a visual search affordance, not yet wired to source-add. */}
-        <div className="searchbar" aria-hidden="true">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <use href="#i-search" />
-          </svg>
-          <span>Add a channel, person, or topic…</span>
-        </div>
+        {/* Live search-and-add for the searchable axes (YouTube / Podcast / X). */}
+        <AddSourceSearch onAdded={() => void loadFollowed()} />
 
-        {interests.length > 0 ? (
+        {showInterests ? (
           <>
             <div className="seclabel">Interests</div>
             <div className="chips">
@@ -159,65 +179,77 @@ export function SourcesScreen() {
                   {chip.label}
                 </span>
               ))}
-              <span className="chip add">+ Add interest</span>
+              <button type="button" className="chip add" onClick={() => setIsAddingInterest(true)}>
+                + Add interest
+              </button>
             </div>
           </>
         ) : null}
 
-        <div className="seclabel">Channels &amp; people</div>
-        {followed === null ? (
-          <p className="lib-empty">Loading your sources…</p>
-        ) : followed.length === 0 ? (
-          <p className="lib-empty">
-            You&apos;re not following any channels or people yet. Add some to shape your briefing.
-          </p>
-        ) : (
-          followed.map((source) => {
-            const axis = AXIS_DISPLAY[source.content_source_type];
-            const isActive = source.source_priority !== "off";
-            const meta = [
-              source.content_source_type === "personality" ? "Person" : axis.label,
-              source.source_description,
-            ]
-              .filter(Boolean)
-              .join(" · ");
-            const subscriberLabel = formatSubscriberCount(source.subscriber_count);
-            return (
-              <div className="follow-row" key={source.source_id}>
-                <div className="av sq">
-                  {source.thumbnail_url ? (
-                    // biome-ignore lint/performance/noImgElement: small remote avatar in a static export; next/image is inappropriate here.
-                    <img src={source.thumbnail_url} alt="" />
-                  ) : (
-                    <span className="mono">{source.source_name.charAt(0).toUpperCase()}</span>
-                  )}
-                  <span className="pbadge">
-                    <Glyph id={axis.glyph} />
-                  </span>
-                </div>
-                <div className="ft">
-                  <div className="ftn">{source.source_name}</div>
-                  <div className="fts">
-                    <span className={isActive ? "actv" : "paus"}>{isActive ? "Active" : "Paused"}</span>
-                    {meta ? ` · ${meta}` : null}
-                    {subscriberLabel ? ` · ${subscriberLabel}` : null}
+        {showChannels ? (
+          <>
+            <div className="seclabel">Channels &amp; people</div>
+            {followed === null ? (
+              <p className="lib-empty">Loading your sources…</p>
+            ) : visibleFollowed.length === 0 ? (
+              <p className="lib-empty">
+                {activeFilter !== null
+                  ? `You're not following any ${AXIS_DISPLAY[activeFilter].label} sources yet.`
+                  : "You're not following any channels or people yet. Add some to shape your briefing."}
+              </p>
+            ) : (
+              visibleFollowed.map((source) => {
+                const axis = AXIS_DISPLAY[source.content_source_type];
+                const isActive = source.source_priority !== "off";
+                const meta = [
+                  source.content_source_type === "personality" ? "Person" : axis.label,
+                  source.source_description,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+                const subscriberLabel = formatSubscriberCount(source.subscriber_count);
+                return (
+                  <div className="follow-row" key={source.source_id}>
+                    <div className="av sq">
+                      {source.thumbnail_url ? (
+                        // biome-ignore lint/performance/noImgElement: small remote avatar in a static export; next/image is inappropriate here.
+                        <img src={source.thumbnail_url} alt="" />
+                      ) : (
+                        <span className="mono">{source.source_name.charAt(0).toUpperCase()}</span>
+                      )}
+                      <span className="pbadge">
+                        <Glyph id={axis.glyph} />
+                      </span>
+                    </div>
+                    <div className="ft">
+                      <div className="ftn">{source.source_name}</div>
+                      <div className="fts">
+                        <span className={isActive ? "actv" : "paus"}>{isActive ? "Active" : "Paused"}</span>
+                        {meta ? ` · ${meta}` : null}
+                        {subscriberLabel ? ` · ${subscriberLabel}` : null}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`tg${isActive ? " on" : ""}`}
+                      role="switch"
+                      aria-checked={isActive}
+                      aria-label={`${isActive ? "Pause" : "Activate"} ${source.source_name}`}
+                      onClick={() => void handleToggle(source)}
+                    >
+                      <span className="knob" />
+                    </button>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className={`tg${isActive ? " on" : ""}`}
-                  role="switch"
-                  aria-checked={isActive}
-                  aria-label={`${isActive ? "Pause" : "Activate"} ${source.source_name}`}
-                  onClick={() => void handleToggle(source)}
-                >
-                  <span className="knob" />
-                </button>
-              </div>
-            );
-          })
-        )}
+                );
+              })
+            )}
+          </>
+        ) : null}
       </div>
+
+      {isAddingInterest ? (
+        <AddInterestOverlay onClose={() => setIsAddingInterest(false)} onSaved={() => void loadInterests()} />
+      ) : null}
     </>
   );
 }

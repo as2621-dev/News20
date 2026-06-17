@@ -64,6 +64,16 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
+/* ---------- "Thirty" tab (embedded Build-your-30 allocation editor) ---------- */
+/* A positioned flex child so the embedded scene fills the area above the tab bar; the
+   editor's own absolute scroll + save footer resolve inside this box, not the viewport. */
+.thirty-tab {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* ---------- bottom tab bar ---------- */
 .tabbar {
   display: flex;
@@ -389,4 +399,161 @@
   height: 1px;
   background: rgba(255, 255, 255, 0.07);
   margin: 18px 0 0;
+}
+
+/* ---------- sources: interactive cards + search-and-add ---------- */
+/* .plat-card / .searchbar are now <button>s — reset native button chrome. */
+.plat-card {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.plat-card.on {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+.searchbar.live {
+  width: 100%;
+  cursor: text;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.searchbar input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #fff;
+}
+.searchbar input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.src-search-close {
+  flex: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+.src-kind-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.src-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+.src-kind svg {
+  width: 13px;
+  height: 13px;
+}
+.src-kind.on {
+  background: #fff;
+  border-color: #fff;
+  color: #0a0b10;
+}
+.src-results {
+  margin-top: 6px;
+}
+.src-msg {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.42);
+  margin-top: 14px;
+}
+.src-add-btn {
+  flex: none;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f1ece0;
+  color: #0a0b10;
+  cursor: pointer;
+}
+.src-add-btn.added {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.src-add-btn:disabled {
+  cursor: default;
+}
+
+/* ---------- sources: full-screen add-interest overlay ---------- */
+.add-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  background: #07080d;
+  display: flex;
+  flex-direction: column;
+}
+.add-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px calc(16px + env(safe-area-inset-top));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.add-overlay-head .t {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+.add-overlay-head button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+.add-overlay-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.add-overlay-foot {
+  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.add-overlay-foot button {
+  width: 100%;
+  height: 48px;
+  border-radius: 13px;
+  border: none;
+  background: #f1ece0;
+  color: #0a0b10;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+.add-overlay-foot button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.add-err {
+  color: var(--seg-wildcard, #e8b7bc);
+  font-size: 12px;
+  margin: 8px 18px 0;
 }

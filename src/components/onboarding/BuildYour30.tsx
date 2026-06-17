@@ -66,6 +66,13 @@ export interface BuildYour30Props {
    * A saved allocation, when present, still takes precedence over this (returning users).
    */
   selectedCategoryBuckets?: DesignBucketId[];
+  /**
+   * Render filling the parent container instead of the full viewport. Used by the library
+   * "Thirty" tab ({@link AppShell}), which mounts this inside a `flex:1` surface above the
+   * tab bar — so the scene must size to that box, not `100dvh` (which would overflow the bar).
+   * Default `false` keeps the onboarding full-bleed behavior.
+   */
+  embedded?: boolean;
 }
 
 /** The full-bleed scene surface giving `.a-scroll` (position:absolute; inset:0) its sizing context. */
@@ -73,6 +80,19 @@ const SCENE_SURFACE_STYLE: CSSProperties = {
   position: "relative",
   minHeight: "100dvh",
   width: "100%",
+  background: "#020617",
+  color: "#fff",
+  overflow: "hidden",
+};
+
+/**
+ * Embedded scene surface (the "Thirty" library tab): fills its positioned parent (`inset:0`)
+ * rather than the viewport, so `.a-scroll` / `.a-foot` resolve inside the tab box and the
+ * Save footer lands just above the bottom tab bar instead of overflowing past it.
+ */
+const EMBEDDED_SURFACE_STYLE: CSSProperties = {
+  position: "absolute",
+  inset: 0,
   background: "#020617",
   color: "#fff",
   overflow: "hidden",
@@ -131,7 +151,7 @@ function SpineCells({ segments }: { segments: AllocationSegment[] }) {
  * @example
  * <BuildYour30 onDone={(segments) => router.push("/")} onSkip={() => router.push("/")} />
  */
-export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets }: BuildYour30Props) {
+export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets, embedded = false }: BuildYour30Props) {
   // The ordered allocation segments (the prototype's `segs`). Seeded from the user's picked
   // categories when they made any selection (filtered seed), else the full default; the
   // effect below replaces it with the user's saved allocation when one exists.
@@ -313,7 +333,7 @@ export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets }: BuildYo
   const budgetTail = slotsLeft > 0 ? `${slotsLeft} left` : slotsLeft < 0 ? `${Math.abs(slotsLeft)} over` : "full";
 
   return (
-    <div style={SCENE_SURFACE_STYLE}>
+    <div style={embedded ? EMBEDDED_SURFACE_STYLE : SCENE_SURFACE_STYLE}>
       <div style={{ "--ac": ACCENT_RED } as CSSProperties}>
         <BlipIconDefs />
 
@@ -330,37 +350,41 @@ export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets }: BuildYo
             <span>30</span>
           </div>
 
-          <div className="seglist" id="seglist">
-            {segments.map((segment, segmentIndex) => (
-              <SegmentRow
-                key={segment.bucketId}
-                segment={segment}
-                segmentIndex={segmentIndex}
-                rangeStart={computeRangeStart(segments, segmentIndex)}
-                onDecrement={decrementSegment}
-                onIncrement={incrementSegment}
-                onMoveUp={moveSegmentUp}
-                onMoveDown={moveSegmentDown}
-                onRemove={removeSegment}
-              />
-            ))}
-          </div>
+          {/* Only the block list scrolls; the intro + 30-cell spine above and the budget/save
+              footer below stay pinned (so the spine is always visible while you allocate). */}
+          <div className="a-blocks">
+            <div className="seglist" id="seglist">
+              {segments.map((segment, segmentIndex) => (
+                <SegmentRow
+                  key={segment.bucketId}
+                  segment={segment}
+                  segmentIndex={segmentIndex}
+                  rangeStart={computeRangeStart(segments, segmentIndex)}
+                  onDecrement={decrementSegment}
+                  onIncrement={incrementSegment}
+                  onMoveUp={moveSegmentUp}
+                  onMoveDown={moveSegmentDown}
+                  onRemove={removeSegment}
+                />
+              ))}
+            </div>
 
-          <button
-            type="button"
-            className="addseg"
-            id="addSeg"
-            disabled={isAddDisabled}
-            onClick={() => setIsSheetOpen(true)}
-          >
-            ＋ Add a block
-          </button>
-
-          {onSkip ? (
-            <button type="button" className="exp" style={SKIP_BUTTON_STYLE} onClick={onSkip}>
-              I&apos;ll do this later
+            <button
+              type="button"
+              className="addseg"
+              id="addSeg"
+              disabled={isAddDisabled}
+              onClick={() => setIsSheetOpen(true)}
+            >
+              ＋ Add a block
             </button>
-          ) : null}
+
+            {onSkip ? (
+              <button type="button" className="exp" style={SKIP_BUTTON_STYLE} onClick={onSkip}>
+                I&apos;ll do this later
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="a-foot">

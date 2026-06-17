@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * AppShell — the signed-in home shell that owns the 4-tab "library" navigation
- * (Today · Archive · Sources · Settings) introduced by the "App Surfaces" design.
+ * AppShell — the signed-in home shell that owns the "library" navigation
+ * (Today · Archive · Sources · Thirty · Settings) introduced by the "App Surfaces" design.
  *
  * The reel ({@link BlipReel}) is the immersive "Today" surface and stays mounted
  * underneath; the library surfaces (Archive / Sources / Settings) render as a
@@ -15,6 +15,7 @@
  *  - "today"    → close the library (back to the reel).
  *  - "archive"  → past briefings; tapping a day re-points the reel at that date.
  *  - "sources"  → "what you follow".
+ *  - "thirty"   → "Build your 30" — organize how the 30-story briefing is filled.
  *  - "settings" → account / subscription / sign-out.
  *
  * Static-export safe: client-only, no `window` at module scope.
@@ -29,6 +30,7 @@ import { ArchiveScreen } from "@/components/blip/library/ArchiveScreen";
 import { SourcesScreen } from "@/components/blip/library/SourcesScreen";
 import { BlipReel } from "@/components/blip/reel/BlipReel";
 import { SettingsLayer } from "@/components/blip/reel/SettingsLayer";
+import { BuildYour30 } from "@/components/onboarding/BuildYour30";
 import "@/styles/blip-flow.css";
 import "@/styles/blip-library.css";
 
@@ -63,6 +65,13 @@ export function AppShell() {
         <div className="app-library">
           {activeTab === "archive" ? <ArchiveScreen onOpenDay={handleOpenDay} /> : null}
           {activeTab === "sources" ? <SourcesScreen /> : null}
+          {activeTab === "thirty" ? (
+            // The "Thirty" tab hosts the allocation editor (moved out of Settings); saving
+            // the order returns to Today so the user sees their rebuilt briefing.
+            <div className="thirty-tab">
+              <BuildYour30 embedded onDone={() => setActiveTab(null)} />
+            </div>
+          ) : null}
           {activeTab === "settings" ? <SettingsLayer /> : null}
           <TabBar activeTab={activeTab} onSelectTab={handleSelectTab} />
         </div>

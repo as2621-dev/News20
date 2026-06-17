@@ -1423,11 +1423,21 @@ body {
 .a-scroll {
   position: absolute;
   inset: 0;
+  /* Fixed flex column: the intro + spine pin at the top, the block list (.a-blocks)
+     takes the remaining height and scrolls, and .a-foot stays pinned at the bottom. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* The only scrolling region — the block list. padding-bottom clears the absolute .a-foot. */
+.a-blocks {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
   padding-bottom: 150px;
 }
-.a-scroll::-webkit-scrollbar {
+.a-blocks::-webkit-scrollbar {
   display: none;
 }
 .a-top {
