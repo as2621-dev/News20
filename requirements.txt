@@ -66,6 +66,12 @@ asyncpg>=0.29
 fastapi>=0.115
 uvicorn>=0.32
 
+# ──── Near-duplicate prefilter: MinHash/LSH (Phase M3a SP2) ────
+# datasketch collapses wire-service reprints (same story republished verbatim)
+# via MinHash + MinHashLSH over word-shingles BEFORE the paid embedding step.
+# Pure-Python (pulls scipy/numpy, already present) — no torch, tiny footprint.
+datasketch>=1.6
+
 # ──── Logging ────
 structlog>=24.0
 
