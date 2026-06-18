@@ -103,9 +103,12 @@ Stop hunting news per-user. Run News20's daily batch like a **newsroom**: size t
 ## Phases
 
 ### M1 — Kill breaking + taxonomy cleanup
-- [Phase SP1](phase-sp1-kill-breaking.md) — remove the breaking category from Python + TS + DB + sims; keep the velocity signal; 7 categories, feed still totals 30.
+- [Phase SP1](phase-sp1-kill-breaking.md) — remove the breaking category from Python + TS + DB + sims; keep the velocity signal; 7 categories, feed still totals 30. **SHIPPED (12380e2)**; migration 0017 authored, live apply deferred.
 
-*(M2–M6 phases generated on demand: re-run `/plan-phases plans/shared-pool-rework-master-plan.md` after SP1 ships.)*
+### M2 — Demand computation + pool sizing
+- [Phase M2](phase-m2-demand-pool-sizing.md) — aggregate per-user allocator demand → subcategory-granular `pool_target = ceil(max_over_users × BUFFER)`, floored; emit the shopping list (additive, no migration).
+
+*(M3–M6 phases generated on demand: re-run `/plan-phases plans/shared-pool-rework-master-plan.md` after M2 ships.)*
 
 ## Open questions for `/plan-phases`
 
