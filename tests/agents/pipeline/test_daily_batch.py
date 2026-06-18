@@ -97,6 +97,11 @@ async def test_run_daily_pipeline_updates_weights_first_then_produces_only_gated
     # default per-category cap keeps the single gated story).
     monkeypatch.setattr(daily_batch, "_load_active_user_ids", lambda *_a, **_k: ["u1"])
     monkeypatch.setattr(daily_batch, "_load_category_allocation", lambda *_a, **_k: {})
+    # M2 (SP4): the observe-only pool-target step also loads followed interest nodes
+    # before the gate; this test exercises ordering/gating, so stub that seam too.
+    monkeypatch.setattr(
+        daily_batch, "_load_interest_nodes_by_user", lambda *_a, **_k: {}
+    )
     monkeypatch.setattr(daily_batch, "load_active_user_inputs", fake_load_inputs)
     monkeypatch.setattr(daily_batch, "assemble_daily_feeds", fake_assemble)
 
@@ -120,6 +125,10 @@ async def test_run_daily_pipeline_updates_weights_first_then_produces_only_gated
     assert result.produced_story_count == 1
     assert result.skipped_by_gate_count == 1
     assert result.feeds is not None and result.feeds.feeds_written == 1
+    # M2 (SP4): the observe-only shopping list is surfaced on the result for M3.
+    # With no allocations + no follows, the default user u1 yields floored "_all"
+    # cells — so the list is non-empty (the value is observable, additive only).
+    assert result.pool_target, "pool_target must be surfaced on the batch result"
 
 
 class _FakeQuery:

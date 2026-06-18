@@ -28,7 +28,13 @@ from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.memory.session_processor import ProfileUpdateResult, run_profile_update_job
-from agents.pipeline.categories import DEFAULT_FEED_ALLOCATION, CategoryAllocation
+from agents.pipeline.categories import (
+    CATEGORY_FLOOR,
+    DEFAULT_FEED_ALLOCATION,
+    CategoryAllocation,
+    FeedCategory,
+)
+from agents.pipeline.demand import compute_pool_target
 from agents.pipeline.feed_assembly import ScoredCandidate
 from agents.pipeline.models import WritePhaseResult
 from agents.pipeline.orchestrator import (
@@ -52,6 +58,7 @@ from agents.pipeline.stages.ranking import (
     UserProfileInterest,
 )
 from agents.shared.logger import get_logger
+from agents.shared.settings import Settings
 from agents.voice.gemini_tts import GeminiTTSClient
 
 logger = get_logger("pipeline.daily_batch")
@@ -69,6 +76,29 @@ DEFAULT_PER_CATEGORY_CAP = 8
 IngestFn = Callable[[], Awaitable[tuple[list[CanonicalStory], list[StoryInterestTag]]]]
 
 
+class PoolTargetCell(BaseModel):
+    """One (category, subcategory) cell of the M2 shared-pool shopping list.
+
+    A pydantic-serializable row form of a ``compute_pool_target`` entry (whose
+    native form is a ``{(FeedCategory, str): int}`` dict — tuple keys don't
+    serialize to JSON). M3 (targeted ingest) consumes this list off the batch
+    result; M2 only computes + logs it (additive, observe-only).
+
+    Attributes:
+        cell_category: The screen :data:`FeedCategory` this cell belongs to.
+        cell_subcategory: The two-segment subcategory slug (``'markets.crypto'``)
+            or the ``"_all"`` sentinel (any subcategory in this category).
+        cell_target_count: The unique-story target for this cell (max-over-users
+            × buffer, ceil, floored).
+    """
+
+    cell_category: FeedCategory = Field(..., description="Screen feed category")
+    cell_subcategory: str = Field(
+        ..., description="Two-segment subcategory slug or the '_all' sentinel"
+    )
+    cell_target_count: int = Field(..., ge=0, description="Unique-story target")
+
+
 class DailyPipelineResult(BaseModel):
     """Outcome of one ``run_daily_pipeline`` execution (audit + e2e assertions).
 
@@ -80,6 +110,10 @@ class DailyPipelineResult(BaseModel):
         skipped_by_gate_count: Stories the produce-once gate rejected.
         capped_count: Gate-passed stories the per-category cap then dropped (stage C).
         feeds: The per-user allocation summary (stages D+E).
+        pool_target: The M2 subcategory-granular shopping list for the active user
+            set (max-over-users × BUFFER, floored). Observe-only in M2 — emitted
+            for M3 (targeted ingest) to consume; does NOT change which reels are
+            produced this run.
 
     Example:
         >>> # See tests/agents/pipeline/test_daily_batch.py for the staged asserts.
@@ -92,6 +126,10 @@ class DailyPipelineResult(BaseModel):
     skipped_by_gate_count: int = Field(default=0, ge=0)
     capped_count: int = Field(default=0, ge=0)
     feeds: DailyFeedsBatchResult | None = Field(default=None)
+    pool_target: list[PoolTargetCell] = Field(
+        default_factory=list,
+        description="M2 shared-pool shopping list (observe-only; M3 consumes it)",
+    )
 
 
 def _load_has_current_digest(
@@ -311,6 +349,67 @@ def _load_category_allocation(
             )
         )
     return allocation_by_user
+
+
+def _load_interest_nodes_by_user(
+    supabase_client: Any,
+    user_ids: list[str],
+    interest_nodes: dict[str, InterestNode],
+) -> dict[str, list[InterestNode]]:
+    """Resolve every active user's followed interests to their taxonomy nodes (M2).
+
+    ``compute_pool_target`` needs each user's followed :class:`InterestNode` list
+    (the slug → subcategory split lives there), but ``user_interest_profile`` only
+    carries ``profile_interest_id`` — the slug lives on ``InterestNode``. This reads
+    the profile rows in ONE ``.in_()`` query (same batched style as the sibling
+    loaders) and resolves each ``profile_interest_id`` through the already-in-scope
+    ``interest_nodes`` taxonomy lookup — NO extra taxonomy DB query.
+
+    An id with no matching node is skipped with a structured warning (fail-loud,
+    Rule 12 — a dangling profile row should not silently miscount demand).
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+        user_ids: The active user ids to load followed interests for.
+        interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup (the same
+            one ``run_daily_pipeline`` already receives for scoring).
+
+    Returns:
+        ``{user_id: [InterestNode, ...]}`` — users with no resolvable follow are
+        absent (``compute_pool_target`` treats a missing user as no follows, so
+        their allocation rows route to ``"_all"`` cells).
+    """
+    if not user_ids:
+        return {}
+    rows = (
+        getattr(
+            supabase_client.table("user_interest_profile")
+            .select("profile_user_id,profile_interest_id")
+            .in_("profile_user_id", user_ids)
+            .execute(),
+            "data",
+            None,
+        )
+        or []
+    )
+    nodes_by_user: dict[str, list[InterestNode]] = {}
+    missing_interest_ids: set[str] = set()
+    for row in rows:
+        interest_id = str(row["profile_interest_id"])
+        node = interest_nodes.get(interest_id)
+        if node is None:
+            missing_interest_ids.add(interest_id)
+            continue
+        nodes_by_user.setdefault(str(row["profile_user_id"]), []).append(node)
+    if missing_interest_ids:
+        logger.warning(
+            "interest_nodes_by_user_unresolved",
+            unresolved_count=len(missing_interest_ids),
+            fix_suggestion="A user_interest_profile.profile_interest_id has no "
+            "interests row in the taxonomy lookup — backfill the interest node or "
+            "remove the dangling profile row.",
+        )
+    return nodes_by_user
 
 
 def build_story_id_resolver(
@@ -679,6 +778,41 @@ async def run_daily_pipeline(
         )
     capped_count = gated_count - len(to_produce)
 
+    # ── M2 — shared-pool shopping list (observe-only) ─────────────────────────
+    # Reason: compute the subcategory-granular demand target (max-over-users ×
+    # BUFFER, floored) for the active user set and emit it for M3 (targeted
+    # ingest) to consume. ADDITIVE — it does NOT touch the produce path above; it
+    # reuses the already-loaded active_user_ids + allocation_by_user, resolves each
+    # user's followed interests to nodes via the in-scope interest_nodes lookup
+    # (no extra taxonomy query), and is surfaced on DailyPipelineResult.pool_target.
+    interest_nodes_by_user = _load_interest_nodes_by_user(
+        supabase_client, active_user_ids, interest_nodes
+    )
+    pool_target = compute_pool_target(
+        allocation_by_user,
+        interest_nodes_by_user,
+        active_user_ids,
+        DEFAULT_FEED_ALLOCATION,
+        buffer=Settings().pool_buffer,
+        category_floor=CATEGORY_FLOOR,
+    )
+    pool_target_cells = [
+        PoolTargetCell(
+            cell_category=cell_category,
+            cell_subcategory=cell_subcategory,
+            cell_target_count=cell_target_count,
+        )
+        for (cell_category, cell_subcategory), cell_target_count in sorted(
+            pool_target.items()
+        )
+    ]
+    logger.info(
+        "daily_batch_pool_target_emitted",
+        active_user_count=len(active_user_ids),
+        cell_count=len(pool_target_cells),
+        total_target=sum(pool_target.values()),
+    )
+
     # ── Source-origin merge (phase-5d) — append the users' followed YouTube/X
     # stories to the produce pool, EXEMPT from the gate + per-category caps (the
     # user explicitly follows them). Dedup by story id (a source shared across users
@@ -778,4 +912,5 @@ async def run_daily_pipeline(
         skipped_by_gate_count=len(stories) - gated_count,
         capped_count=capped_count,
         feeds=feeds,
+        pool_target=pool_target_cells,
     )

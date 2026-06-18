@@ -113,6 +113,19 @@ class Settings(BaseSettings):
         default="INFO",
         description="Minimum log level for the structured JSON logger (DEBUG | INFO | WARNING | ERROR)",
     )
+    pool_buffer: float = Field(
+        default=1.5,
+        ge=1.0,
+        le=3.0,
+        # Reason: over-fetch multiplier for the shared-pool target — the daily
+        # demand-sizing run computes pool_target = ceil(max_over_users(demand) ×
+        # pool_buffer), floored by CATEGORY_FLOOR (reference/shared-pool-pipeline.md
+        # §2A). >1.0 so dedup/clustering losses still leave enough unique stories to
+        # fill every user's slots; capped at 3.0 to bound wasteful over-ingestion.
+        description="Over-fetch multiplier for the shared-pool target "
+        "(ceil(max_over_users(demand) × pool_buffer)). Range [1.0, 3.0]; "
+        "POOL_BUFFER env var. See reference/shared-pool-pipeline.md §2A.",
+    )
 
     def resolved_gemini_tts_key(self) -> str:
         """Resolve the Gemini key to use for TTS calls.

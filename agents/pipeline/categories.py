@@ -123,6 +123,25 @@ DEFAULT_FEED_ALLOCATION: dict[FeedCategory, int] = {
 }
 
 
+# Reason: per-category minimum unique-story floor for the shared-pool target so a
+# live (allocated) category is never starved below a usable depth even when no user
+# demands much of it (reference/shared-pool-pipeline.md §2A). The 5 TOPIC categories
+# get a small uniform floor of 3; the 2 SOURCE categories (``youtube``/``x``) get 0
+# because they are follow-gated — a story only exists there if the user follows a
+# YouTube channel / X handle, so there is nothing to floor-ingest. M2 applies this
+# floor after max-over-users × pool_buffer; the values themselves are placeholders
+# tuned in M6 (per the master plan open questions).
+CATEGORY_FLOOR: dict[FeedCategory, int] = {
+    "world_politics": 3,
+    "tech_science": 3,
+    "markets": 3,
+    "sport": 3,
+    "culture": 3,
+    "youtube": 0,
+    "x": 0,
+}
+
+
 def category_for_slug(interest_slug: str) -> FeedCategory:
     """Resolve an interest slug to its screen ``FeedCategory`` (best-fit).
 
