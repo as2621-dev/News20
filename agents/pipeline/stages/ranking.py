@@ -888,14 +888,13 @@ def score_and_classify_for_user(
          title matches a followed entity — recording the bonus + matched entity on
          the candidate. The bonus is ADDITIVE: the base α/β/γ terms are untouched.
       4. Classifies each story into its single best-fit category
-         (:func:`assign_category`) and buckets the candidates by the 8 screen
+         (:func:`assign_category`) and buckets the candidates by the 7 screen
          categories.
 
-    The returned dict ALWAYS has all 8 ``FeedCategory`` keys. The five **topic**
-    categories carry the classified candidates (descending by entity-aware score);
-    the source categories (``youtube``/``x``) are present-but-empty (no slug maps
-    to them — phase-5d), and ``breaking`` is left empty here — SP3 fills it as a
-    tier (top-Importance across all categories), it is NOT a slug bucket.
+    The returned dict ALWAYS has all 7 ``FeedCategory`` keys (phase-SP1 removed the
+    ``breaking`` key). The five **topic** categories carry the classified candidates
+    (descending by entity-aware score); the source categories (``youtube``/``x``)
+    are present-but-empty (no slug maps to them — phase-5d).
 
     Args:
         profile_interests: The user's followed interests (Affinity + strict flags).

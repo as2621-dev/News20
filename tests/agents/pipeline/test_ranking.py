@@ -590,11 +590,12 @@ class TestAssignCategory:
 
 
 class TestScoreAndClassifyReturnsAllEightKeys:
-    """The SP3 handoff contract — all 8 keys, source buckets empty, breaking empty."""
+    """The SP3 handoff contract — all 7 keys, source buckets empty (no breaking)."""
 
-    def test_returns_all_eight_category_keys(self) -> None:
+    def test_returns_all_seven_category_keys(self) -> None:
         """WHY: SP3 reads every budgeted category; a missing key would KeyError the
-        allocator. Source categories + breaking must be present-but-empty here."""
+        allocator. phase-SP1 removed the breaking key, leaving 7 (5 topic + 2
+        source); the source categories must be present-but-empty here."""
         user = [
             UserProfileInterest(
                 profile_interest_id=_SEMIS_INTEREST_ID, profile_weight=1.0
@@ -611,7 +612,6 @@ class TestScoreAndClassifyReturnsAllEightKeys:
             now_utc=_NOW,
         )
         assert set(buckets.keys()) == {
-            "breaking",
             "world_politics",
             "tech_science",
             "youtube",
@@ -620,11 +620,11 @@ class TestScoreAndClassifyReturnsAllEightKeys:
             "x",
             "culture",
         }
-        # The story classified into markets; source axes + breaking are empty.
+        assert "breaking" not in buckets
+        # The story classified into markets; source axes are empty.
         assert [c.story_id for c in buckets["markets"]] == ["s"]
         assert buckets["youtube"] == []
         assert buckets["x"] == []
-        assert buckets["breaking"] == []
 
 
 class _FakeQuery:
@@ -746,7 +746,7 @@ class TestLoaderHydratesEntitiesAndAllocation:
             },
             {
                 "follow_user_id": "u1",
-                "allocation_category": "breaking",
+                "allocation_category": "world_politics",
                 "allocation_slot_count": 4,
                 "allocation_sort_order": 0,
             },
@@ -764,7 +764,7 @@ class TestLoaderHydratesEntitiesAndAllocation:
         allocs = {a.allocation_category: a for a in inputs[0].category_allocation}
         assert allocs["markets"].allocation_slot_count == 5
         assert allocs["markets"].allocation_sort_order == 2
-        assert allocs["breaking"].allocation_slot_count == 4
+        assert allocs["world_politics"].allocation_slot_count == 4
 
     def test_orphan_follow_without_joined_entity_is_skipped(self) -> None:
         """A follow whose joined entities row is missing is skipped (no labelless entity)."""

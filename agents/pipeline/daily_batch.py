@@ -658,7 +658,7 @@ async def run_daily_pipeline(
     # candidates) from rendering 39 markets reels and starving every other category.
     active_user_ids = _load_active_user_ids(supabase_client)
     allocation_by_user = _load_category_allocation(supabase_client, active_user_ids)
-    caps, breaking_headroom = compute_category_produce_caps(
+    caps = compute_category_produce_caps(
         allocation_by_user, active_user_ids, DEFAULT_FEED_ALLOCATION
     )
     to_produce = cap_stories_per_category(
@@ -667,7 +667,6 @@ async def run_daily_pipeline(
         story_interest_tags,
         interest_nodes,
         caps,
-        breaking_headroom,
         default_cap=DEFAULT_PER_CATEGORY_CAP,
     )
     if max_total_productions and max_total_productions > 0:

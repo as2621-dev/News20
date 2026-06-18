@@ -175,7 +175,8 @@ export async function getFeed(client: SupabaseClient = getSupabaseBrowserClient(
 /** A `daily_feeds` row with its embedded story (the same {@link StoryRow} shape). */
 interface DailyFeedRow {
   feed_position: number;
-  /** The slot tier that placed this story: `breaking` (top-Importance) or `interest`. */
+  /** The slot tier that placed this story: `source` (followed source) or `interest`
+   *  (category slot). phase-SP1 removed the `breaking` tier. */
   feed_slot_kind: string | null;
   stories: StoryRow | StoryRow[];
 }
@@ -223,8 +224,9 @@ export async function getDailyFeed(
   // slots, but the UI contract is AT MOST 30 stories.
   return (data ?? []).slice(0, FEED_TOTAL).map((row) => ({
     ...mapStoryRow(Array.isArray(row.stories) ? row.stories[0] : row.stories),
-    // Reason: carry the slot tier so the reel chip can show "Breaking" for the
-    // breaking tier; any non-"breaking" value (incl. null) is a normal interest slot.
-    feed_slot_kind: row.feed_slot_kind === "breaking" ? "breaking" : "interest",
+    // Reason: carry the slot tier so the reel chip can mark a followed-source slot;
+    // a "source" row is a source slot, any other value (incl. null / a legacy
+    // "breaking" enum row) is a normal interest slot (phase-SP1 removed breaking).
+    feed_slot_kind: row.feed_slot_kind === "source" ? "source" : "interest",
   }));
 }

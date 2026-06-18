@@ -21,12 +21,11 @@
 import type { AnalyticKind, CoverageMode } from "@/types/detail";
 
 /**
- * The nine Detail-page buckets a story can fall into. Aligned to the 9 design
- * buckets in `src/lib/feedBuckets.ts` (`DesignBucketId`), distinct from the
- * 5-valued `SegmentKey`.
+ * The eight Detail-page buckets a story can fall into (phase-SP1 removed
+ * `breaking`). Aligned to the 8 design buckets in `src/lib/feedBuckets.ts`
+ * (`DesignBucketId`), distinct from the 5-valued `SegmentKey`.
  */
 export type DetailCategory =
-  | "breaking"
   | "world"
   | "markets"
   | "tech"
@@ -76,7 +75,6 @@ function analytic(kind: AnalyticKind, label: string): PanelSpec {
  * Must equal `agents/pipeline/detail_templates.py` `DETAIL_TEMPLATES`.
  */
 export const DETAIL_TEMPLATES: Readonly<Record<DetailCategory, readonly PanelSpec[]>> = {
-  breaking: [timeline(), analytic("what_we_know", "WHAT WE KNOW"), coverage("reach_lite")],
   world: [timeline(), analytic("stakes", "STAKES"), coverage("partisan")],
   markets: [timeline(), analytic("market_impact", "MARKET IMPACT"), analytic("by_the_numbers", "BY THE NUMBERS")],
   tech: [timeline(), analytic("why_it_matters", "WHY IT MATTERS"), analytic("the_concept", "THE CONCEPT")],

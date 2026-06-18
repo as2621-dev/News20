@@ -10,17 +10,12 @@ import { DEFAULT_DETAIL_CATEGORY, DETAIL_TEMPLATES, type PanelSpec, templateForC
  * a silent, product-visible mismatch. The `EXPECTED` table below is the SAME locked
  * table asserted in `tests/agents/pipeline/test_detail_templates.py`; keeping both
  * test files green is the drift guard. These also assert the structural invariants
- * the UI relies on (sources have no timeline/coverage; coverage only on
- * breaking/world).
+ * the UI relies on (sources have no timeline/coverage; coverage only on world —
+ * phase-SP1 removed the breaking detail template).
  */
 
-/** The owner-locked table (2026-06-16) — mirrors the Python test's `_EXPECTED`. */
+/** The owner-locked table (2026-06-16; breaking removed phase-SP1) — mirrors the Python test's `_EXPECTED`. */
 const EXPECTED: Record<string, Array<[string, string | null]>> = {
-  breaking: [
-    ["timeline", null],
-    ["what_we_know", "WHAT WE KNOW"],
-    ["coverage", "reach_lite"],
-  ],
   world: [
     ["timeline", null],
     ["stakes", "STAKES"],
@@ -75,8 +70,10 @@ function specTuple(spec: PanelSpec): [string, string | null] {
 }
 
 describe("DETAIL_TEMPLATES (frontend twin)", () => {
-  it("covers exactly the 9 detail categories", () => {
+  it("covers exactly the 8 detail categories (no breaking — phase-SP1)", () => {
     expect(Object.keys(DETAIL_TEMPLATES).sort()).toEqual(Object.keys(EXPECTED).sort());
+    expect(Object.keys(DETAIL_TEMPLATES)).not.toContain("breaking");
+    expect(Object.keys(DETAIL_TEMPLATES)).toHaveLength(8);
   });
 
   for (const category of Object.keys(EXPECTED)) {
@@ -93,12 +90,12 @@ describe("DETAIL_TEMPLATES (frontend twin)", () => {
     }
   });
 
-  it("places coverage only on breaking and world", () => {
+  it("places coverage only on world (phase-SP1 removed the breaking template)", () => {
     const withCoverage = Object.entries(DETAIL_TEMPLATES)
       .filter(([, specs]) => specs.some((s) => s.panel_kind === "coverage"))
       .map(([category]) => category)
       .sort();
-    expect(withCoverage).toEqual(["breaking", "world"]);
+    expect(withCoverage).toEqual(["world"]);
   });
 });
 

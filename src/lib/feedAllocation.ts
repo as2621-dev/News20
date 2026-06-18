@@ -112,7 +112,7 @@ interface FeedAllocationUpsertRow {
  *
  * @example
  * const saved = await getUserFeedAllocation();
- * saved; // [{ bucketId: "breaking", count: 2 }, { bucketId: "world", count: 4 }, …]
+ * saved; // [{ bucketId: "world", count: 5 }, { bucketId: "tech", count: 5 }, …]
  */
 export async function getUserFeedAllocation(
   client: SupabaseClient = getSupabaseBrowserClient(),
@@ -198,8 +198,8 @@ export interface SaveAllocationResult {
  *
  * @example
  * const result = await saveUserFeedAllocation([
- *   { bucketId: "breaking", count: 2 },
- *   { bucketId: "world", count: 28 },
+ *   { bucketId: "world", count: 5 },
+ *   { bucketId: "tech", count: 25 },
  * ]);
  * result.persisted_count;   // 2 (or 1 + deferred_buckets:["podcasts"] pre-0010)
  */

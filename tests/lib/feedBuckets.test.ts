@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   ALLOCATION_TOTAL,
-  ALWAYS_INCLUDED_CATEGORY_BUCKET,
   allowedBucketsForSelections,
   buildDefaultSegments,
   buildSegmentsForSelections,
@@ -21,23 +20,33 @@ import {
  * Blip Flow Stage 3 — the design-bucket ↔ feed_category enum bijection + allocation helpers.
  *
  * WHY these tests exist (Rule 9 — encode the contract, not the shapes):
- *  - The screen draws 9 design ids; the DB enum uses 8(+1) snake_case keys. If the
- *    forward map and the inverse ever drift, a saved allocation would hydrate the WRONG
- *    bucket (e.g. "world" rows showing up as "markets"), silently corrupting the user's
- *    feed order. We assert the map is a TOTAL bijection that round-trips every id.
+ *  - The screen draws 8 design ids (phase-SP1 removed the `breaking` bucket); the DB enum
+ *    uses snake_case keys. If the forward map and the inverse ever drift, a saved allocation
+ *    would hydrate the WRONG bucket (e.g. "world" rows showing up as "markets"), silently
+ *    corrupting the user's feed order. We assert the map is a TOTAL bijection that
+ *    round-trips every id.
  *  - `world`/`tech` MUST rename to `world_politics`/`tech_science` (the only renames) — a
  *    regression that wrote `world` to the enum would 22P02-fail at the DB. We pin those.
  *  - The default seed MUST total exactly 30 (it is the immediately-savable starting state).
  *    A non-30 default would land the user on a screen they cannot save.
+ *  - phase-SP1 removed the always-on `breaking` block: the seed + Add sheet are now gated on
+ *    real category/source backing ONLY — no bucket is force-included.
  */
 
 describe("DESIGN_BUCKET_TO_ENUM ↔ ENUM_TO_DESIGN_BUCKET (the bijection that must never drift)", () => {
-  it("maps every one of the 9 design buckets to a distinct enum value", () => {
+  it("maps every one of the 8 design buckets to a distinct enum value", () => {
     // WHY: a missing/duplicated enum value would make two design buckets collide on one
     // DB row (last-write-wins), losing one bucket's allocation silently.
     const enumValues = DESIGN_BUCKET_IDS.map((bucketId) => DESIGN_BUCKET_TO_ENUM[bucketId]);
-    expect(enumValues).toHaveLength(9);
-    expect(new Set(enumValues).size).toBe(9);
+    expect(enumValues).toHaveLength(8);
+    expect(new Set(enumValues).size).toBe(8);
+  });
+
+  it("has no 'breaking' design bucket (phase-SP1 removed it)", () => {
+    // WHY: the breaking feed category was removed; a resurrected bucket would re-introduce
+    // the dead "Breaking News" block and write the unused enum value.
+    expect(DESIGN_BUCKET_IDS).not.toContain("breaking" as DesignBucketId);
+    expect(DESIGN_BUCKET_IDS).toHaveLength(8);
   });
 
   it("round-trips every design id through the inverse map (forward then back is identity)", () => {
@@ -56,8 +65,8 @@ describe("DESIGN_BUCKET_TO_ENUM ↔ ENUM_TO_DESIGN_BUCKET (the bijection that mu
     expect(DESIGN_BUCKET_TO_ENUM.tech).toBe("tech_science");
   });
 
-  it("keeps the 7 identity-mapped buckets verbatim (breaking/markets/sport/culture/youtube/x/podcasts)", () => {
-    const identityBuckets: DesignBucketId[] = ["breaking", "markets", "sport", "culture", "youtube", "x", "podcasts"];
+  it("keeps the 6 identity-mapped buckets verbatim (markets/sport/culture/youtube/x/podcasts)", () => {
+    const identityBuckets: DesignBucketId[] = ["markets", "sport", "culture", "youtube", "x", "podcasts"];
     for (const bucketId of identityBuckets) {
       expect(DESIGN_BUCKET_TO_ENUM[bucketId]).toBe(bucketId as unknown as FeedCategoryEnum);
     }
@@ -180,26 +189,30 @@ describe("categoryBucketsFromInterestVector (persisted backing → the category 
 });
 
 describe("allowedBucketsForSelections (the single guard for which blocks may appear)", () => {
-  it("unions the backed categories + followed sources and forces 'breaking' in", () => {
-    // WHY: this set gates BOTH the seed and the Add sheet — it must be exactly breaking + backed
+  it("unions exactly the backed categories + followed sources (no forced bucket)", () => {
+    // WHY: this set gates BOTH the seed and the Add sheet — it must be exactly the backed
     // categories + followed sources, so neither a seed nor a hand-add can introduce a phantom.
+    // phase-SP1 removed the always-on `breaking` force-include.
     const allowed = allowedBucketsForSelections(["tech"], ["youtube"]);
-    expect([...allowed].sort()).toEqual(["breaking", "tech", "youtube"].sort());
+    expect([...allowed].sort()).toEqual(["tech", "youtube"].sort());
   });
 
-  it("includes 'breaking' even when both inputs are empty (always-on tier)", () => {
-    expect(allowedBucketsForSelections([], []).has(ALWAYS_INCLUDED_CATEGORY_BUCKET)).toBe(true);
+  it("is EMPTY when both inputs are empty (no bucket is forced in anymore)", () => {
+    // WHY: phase-SP1 dropped the always-on breaking tier — with zero backing, nothing is allowed.
+    expect(allowedBucketsForSelections([], []).size).toBe(0);
   });
 });
 
 describe("buildSegmentsForSelections (the filtered seed gated on real category + source backing)", () => {
-  it("keeps breaking + only the selected categories + only the followed source axes (Tech+Markets, YouTube+X)", () => {
-    // WHY: encodes the owner rule (2026-06-17) — breaking is always-on, and every UNbacked
-    // category (world/sport/culture) AND unfollowed source axis is dropped from the seed.
+  it("keeps only the selected categories + only the followed source axes (Tech+Markets, YouTube+X)", () => {
+    // WHY: encodes the owner rule (2026-06-17) — every UNbacked category (world/sport/culture)
+    // AND unfollowed source axis is dropped from the seed. phase-SP1 removed the always-on
+    // breaking block, so it never appears.
     const seededBucketIds = buildSegmentsForSelections(["tech", "markets"], ["youtube", "x"]).map(
       (segment) => segment.bucketId,
     );
-    expect(seededBucketIds).toEqual(["breaking", "tech", "youtube", "markets", "x"]);
+    expect(seededBucketIds).toEqual(["tech", "youtube", "markets", "x"]);
+    expect(seededBucketIds).not.toContain("breaking" as DesignBucketId);
   });
 
   it("DROPS a source axis the user follows nothing on (the phantom-source-block fix)", () => {
@@ -208,12 +221,12 @@ describe("buildSegmentsForSelections (the filtered seed gated on real category +
     const seededBucketIds = buildSegmentsForSelections(["tech", "markets"], ["youtube"]).map(
       (segment) => segment.bucketId,
     );
-    expect(seededBucketIds).toEqual(["breaking", "tech", "youtube", "markets"]);
+    expect(seededBucketIds).toEqual(["tech", "youtube", "markets"]);
     expect(seededBucketIds).not.toContain("x");
   });
 
   it("seeds NO source blocks when the user follows no sources (zero source backing)", () => {
-    // WHY: with no followed sources, the 30 must contain only breaking + backed categories — never
+    // WHY: with no followed sources, the 30 must contain only backed categories — never
     // a source block with no backing follow.
     const seededBucketIds = new Set(buildSegmentsForSelections(["tech"], []).map((segment) => segment.bucketId));
     for (const bucketId of seededBucketIds) {
@@ -221,18 +234,19 @@ describe("buildSegmentsForSelections (the filtered seed gated on real category +
     }
   });
 
-  it("force-includes 'breaking' even when both backing sets are empty", () => {
-    // WHY: breaking is not a pickable interest; omitting it would erase Breaking News from the 30.
+  it("seeds NOTHING when both backing sets are empty (no forced bucket post phase-SP1)", () => {
+    // WHY: breaking was the only force-included block; with it removed, an empty backing set
+    // yields an empty seed (the screen then falls back to the full default upstream).
     const seededBucketIds = buildSegmentsForSelections([], []).map((segment) => segment.bucketId);
-    expect(seededBucketIds).toEqual([ALWAYS_INCLUDED_CATEGORY_BUCKET]);
+    expect(seededBucketIds).toEqual([]);
   });
 
   it("seeds UNDER 30 for a narrow pick so the screen opens on 'Fill N more' (no auto-rescale)", () => {
     // WHY: the owner chose to open under-budget rather than rescale; Tech+Markets+YouTube+X totals
-    // 20 (< 30) so the budget CTA prompts the user to fill the rest, not auto-fill.
+    // 18 (< 30) so the budget CTA prompts the user to fill the rest, not auto-fill.
     const total = sumSegmentCounts(buildSegmentsForSelections(["tech", "markets"], ["youtube", "x"]));
     expect(total).toBeLessThan(ALLOCATION_TOTAL);
-    expect(total).toBe(20);
+    expect(total).toBe(18);
   });
 
   it("preserves the default seed order for the surviving blocks", () => {
@@ -241,6 +255,6 @@ describe("buildSegmentsForSelections (the filtered seed gated on real category +
     const seededBucketIds = buildSegmentsForSelections(["world", "sport", "culture"], ["youtube", "x"]).map(
       (segment) => segment.bucketId,
     );
-    expect(seededBucketIds).toEqual(["breaking", "world", "youtube", "sport", "x", "culture"]);
+    expect(seededBucketIds).toEqual(["world", "youtube", "sport", "x", "culture"]);
   });
 });

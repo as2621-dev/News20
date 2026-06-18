@@ -98,7 +98,7 @@ function makeAllocationClient(options: {
 }
 
 const HAPPY_SEGMENTS: AllocationSegment[] = [
-  { bucketId: "breaking", count: 2 },
+  { bucketId: "sport", count: 2 },
   { bucketId: "world", count: 4 },
   { bucketId: "tech", count: 24 },
 ];
@@ -116,7 +116,7 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     expect(upsertCalls[0].rows).toEqual([
       {
         follow_user_id: AUTHED_USER_ID,
-        allocation_category: "breaking",
+        allocation_category: "sport",
         allocation_slot_count: 2,
         allocation_sort_order: 0,
       },
@@ -150,15 +150,15 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     expect(notColumn).toBe("allocation_category");
     expect(operator).toBe("in");
     // The saved enum values are excluded from the delete (so they survive; everything else is pruned).
-    expect(listValue).toBe("(breaking,world_politics,tech_science)");
+    expect(listValue).toBe("(sport,world_politics,tech_science)");
   });
 
   it("degrades gracefully when the podcasts enum value is missing (migration 0010 not applied)", async () => {
     // WHY: until 0010 ships, a podcasts upsert 22P02-fails. The whole save must NOT crash —
-    // it drops podcasts, re-upserts the other 8, surfaces podcasts as deferred, and succeeds.
+    // it drops podcasts, re-upserts the rest, surfaces podcasts as deferred, and succeeds.
     // FAILS if it throws, or if the retry doesn't exclude podcasts.
     const segments: AllocationSegment[] = [
-      { bucketId: "breaking", count: 10 },
+      { bucketId: "world", count: 10 },
       { bucketId: "podcasts", count: 20 },
     ];
     const { client, upsert, upsertCalls } = makeAllocationClient({
@@ -171,10 +171,10 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     expect(upsert).toHaveBeenCalledTimes(2); // initial (all) + retry (without podcasts)
     // The retry rows exclude the podcasts row.
     const retryCategories = upsertCalls[1].rows.map((row) => row.allocation_category);
-    expect(retryCategories).toEqual(["breaking"]);
+    expect(retryCategories).toEqual(["world_politics"]);
     expect(retryCategories).not.toContain("podcasts");
     expect(result.deferred_buckets).toEqual(["podcasts"]);
-    expect(result.persisted_count).toBe(1); // only breaking persisted
+    expect(result.persisted_count).toBe(1); // only world_politics persisted
   });
 
   it("throws on a NON-podcasts upsert error (surface, never swallow — Rule 12)", async () => {
@@ -203,7 +203,7 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     // WHY: the screen enforces 30, but the helper must never silently persist a drifted total
     // (Rule 12) — it warns loudly yet still saves rather than crashing the flow.
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const nonThirty: AllocationSegment[] = [{ bucketId: "breaking", count: 5 }];
+    const nonThirty: AllocationSegment[] = [{ bucketId: "world", count: 5 }];
     const { client, upsert } = makeAllocationClient({ user: { id: AUTHED_USER_ID } });
 
     const result = await saveUserFeedAllocation(nonThirty, client);

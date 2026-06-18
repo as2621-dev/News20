@@ -94,7 +94,7 @@ def test_broad_profile_gets_diversity_and_depth():
     slots = simulate_profile(profile, stories, tags, nodes)
     checks = _profile_checks(profile, slots, _lookup(profile, stories, tags, nodes))
 
-    assert checks["broad: interest-fill cap ~40% holds (breaking exempt per §3.1)"]
+    assert checks["broad: interest-fill cap ~40% holds"]
     assert checks["broad: deep stories reach a broad follower (ancestor tags)"]
     assert checks["broad: every followed leaf with a qualifier gets ≥1 slot (floor-1)"]
     assert len(slots) == 30  # a broad profile fills the full budget
@@ -165,11 +165,12 @@ def test_entity_scenario_honors_category_budgets_and_sequence():
     budgets into the topics, and total exactly Σ budgets (== 30) with no duplicate.
 
     WHY (Rule 9): this fails if the allocator ignores the user's
-    ``category_allocation`` (would fall to the balanced default), if breaking is not
-    user-budgeted (here 2, not the default 4), if the source budgets are not rolled
-    (feed would be 21), or if a story is placed twice. The markets category is
-    asserted at EXACTLY its budget (4) because it sits late enough in the sequence
-    that the roll-over fills earlier categories first — so its count is controlled."""
+    ``category_allocation`` (would fall to the balanced default), if a breaking tier
+    reappears (phase-SP1 removed it — only {interest, source} kinds), if the source
+    budgets are not rolled (feed would be 21), or if a story is placed twice. The
+    markets category is asserted at EXACTLY its budget (4) because it sits late
+    enough in the sequence that the roll-over fills earlier categories first — so its
+    count is controlled."""
     nodes = build_taxonomy()
     stories, tags, profile = build_entity_boost_scenario(nodes)
     slots = simulate_profile(profile, stories, tags, nodes)
@@ -180,35 +181,31 @@ def test_entity_scenario_honors_category_budgets_and_sequence():
     )
     assert len(story_ids) == len(set(story_ids)), "no story may appear twice"
 
-    breaking = [s for s in slots if s.feed_slot_kind == "breaking"]
-    assert len(breaking) == 2, "breaking is user-budgeted to 2 (not the default 4)"
+    assert all(
+        s.feed_slot_kind in {"interest", "source"} for s in slots
+    ), "only {interest, source} slot kinds — no breaking tier (phase-SP1)"
 
     # markets is budgeted to 4 and sits after world_politics/tech_science in the
     # sequence, so the roll-over does not inflate it — it holds exactly its budget.
     markets_slots = [
         s
         for s in slots
-        if s.feed_slot_kind != "breaking"
+        if s.feed_slot_kind == "interest"
         and category_for_slug(s.feed_matched_interest_id) == "markets"
     ]
     assert len(markets_slots) == 4, "markets must hold exactly its 4-slot budget"
 
-    # Sequence: breaking first, then the topic categories in allocation_sort_order.
+    # Sequence: the topic categories appear in the user's allocation_sort_order
+    # (world_politics < tech_science < markets < sport — culture has no stories).
     category_sequence: list[str] = []
     for slot in slots:
-        category = (
-            "breaking"
-            if slot.feed_slot_kind == "breaking"
-            else category_for_slug(slot.feed_matched_interest_id)
-        )
+        if slot.feed_matched_interest_id is None:
+            continue  # source slot — not a topic in the sequence check
+        category = category_for_slug(slot.feed_matched_interest_id)
         if category not in category_sequence:
             category_sequence.append(category)
-    assert category_sequence[0] == "breaking"
-    # The topic categories present must appear in the user's sort_order
-    # (world_politics < tech_science < markets < sport — culture has no stories).
-    topic_order = [c for c in category_sequence if c != "breaking"]
     expected_order = ["world_politics", "tech_science", "markets", "sport"]
-    assert topic_order == [c for c in expected_order if c in topic_order]
+    assert category_sequence == [c for c in expected_order if c in category_sequence]
 
 
 def test_niche_feed_is_shorter_than_budget():
@@ -238,21 +235,33 @@ def test_dont_repeat_excludes_prior_days_stories():
 
 
 def test_engagement_raises_weight_without_collapsing_feed():
-    """The §4 loop: engaging tech.ai daily must RAISE its weight and feed share,
-    DECAY an un-engaged interest toward (not to) baseline, and PLATEAU the share —
-    the feed adapts but never collapses onto one topic (the over-narrowing guard)."""
+    """The §4 loop: engaging tech.ai daily must RAISE its weight, DECAY an
+    un-engaged interest toward (not to) baseline, and keep the engaged interest's
+    feed share BOUNDED — the feed adapts but never collapses onto one topic (the
+    over-narrowing guard).
+
+    WHY (Rule 9 — updated for phase-SP1): the breaking tier is removed, so a
+    default-allocation user's per-category budgets are FIXED (an even split of 30
+    across their topic categories). The engaged interest's feed share is therefore
+    governed by its category budget, not by day-over-day weight growth — so the loop
+    no longer monotonically grows the engaged SHARE the way the old breaking-tier
+    spike did. The invariants that still matter are: the engagement signal keeps
+    moving WEIGHTS (the personalization engine is alive), an un-engaged interest
+    decays but never dies, and the feed never collapses onto one topic (share stays
+    well under a majority every day). This fails if weight stops adapting, an
+    interest decays below its floor, or one topic ever dominates the feed."""
     nodes, stories, tags = _world()
     rows = run_drift(_profile("B"), stories, tags, nodes, days=6)
 
     first, last = rows[0], rows[-1]
-    # Engaged interest rises in weight and in share.
+    # The engagement signal still adapts the engaged interest's weight upward.
     assert last["weights"]["tech.ai"] > first["weights"]["tech.ai"]
-    assert last["engaged_share"] > first["engaged_share"]
-    # An un-engaged interest decays toward baseline but does not die (floor 0.1).
+    # An un-engaged interest decays toward baseline but does not die (floor > 1.0).
     assert first["weights"]["world"] > last["weights"]["world"] > 1.0
-    # The feed does not collapse: even after sustained engagement, the engaged
-    # interest stays well under a majority (cap + breaking diversity hold).
-    assert last["engaged_share"] <= 0.50
+    # The feed never collapses: on EVERY day the engaged interest stays well under a
+    # majority (its fixed category budget bounds it — no single topic dominates).
+    assert all(row["engaged_share"] <= 0.50 for row in rows)
+    assert last["engaged_share"] > 0.0, "the engaged interest is still represented"
 
 
 def _lookup(profile, stories, tags, nodes):

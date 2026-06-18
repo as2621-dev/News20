@@ -5,7 +5,8 @@ category mapping to EXACTLY the owner-locked ordered panels — Culture must car
 no Coverage, Markets must carry MARKET IMPACT + BY THE NUMBERS, sources must carry
 no timeline. A test that only checked "a template exists" could not catch a wrong
 panel; these assert the exact kinds, labels, and order, and the resolver's
-breaking-wins + culture-fallback rules.
+culture-fallback rule. (phase-SP1 removed the breaking detail template; the
+``is_breaking`` arg is now accepted-but-ignored and resolves to the topic category.)
 
     >>> pytest tests/agents/pipeline/test_detail_templates.py -v
 """
@@ -27,7 +28,6 @@ from agents.pipeline.detail_templates import (
 # mode for a coverage slot, or "timeline". This is the single assertion of truth the
 # TS twin (`src/lib/detailTemplates.test.ts`) must mirror exactly.
 _EXPECTED: dict[str, list[tuple]] = {
-    "breaking": [("timeline", None), ("what_we_know", "WHAT WE KNOW"), ("coverage", "reach_lite")],
     "world": [("timeline", None), ("stakes", "STAKES"), ("coverage", "partisan")],
     "markets": [("timeline", None), ("market_impact", "MARKET IMPACT"), ("by_the_numbers", "BY THE NUMBERS")],
     "tech": [("timeline", None), ("why_it_matters", "WHY IT MATTERS"), ("the_concept", "THE CONCEPT")],
@@ -42,9 +42,15 @@ _EXPECTED: dict[str, list[tuple]] = {
 class TestTemplateShape:
     """Every category renders exactly the locked ordered triple of panels."""
 
-    def test_all_nine_categories_present(self) -> None:
-        """The template map covers exactly the 9 detail categories — no more, no less."""
+    def test_all_eight_categories_present(self) -> None:
+        """The template map covers exactly the 8 detail categories — no more, no less.
+
+        phase-SP1 removed the ``breaking`` detail template, leaving 8 (5 topic + 3
+        source).
+        """
         assert set(DETAIL_TEMPLATES) == set(_EXPECTED)
+        assert "breaking" not in DETAIL_TEMPLATES
+        assert len(DETAIL_TEMPLATES) == 8
 
     @pytest.mark.parametrize("category", list(_EXPECTED))
     def test_each_template_matches_locked_table(self, category) -> None:
@@ -70,14 +76,18 @@ class TestTemplateShape:
             kinds = {spec.panel_kind for spec in DETAIL_TEMPLATES[category]}
             assert kinds == {"analytic"}
 
-    def test_coverage_only_on_breaking_and_world(self) -> None:
-        """Coverage earns its slot only where it is meaningful (contested / breaking)."""
+    def test_coverage_only_on_world(self) -> None:
+        """Coverage earns its slot only where it is meaningful (contested topics).
+
+        phase-SP1 removed the breaking template, so ``world`` is now the SOLE
+        category carrying a coverage panel.
+        """
         with_coverage = {
             category
             for category, specs in DETAIL_TEMPLATES.items()
             if any(spec.panel_kind == "coverage" for spec in specs)
         }
-        assert with_coverage == {"breaking", "world"}
+        assert with_coverage == {"world"}
 
     def test_analytic_panel_specs_are_in_slot_order(self) -> None:
         """`analytic_panel_specs` returns only analytic panels, in slot order."""
@@ -106,10 +116,11 @@ class TestDetailCategoryForSegment:
         """Each of the 5 segments maps to its topic detail category (wildcard→culture)."""
         assert detail_category_for_segment(segment_slug, is_breaking=False) == expected
 
-    def test_breaking_wins_over_segment(self) -> None:
-        """A breaking story uses the Breaking template regardless of its topic (owner rule)."""
-        assert detail_category_for_segment("geopolitics", is_breaking=True) == "breaking"
-        assert detail_category_for_segment("markets", is_breaking=True) == "breaking"
+    def test_is_breaking_is_ignored_and_resolves_to_topic(self) -> None:
+        """``is_breaking`` is accepted-but-ignored (phase-SP1) — the story keeps its
+        topic detail category instead of routing to a removed Breaking template."""
+        assert detail_category_for_segment("geopolitics", is_breaking=True) == "world"
+        assert detail_category_for_segment("markets", is_breaking=True) == "markets"
 
     def test_unknown_segment_falls_back_to_culture(self) -> None:
         """An unknown/future segment falls back to the Culture catch-all (never crashes)."""
@@ -137,8 +148,9 @@ class TestDetailCategoryForFeedCategory:
         """Each feed_category maps to its detail category; source buckets pass through."""
         assert detail_category_for(feed_category, is_breaking=False) == expected
 
-    def test_breaking_wins_and_none_falls_back(self) -> None:
-        """Breaking wins; a None/unknown feed_category falls back to Culture."""
-        assert detail_category_for("world_politics", is_breaking=True) == "breaking"
+    def test_is_breaking_ignored_and_none_falls_back(self) -> None:
+        """``is_breaking`` is ignored (phase-SP1); a None/unknown feed_category falls
+        back to Culture."""
+        assert detail_category_for("world_politics", is_breaking=True) == "world"
         assert detail_category_for(None, is_breaking=False) == "culture"
         assert detail_category_for("not-a-category", is_breaking=False) == "culture"

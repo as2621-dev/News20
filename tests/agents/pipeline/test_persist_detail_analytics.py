@@ -366,14 +366,19 @@ class TestPersistDetailAnalytics:
             "AP",
         ]
 
-    def test_breaking_coverage_report_flags_story_and_category(
+    def test_breaking_coverage_still_sets_velocity_flag_but_keeps_topic_category(
         self, canonical_story, digest_script, story_interest_tags, enrichment
     ) -> None:
-        """A breaking coverage census makes the story use the Breaking template (DoD).
+        """A breaking coverage census STILL sets the ``story_is_breaking`` velocity
+        flag, but the story keeps its TOPIC detail category (phase-SP1).
 
-        WHY (owner decision 2026-06-16): breaking detection is the GDELT spread
-        signal, and it must WIN the detail category over the underlying topic —
-        a breaking geopolitics story becomes detail_category 'breaking', not 'world'.
+        WHY (Rule 9 — guards a KEEP site): phase-SP1 removed the breaking detail
+        template/category, but the GDELT-spread velocity signal must survive for
+        M4's ``story_importance``. So ``coverage_is_breaking`` must still flow through
+        to ``stories.story_is_breaking`` (proving the signal is computed), while the
+        detail category now resolves to the underlying topic ('world'), NOT a removed
+        'breaking' template. This test fails if either the velocity flag is dropped OR
+        the breaking detail category is reintroduced.
         """
         from agents.pipeline.models import CoverageReport
 
@@ -397,8 +402,10 @@ class TestPersistDetailAnalytics:
             interest_segment_lookup={"int-world": "geopolitics"},
         )
         story_row = client.captured_inserts["stories"][0]
+        # KEEP: the velocity signal is still computed + persisted.
         assert story_row["story_is_breaking"] is True
-        assert story_row["story_detail_category"] == "breaking"
+        # phase-SP1: detail category resolves to the topic, not a 'breaking' template.
+        assert story_row["story_detail_category"] == "world"
 
 
 class TestLoadOutletsLookup:

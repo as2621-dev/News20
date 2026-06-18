@@ -1,0 +1,47 @@
+-- Migration 0017 — Drop the "breaking" feed allocation (Phase SP1 SP3)
+--
+-- Source of truth: plans/phase-sp1-kill-breaking.md (Sub-phase 3) +
+-- reference/shared-pool-pipeline.md §1 (the exact removal sites, row 11).
+--
+-- Context: "breaking" was a user-budgeted top-Importance TIER, not a seeded
+-- interest. Phase SP1 SP1 (Python) + SP2 (TS) remove it from the pipeline and the
+-- app so NO code path writes `allocation_category = 'breaking'` anymore. This
+-- migration cleans the data: it deletes the now-orphaned breaking allocation rows.
+-- Their slot budget (the default `breaking 4`) is absorbed by the new even-split
+-- default — `_default_allocation` now evenly splits 30 across the topic categories
+-- (SP1) — and by each user's remaining per-category budgets, so feeds still total 30.
+--
+-- ⚠ irreversible — this DELETE removes data. Mitigated three ways: (1) the deleted
+-- rows are trivially re-creatable (a user just re-runs "Build your 30"); (2) the
+-- enum value is RETAINED (see below) so no destructive enum swap; (3) the DELETE is
+-- idempotent (re-running deletes 0 rows, never errors).
+--
+-- KEY DESIGN DECISIONS (surfaced per Rule 7):
+--
+--  1. The `feed_category` ENUM RETAINS the now-unused 'breaking' value ON PURPOSE.
+--     Postgres cannot cheaply DROP a value from an existing enum (it requires a full
+--     enum-type swap: create a new type, rewrite every dependent column, re-add the
+--     constraint — risky and out of scope for this cleanup). An UNUSED enum value is
+--     harmless: nothing writes it, nothing reads it. Leaving it in place is safe and
+--     reversible. The full enum swap is DEFERRED (out of scope, see SP1 phase file).
+--
+--  2. `stories.story_is_breaking` (added in 0015) is intentionally KEPT — do NOT drop
+--     it. It is being repurposed as the future per-story VELOCITY flag that feeds the
+--     CoverageMomentum signal into `story_importance` (M4 / Phase SP4). Dropping it
+--     now would destroy the very signal this whole rework preserves.
+--
+--  3. This migration touches ONLY `user_feed_allocation`. No other table, column,
+--     enum, index, or policy is modified.
+
+-- ── Delete the orphaned breaking allocation rows ──────────────────────────────
+-- IDEMPOTENT: a plain DELETE with a WHERE predicate is naturally idempotent — the
+-- first run removes the breaking rows, every subsequent run matches zero rows and
+-- succeeds without error. No guard (IF EXISTS / DO block) is needed because the
+-- table and column are guaranteed to exist (created in 0008) and the predicate
+-- simply finds nothing on re-run.
+delete from user_feed_allocation
+where allocation_category = 'breaking';
+
+-- Verification (run manually after apply — see the execution report):
+--   select count(*) from user_feed_allocation where allocation_category = 'breaking';
+--   -- expected: 0

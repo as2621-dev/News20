@@ -2,7 +2,8 @@
 
 The story Detail page (swipe-right from the reel, ``ArticleLayer``) renders an
 ordered triple of panels. Which three depends on the story's **detail category** —
-one of nine buckets. This module is the SINGLE backend source of truth for that
+one of eight buckets (phase-SP1 removed ``breaking``). This module is the SINGLE
+backend source of truth for that
 mapping; ``src/lib/detailTemplates.ts`` is its byte-for-byte frontend twin (Rule 7:
 the two must never drift — a parity test guards it).
 
@@ -20,11 +21,10 @@ The ``analytic`` panels of a template (in order) are exactly the panels the
 enrichment LLM must produce, each persisted as a ``story_analytics`` row at its
 ``analytic_slot_index`` (its position among the analytic panels, 0-based).
 
-Locked owner table (2026-06-16):
+Locked owner table (2026-06-16; ``breaking`` removed in phase-SP1):
 
     | category | slot 1            | slot 2                  | slot 3                       |
     |----------|-------------------|-------------------------|------------------------------|
-    | breaking | timeline          | what_we_know            | coverage (reach_lite)        |
     | world    | timeline          | stakes                  | coverage (partisan)          |
     | markets  | timeline          | market_impact           | by_the_numbers               |
     | tech     | timeline          | why_it_matters          | the_concept                  |
@@ -47,11 +47,10 @@ from typing import Literal
 
 from agents.pipeline.models import AnalyticKind, CoverageMode
 
-# The nine Detail-page buckets a story can fall into. Distinct from the 5-valued
-# ``segment_slug`` enum and aligned to the frontend's 9 design buckets
-# (``src/lib/feedBuckets.ts`` ``DesignBucketId``).
+# The eight Detail-page buckets a story can fall into (phase-SP1 removed
+# ``breaking``). Distinct from the 5-valued ``segment_slug`` enum and aligned to
+# the frontend's design buckets (``src/lib/feedBuckets.ts`` ``DesignBucketId``).
 DetailCategory = Literal[
-    "breaking",
     "world",
     "markets",
     "tech",
@@ -108,11 +107,6 @@ def _analytic(kind: AnalyticKind, label: str) -> PanelSpec:
 
 # The ordered triple of panels each detail category renders. THE source of truth.
 DETAIL_TEMPLATES: dict[DetailCategory, list[PanelSpec]] = {
-    "breaking": [
-        _timeline(),
-        _analytic("what_we_know", "WHAT WE KNOW"),
-        _coverage("reach_lite"),
-    ],
     "world": [
         _timeline(),
         _analytic("stakes", "STAKES"),
@@ -159,7 +153,6 @@ DETAIL_TEMPLATES: dict[DetailCategory, list[PanelSpec]] = {
 # ``podcasts``) → detail category. The source buckets pass through unchanged;
 # the topic buckets rename to their screen-bucket key.
 _FEED_CATEGORY_TO_DETAIL: dict[str, DetailCategory] = {
-    "breaking": "breaking",
     "world_politics": "world",
     "tech_science": "tech",
     "markets": "markets",
@@ -172,7 +165,7 @@ _FEED_CATEGORY_TO_DETAIL: dict[str, DetailCategory] = {
 
 # story_segment_slug (the 5-valued ``segment_slug`` enum) → detail category. The
 # persist layer already resolves a story's segment, and the 5 segments map 1:1 onto
-# the 5 non-breaking TOPIC detail categories — ``wildcard`` is the Culture catch-all
+# the 5 TOPIC detail categories — ``wildcard`` is the Culture catch-all
 # (matches ``categories.SLUG_TO_CATEGORY``'s wildcard→culture). Source categories
 # (youtube/podcasts/x) are NOT reachable from a segment — they come from source
 # ingestion (phase-5d), which sets the detail category directly from the source type.
@@ -189,63 +182,60 @@ _SEGMENT_TO_DETAIL: dict[str, DetailCategory] = {
 DEFAULT_DETAIL_CATEGORY: DetailCategory = "culture"
 
 
-def detail_category_for_segment(segment_slug: str, is_breaking: bool) -> DetailCategory:
+def detail_category_for_segment(segment_slug: str, is_breaking: bool = False) -> DetailCategory:
     """Resolve a topic story's Detail category from its segment (deterministic).
 
     The persist/orchestrator path already computes ``story_segment_slug``, so this
-    is the call site used for GDELT topic stories. Breaking wins first; otherwise
-    the segment maps to its topic detail category, falling back to Culture for an
-    unknown segment.
+    is the call site used for GDELT topic stories. The segment maps to its topic
+    detail category, falling back to Culture for an unknown segment.
+
+    ``is_breaking`` is accepted for backward-compat with existing callers but is
+    IGNORED — the ``breaking`` detail template was removed in phase-SP1 (the
+    velocity signal lives on in ``CoverageMomentum`` / ``story_is_breaking``, not as
+    a Detail-page bucket).
 
     Args:
         segment_slug: The story's ``story_segment_slug`` ('geopolitics' / 'markets' /
             'tech' / 'sport' / 'wildcard', or any other value).
-        is_breaking: Whether the story is flagged breaking (GDELT census signal).
+        is_breaking: Accepted for backward-compat; ignored (phase-SP1).
 
     Returns:
         The locked detail category whose template the Detail page should render.
 
     Example:
-        >>> detail_category_for_segment("geopolitics", is_breaking=False)
+        >>> detail_category_for_segment("geopolitics")
         'world'
-        >>> detail_category_for_segment("wildcard", is_breaking=False)
+        >>> detail_category_for_segment("wildcard")
         'culture'
-        >>> detail_category_for_segment("markets", is_breaking=True)
-        'breaking'
     """
-    if is_breaking:
-        return "breaking"
     return _SEGMENT_TO_DETAIL.get(segment_slug, DEFAULT_DETAIL_CATEGORY)
 
 
-def detail_category_for(feed_category: str | None, is_breaking: bool) -> DetailCategory:
+def detail_category_for(feed_category: str | None, is_breaking: bool = False) -> DetailCategory:
     """Resolve a story's Detail-page category (deterministic — Rule 5).
 
-    Breaking wins first (a breaking story uses the Breaking template regardless of
-    its underlying topic). Otherwise the story's 9-valued ``feed_category`` maps to
-    its detail category; an unknown/empty category falls back to
-    :data:`DEFAULT_DETAIL_CATEGORY` so every story is always renderable.
+    The story's ``feed_category`` maps to its detail category; an unknown/empty
+    category falls back to :data:`DEFAULT_DETAIL_CATEGORY` so every story is always
+    renderable.
+
+    ``is_breaking`` is accepted for backward-compat with existing callers but is
+    IGNORED — the ``breaking`` detail template was removed in phase-SP1.
 
     Args:
         feed_category: The story's screen category (``categories.category_for_slug``
             output, e.g. ``"world_politics"`` / ``"markets"`` / ``"youtube"``), or
             ``None`` when no category signal is available.
-        is_breaking: Whether the story is flagged breaking (derived at persist from
-            the GDELT coverage census, ``coverage_momentum == "breaking"``).
+        is_breaking: Accepted for backward-compat; ignored (phase-SP1).
 
     Returns:
         The locked detail category whose template the Detail page should render.
 
     Example:
-        >>> detail_category_for("world_politics", is_breaking=False)
+        >>> detail_category_for("world_politics")
         'world'
-        >>> detail_category_for("markets", is_breaking=True)
-        'breaking'
-        >>> detail_category_for(None, is_breaking=False)
+        >>> detail_category_for(None)
         'culture'
     """
-    if is_breaking:
-        return "breaking"
     if feed_category is None:
         return DEFAULT_DETAIL_CATEGORY
     return _FEED_CATEGORY_TO_DETAIL.get(feed_category, DEFAULT_DETAIL_CATEGORY)

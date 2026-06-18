@@ -61,9 +61,10 @@ export interface BuildYour30Props {
   /**
    * The CATEGORY buckets the user selected in the interest picker (derived via
    * {@link categoryBucketsFromFollows}). When provided and NON-EMPTY, the screen seeds
-   * only those category blocks (+ always-on "breaking" + the source blocks) instead of all
-   * 8 — so categories the user skipped no longer appear. Empty/undefined (picker skipped, or
-   * a returning user re-onboarding) falls back to the full default seed, never an empty one.
+   * only those category blocks (+ the source blocks) instead of all 7 — so categories
+   * the user skipped no longer appear (phase-SP1 removed the always-on "breaking"
+   * block). Empty/undefined (picker skipped, or a returning user re-onboarding) falls
+   * back to the full default seed, never an empty one.
    * A saved allocation, when present, still takes precedence over this (returning users).
    */
   selectedCategoryBuckets?: DesignBucketId[];

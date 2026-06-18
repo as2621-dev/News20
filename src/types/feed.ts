@@ -173,10 +173,10 @@ export interface Story {
   caption_sentences: CaptionSentence[];
   /**
    * The daily-feed slot tier that placed this story (`daily_feeds.feed_slot_kind`):
-   * `"breaking"` for the top-Importance breaking tier, `"interest"` for a
-   * category-filled slot. `undefined` on the global/fixture feed (no slot tier).
-   * Drives the reel's "Breaking" chip override (otherwise the chip shows the
-   * story's own {@link segment_label}).
+   * `"interest"` for a category-filled slot, `"source"` for a followed-source slot.
+   * `undefined` on the global/fixture feed (no slot tier). The breaking tier was
+   * removed in phase-SP1 (the velocity signal lives on as `story_is_breaking`, not a
+   * slot kind).
    */
-  feed_slot_kind?: "breaking" | "interest";
+  feed_slot_kind?: "interest" | "source";
 }

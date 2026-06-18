@@ -445,14 +445,13 @@ async def _run() -> int:
     # per category — the ceiling on reels generated for each. This is the number
     # the run will enforce after the gate (no single category can exceed it).
     allocation_by_user = _load_category_allocation(supabase, active_user_ids)
-    caps, breaking_headroom = compute_category_produce_caps(
+    caps = compute_category_produce_caps(
         allocation_by_user, active_user_ids, DEFAULT_FEED_ALLOCATION
     )
     print("  per-category produce caps ....")
     if caps:
         for category, cap in sorted(caps.items()):
             print(f"      {category:<16} {cap}")
-        print(f"      (breaking headroom: top-{breaking_headroom} by importance)")
     else:
         print(
             f"      none — no active users (fallback default cap = "

@@ -136,7 +136,7 @@ def _component_lookup(
 
 
 def _interest_of(slot: AllocatedSlot, by_story: dict[str, ScoredCandidate]) -> str:
-    """The interest a slot is attributed to (breaking slots fall back to best cand)."""
+    """The interest a slot is attributed to (source slots fall back to best cand)."""
     if slot.feed_matched_interest_id:
         return slot.feed_matched_interest_id
     candidate = by_story.get(slot.feed_story_id)
@@ -193,23 +193,17 @@ def render_profile(
     for label, ok in _profile_checks(profile, slots, by_story).items():
         lines.append(f"     [{'PASS' if ok else 'FAIL'}] {label}")
 
-    # Observation (not a pass/fail): surface breaking-driven concentration so the
-    # >40% share a dominant interest can reach via the breaking tier is visible,
-    # not hidden — it is within spec (§3.1 breaking preempts the proportional cap).
+    # Observation (not a pass/fail): surface single-interest concentration so a
+    # >40% share a dominant interest reaches is visible, not hidden. With the
+    # breaking tier removed (phase-SP1) this can only come from a category's own
+    # budget + soft-roll, so it is reported for awareness, not flagged.
     if slots:
         top_interest, top_count = interest_mix.most_common(1)[0]
         top_share = top_count / len(slots)
         if top_share > 0.40:
-            breaking_for_top = sum(
-                1
-                for s in slots
-                if s.feed_slot_kind == "breaking"
-                and _interest_of(s, by_story) == top_interest
-            )
             lines.append(
                 f"     · note: {top_interest} is {top_share:.0%} of the feed "
-                f"({breaking_for_top} via breaking-tier preemption, exempt from the "
-                f"40% cap by §3.1)"
+                f"(via its category budget + soft-roll)"
             )
     return "\n".join(lines)
 
@@ -239,12 +233,12 @@ def _profile_checks(
         )
     elif profile.profile_key == "B":
         # Broad multi-interest. The §3.4 cap bounds the INTEREST-fill bucket at
-        # ~40% of N; breaking preemption (§3.1) is intentionally exempt — so the
-        # real invariant is on interest-kind slots, not the whole feed.
+        # ~40% of N — the real invariant is on interest-kind slots, not the whole
+        # feed (phase-SP1 removed the breaking tier, so no slot is exempt).
         interest_slots = [s for s in slots if s.feed_slot_kind == "interest"]
         per_interest = Counter(_interest_of(s, by_story) for s in interest_slots)
         cap = round(0.40 * 30) + 1  # +1 for floor-1 / largest-remainder slack
-        checks["broad: interest-fill cap ~40% holds (breaking exempt per §3.1)"] = (
+        checks["broad: interest-fill cap ~40% holds"] = (
             not per_interest or max(per_interest.values()) <= cap
         )
         # world follower should receive geopolitics/health stories (ancestor tags).
@@ -286,16 +280,18 @@ def _profile_checks(
             and score_by_id["ent-twin-nvidia"] > score_by_id["ent-twin-plain"]
             and position_by_id["ent-twin-nvidia"] < position_by_id["ent-twin-plain"]
         )
-        # Budget honored: feed totals Σ budgets (== 30), no duplicate story, and the
-        # 2-slot breaking tier is filled (source youtube/x budgets rolled into topics).
-        breaking_count = sum(1 for s in slots if s.feed_slot_kind == "breaking")
+        # Budget honored: feed totals Σ budgets (== 30), no duplicate story, and
+        # every slot is one of the two surviving kinds (phase-SP1 removed breaking;
+        # source youtube/x budgets soft-roll into the topic categories).
         checks["budget: feed totals 30 (source budgets rolled into topics)"] = (
             len(slots) == 30
         )
         checks["budget: no duplicate story in the feed"] = len(story_ids) == len(
             set(story_ids)
         )
-        checks["budget: the 2-slot breaking tier is filled"] = breaking_count == 2
+        checks["budget: only {interest, source} slot kinds (no breaking)"] = all(
+            s.feed_slot_kind in {"interest", "source"} for s in slots
+        )
     return checks
 
 

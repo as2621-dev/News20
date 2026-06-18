@@ -6,13 +6,14 @@ per-category slot budgets + manual sequence**. These tests pin the new invariant
 (Rule 9 — each encodes WHY the behavior matters):
 
   - **Exact per-category budgets** honored (subject to story availability), in the
-    user's manual **sequence** order; the breaking tier filled by top-Importance.
+    user's manual **sequence** order. (phase-SP1 removed the breaking tier — every
+    slot is now ``interest`` or ``source``.)
   - **Source soft-roll**: ``youtube``/``x`` are budgeted-but-empty (phase-5d); their
     slots roll into the topic categories so ``len(feed) == 30``.
   - **Entity bonus** lifts a Nvidia-followed story above its non-followed twin
     WITHIN its category (Layer-2 scoring feeding Layer-1 allocation).
   - **No-allocation default**: a pre-screen user gets the balanced fallback
-    (``breaking 4`` + even split across non-empty topic categories).
+    (an even split of the full 30 across non-empty topic categories).
   - **Sparse category yields forward**: a category with no eligible stories gives
     its slots to the next sequence category (no gap), feed still fills toward 30.
   - **§3.8 don't-repeat** (prior-feed exclusion) + **within-feed dedup** preserved.
@@ -32,7 +33,6 @@ from datetime import date, datetime, timezone
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline.categories import CategoryAllocation
 from agents.pipeline.feed_assembly import (
-    SLOT_KIND_BREAKING,
     SLOT_KIND_INTEREST,
     SLOT_KIND_SOURCE,
     AllocatedSlot,
@@ -140,16 +140,20 @@ def _category_of(story_id: str) -> str:
 
 
 def _dod_allocation() -> list[CategoryAllocation]:
-    """The DoD allocation: 2/4/5/4/3/3 topics+breaking, 6+3 source (sums to 30)."""
+    """The DoD allocation: 5/5/4/3/4 topics, 6+3 source (sums to 30).
+
+    phase-SP1 removed the breaking tier; its 2 default slots were absorbed by
+    world_politics +1 and culture +1 (mirroring DEFAULT_FEED_ALLOCATION), so the
+    7-category budgets still total 30.
+    """
     spec = [
-        ("breaking", 2, 0),
-        ("world_politics", 4, 1),
-        ("tech_science", 5, 2),
-        ("markets", 4, 3),
-        ("sport", 3, 4),
-        ("culture", 3, 5),
-        ("youtube", 6, 6),
-        ("x", 3, 7),
+        ("world_politics", 5, 0),
+        ("tech_science", 5, 1),
+        ("markets", 4, 2),
+        ("sport", 3, 3),
+        ("culture", 4, 4),
+        ("youtube", 6, 5),
+        ("x", 3, 6),
     ]
     return [
         CategoryAllocation(
@@ -224,20 +228,20 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
     category has EXACTLY its budgeted stories and there is NO source budget.
 
     WHY: the whole point of "Build your 30" is that the feed honors the counts the
-    user dialed. With each topic holding exactly its budget of stories, two dedicated
-    high-Importance breaking stories, and zero source budget, the feed must be EXACTLY
-    2 breaking + 4/5/4/3/3 topic slots = 21, ordered breaking-first then by
+    user dialed. With each topic holding exactly its budget of stories and zero
+    source budget, the feed must be EXACTLY 5/5/4/3/4 topic slots = 21, ordered by
     ``allocation_sort_order``. This fails the moment a per-category budget is
-    mis-counted or the sequence order is dropped.
+    mis-counted or the sequence order is dropped. (phase-SP1: no breaking tier — all
+    slots are ``interest``.)
     """
     # Each topic holds EXACTLY its budgeted count of equal-coverage stories, so the
     # topic-slot count per category is unambiguous (no surplus to roll, no shortfall).
     budget_by_category = {
-        "world_politics": 4,
+        "world_politics": 5,
         "tech_science": 5,
         "markets": 4,
         "sport": 3,
-        "culture": 3,
+        "culture": 4,
     }
     stories: list[CanonicalStory] = []
     tags: list[StoryInterestTag] = []
@@ -247,47 +251,32 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
             story_id = f"{category}-{index}"
             stories.append(_story(story_id, outlet_count=4))
             tags.append(_tag(story_id, interest_id))
-    # Two dedicated high-Importance breaking stories (distinct ids) so the breaking
-    # tier pulls THESE, leaving every topic's budgeted stories intact for its slots.
-    stories += [
-        _story("world_politics-break", outlet_count=40),
-        _story("tech_science-break", outlet_count=38),
-    ]
-    tags += [
-        _tag("world_politics-break", _INTEREST_WORLD),
-        _tag("tech_science-break", _INTEREST_TECH),
-    ]
 
     allocation = [
         CategoryAllocation(
-            allocation_category="breaking",
-            allocation_slot_count=2,
-            allocation_sort_order=0,
-        ),
-        CategoryAllocation(
             allocation_category="world_politics",
-            allocation_slot_count=4,
-            allocation_sort_order=1,
+            allocation_slot_count=5,
+            allocation_sort_order=0,
         ),
         CategoryAllocation(
             allocation_category="tech_science",
             allocation_slot_count=5,
-            allocation_sort_order=2,
+            allocation_sort_order=1,
         ),
         CategoryAllocation(
             allocation_category="markets",
             allocation_slot_count=4,
-            allocation_sort_order=3,
+            allocation_sort_order=2,
         ),
         CategoryAllocation(
             allocation_category="sport",
             allocation_slot_count=3,
-            allocation_sort_order=4,
+            allocation_sort_order=3,
         ),
         CategoryAllocation(
             allocation_category="culture",
-            allocation_slot_count=3,
-            allocation_sort_order=5,
+            allocation_slot_count=4,
+            allocation_sort_order=4,
         ),
     ]
 
@@ -300,31 +289,21 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
         now_utc=_NOW,
     )
 
-    assert len(slots) == 21, "2 breaking + 4+5+4+3+3 topic slots"
-    # Breaking is the first 2 positions, kind=breaking, and exactly the 2 spikes.
-    assert [s.feed_slot_kind for s in slots[:2]] == [SLOT_KIND_BREAKING] * 2
-    assert {s.feed_story_id for s in slots[:2]} == {
-        "world_politics-break",
-        "tech_science-break",
-    }
-    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots[2:])
+    assert len(slots) == 21, "5+5+4+3+4 topic slots"
+    # Every slot is an interest slot (no breaking tier, no source budget here).
+    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots)
 
-    # Each category's TOPIC slots (kind=interest) match its budget EXACTLY — the
-    # breaking tier is counted separately and does not inflate a topic budget.
-    topic_by_category = Counter(
-        _category_of(s.feed_story_id)
-        for s in slots
-        if s.feed_slot_kind == SLOT_KIND_INTEREST
-    )
-    assert topic_by_category["world_politics"] == 4
+    # Each category's TOPIC slots match its budget EXACTLY.
+    topic_by_category = Counter(_category_of(s.feed_story_id) for s in slots)
+    assert topic_by_category["world_politics"] == 5
     assert topic_by_category["tech_science"] == 5
     assert topic_by_category["markets"] == 4
     assert topic_by_category["sport"] == 3
-    assert topic_by_category["culture"] == 3
+    assert topic_by_category["culture"] == 4
 
     # Topic slots appear in the user's sequence: all world_politics before any
-    # tech_science (among the non-breaking slots), etc.
-    topic_order = [_category_of(s.feed_story_id) for s in slots[2:]]
+    # tech_science, etc.
+    topic_order = [_category_of(s.feed_story_id) for s in slots]
     sequence = ["world_politics", "tech_science", "markets", "sport", "culture"]
     last_rank = -1
     for category in topic_order:
@@ -333,82 +312,6 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
             f"out-of-sequence category {category} in {topic_order}"
         )
         last_rank = rank
-
-
-def test_breaking_block_sits_at_its_allocation_sort_order() -> None:
-    """The breaking tier is placed at the breaking row's OWN ``allocation_sort_order``,
-    NOT hard-forced to the front.
-
-    WHY (Rule 9): "Build your 30" promises the user's chosen #1 category leads the
-    feed. ash dialed ``tech_science`` to sort_order 0 and ``breaking`` to 1, yet the
-    old allocator put breaking at positions #1/#2 — so the first card was a breaking
-    markets story, not his Tech & Science. This asserts the contract that fixes that:
-    with breaking at sort_order 1, the tech_science slots come FIRST, then the
-    contiguous breaking block, then world_politics. This test fails the moment
-    breaking is forced ahead of a lower-sort_order topic again.
-    """
-    # tech_science + world_politics each hold exactly their budget of normal stories;
-    # two distinct high-Importance spikes (one tagged tech, one world) are what the
-    # breaking tier promotes (and are removed from their topic buckets).
-    stories: list[CanonicalStory] = []
-    tags: list[StoryInterestTag] = []
-    for index in range(3):
-        story_id = f"tech_science-{index}"
-        stories.append(_story(story_id, outlet_count=4))
-        tags.append(_tag(story_id, _CATEGORY_INTEREST["tech_science"]))
-    for index in range(2):
-        story_id = f"world_politics-{index}"
-        stories.append(_story(story_id, outlet_count=4))
-        tags.append(_tag(story_id, _CATEGORY_INTEREST["world_politics"]))
-    stories += [
-        _story("tech_science-break", outlet_count=40),
-        _story("world_politics-break", outlet_count=38),
-    ]
-    tags += [
-        _tag("tech_science-break", _CATEGORY_INTEREST["tech_science"]),
-        _tag("world_politics-break", _CATEGORY_INTEREST["world_politics"]),
-    ]
-
-    allocation = [
-        CategoryAllocation(
-            allocation_category="tech_science",
-            allocation_slot_count=3,
-            allocation_sort_order=0,
-        ),
-        CategoryAllocation(
-            allocation_category="breaking",
-            allocation_slot_count=2,
-            allocation_sort_order=1,
-        ),
-        CategoryAllocation(
-            allocation_category="world_politics",
-            allocation_slot_count=2,
-            allocation_sort_order=2,
-        ),
-    ]
-
-    slots = assemble_user_feed(
-        profile_interests=_ALL_TOPIC_PROFILE,
-        stories=stories,
-        story_interest_tags=tags,
-        interest_nodes=_INTEREST_NODES,
-        category_allocation=allocation,
-        now_utc=_NOW,
-    )
-
-    assert len(slots) == 7, "3 tech + 2 breaking + 2 world"
-    # tech_science (sort_order 0) leads — NOT breaking.
-    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots[:3])
-    assert all(_category_of(s.feed_story_id) == "tech_science" for s in slots[:3])
-    # The breaking block sits NEXT (sort_order 1), contiguous, and is the 2 spikes.
-    assert [s.feed_slot_kind for s in slots[3:5]] == [SLOT_KIND_BREAKING] * 2
-    assert {s.feed_story_id for s in slots[3:5]} == {
-        "tech_science-break",
-        "world_politics-break",
-    }
-    # world_politics (sort_order 2) comes last.
-    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots[5:7])
-    assert all(_category_of(s.feed_story_id) == "world_politics" for s in slots[5:7])
 
 
 def test_source_budget_rolls_into_topics_so_feed_totals_30() -> None:
@@ -436,8 +339,9 @@ def test_source_budget_rolls_into_topics_so_feed_totals_30() -> None:
     story_ids = [s.feed_story_id for s in slots]
     assert len(story_ids) == len(set(story_ids)), "no duplicate story in one feed"
     assert [s.feed_position for s in slots] == list(range(1, 31)), "positions 1..30"
-    # Breaking tier is exactly the budgeted 2; the rest are category slots.
-    assert sum(1 for s in slots if s.feed_slot_kind == SLOT_KIND_BREAKING) == 2
+    # Every placed slot is an interest slot (source budgets rolled into topics, no
+    # breaking tier exists post phase-SP1).
+    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots)
     # No source-category story ever appears (youtube/x have no stories to place).
     assert not any(_category_of(s.feed_story_id) in ("youtube", "x") for s in slots), (
         "source categories contribute zero items"
@@ -527,20 +431,21 @@ def test_unfilled_source_budget_still_rolls_into_topics() -> None:
     assert len(story_ids) == len(set(story_ids)), "no duplicate story in one feed"
 
 
-def test_breaking_tier_filled_by_importance_and_not_double_placed() -> None:
-    """Breaking pulls the top-Importance stories and removes them from their topic
-    bucket (no double-placement).
+def test_no_slot_is_ever_breaking_kind() -> None:
+    """No assembled slot is ever a ``breaking`` slot kind (phase-SP1 invariant).
 
-    WHY: ``breaking`` is a tier (top-Importance across topics), and a story promoted
-    to breaking must NOT also occupy a topic slot — that would duplicate it and
-    miscount the budget. We make two stories overwhelmingly high-Importance and
-    assert they take the 2 breaking slots and appear exactly once.
+    WHY (Rule 9): the breaking tier was removed. This guards the regression — even
+    when the pool contains overwhelmingly high-Importance stories that the OLD
+    allocator would have promoted into a breaking tier, every emitted slot must now
+    be ``interest`` or ``source``. It fails the moment any breaking-tier code is
+    reintroduced.
     """
     stories, tags = _pool_per_category(6)
-    # Two very-high-coverage stories (Importance spike) in distinct categories.
-    big_a = _story("world_politics-big", outlet_count=40)
-    big_b = _story("tech_science-big", outlet_count=38)
-    stories += [big_a, big_b]
+    # Two very-high-coverage stories (would have been Importance "spikes").
+    stories += [
+        _story("world_politics-big", outlet_count=40),
+        _story("tech_science-big", outlet_count=38),
+    ]
     tags += [
         _tag("world_politics-big", _INTEREST_WORLD),
         _tag("tech_science-big", _INTEREST_TECH),
@@ -555,20 +460,13 @@ def test_breaking_tier_filled_by_importance_and_not_double_placed() -> None:
         now_utc=_NOW,
     )
 
-    breaking_ids = {
-        s.feed_story_id for s in slots if s.feed_slot_kind == SLOT_KIND_BREAKING
-    }
-    assert breaking_ids == {"world_politics-big", "tech_science-big"}, (
-        "the two Importance spikes take the breaking slots"
-    )
-    # Each breaking story appears exactly once (not also as a topic slot).
+    assert slots, "the feed is non-empty"
+    assert all(
+        s.feed_slot_kind in {SLOT_KIND_INTEREST, SLOT_KIND_SOURCE} for s in slots
+    ), "only {interest, source} slot kinds — no breaking tier"
+    # No duplicate placement.
     all_ids = [s.feed_story_id for s in slots]
-    for breaking_id in breaking_ids:
-        assert all_ids.count(breaking_id) == 1, f"{breaking_id} double-placed"
-    # Breaking slots carry no matched-interest attribution.
-    for slot in slots:
-        if slot.feed_slot_kind == SLOT_KIND_BREAKING:
-            assert slot.feed_matched_interest_id is None
+    assert len(all_ids) == len(set(all_ids))
 
 
 def test_followed_entity_lifts_story_within_its_category() -> None:
@@ -639,13 +537,14 @@ def test_followed_entity_lifts_story_within_its_category() -> None:
 
 def test_no_allocation_user_gets_balanced_default() -> None:
     """A user with NO ``user_feed_allocation`` rows gets the balanced default
-    (breaking 4 + an even split across non-empty topic categories).
+    (an even split of the full 30 across non-empty topic categories).
 
     WHY: pre-screen users must still receive a feed. The default replaces the old
-    affinity-proportional behavior. With 5 non-empty topic categories and a deep
-    pool, the default is breaking 4 + 26 split 6/5/5/5/5 across the 5 topics → 30
-    slots. This fails if the empty ``category_allocation`` path does not synthesize
-    a default.
+    affinity-proportional behavior. phase-SP1 removed the breaking tier, so the
+    default now evenly splits the FULL 30 across non-empty topics — with 5 non-empty
+    topic categories and a deep pool that is 6/6/6/6/6 → 30 slots, all ``interest``
+    kind. This fails if the empty ``category_allocation`` path does not synthesize a
+    default, or if a breaking slot reappears.
     """
     stories, tags = _pool_per_category(12)
 
@@ -659,17 +558,18 @@ def test_no_allocation_user_gets_balanced_default() -> None:
     )
 
     assert len(slots) == 30, "balanced default fills the full 30-slot feed"
-    assert sum(1 for s in slots if s.feed_slot_kind == SLOT_KIND_BREAKING) == 4, (
-        "default breaking budget is 4"
+    assert all(s.feed_slot_kind == SLOT_KIND_INTEREST for s in slots), (
+        "the default feed is all interest slots — no breaking tier post phase-SP1"
     )
     # All 5 topic categories are represented (even split, none starved).
-    represented = {
-        _category_of(s.feed_story_id)
-        for s in slots
-        if s.feed_slot_kind == SLOT_KIND_INTEREST
-    }
+    represented = {_category_of(s.feed_story_id) for s in slots}
     assert represented == set(_CATEGORY_INTEREST.keys()), (
         "the even split must touch every non-empty topic category"
+    )
+    # Even split of 30 across 5 topics → 6 each.
+    per_category = Counter(_category_of(s.feed_story_id) for s in slots)
+    assert all(count == 6 for count in per_category.values()), (
+        "30 split evenly across 5 non-empty topics is 6 per category"
     )
     story_ids = [s.feed_story_id for s in slots]
     assert len(story_ids) == len(set(story_ids)), "no duplicate story"
@@ -697,34 +597,29 @@ def test_empty_category_yields_slots_to_next_in_sequence() -> None:
 
     allocation = [
         CategoryAllocation(
-            allocation_category="breaking",
-            allocation_slot_count=2,
-            allocation_sort_order=0,
-        ),
-        CategoryAllocation(
             allocation_category="world_politics",
             allocation_slot_count=5,
-            allocation_sort_order=1,
+            allocation_sort_order=0,
         ),
         CategoryAllocation(
             allocation_category="tech_science",
             allocation_slot_count=5,
-            allocation_sort_order=2,
+            allocation_sort_order=1,
         ),
         CategoryAllocation(
             allocation_category="markets",
             allocation_slot_count=5,
-            allocation_sort_order=3,
+            allocation_sort_order=2,
         ),
         CategoryAllocation(
             allocation_category="sport",
-            allocation_slot_count=8,
-            allocation_sort_order=4,
+            allocation_slot_count=10,
+            allocation_sort_order=3,
         ),
         CategoryAllocation(
             allocation_category="culture",
             allocation_slot_count=5,
-            allocation_sort_order=5,
+            allocation_sort_order=4,
         ),
     ]
 
@@ -740,9 +635,9 @@ def test_empty_category_yields_slots_to_next_in_sequence() -> None:
     assert not any(_category_of(s.feed_story_id) == "sport" for s in slots), (
         "no sport story exists, so none can appear"
     )
-    # The 8 sport slots yielded forward; the feed still fills to its 30 target given
+    # The 10 sport slots yielded forward; the feed still fills to its 30 target given
     # the deep pool in the other four topic categories.
-    assert len(slots) == 30, "sport's 8 budgeted slots rolled forward to fill 30"
+    assert len(slots) == 30, "sport's 10 budgeted slots rolled forward to fill 30"
     story_ids = [s.feed_story_id for s in slots]
     assert len(story_ids) == len(set(story_ids)), "no duplicate story"
     assert [s.feed_position for s in slots] == list(range(1, 31))

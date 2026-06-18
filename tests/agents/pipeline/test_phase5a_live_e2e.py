@@ -66,15 +66,16 @@ _NVIDIA_ENTITY_ID = "ai/ai-hardware-compute/companies-topics/nvidia"
 
 # The DoD allocation (phase-5a SP4): topic + source budgets sum to 30, so the feed
 # must be 30 slots with the 9 source slots (youtube 6 + x 3) rolled into topics.
+# phase-SP1 removed the breaking tier; its 2 slots were absorbed by world_politics
+# +1 and culture +1 (mirroring DEFAULT_FEED_ALLOCATION) so budgets still total 30.
 _DOD_ALLOCATION: tuple[tuple[str, int, int], ...] = (
-    ("breaking", 2, 0),
-    ("world_politics", 4, 1),
-    ("tech_science", 5, 2),
-    ("markets", 4, 3),
-    ("sport", 3, 4),
-    ("culture", 3, 5),
-    ("youtube", 6, 6),
-    ("x", 3, 7),
+    ("world_politics", 5, 0),
+    ("tech_science", 5, 1),
+    ("markets", 4, 2),
+    ("sport", 3, 3),
+    ("culture", 4, 4),
+    ("youtube", 6, 5),
+    ("x", 3, 6),
 )
 
 
@@ -188,31 +189,29 @@ def test_live_allocator_honors_budgets_and_lifts_followed_entity() -> None:
         assert len(slots) == 30, "source budgets must roll into topics → feed totals 30"
         assert len(story_ids) == len(set(story_ids)), "no story may appear twice"
 
-        breaking_count = sum(1 for s in slots if s.feed_slot_kind == "breaking")
-        assert breaking_count == 2, "breaking is user-budgeted to 2 (not the default 4)"
+        # phase-SP1: no breaking tier — every slot is interest or source.
+        assert all(
+            s.feed_slot_kind in {"interest", "source"} for s in slots
+        ), "only {interest, source} slot kinds (no breaking tier)"
 
         markets_slots = [
             s
             for s in slots
-            if s.feed_slot_kind != "breaking"
+            if s.feed_slot_kind == "interest"
             and category_for_slug(s.feed_matched_interest_id) == "markets"
         ]
         assert len(markets_slots) == 4, "markets must hold exactly its 4-slot budget"
 
-        # Sequence: breaking first, then topics in allocation_sort_order.
+        # Sequence: topics in allocation_sort_order (no breaking tier to lead).
         category_sequence: list[str] = []
         for slot in slots:
-            category = (
-                "breaking"
-                if slot.feed_slot_kind == "breaking"
-                else category_for_slug(slot.feed_matched_interest_id)
-            )
+            if slot.feed_matched_interest_id is None:
+                continue  # source slot — not a topic in the sequence check
+            category = category_for_slug(slot.feed_matched_interest_id)
             if category not in category_sequence:
                 category_sequence.append(category)
-        assert category_sequence[0] == "breaking"
-        topic_order = [c for c in category_sequence if c != "breaking"]
         expected_order = ["world_politics", "tech_science", "markets", "sport"]
-        assert topic_order == [c for c in expected_order if c in topic_order]
+        assert category_sequence == [c for c in expected_order if c in category_sequence]
 
         # ── Entity invariant (the Nvidia story outranks its twin WITHIN markets) ──
         by_id = {s.feed_story_id: s for s in slots}

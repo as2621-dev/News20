@@ -1,10 +1,10 @@
 /**
  * Feed-allocation design buckets ("Build your 30, in order", Blip Flow Stage 3) and
- * the EXPLICIT mapping between the UI's 9 design bucket ids and the backend
+ * the EXPLICIT mapping between the UI's 8 design bucket ids and the backend
  * `feed_category` enum (migration `0008_feed_allocation.sql` + `0010_feed_category_podcasts.sql`).
  *
  * WHY this module is the single source of truth (Rule 7 — never let two ids drift):
- *  - The prototype (`blip-sequence.js`) draws 9 buckets with its OWN short design ids
+ *  - The prototype (`blip-sequence.js`) draws 8 buckets with its OWN short design ids
  *    (`world`, `tech`, …) and 9 colors/glyphs. The DB enum uses snake_case machine
  *    keys (`world_politics`, `tech_science`, …) and has NO color/label (those live in
  *    the frontend per migration 0008 §1). This file holds BOTH and the bijection between
@@ -23,21 +23,11 @@
 import { logger } from "@/lib/logger";
 import type { ContentSourceType } from "@/types/source";
 
-/** The 9 design bucket ids the "Build your 30" screen draws (verbatim from the prototype). */
-export type DesignBucketId =
-  | "breaking"
-  | "world"
-  | "markets"
-  | "tech"
-  | "sport"
-  | "culture"
-  | "youtube"
-  | "x"
-  | "podcasts";
+/** The 8 design bucket ids the "Build your 30" screen draws (verbatim from the prototype). */
+export type DesignBucketId = "world" | "markets" | "tech" | "sport" | "culture" | "youtube" | "x" | "podcasts";
 
-/** The backend `feed_category` enum values (8 from migration 0008 + `podcasts` from 0010). */
+/** The backend `feed_category` enum values (7 in-use from migration 0008 + `podcasts` from 0010). */
 export type FeedCategoryEnum =
-  | "breaking"
   | "world_politics"
   | "tech_science"
   | "youtube"
@@ -63,11 +53,10 @@ export interface DesignBucket {
 }
 
 /**
- * The 9 design buckets, in the prototype's declaration order. Insertion order matters:
+ * The 8 design buckets, in the prototype's declaration order. Insertion order matters:
  * {@link DESIGN_BUCKET_IDS} (the Add-sheet / completeness checks) reads it.
  */
 export const DESIGN_BUCKETS: Readonly<Record<DesignBucketId, DesignBucket>> = {
-  breaking: { name: "Breaking News", color: "#FACC15", kind: "cat" },
   world: { name: "Geopolitics", color: "#EF4444", kind: "cat" },
   markets: { name: "Markets", color: "#22C55E", kind: "cat" },
   tech: { name: "Tech & Science", color: "#22D3EE", kind: "cat" },
@@ -90,7 +79,6 @@ export const ALLOCATION_TOTAL = 30;
  * rest are identical strings. `podcasts` maps to the 0010 enum value (see module JSDoc).
  */
 export const DESIGN_BUCKET_TO_ENUM: Readonly<Record<DesignBucketId, FeedCategoryEnum>> = {
-  breaking: "breaking",
   world: "world_politics",
   markets: "markets",
   tech: "tech_science",
@@ -125,14 +113,13 @@ export const PODCASTS_ENUM_VALUE: FeedCategoryEnum = "podcasts";
  * has no saved allocation yet.
  */
 export const DEFAULT_ALLOCATION_SEGMENTS: ReadonlyArray<readonly [DesignBucketId, number]> = [
-  ["breaking", 2],
-  ["world", 4],
+  ["world", 5],
   ["tech", 5],
   ["youtube", 6],
   ["markets", 4],
   ["sport", 3],
   ["x", 3],
-  ["culture", 3],
+  ["culture", 4],
 ];
 
 /** One ordered allocation segment as the screen + persistence layer pass it around. */
@@ -163,22 +150,13 @@ export function buildDefaultSegments(): AllocationSegment[] {
 }
 
 /**
- * The category bucket the screen ALWAYS seeds, regardless of what the user picked.
- * "Breaking News" is not a pickable interest — it is a top-importance tier the pipeline
- * fills across every category (`agents/pipeline/categories.py` excludes `breaking` from
- * `TOPIC_CATEGORIES`). So it can never be "selected" and must be force-included, else it
- * would vanish from the 30 for every user (owner decision 2026-06-07).
- */
-export const ALWAYS_INCLUDED_CATEGORY_BUCKET: DesignBucketId = "breaking";
-
-/**
  * Picker ROOT slug → its screen CATEGORY design bucket. Keys are the 8 depth-0 ids of the
  * recursive interest picker (`src/lib/pickerSeedTree.ts`: `ai, geopolitics, business,
  * environment, politics, tech, sport, arts`); a selection's `followId` is a `/`-joined
  * path whose FIRST segment is its root.
  *
  * This is the FRONTEND twin of `agents/pipeline/categories.py` `SLUG_TO_CATEGORY` (the
- * backend story-classifier), re-expressed over the PICKER roots and the 5 non-breaking
+ * backend story-classifier), re-expressed over the PICKER roots and the 5 topic
  * category buckets the screen draws. The folds mirror that locked map:
  *  - `ai`/`tech` → `tech` (the AI subtree is part of Tech & Science on the screen).
  *  - `geopolitics`/`politics`/`environment` → `world` (World & Politics; climate folds in).
@@ -325,7 +303,6 @@ export function categoryBucketsFromInterestVector(interestVector: Readonly<Recor
  * The COMPLETE set of design buckets a user's "Build your 30" may contain, given their real
  * backing — the SINGLE guard enforcing the owner rule (2026-06-17: only categories the user
  * has a followed interest OR source for may appear). Membership:
- *  - {@link ALWAYS_INCLUDED_CATEGORY_BUCKET} ("breaking") — always-on, not a pickable interest;
  *  - every category bucket in `allowedCategoryBuckets` (backed by a followed interest);
  *  - every source bucket in `followedSourceBuckets` (backed by a followed source).
  *
@@ -343,7 +320,6 @@ export function allowedBucketsForSelections(
   followedSourceBuckets: Iterable<DesignBucketId>,
 ): Set<DesignBucketId> {
   const allowed = new Set<DesignBucketId>(allowedCategoryBuckets);
-  allowed.add(ALWAYS_INCLUDED_CATEGORY_BUCKET);
   for (const sourceBucket of followedSourceBuckets) {
     allowed.add(sourceBucket);
   }
@@ -357,18 +333,17 @@ export function allowedBucketsForSelections(
  * all 8 category blocks + all 3 source blocks).
  *
  * Kept in the seed (every other bucket is dropped):
- *  - {@link ALWAYS_INCLUDED_CATEGORY_BUCKET} ("breaking") — always-on;
  *  - every category bucket in `allowedCategoryBuckets` (backed by a followed interest);
  *  - every source bucket in `followedSourceBuckets` (backed by a followed source).
  * Counts are the prototype defaults — the kept blocks may total UNDER 30, so the screen opens
  * on "Fill N more" (owner decision: no auto-rescale), which the budget CTA already handles.
  *
- * @param allowedCategoryBuckets - The category buckets the user backs ("breaking" is forced in).
+ * @param allowedCategoryBuckets - The category buckets the user backs.
  * @param followedSourceBuckets - The source buckets the user follows (was previously never gated).
  * @returns A fresh, mutable ordered segment list (same order as the default seed).
  *
  * @example
- * // User picked Tech + Markets and follows a YouTube channel → breaking, tech, youtube, markets:
+ * // User picked Tech + Markets and follows a YouTube channel → tech, youtube, markets:
  * buildSegmentsForSelections(["tech", "markets"], ["youtube"]);
  */
 export function buildSegmentsForSelections(

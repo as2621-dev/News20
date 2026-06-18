@@ -12,19 +12,11 @@ never produces more of a category than the most-demanding user actually wants.
 Three pure helpers (no DB, no clock, no network — fully unit-testable):
 
   - :func:`compute_category_produce_caps` — fold the per-user allocation rows into
-    ``{category: max slot_count over all users}`` (explicit rows only) plus the
-    cross-user max ``breaking`` budget (a tier, not a produce-category).
-  - :func:`cap_stories_per_category` — classify each gated story, keep the top-N
-    by importance per category (N = its cap), drop categories nobody picked, and
-    union in the top-importance stories that feed the breaking tier.
+    ``{category: max slot_count over all users}`` (explicit rows only).
+  - :func:`cap_stories_per_category` — classify each gated story and keep the top-N
+    by importance per category (N = its cap), dropping categories nobody picked.
   - :func:`enforce_overall_ceiling` — an optional overall ceiling applied AFTER the
     caps, trimmed round-robin across categories so balance is preserved.
-
-``breaking`` is a *tier* the feed allocator fills by top-Importance across all
-topics (:mod:`agents.pipeline.feed_assembly`), and :func:`assign_category` never
-returns it — so the breaking budget is honored here as global importance headroom
-(decision: keep the top-N highest-importance stories regardless of category cap),
-not as a producible bucket.
 """
 
 from __future__ import annotations
@@ -39,18 +31,13 @@ from agents.shared.logger import get_logger
 
 logger = get_logger("pipeline.produce_caps")
 
-# Reason: ``breaking`` is a tier the allocator fills from the topic buckets, not a
-# slug-mapped produce-category. Its cross-user-max budget becomes global importance
-# headroom (see module docstring), so it is split out from the per-category caps.
-_BREAKING_CATEGORY: FeedCategory = "breaking"
-
 
 def compute_category_produce_caps(
     allocation_by_user: dict[str, list],
     active_user_ids: list[str],
     default_allocation: dict[FeedCategory, int],
-) -> tuple[dict[FeedCategory, int], int]:
-    """Fold per-user allocations into per-category produce caps + breaking headroom.
+) -> dict[FeedCategory, int]:
+    """Fold per-user allocations into per-category produce caps.
 
     The cap for a category is the **maximum** slot count any single active user
     wants for it (the user's mental model: produce at most as many as the most-
@@ -60,9 +47,6 @@ def compute_category_produce_caps(
     finishes onboarding. A user WITH rows uses exactly those rows: a category they
     left out means they don't want it (contributes 0), not the default.
 
-    ``breaking`` is split out: it is a tier, not a produce-category, so its cross-
-    user max becomes global importance headroom for :func:`cap_stories_per_category`.
-
     Args:
         allocation_by_user: ``{user_id: [CategoryAllocation, ...]}`` — the shape
             :func:`agents.pipeline.daily_batch._load_category_allocation` returns.
@@ -71,10 +55,8 @@ def compute_category_produce_caps(
             (``agents.pipeline.categories.DEFAULT_FEED_ALLOCATION``).
 
     Returns:
-        ``(caps, breaking_headroom)`` where ``caps`` is
-        ``{category: max slot_count}`` over the topic/source categories (excludes
-        ``breaking``) and ``breaking_headroom`` is the cross-user max breaking
-        budget (0 if none).
+        ``caps`` — ``{category: max slot_count}`` over the 7 topic/source
+        categories.
 
     Example:
         >>> from agents.pipeline.categories import CategoryAllocation
@@ -83,14 +65,11 @@ def compute_category_produce_caps(
         ...                               allocation_slot_count=7,
         ...                               allocation_sort_order=0)],
         ... }
-        >>> caps, breaking = compute_category_produce_caps(
-        ...     allocs, ["u1"], {"markets": 4, "breaking": 2}
-        ... )
-        >>> caps["markets"], breaking  # u1's explicit 7 beats the default 4
-        (7, 0)
+        >>> caps = compute_category_produce_caps(allocs, ["u1"], {"markets": 4})
+        >>> caps["markets"]  # u1's explicit 7 beats the default 4
+        7
     """
     caps: dict[FeedCategory, int] = {}
-    breaking_headroom = 0
     users_using_default = 0
     for user_id in active_user_ids:
         rows = allocation_by_user.get(user_id)
@@ -103,19 +82,15 @@ def compute_category_produce_caps(
             users_using_default += 1
             pairs = list(default_allocation.items())
         for category, slot_count in pairs:
-            if category == _BREAKING_CATEGORY:
-                breaking_headroom = max(breaking_headroom, slot_count)
-                continue
             caps[category] = max(caps.get(category, 0), slot_count)
     logger.info(
         "category_produce_caps_computed",
         caps=caps,
-        breaking_headroom=breaking_headroom,
         active_users=len(active_user_ids),
         users_with_allocation=len(active_user_ids) - users_using_default,
         users_using_default=users_using_default,
     )
-    return caps, breaking_headroom
+    return caps
 
 
 def cap_stories_per_category(
@@ -124,7 +99,6 @@ def cap_stories_per_category(
     story_interest_tags: list[StoryInterestTag],
     interest_nodes: dict[str, InterestNode],
     caps: dict[FeedCategory, int],
-    breaking_headroom: int,
     *,
     default_cap: int,
 ) -> list[CanonicalStory]:
@@ -135,10 +109,7 @@ def cap_stories_per_category(
     importance (N = ``caps[category]``), tiebroken by freshness then story id for
     determinism. A category absent from ``caps`` is dropped entirely (nobody asked
     for it) — UNLESS ``caps`` is empty (no user has any allocation row), in which
-    case ``default_cap`` is applied to every category as a safe fallback. Finally,
-    the top ``breaking_headroom`` stories by importance across the WHOLE gated pool
-    are unioned back in so the breaking tier always has candidates to draw from at
-    feed assembly, even if their category cap was already hit.
+    case ``default_cap`` is applied to every category as a safe fallback.
 
     Args:
         to_produce: The stories the produce-once gate passed.
@@ -147,7 +118,6 @@ def cap_stories_per_category(
         story_interest_tags: All ``story_interests`` tags for the pool (classify).
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup (classify).
         caps: ``{category: max kept}`` from :func:`compute_category_produce_caps`.
-        breaking_headroom: Top-N by importance kept regardless of category cap.
         default_cap: Per-category cap used only when ``caps`` is empty.
 
     Returns:
@@ -194,20 +164,6 @@ def cap_stories_per_category(
             kept_ids.add(story.canonical_story_id)
         kept_per_category[category] = min(cap, len(stories))
 
-    # Breaking headroom: union in the top-N most important across the whole pool so
-    # the breaking tier (filled at assembly from topic buckets) is never starved.
-    if breaking_headroom > 0:
-        pool_by_importance = sorted(
-            to_produce,
-            key=lambda s: (
-                -score_by_story.get(s.canonical_story_id, (0.0, 0.0))[0],
-                -score_by_story.get(s.canonical_story_id, (0.0, 0.0))[1],
-                s.canonical_story_id,
-            ),
-        )
-        for story in pool_by_importance[:breaking_headroom]:
-            kept_ids.add(story.canonical_story_id)
-
     capped = [s for s in to_produce if s.canonical_story_id in kept_ids]
     logger.info(
         "produce_caps_applied",
@@ -216,7 +172,6 @@ def cap_stories_per_category(
         dropped=len(to_produce) - len(capped),
         kept_per_category=kept_per_category,
         used_default_cap=use_default,
-        breaking_headroom=breaking_headroom,
     )
     return capped
 

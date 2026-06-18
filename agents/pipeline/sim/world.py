@@ -84,7 +84,7 @@ _STORY_COUNTS: dict[str, int] = {
 }
 
 # Reason: deterministic variety. Outlet count drives Importance (saturates at 12);
-# the cycle includes single-outlet niche items AND many-outlet "breaking" items.
+# the cycle includes single-outlet niche items AND many-outlet high-velocity items.
 _OUTLET_CYCLE: tuple[int, ...] = (2, 4, 1, 8, 3, 13, 5, 2, 16, 6, 1, 9)
 # Publish-age cycle in hours from SIM_NOW — drives Freshness (~24h half-life).
 _FRESHNESS_CYCLE_HOURS: tuple[int, ...] = (1, 5, 18, 30, 3, 48, 12, 72, 6, 24, 2, 9)
@@ -231,7 +231,7 @@ def build_profiles() -> list[SimProfile]:
 
     A — strict cricket.india only (proves: no upward fallback, no exploration).
     B — broad multi-interest, varied weights (proves: diversity + niche-reaches-broad
-        via ancestor tags + the breaking tier hold under the balanced default).
+        via ancestor tags hold under the balanced default).
     C — niche Arsenal + crypto (proves: a deep niche still surfaces; the §3.7
         auto-exploration tier is retired under phase-5a — no exploration slot).
 
@@ -341,17 +341,18 @@ def build_exploration_candidates(
 
 # The DoD allocation (phase-5a SP4 (a)/(b)): topic + source budgets sum to 30, so
 # the assembled feed must be exactly 30 slots with the 9 source slots (youtube 6 +
-# x 3) rolled into the topic categories by sequence.
+# x 3) rolled into the topic categories by sequence. phase-SP1 removed the breaking
+# tier: its 2 slots were absorbed by world_politics +1 and culture +1 (mirroring
+# DEFAULT_FEED_ALLOCATION) so the budgets still total 30 across the 7 categories.
 _ENTITY_SCENARIO_ALLOCATION: tuple[tuple[str, int, int], ...] = (
     # (allocation_category, allocation_slot_count, allocation_sort_order)
-    ("breaking", 2, 0),
-    ("world_politics", 4, 1),
-    ("tech_science", 5, 2),
-    ("markets", 4, 3),
-    ("sport", 3, 4),
-    ("culture", 3, 5),
-    ("youtube", 6, 6),  # source-axis: empty today → budget rolls into topics
-    ("x", 3, 7),  # source-axis: empty today → budget rolls into topics
+    ("world_politics", 5, 0),
+    ("tech_science", 5, 1),
+    ("markets", 4, 2),
+    ("sport", 3, 3),
+    ("culture", 4, 4),
+    ("youtube", 6, 5),  # source-axis: empty today → budget rolls into topics
+    ("x", 3, 6),  # source-axis: empty today → budget rolls into topics
 )
 
 # Per matched node: how many filler stories to seed (enough to fill every topic

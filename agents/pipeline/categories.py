@@ -1,16 +1,18 @@
-"""Feed-category taxonomy — the single source of truth for the 8 screen buckets.
+"""Feed-category taxonomy — the single source of truth for the 7 screen buckets.
 
-Phase 5a, Sub-phase 2. The "Build your 30, in order" screen (owner, 2026-06-05)
-arranges a user's feed across **8 fixed categories**, drawn as:
+Phase 5a, Sub-phase 2 (breaking removed in phase-SP1). The "Build your 30, in
+order" screen arranges a user's feed across **7 fixed categories**, drawn as:
 
-    Breaking News · World & Politics · Tech & Science · YouTube ·
+    World & Politics · Tech & Science · YouTube ·
     Markets · Sport · X · Culture
 
 This module mirrors that taxonomy for the Python ranking/allocation path:
 
-  - ``FeedCategory`` — the 8 keys, mirroring the Postgres ``feed_category`` enum
-    (migration 0008) **verbatim and in order** (one source of truth; a story is
-    bucketed into exactly one of these for clean 30-slot accounting).
+  - ``FeedCategory`` — the 7 keys, mirroring the Postgres ``feed_category`` enum
+    (migration 0008) in order, MINUS the now-unused ``breaking`` value (a story is
+    bucketed into exactly one of these for clean 30-slot accounting). The Postgres
+    enum retains the ``breaking`` value as dead-but-unused (phase-SP1 SP3); the
+    Python taxonomy no longer emits it.
   - ``SLUG_TO_CATEGORY`` — the locked map from a seeded interest slug up into its
     screen category (``reference/ranking-spec.md`` / phase-5a "slug → category").
   - ``category_for_slug`` — the best-fit lookup: resolve any interest slug
@@ -21,10 +23,9 @@ This module mirrors that taxonomy for the Python ranking/allocation path:
 It is intentionally tiny and **pure** (no DB, no clock, no network) — the
 classifier and allocator both import the map from here rather than re-deriving it.
 
-``breaking`` is a *tier* (top-Importance across all categories — SP3 owns that
-fill), NOT a slug bucket; ``youtube``/``x`` are *source-axis* categories that no
-interest slug maps to (empty until phase-5d source ingestion). So every story
-still classifies into one of the five **topic** categories below.
+``youtube``/``x`` are *source-axis* categories that no interest slug maps to
+(empty until phase-5d source ingestion). So every story still classifies into one
+of the five **topic** categories below.
 """
 
 from __future__ import annotations
@@ -33,11 +34,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-# Reason: mirrors the Postgres ``feed_category`` enum (migration 0008) verbatim,
-# in enum order. The 8 keys the "Build your 30" screen draws. A Literal (not a
-# str) so a typo at a call boundary is a type error, not a silent miss.
+# Reason: the 7 keys the "Build your 30" screen draws (phase-SP1 removed
+# ``breaking``). Mirrors the in-use values of the Postgres ``feed_category`` enum
+# (migration 0008) in enum order; the dead ``breaking`` enum value is retained in
+# Postgres but never emitted here. A Literal (not a str) so a typo at a call
+# boundary is a type error, not a silent miss.
 FeedCategory = Literal[
-    "breaking",
     "world_politics",
     "tech_science",
     "youtube",
@@ -48,9 +50,9 @@ FeedCategory = Literal[
 ]
 
 # Reason: the ordered topic categories an interest slug can classify into. EXCLUDES
-# ``breaking`` (a tier SP3 fills by top-Importance across all categories) and the
-# source-axis ``youtube``/``x`` (no slug maps to them — empty until phase-5d). Used
-# to seed empty buckets so ``score_and_classify_for_user`` always returns all 8 keys.
+# the source-axis ``youtube``/``x`` (no slug maps to them — empty until phase-5d).
+# Used to seed empty buckets so ``score_and_classify_for_user`` always returns all
+# 7 keys.
 TOPIC_CATEGORIES: tuple[FeedCategory, ...] = (
     "world_politics",
     "tech_science",
@@ -107,16 +109,17 @@ DEFAULT_CATEGORY: FeedCategory = "culture"
 # ``src/lib/feedBuckets.ts`` ``DEFAULT_ALLOCATION_SEGMENTS`` (the onboarding
 # screen's pre-filled default). Mirrored here so the produce cap can treat a user
 # who never built their 30 as having this exact distribution (Rule 7: keep the two
-# in sync — if the TS default changes, change this too). Sums to 30.
+# in sync — if the TS default changes, change this too). Sums to 30 across the 7
+# categories (phase-SP1 removed ``breaking``; its 2 default slots were absorbed by
+# world_politics +1 and culture +1).
 DEFAULT_FEED_ALLOCATION: dict[FeedCategory, int] = {
-    "breaking": 2,
-    "world_politics": 4,
+    "world_politics": 5,
     "tech_science": 5,
     "youtube": 6,
     "markets": 4,
     "sport": 3,
     "x": 3,
-    "culture": 3,
+    "culture": 4,
 }
 
 
@@ -150,17 +153,16 @@ def category_for_slug(interest_slug: str) -> FeedCategory:
 
 
 def empty_category_buckets() -> dict[FeedCategory, list]:
-    """Return all 8 ``FeedCategory`` keys mapped to fresh empty lists.
+    """Return all 7 ``FeedCategory`` keys mapped to fresh empty lists.
 
     The classifier seeds its output with this so ``score_and_classify_for_user``
-    always returns a complete 8-key dict (source categories present-but-empty) —
+    always returns a complete 7-key dict (source categories present-but-empty) —
     the SP3 allocator can read every budgeted category without a ``KeyError``.
 
     Returns:
-        ``{feed_category: []}`` for all 8 keys, in enum order.
+        ``{feed_category: []}`` for all 7 keys, in enum order.
     """
     return {
-        "breaking": [],
         "world_politics": [],
         "tech_science": [],
         "youtube": [],
@@ -183,7 +185,7 @@ class CategoryAllocation(BaseModel):
     writer (UI/seed) + the allocator's roll-over logic own it (SP1 report §7.4).
 
     Attributes:
-        allocation_category: Which of the 8 screen categories this budget is for.
+        allocation_category: Which of the 7 screen categories this budget is for.
         allocation_slot_count: How many feed slots the user gave this category
             (0..30; 0 means "don't show me this category").
         allocation_sort_order: The category's position in the user's manual
@@ -200,7 +202,7 @@ class CategoryAllocation(BaseModel):
     """
 
     allocation_category: FeedCategory = Field(
-        ..., description="Which of the 8 screen categories this budget is for"
+        ..., description="Which of the 7 screen categories this budget is for"
     )
     allocation_slot_count: int = Field(
         ..., ge=0, le=30, description="Feed slots the user gave this category (0..30)"
