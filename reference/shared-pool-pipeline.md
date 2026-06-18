@@ -92,15 +92,17 @@ Never loop unbounded. Targeted re-ingest hits only short cells, not everything.
 
 ---
 
-## 3. New Supabase schema (migration `0017_story_clusters.sql`)
+## 3. New Supabase schema (migration `0018_story_clusters.sql`)
 
-Highest existing migration is `0016`. Add alongside existing `stories` / `story_url_aliases` (do NOT replace them).
+> **Execution deltas (2026-06-18, owner-approved):** (1) `0017` was consumed by M1's `drop_breaking_allocation` migration, so the cluster schema is **`0018`**. (2) Embeddings run via the **Gemini embedding API** (`text-embedding-004`, **768-d**, L2-normalized), NOT local `all-MiniLM-L6-v2` — chosen to avoid a torch/Railway-memory dependency at negligible cost (~$1–5/mo); `datasketch` MinHash stays local. So `cluster_centroid` is **`vector(768)`** below, not 384. (3) The `τ_assign` tuning spike is **deferred to M6**; M3 ships a tunable default (`τ_assign≈0.75`) validated on synthetic pairs.
+
+Highest existing migration after M1 is `0017`. Add alongside existing `stories` / `story_url_aliases` (do NOT replace them).
 
 ```sql
 -- A persistent story cluster (rolling across days). One row per real-world story.
 create table story_clusters (
   cluster_id            text primary key,                    -- stable id; bridges to stories.story_id via story_url_aliases
-  cluster_centroid      vector(384),                         -- pgvector; running-mean MiniLM centroid
+  cluster_centroid      vector(768),                         -- pgvector; running-mean Gemini text-embedding-004 centroid (768-d, L2-normalized)
   cluster_category      feed_category not null,              -- the ONE primary category (D); 7-value enum post-M1
   cluster_subcategory   text,                                -- interest-taxonomy subcategory
   cluster_reel_format   text not null default 'event',       -- event | digest | update | source  (§5)
@@ -194,7 +196,7 @@ A one-line banner is appended to `ranking-spec.md` pointing here for the rework 
 | Need | Verdict | What |
 |---|---|---|
 | Article extraction | reuse existing | our GDELT GKG adapter + YouTube/X adapters (NOT news-please for GDELT) |
-| Embeddings | **adopt** | `sentence-transformers` all-MiniLM-L6-v2 (384-d) |
+| Embeddings | **adopt (API)** | **Gemini `text-embedding-004` (768-d) via the existing Gemini client** — owner-approved deviation from local MiniLM (see §3 deltas) to avoid torch/Railway-memory cost |
 | Near-dup | **adopt** | `datasketch` MinHash LSH |
 | Clustering engine | **build (~200 lines)** | online assign-or-spawn (§2C) |
 | MMR re-rank | **build (~30 lines)** | §4 |

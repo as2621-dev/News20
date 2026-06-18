@@ -106,9 +106,14 @@ Stop hunting news per-user. Run News20's daily batch like a **newsroom**: size t
 - [Phase SP1](phase-sp1-kill-breaking.md) — remove the breaking category from Python + TS + DB + sims; keep the velocity signal; 7 categories, feed still totals 30. **SHIPPED (12380e2)**; migration 0017 authored, live apply deferred.
 
 ### M2 — Demand computation + pool sizing
-- [Phase M2](phase-m2-demand-pool-sizing.md) — aggregate per-user allocator demand → subcategory-granular `pool_target = ceil(max_over_users × BUFFER)`, floored; emit the shopping list (additive, no migration).
+- [Phase M2](phase-m2-demand-pool-sizing.md) — aggregate per-user allocator demand → subcategory-granular `pool_target = ceil(max_over_users × BUFFER)`, floored; emit the shopping list (additive, no migration). **SHIPPED (b176dc3)**.
 
-*(M3–M6 phases generated on demand: re-run `/plan-phases plans/shared-pool-rework-master-plan.md` after M2 ships.)*
+### M3 — Global clustering engine + classification (split into M3a → M3b → M3c)
+- [Phase M3a](phase-m3a-clustering-foundations.md) — embeddings (Gemini 768-d) + `datasketch` near-dup + `0018_story_clusters.sql` (authored) + cluster-store repo. Foundations, mocked tests, no torch, no live DB.
+- M3b (generated after M3a) — the online assign-or-spawn engine: blocking + cosine assign/spawn + running-mean centroids + cross-day continuity via `story_url_aliases`.
+- M3c (generated after M3b) — Stage B ingest-to-target (consume `pool_target`) + Stage D centroid classification + bounded gap-fill; wire B→C→D behind a flag.
+
+*(Decisions locked 2026-06-18: Gemini embedding API not local MiniLM; τ-tuning deferred to M6. M4–M6 generated on demand.)*
 
 ## Open questions for `/plan-phases`
 
