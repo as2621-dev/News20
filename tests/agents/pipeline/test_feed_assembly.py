@@ -34,6 +34,7 @@ from agents.pipeline.categories import CategoryAllocation
 from agents.pipeline.feed_assembly import (
     SLOT_KIND_BREAKING,
     SLOT_KIND_INTEREST,
+    SLOT_KIND_SOURCE,
     AllocatedSlot,
     assemble_user_feed,
     write_daily_feed,
@@ -441,6 +442,89 @@ def test_source_budget_rolls_into_topics_so_feed_totals_30() -> None:
     assert not any(_category_of(s.feed_story_id) in ("youtube", "x") for s in slots), (
         "source categories contribute zero items"
     )
+
+
+def _source_story(story_id: str, outlet_domain: str) -> CanonicalStory:
+    """A produced source-origin story (youtube.com / x.com marks its source slot)."""
+    return CanonicalStory(
+        canonical_story_id=story_id,
+        canonical_title=f"Source {story_id}",
+        canonical_url=f"https://{outlet_domain}/{story_id}",
+        canonical_normalized_url=f"https://{outlet_domain}/{story_id}",
+        canonical_published_utc=_NOW,
+        canonical_primary_outlet_domain=outlet_domain,
+        covering_outlets=[outlet_domain],
+        story_outlet_count=1,
+        canonical_social_image_url=f"https://{outlet_domain}/{story_id}/thumb.jpg",
+    )
+
+
+def test_source_stories_fill_source_slots_instead_of_rolling_into_topics() -> None:
+    """Produced YouTube/X stories fill the youtube/x slots as ``source`` kind.
+
+    WHY: phase-5d wires followed sources into the feed. With source stories supplied,
+    the youtube(6)+x(3) budgets must be filled by those reels — NOT soft-rolled into
+    topics — so the user actually sees the creators they follow. The feed still
+    totals 30, the source slots carry the ``source`` slot kind with NO matched
+    interest, and they sit at the youtube/x sequence positions. This is the
+    load-bearing "source slots are real now" invariant.
+    """
+    stories, tags = _pool_per_category(10)
+    youtube_stories = [_source_story(f"yt-{i}", "youtube.com") for i in range(6)]
+    x_stories = [_source_story(f"x-{i}", "x.com") for i in range(3)]
+
+    slots = assemble_user_feed(
+        profile_interests=_ALL_TOPIC_PROFILE,
+        stories=stories,
+        story_interest_tags=tags,
+        interest_nodes=_INTEREST_NODES,
+        category_allocation=_dod_allocation(),
+        source_stories=youtube_stories + x_stories,
+        now_utc=_NOW,
+    )
+
+    assert len(slots) == 30, "source slots filled + topics → still exactly 30"
+    source_slots = [s for s in slots if s.feed_slot_kind == SLOT_KIND_SOURCE]
+    source_ids = {s.feed_story_id for s in source_slots}
+    assert source_ids == {f"yt-{i}" for i in range(6)} | {f"x-{i}" for i in range(3)}, (
+        "all 6 youtube + 3 x produced reels fill their budgeted source slots"
+    )
+    assert all(s.feed_matched_interest_id is None for s in source_slots), (
+        "a source slot carries no matched interest (placed by source axis, not a slug)"
+    )
+    story_ids = [s.feed_story_id for s in slots]
+    assert len(story_ids) == len(set(story_ids)), "no duplicate story in one feed"
+    assert [s.feed_position for s in slots] == list(range(1, 31)), "positions 1..30"
+
+
+def test_unfilled_source_budget_still_rolls_into_topics() -> None:
+    """A source category with NO produced story soft-rolls its budget into topics.
+
+    WHY: ingestion is best-effort (a YouTube channel may be throttled, an X account
+    may have nothing fresh). When only some source slots fill, the REMAINDER must
+    still roll into topics so the feed never comes up short of 30 — the graceful
+    degradation that keeps the source wiring safe to ship.
+    """
+    stories, tags = _pool_per_category(10)
+    # Only 2 youtube reels produced (budget 6); zero x reels (budget 3).
+    youtube_stories = [_source_story(f"yt-{i}", "youtube.com") for i in range(2)]
+
+    slots = assemble_user_feed(
+        profile_interests=_ALL_TOPIC_PROFILE,
+        stories=stories,
+        story_interest_tags=tags,
+        interest_nodes=_INTEREST_NODES,
+        category_allocation=_dod_allocation(),
+        source_stories=youtube_stories,
+        now_utc=_NOW,
+    )
+
+    assert len(slots) == 30, "2 filled source slots + 7 rolled into topics → 30"
+    assert sum(1 for s in slots if s.feed_slot_kind == SLOT_KIND_SOURCE) == 2, (
+        "only the 2 produced youtube reels occupy source slots"
+    )
+    story_ids = [s.feed_story_id for s in slots]
+    assert len(story_ids) == len(set(story_ids)), "no duplicate story in one feed"
 
 
 def test_breaking_tier_filled_by_importance_and_not_double_placed() -> None:

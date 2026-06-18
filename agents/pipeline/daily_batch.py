@@ -566,6 +566,7 @@ async def run_daily_pipeline(
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
+    source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
 ) -> DailyPipelineResult:
     """Run the full daily personalized-feed batch end-to-end (stages A–E).
 
@@ -611,6 +612,13 @@ async def run_daily_pipeline(
             census (with ``gdelt_adapter``); ``None`` skips the census.
         gdelt_adapter: The SHARED ``GdeltDocAdapter`` (honors the throttle) for the
             coverage census; ``None`` skips it.
+        source_stories_by_user: ``{user_id: [followed-source stories]}`` from
+            ``run_source_ingestion`` (phase-5d). Their stories are merged into the
+            produce pool (exempt from the per-category caps, since they were the
+            user's explicit follows), produced via the same write/render path (the
+            poster stage uses their thumbnail, not Nano Banana), and the produced
+            subset is handed to ``assemble_daily_feeds`` to fill each user's
+            ``youtube``/``x`` source slots. ``None`` → the legacy interest-only batch.
 
     Returns:
         A :class:`DailyPipelineResult` summarizing every stage.
@@ -672,6 +680,37 @@ async def run_daily_pipeline(
         )
     capped_count = gated_count - len(to_produce)
 
+    # ── Source-origin merge (phase-5d) — append the users' followed YouTube/X
+    # stories to the produce pool, EXEMPT from the gate + per-category caps (the
+    # user explicitly follows them). Dedup by story id (a source shared across users
+    # is produced once), and skip any that already have a current digest. ──
+    source_stories_flat: list[CanonicalStory] = []
+    if source_stories_by_user:
+        seen_source_ids: set[str] = set()
+        for user_source_stories in source_stories_by_user.values():
+            for source_story in user_source_stories:
+                story_id = source_story.canonical_story_id
+                if story_id in seen_source_ids:
+                    continue
+                seen_source_ids.add(story_id)
+                source_stories_flat.append(source_story)
+        already_produced = _load_has_current_digest(
+            supabase_client, [s.canonical_story_id for s in source_stories_flat]
+        )
+        in_pool_ids = {s.canonical_story_id for s in to_produce}
+        source_to_produce = [
+            s
+            for s in source_stories_flat
+            if not already_produced.get(s.canonical_story_id)
+            and s.canonical_story_id not in in_pool_ids
+        ]
+        to_produce = to_produce + source_to_produce
+        logger.info(
+            "run_daily_pipeline_source_merge",
+            source_stories=len(source_stories_flat),
+            source_to_produce=len(source_to_produce),
+        )
+
     produced_stories = await _produce_story_pool(
         stories_to_produce=to_produce,
         story_interest_tags=story_interest_tags,
@@ -692,6 +731,26 @@ async def run_daily_pipeline(
     active_user_inputs = load_active_user_inputs(
         supabase_client, target_date, exploration_by_user
     )
+    # Reason: a source slot can be filled by a source story produced THIS run or one
+    # that already had a current digest (persisted, placeable). Restrict each user's
+    # source pool to those placeable ids so a verification halt never leaves a
+    # dangling source slot.
+    produced_source_by_user: dict[str, list[CanonicalStory]] | None = None
+    if source_stories_by_user:
+        # Placeable = produced this run OR already carrying a current digest
+        # (``already_produced`` was computed in the source-merge block above).
+        placeable_source_ids = {s.canonical_story_id for s in produced_stories}
+        placeable_source_ids |= {
+            story_id for story_id, has in already_produced.items() if has
+        }
+        produced_source_by_user = {
+            user_id: [
+                s
+                for s in user_source_stories
+                if s.canonical_story_id in placeable_source_ids
+            ]
+            for user_id, user_source_stories in source_stories_by_user.items()
+        }
     feeds = assemble_daily_feeds(
         target_date=target_date,
         active_user_inputs=active_user_inputs,
@@ -700,6 +759,7 @@ async def run_daily_pipeline(
         interest_nodes=interest_nodes,
         supabase_client=supabase_client,
         now_utc=now,
+        source_stories_by_user=produced_source_by_user,
     )
 
     logger.info(

@@ -16,7 +16,7 @@
 -- ── Depth-0 categories (~10) — parent NULL, carry interest_segment_slug accent ─
 insert into interests (interest_slug, interest_label, depth_level, parent_interest_id, interest_segment_slug, interest_sort_order)
 values
-  ('world',         'World & Politics',        0, null, 'geopolitics', 10),
+  ('world',         'Geopolitics',             0, null, 'geopolitics', 10),
   ('business',      'Business & Markets',      0, null, 'markets',     20),
   ('tech',          'Tech & Science',          0, null, 'tech',        30),
   ('sport',         'Sport',                   0, null, 'sport',       40),

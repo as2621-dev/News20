@@ -54,6 +54,10 @@ from agents.ingestion.adapters.gdelt_bigquery import (  # noqa: E402
     GdeltBigQueryAdapter,
 )
 from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter  # noqa: E402
+from agents.ingestion.source_pipeline import (  # noqa: E402
+    FollowedSource,
+    run_source_ingestion,
+)
 from agents.ingestion.interest_keyed_pipeline import (  # noqa: E402
     ingest_active_interests,
 )
@@ -131,6 +135,116 @@ def build_interest_segment_lookup(rows: list[dict[str, Any]]) -> dict[str, str]:
         if segment:
             lookup[interest_id] = segment
     return lookup
+
+
+def _load_followed_sources_by_user(
+    supabase: Any, user_ids: list[str]
+) -> dict[str, list[FollowedSource]]:
+    """Load each active user's followed YouTube/X sources for phase-5d ingestion.
+
+    Reads ``user_content_sources ⋈ content_sources`` and keeps only the two ingested
+    types (``youtube_channel`` / ``x_account``) that are not muted (priority != off).
+    Built here (not in the pure pipeline) so ``run_source_ingestion`` stays DB-free.
+
+    Args:
+        supabase: Service-role client.
+        user_ids: The active user ids to load follows for.
+
+    Returns:
+        ``{user_id: [FollowedSource]}`` (users with no in-scope follows are absent).
+    """
+    if not user_ids:
+        return {}
+    follows = (
+        supabase.table("user_content_sources")
+        .select("user_id,source_id,source_priority")
+        .in_("user_id", user_ids)
+        .neq("source_priority", "off")
+        .execute()
+        .data
+        or []
+    )
+    source_ids = sorted({str(f["source_id"]) for f in follows})
+    if not source_ids:
+        return {}
+    catalog_rows = (
+        supabase.table("content_sources")
+        .select("source_id,content_source_type,external_id,source_name,last_fetched_at")
+        .in_("source_id", source_ids)
+        .in_("content_source_type", ["youtube_channel", "x_account"])
+        .execute()
+        .data
+        or []
+    )
+    catalog_by_id = {str(r["source_id"]): r for r in catalog_rows}
+    by_user: dict[str, list[FollowedSource]] = {}
+    for follow in follows:
+        row = catalog_by_id.get(str(follow["source_id"]))
+        if row is None:
+            continue  # out-of-scope type (podcast / personality) — skip
+        last_fetched = row.get("last_fetched_at")
+        by_user.setdefault(str(follow["user_id"]), []).append(
+            FollowedSource(
+                source_id=str(row["source_id"]),
+                content_source_type=str(row["content_source_type"]),
+                external_id=str(row["external_id"]),
+                source_name=str(row.get("source_name") or ""),
+                last_fetched_at=(
+                    datetime.fromisoformat(last_fetched) if last_fetched else None
+                ),
+            )
+        )
+    return by_user
+
+
+async def _ingest_sources_for_users(
+    supabase: Any, user_ids: list[str]
+) -> dict[str, list[Any]]:
+    """Run phase-5d source ingestion for each active user; return per-user stories.
+
+    Polls every user's followed YouTube/X sources via ``run_source_ingestion`` and
+    stamps ``content_sources.last_fetched_at`` after each successful poll (the
+    cadence write-back). Returns the promoted :class:`CanonicalStory` objects per
+    user, ready to merge into ``run_daily_pipeline``'s produce pool + source slots.
+
+    Args:
+        supabase: Service-role client.
+        user_ids: The active user ids to ingest follows for.
+
+    Returns:
+        ``{user_id: [CanonicalStory]}`` for users with promoted source stories.
+    """
+    sources_by_user = _load_followed_sources_by_user(supabase, user_ids)
+    if not sources_by_user:
+        print("  source ingestion: no in-scope follows for any active user")
+        return {}
+
+    def _mark_polled_factory():
+        async def _mark(source_id: str, now: datetime) -> None:
+            try:
+                supabase.table("content_sources").update(
+                    {"last_fetched_at": now.isoformat()}
+                ).eq("source_id", source_id).execute()
+            except Exception as exc:  # noqa: BLE001 — write-back is best-effort
+                logger.warning("mark_source_polled_failed", source_id=source_id, error=str(exc))
+
+        return _mark
+
+    stories_by_user: dict[str, list[Any]] = {}
+    for user_id, sources in sources_by_user.items():
+        result = await run_source_ingestion(
+            user_id,
+            sources,
+            mark_source_polled=_mark_polled_factory(),
+        )
+        promoted = [p.story for p in result.promoted_stories]
+        if promoted:
+            stories_by_user[user_id] = promoted
+        print(
+            f"  source ingestion [{user_id}]: polled={len(result.polled_source_ids)} "
+            f"fetched={result.items_fetched} promoted={len(promoted)}"
+        )
+    return stories_by_user
 
 
 def _seed_demo_users(supabase: Any, interest_rows: list[dict[str, Any]]) -> list[str]:
@@ -364,7 +478,16 @@ async def _run() -> int:
     # ── PAID clients ──────────────────────────────────────────────────────────
     llm_client = LLMClient()
     tts_client = GeminiTTSClient()
-    poster_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    # Reason: POSTER_MODE=batch produces reels WITHOUT inline posters (fast, no
+    # paid image calls); a separate Batch-API poster filler (scripts/fill_batch_
+    # posters.py) then generates all posters in one async batch job (50% cheaper)
+    # and updates the rows. Any other value keeps the proven synchronous poster path.
+    poster_mode = os.environ.get("POSTER_MODE", "sync").strip().lower()
+    poster_client = (
+        None if poster_mode == "batch" else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    )
+    print(f"  poster mode ................... {poster_mode}"
+          f"{' (inline posters OFF — fill via Batch API after)' if poster_mode == 'batch' else ''}")
     resolver = build_story_id_resolver(supabase)
     since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
@@ -388,6 +511,19 @@ async def _run() -> int:
         # interest-ordered pool and skewed every reel into one category — removed.
         return stories, tags
 
+    # ── Optional: phase-5d followed-source ingestion (YouTube/X) ──────────────
+    # Reason: when RUN_SOURCES=1, poll each active user's followed YouTube channels
+    # / X accounts and merge their fresh reels into the produce pool so the user's
+    # youtube/x SOURCE SLOTS fill from real follows instead of soft-rolling into
+    # topics (the 29-not-30 gap). Off by default — the interest-only batch is
+    # unchanged unless explicitly enabled.
+    source_stories_by_user: dict[str, list[Any]] | None = None
+    if os.environ.get("RUN_SOURCES") == "1":
+        print("\n--- SOURCE INGEST (phase-5d YouTube/X followed sources) ---")
+        source_stories_by_user = await _ingest_sources_for_users(
+            supabase, active_user_ids
+        )
+
     print("\n--- PAID RUN (live GDELT ingest → produce + enrich → allocate) ---")
     result = await run_daily_pipeline(
         target_date=target,
@@ -403,6 +539,7 @@ async def _run() -> int:
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=gdelt_adapter,
+        source_stories_by_user=source_stories_by_user,
     )
 
     print(

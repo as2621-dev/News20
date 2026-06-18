@@ -27,6 +27,7 @@ import pytest
 from agents.ingestion.adapters.youtube import (
     CaptionUnavailableError,
     YouTubeAdapter,
+    _build_cookie_opts,
     _vtt_to_plain_text,
 )
 from agents.shared.exceptions import AdapterFetchError
@@ -280,3 +281,127 @@ class TestVttParsing:
     def test_empty_vtt_returns_empty_string(self) -> None:
         """A vtt with only a header yields empty text (treated as caption-less upstream)."""
         assert _vtt_to_plain_text("WEBVTT\n\n") == ""
+
+
+def _two_new_videos_feed_xml() -> str:
+    """A channel feed with TWO post-cutoff videos (to exercise inter-video pacing)."""
+    return """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mrss/"
+      xmlns="http://www.w3.org/2005/Atom">
+  <title>Test News Channel</title>
+  <entry>
+    <yt:videoId>NEWVIDEO123</yt:videoId>
+    <title>First new video</title>
+    <published>2026-06-15T10:15:00+00:00</published>
+    <media:group>
+      <media:thumbnail url="https://i.ytimg.com/vi/NEWVIDEO123/hqdefault.jpg"/>
+    </media:group>
+  </entry>
+  <entry>
+    <yt:videoId>NEWVIDEO789</yt:videoId>
+    <title>Second new video</title>
+    <published>2026-06-15T12:00:00+00:00</published>
+    <media:group>
+      <media:thumbnail url="https://i.ytimg.com/vi/NEWVIDEO789/hqdefault.jpg"/>
+    </media:group>
+  </entry>
+</feed>"""
+
+
+class TestCookieOpts:
+    """Cookie config maps to the right yt-dlp options (the anti-bot-check lever).
+
+    WHY it matters: without authenticated cookies, yt-dlp caption fetches from a
+    datacenter IP hit YouTube's 'confirm you're not a bot' / 429 wall — the
+    transcript pipeline silently returns nothing. cookiefile must win over the
+    browser fallback so an explicit file is never shadowed by a stale browser jar.
+    """
+
+    def test_cookiefile_wins_over_browser(self) -> None:
+        """When both are set, cookiefile is used and browser cookies are ignored."""
+        assert _build_cookie_opts("/tmp/c.txt", "chrome") == {
+            "cookiefile": "/tmp/c.txt"
+        }
+
+    def test_browser_used_when_no_cookiefile(self) -> None:
+        """cookies_from_browser becomes yt-dlp's tuple form when no file is given."""
+        assert _build_cookie_opts(None, "chrome") == {"cookiesfrombrowser": ("chrome",)}
+
+    def test_empty_config_is_anonymous(self) -> None:
+        """No cookies configured → no cookie opts (anonymous yt-dlp, the default)."""
+        assert _build_cookie_opts(None, None) == {}
+        assert _build_cookie_opts("   ", "  ") == {}
+
+    def test_adapter_threads_cookies_into_extractor_opts(self) -> None:
+        """A configured adapter exposes the cookie opts its default extractor uses."""
+        adapter = YouTubeAdapter(cookiefile="/tmp/c.txt")
+        assert adapter._ytdlp_extra_opts == {"cookiefile": "/tmp/c.txt"}
+
+
+class TestSelfPacing:
+    """Self-pacing throttles bursts so N channels from one IP don't trip the limiter.
+
+    WHY it matters: the live test saw 1/7 channels succeed because seven RSS hits
+    fired back-to-back from one IP. Pacing must (a) NOT delay the first call (no
+    wasted latency), (b) delay every later channel, and (c) delay between videos —
+    and stay a strict no-op when unconfigured so existing callers are unchanged.
+    """
+
+    @pytest.mark.asyncio
+    async def test_no_sleep_when_pacing_disabled(self) -> None:
+        """Default (pace=0): the sleeper is never awaited, even across two channels."""
+        sleeper = AsyncMock()
+        adapter = YouTubeAdapter(
+            http_client=_mock_http_client(_mock_response(_channel_feed_xml())),
+            ytdlp_extractor=lambda url: _info_with_captions(),
+            sleeper=sleeper,
+        )
+        await adapter.fetch_new_items(_CHANNEL_ID, _SINCE)
+        await adapter.fetch_new_items(_CHANNEL_ID, _SINCE)
+        sleeper.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_paces_between_channels_not_before_first(self) -> None:
+        """First channel poll does not wait; the second one sleeps the paced delay."""
+        sleeper = AsyncMock()
+        adapter = YouTubeAdapter(
+            http_client=_mock_http_client(_mock_response(_channel_feed_xml())),
+            ytdlp_extractor=lambda url: _info_with_captions(),
+            pace_seconds=2.0,
+            sleeper=sleeper,
+        )
+        # Single new video per feed → no inter-video sleeps, isolating the channel gap.
+        await adapter.fetch_new_items(_CHANNEL_ID, _SINCE)
+        sleeper.assert_not_awaited()  # first poll: no wait
+        await adapter.fetch_new_items(_CHANNEL_ID, _SINCE)
+        sleeper.assert_awaited_once_with(2.0)  # second poll: paced
+
+    @pytest.mark.asyncio
+    async def test_paces_between_videos_within_a_channel(self) -> None:
+        """A two-new-video channel sleeps once (before the second video), not the first."""
+        sleeper = AsyncMock()
+        adapter = YouTubeAdapter(
+            http_client=_mock_http_client(_mock_response(_two_new_videos_feed_xml())),
+            ytdlp_extractor=lambda url: _info_with_captions(),
+            pace_seconds=2.0,
+            sleeper=sleeper,
+        )
+        await adapter.fetch_new_items(_CHANNEL_ID, _SINCE)
+        # First channel poll → no inter-channel sleep; 2 videos → 1 inter-video sleep.
+        sleeper.assert_awaited_once_with(2.0)
+
+    @pytest.mark.asyncio
+    async def test_jitter_added_on_top_of_base_delay(self) -> None:
+        """The jittered delay is base + jitter_fn(0, jitter), via the injected rng."""
+        sleeper = AsyncMock()
+        adapter = YouTubeAdapter(
+            http_client=_mock_http_client(_mock_response(_two_new_videos_feed_xml())),
+            ytdlp_extractor=lambda url: _info_with_captions(),
+            pace_seconds=2.0,
+            pace_jitter_seconds=1.5,
+            sleeper=sleeper,
+            jitter_fn=lambda low, high: high,  # deterministic: always the max jitter
+        )
+        await adapter.fetch_new_items(_CHANNEL_ID, _SINCE)
+        sleeper.assert_awaited_once_with(3.5)  # 2.0 base + 1.5 jitter

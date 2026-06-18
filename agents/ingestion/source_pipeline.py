@@ -54,6 +54,7 @@ from agents.ingestion.models import CandidateStory, CanonicalStory
 from agents.ingestion.scheduler import CadenceScheduler
 from agents.shared.exceptions import AdapterFetchError
 from agents.shared.logger import get_logger
+from agents.shared.settings import Settings
 
 logger = get_logger("ingestion.source_pipeline")
 
@@ -304,7 +305,13 @@ async def run_source_ingestion(
             continue
         # Lazily build the default adapter for this type if the caller injected none.
         if adapter is _BUILD_YOUTUBE:
-            youtube_adapter = youtube_adapter or YouTubeAdapter()
+            # Reason: the real (non-test) path picks up cookie + self-pacing config
+            # from env via from_settings so cloud runs survive YouTube IP-throttling
+            # (the "1/7 channels" failure). Tests inject a mock adapter and never hit
+            # this branch, so the pipeline stays pure for them.
+            youtube_adapter = youtube_adapter or YouTubeAdapter.from_settings(
+                Settings()
+            )
             adapter = youtube_adapter
         elif adapter is _BUILD_X:
             x_adapter = x_adapter or XAccountAdapter()

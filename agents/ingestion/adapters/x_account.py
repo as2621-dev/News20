@@ -1,4 +1,4 @@
-"""X (Twitter) source adapter — xAI/Grok Live Search discovery + tweet screenshot.
+"""X (Twitter) source adapter — xAI/Grok Agent Tools (x_search) discovery + screenshot.
 
 Like the YouTube adapter (``youtube.py``), X ingestion is **source-keyed**: it
 polls one followed handle for fresh posts, not a free-text news query. The
@@ -9,10 +9,12 @@ treats its ``search_query`` as a handle and delegates — so the adapter is a
 drop-in ``BaseNewsAdapter``.
 
 Locked decisions (plans/phase-5d-source-ingestion.md, owner 2026-06-17):
-  • **Discovery = xAI / Grok API Live Search** (``XAI_API_KEY``, OpenAI-compatible
-    chat completions at ``https://api.x.ai/v1``): asks Grok for the handle's recent
-    substantive posts + their canonical tweet URLs. The xAI HTTP call is behind an
-    **injectable seam** (``post_discoverer``) so tests mock it — no live call.
+  • **Discovery = xAI / Grok Agent Tools API** (``XAI_API_KEY``, the ``/v1/responses``
+    endpoint with the server-side ``x_search`` tool): Grok itself searches X — scoped
+    to the followed handle via ``allowed_x_handles`` + ``from_date`` — and synthesizes
+    the handle's recent substantive posts with links. (Supersedes the deprecated Live
+    Search ``search_parameters`` API, which now returns HTTP 410.) The xAI HTTP call
+    is behind an **injectable seam** (``post_discoverer``) so tests mock it — no live call.
   • **Image = a screenshot of the tweet** (``tweet_screenshot.render_tweet_screenshot``,
     Playwright headless Chromium), NOT a generated poster. The screenshot renderer
     is itself seam-mockable.
@@ -53,14 +55,14 @@ logger = get_logger(__name__)
 _ADAPTER_NAME = "x_account"
 _OUTLET_DOMAIN = "x.com"
 _XAI_BASE_URL = "https://api.x.ai/v1"
-_XAI_MODEL = "grok-3-latest"
+_XAI_MODEL = "grok-4.3"  # Agent Tools API model (server-side x_search); see /v1/responses
 _DEFAULT_TIMEOUT_SECONDS = 60.0
 _DEFAULT_MAX_POSTS = 10
 _TITLE_SNIPPET_CHARS = 80
 
 # An async discoverer that, given a handle + since cutoff + max_posts, returns the
-# raw post dicts the xAI Live Search call surfaced. Injected so the xAI HTTP call
-# is fully mockable (no live call in tests) and the key is read only inside it.
+# raw post dicts the xAI x_search call surfaced. Injected so the xAI HTTP call is
+# fully mockable (no live call in tests) and the key is read only inside it.
 PostDiscoverer = Callable[[str, datetime, int], Awaitable[list[dict[str, Any]]]]
 
 
@@ -347,19 +349,21 @@ class XAccountAdapter(BaseNewsAdapter):
     async def _default_xai_discoverer(
         self, handle: str, since_utc: datetime, max_posts: int
     ) -> list[dict[str, Any]]:
-        """Real xAI/Grok Live Search seam: discover a handle's recent posts.
+        """Real xAI/Grok Agent Tools seam: discover a handle's recent posts via x_search.
 
         Imported lazily (httpx is already a dep; the import is local only to keep
         the call boundary explicit). Reads ``XAI_API_KEY`` from settings at call
         time and sends it ONLY in the Authorization header — it is never logged.
-        Uses xAI's OpenAI-compatible chat completions endpoint with Live Search
-        enabled, instructing Grok to return a strict JSON array of the handle's
-        recent posts. A missing key or HTTP error raises ``AdapterFetchError``,
-        which :meth:`fetch_new_items` catches into a clean ``failed``.
+        Calls the ``/v1/responses`` endpoint with the server-side ``x_search`` tool
+        scoped to this handle (``allowed_x_handles`` + ``from_date``): Grok runs the
+        X search itself and synthesizes the handle's recent posts, which we ask it to
+        return as a strict JSON array. A missing key or HTTP error raises
+        ``AdapterFetchError``, which :meth:`fetch_new_items` catches into a clean
+        ``failed``.
 
         Args:
             handle: The canonical author handle (without ``@``).
-            since_utc: The cutoff (sent to Grok to bias recency).
+            since_utc: The cutoff; its date scopes ``x_search`` via ``from_date``.
             max_posts: Maximum posts to request.
 
         Returns:
@@ -377,20 +381,27 @@ class XAccountAdapter(BaseNewsAdapter):
                 message="XAI_API_KEY is not set",
                 adapter_name=_ADAPTER_NAME,
                 fix_suggestion="Set XAI_API_KEY in the worker env (it is in .env); "
-                "the X adapter needs it for xAI Live Search discovery",
+                "the X adapter needs it for xAI Agent Tools (x_search) discovery",
             )
 
         prompt = _build_discovery_prompt(handle, since_utc, max_posts)
+        # Reason: the server-side x_search tool scoped to this one handle is what
+        # actually fetches the posts; from_date narrows the search to the cutoff day.
+        x_search_tool: dict[str, Any] = {
+            "type": "x_search",
+            "allowed_x_handles": [handle],
+            "from_date": since_utc.date().isoformat(),
+        }
         payload = {
             "model": _XAI_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "search_parameters": {"mode": "on"},
-            "temperature": 0,
+            "input": [{"role": "user", "content": prompt}],
+            "tools": [x_search_tool],
+            "stream": False,
         }
         try:
             async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
                 response = await client.post(
-                    f"{_XAI_BASE_URL}/chat/completions",
+                    f"{_XAI_BASE_URL}/responses",
                     headers={
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
@@ -404,19 +415,20 @@ class XAccountAdapter(BaseNewsAdapter):
             # NEVER include the request headers / key in the log or error.
             status_code = exc.response.status_code
             raise AdapterFetchError(
-                message=f"xAI Live Search HTTP {status_code} for @{handle}",
+                message=f"xAI x_search HTTP {status_code} for @{handle}",
                 adapter_name=_ADAPTER_NAME,
                 fix_suggestion=(
                     "xAI auth failed — verify XAI_API_KEY is valid and authorized"
                     if status_code in (401, 403)
                     else "xAI rate-limited — back off and retry"
                     if status_code == 429
-                    else "xAI returned an HTTP error; check api.x.ai status"
+                    else "xAI returned an HTTP error; check api.x.ai status and that "
+                    "the Agent Tools (/v1/responses + x_search) API is enabled"
                 ),
             ) from exc
         except Exception as exc:  # noqa: BLE001 — normalize all transport errors
             raise AdapterFetchError(
-                message=f"xAI Live Search call failed for @{handle}",
+                message=f"xAI x_search call failed for @{handle}",
                 adapter_name=_ADAPTER_NAME,
                 fix_suggestion="xAI call errored (network/timeout/parse); retry later",
             ) from exc
@@ -434,7 +446,12 @@ ScreenshotRenderer = Callable[[str], Awaitable[str | None]]
 
 
 def _build_discovery_prompt(handle: str, since_utc: datetime, max_posts: int) -> str:
-    """Build the Grok Live Search prompt asking for a handle's recent posts as JSON.
+    """Build the Grok x_search prompt asking for a handle's recent posts as JSON.
+
+    The ``x_search`` tool is already scoped to ``@handle`` (``allowed_x_handles``),
+    so this prompt asks the natural question — has the account posted, and what +
+    the link — but pins the *output* to a strict JSON array so the pipeline can
+    parse it deterministically (CLAUDE.md Rule 5: code parses, model judges).
 
     Args:
         handle: The author handle (without ``@``).
@@ -445,9 +462,10 @@ def _build_discovery_prompt(handle: str, since_utc: datetime, max_posts: int) ->
         A prompt instructing Grok to return ONLY a strict JSON array of posts.
     """
     return (
-        f"Use live search of X/Twitter to find the {max_posts} most recent "
-        f"substantive posts from the account @{handle}, posted after "
-        f"{since_utc.isoformat()}. Exclude pure retweets and one-word replies. "
+        f"Using x_search, check the X/Twitter account @{handle}: has it posted "
+        f"anything since {since_utc.isoformat()}? If yes, what did it post and what "
+        f"is the link to each post? Return up to the {max_posts} most recent "
+        "substantive posts; exclude pure retweets and one-word replies. "
         "Respond with ONLY a JSON array (no prose, no markdown fences). Each "
         "element must be an object with keys: "
         '"tweet_url" (the canonical https://x.com/<handle>/status/<id> URL), '
@@ -455,26 +473,56 @@ def _build_discovery_prompt(handle: str, since_utc: datetime, max_posts: int) ->
         '"published_utc" (ISO-8601 UTC timestamp), '
         '"is_quote" (boolean), "quoted_tweet_url" (string or null), '
         '"is_thread" (boolean). '
-        "If you cannot find any posts, respond with an empty array []."
+        "If it has not posted anything, respond with an empty array []."
     )
 
 
-def _parse_xai_response(body: dict[str, Any]) -> list[dict[str, Any]]:
-    """Pull the post array out of an xAI chat-completions response, or [].
+def _extract_assistant_text(body: dict[str, Any]) -> str | None:
+    """Pull the assistant's text out of an xAI response, across both API shapes.
 
-    The assistant message content is expected to be a JSON array string (per the
-    prompt). Tolerates an accidental ```json fence. A non-array / unparseable
-    payload yields [] (logged), not a crash — the caller treats it as no posts.
+    Primary: the Agent Tools ``/v1/responses`` shape — ``body["output"]`` is a list
+    whose ``type == "message"`` item carries a ``content`` list with a
+    ``type == "output_text"`` object holding ``text``. Fallback: the legacy
+    chat-completions shape ``body["choices"][0]["message"]["content"]``.
 
     Args:
-        body: The parsed xAI chat-completions JSON response.
+        body: The parsed xAI JSON response.
+
+    Returns:
+        The assistant text, or None when neither shape is present.
+    """
+    output = body.get("output")
+    if isinstance(output, list):
+        for item in output:
+            if not isinstance(item, dict) or item.get("type") != "message":
+                continue
+            for content in item.get("content") or []:
+                if isinstance(content, dict) and content.get("type") == "output_text":
+                    return content.get("text")
+
+    # Reason: tolerate the legacy chat-completions shape so older fixtures / a
+    # fallback transport still parse rather than silently dropping posts.
+    try:
+        return body["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
+def _parse_xai_response(body: dict[str, Any]) -> list[dict[str, Any]]:
+    """Pull the post array out of an xAI response, or [].
+
+    The assistant text is expected to be a JSON array string (per the prompt).
+    Tolerates an accidental ```json fence. A non-array / unparseable payload yields
+    [] (logged), not a crash — the caller treats it as no posts.
+
+    Args:
+        body: The parsed xAI JSON response (``/v1/responses`` or chat-completions).
 
     Returns:
         The list of post dicts, or an empty list when none could be parsed.
     """
-    try:
-        content = body["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
+    content = _extract_assistant_text(body)
+    if content is None:
         logger.warning(
             "x_account_xai_no_content",
             adapter=_ADAPTER_NAME,

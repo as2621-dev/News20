@@ -1,9 +1,9 @@
 """Unit tests for the X/Twitter source adapter (Phase 5d SP2).
 
-All externals are mocked at the boundary (CLAUDE.md): the xAI/Grok Live Search
-call is an injected ``post_discoverer`` stub returning fixture post dicts (or
-raising to simulate rate-limit / no-auth), and the tweet-screenshot render is an
-injected ``screenshot_renderer`` stub. No network, no API key, no real browser.
+All externals are mocked at the boundary (CLAUDE.md): the xAI/Grok x_search call
+is an injected ``post_discoverer`` stub returning fixture post dicts (or raising
+to simulate rate-limit / no-auth), and the tweet-screenshot render is an injected
+``screenshot_renderer`` stub. No network, no API key, no real browser.
 
 Covers:
     • fetch_new_items normalizes discovered posts into CandidateStory records with
@@ -13,7 +13,8 @@ Covers:
     • a discovery failure (rate-limit / no-auth) returns a clean [] (no crash)
     • the missing-key path raises AdapterFetchError WITHOUT leaking the key, and
       fetch_new_items turns it into a clean []
-    • the xAI JSON-array response parser tolerates a ```json fence and bad payloads
+    • the xAI JSON-array response parser reads the /v1/responses output shape,
+      tolerates a ```json fence and bad payloads, and still parses legacy choices
     • no log/return value ever contains the API key
 
     >>> pytest tests/agents/ingestion/adapters/test_x_account.py -v
@@ -224,23 +225,56 @@ async def test_screenshot_failure_keeps_post_without_image() -> None:
     assert candidates[0].candidate_social_image_url is None
 
 
-def test_parse_xai_response_strips_json_fence() -> None:
-    """The response parser tolerates a ```json fenced array (model formatting drift)."""
-    posts = [{"tweet_url": _NEW_TWEET_URL, "text": "hi"}]
-    fenced = "```json\n" + json.dumps(posts) + "\n```"
-    body = {"choices": [{"message": {"content": fenced}}]}
+def _responses_body(content_text: str) -> dict[str, Any]:
+    """Wrap assistant text in the Agent Tools ``/v1/responses`` output shape."""
+    return {
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": content_text}],
+            }
+        ]
+    }
 
-    parsed = _parse_xai_response(body)
+
+def test_parse_xai_response_reads_responses_output_shape() -> None:
+    """The parser extracts the JSON array from the /v1/responses output[].content[].text.
+
+    WHY: discovery now hits the Agent Tools ``/v1/responses`` endpoint (x_search),
+    whose answer lives under ``output[].content[].text`` — not the legacy
+    ``choices[0].message.content``. The pipeline keys off this parse, so a shape
+    regression silently drops every post.
+    """
+    posts = [{"tweet_url": _NEW_TWEET_URL, "text": "hi"}]
+
+    parsed = _parse_xai_response(_responses_body(json.dumps(posts)))
 
     assert parsed == posts
 
 
+def test_parse_xai_response_strips_json_fence() -> None:
+    """The response parser tolerates a ```json fenced array (model formatting drift)."""
+    posts = [{"tweet_url": _NEW_TWEET_URL, "text": "hi"}]
+    fenced = "```json\n" + json.dumps(posts) + "\n```"
+
+    parsed = _parse_xai_response(_responses_body(fenced))
+
+    assert parsed == posts
+
+
+def test_parse_xai_response_falls_back_to_legacy_choices() -> None:
+    """The parser still reads the legacy chat-completions ``choices`` shape."""
+    posts = [{"tweet_url": _NEW_TWEET_URL, "text": "hi"}]
+    body = {"choices": [{"message": {"content": json.dumps(posts)}}]}
+
+    assert _parse_xai_response(body) == posts
+
+
 def test_parse_xai_response_handles_unparseable_content() -> None:
     """Non-JSON / non-array content yields [] (treated as no posts), not a crash."""
-    assert (
-        _parse_xai_response({"choices": [{"message": {"content": "sorry, no"}}]}) == []
-    )
-    assert _parse_xai_response({"choices": [{"message": {"content": "{}"}}]}) == []
+    assert _parse_xai_response(_responses_body("sorry, no")) == []
+    assert _parse_xai_response(_responses_body("{}")) == []
     assert _parse_xai_response({}) == []
 
 

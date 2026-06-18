@@ -1,5 +1,7 @@
 # Ranking spec — per-user personalized feed (M1)
 
+> **⚠ Rework banner (2026-06-18):** the **shared-pool rework** changes the layers *around* this spec — see `reference/shared-pool-pipeline.md`. It supersedes the candidate-generation half of §2 (per-user fallback-tree search → demand-sized shared pool), enriches the §1 `Importance` term into the full `story_importance` (E1), adds an MMR diversity term, and retires the breaking tier (→ velocity signal). The per-user Score (§1), EntityBonus (§3a.1), and category-budget allocation (§3a.2) below are **preserved**.
+
 **Status:** Active (M1). **Owner decision (2026-05-30):** the feed must feel built-for-you from the first 10–50 users, even if some reels are generated per-user. Heuristic, **not ML** (<50 users, no training data). Referenced by `plans/phase-1d-daily-content-pipeline.md` (implements it) and `plans/phase-1e-auth-onboarding-interest-profile.md` (the schema it reads/writes).
 
 This is the contract for: how a story is scored for a user, how the fallback tree search finds candidates, how the ~30-slot daily feed is allocated, and how the interest profile updates from engagement. It supersedes the master-plan's single "world tier + niche tier" framing (Open Q2/Q3) — see §6.

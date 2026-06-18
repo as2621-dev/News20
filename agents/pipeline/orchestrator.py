@@ -771,6 +771,7 @@ def assemble_daily_feeds(
     interest_nodes: dict[str, InterestNode],
     supabase_client: Any,
     now_utc: Any = None,
+    source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
 ) -> DailyFeedsBatchResult:
     """Assemble + persist a per-user ``daily_feeds`` feed for every active user.
 
@@ -795,6 +796,10 @@ def assemble_daily_feeds(
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
         supabase_client: A service-role supabase client (injected; mocked in tests).
         now_utc: Current time for freshness (defaults to ``utcnow``).
+        source_stories_by_user: ``{user_id: [produced source-origin stories]}`` — the
+            user's followed YouTube/X reels produced this run, used to fill their
+            ``youtube``/``x`` source slots (phase-5d). ``None`` → no source slots
+            (every source budget soft-rolls into topics, the legacy behaviour).
 
     Returns:
         A :class:`DailyFeedsBatchResult` summarizing writes/skips per user.
@@ -830,6 +835,9 @@ def assemble_daily_feeds(
             prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
             exploration_candidates_by_interest=(
                 user_inputs.exploration_candidates_by_interest or None
+            ),
+            source_stories=(
+                (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
             ),
             now_utc=now_utc,
         )

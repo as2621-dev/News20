@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>Pro vs Flash poster comparison</title>
+<style>
+  body { background:#0b0b0d; color:#e7e7ea; font-family:-apple-system,system-ui,sans-serif; margin:0; padding:32px; }
+  h1 { font-size:22px; }
+  .legend { color:#9aa; margin-bottom:24px; }
+  .row { margin:0 0 48px; border-top:1px solid #222; padding-top:16px; }
+  .row h2 { font-size:15px; color:#cbd5e1; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  figure { margin:0; }
+  figcaption { font-size:12px; color:#9aa; margin-bottom:8px; }
+  img { width:100%; border-radius:10px; display:block; background:#111; }
+  .empty { aspect-ratio:9/16; display:flex; align-items:center; justify-content:center;
+            background:#171717; border:1px dashed #444; border-radius:10px; color:#f87171;
+            text-align:center; padding:16px; font-size:13px; }
+  .status { font-size:12px; color:#888; }
+</style></head>
+<body>
+  <h1>Poster quality: Nano Banana Pro vs Flash</h1>
+  <div class="legend">Same prompts, same 9:16 aspect. LEFT = Pro (current). RIGHT = Flash (cheaper candidate).</div>
+  
+      <section class="row">
+        <h2>digest-1 &middot; Versus / Split</h2>
+        <div class="pair">
+          <figure><figcaption>Nano Banana PRO (gemini-3-pro-image-preview)</figcaption><img src="../digest-1/poster.png" alt="pro"></figure>
+          <figure><figcaption>FLASH (gemini-3.1-flash-image-preview)</figcaption><img src="digest-1.png" alt="flash"></figure>
+        </div>
+        <p class="status">ok</p>
+      </section>
+      <section class="row">
+        <h2>digest-2 &middot; Metaphor / Pun</h2>
+        <div class="pair">
+          <figure><figcaption>Nano Banana PRO (gemini-3-pro-image-preview)</figcaption><img src="../digest-2/poster.png" alt="pro"></figure>
+          <figure><figcaption>FLASH (gemini-3.1-flash-image-preview)</figcaption><img src="digest-2.png" alt="flash"></figure>
+        </div>
+        <p class="status">ok</p>
+      </section>
+      <section class="row">
+        <h2>digest-3 &middot; Single Icon</h2>
+        <div class="pair">
+          <figure><figcaption>Nano Banana PRO (gemini-3-pro-image-preview)</figcaption><img src="../digest-3/poster.png" alt="pro"></figure>
+          <figure><figcaption>FLASH (gemini-3.1-flash-image-preview)</figcaption><img src="digest-3.png" alt="flash"></figure>
+        </div>
+        <p class="status">ok</p>
+      </section>
+      <section class="row">
+        <h2>digest-4 &middot; Metaphor / Pun</h2>
+        <div class="pair">
+          <figure><figcaption>Nano Banana PRO (gemini-3-pro-image-preview)</figcaption><img src="../digest-4/poster.png" alt="pro"></figure>
+          <figure><figcaption>FLASH (gemini-3.1-flash-image-preview)</figcaption><img src="digest-4.png" alt="flash"></figure>
+        </div>
+        <p class="status">ok</p>
+      </section>
+      <section class="row">
+        <h2>digest-5 &middot; Single Icon</h2>
+        <div class="pair">
+          <figure><figcaption>Nano Banana PRO (gemini-3-pro-image-preview)</figcaption><img src="../digest-5/poster.png" alt="pro"></figure>
+          <figure><figcaption>FLASH (gemini-3.1-flash-image-preview)</figcaption><img src="digest-5.png" alt="flash"></figure>
+        </div>
+        <p class="status">ok</p>
+      </section>
+</body></html>

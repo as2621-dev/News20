@@ -16,6 +16,20 @@ Locked decisions (plans/phase-5d-source-ingestion.md, owner 2026-06-17):
   • **Image = the video thumbnail** (best ``media:thumbnail`` / yt-dlp metadata),
     NOT a generated poster (the poster stage skips generation for source items).
 
+Anti-throttle (2026-06-17): the *only* real bottleneck here is YouTube
+IP-throttling, not a quota cap (there is no Data-API key in this path). Two
+mitigations are wired, both off by default so existing callers/tests are
+unchanged and only engage when configured (typically for cloud/Railway runs):
+  • **Cookies → yt-dlp** (``cookiefile`` / ``cookies_from_browser``): caption
+    downloads then look like a signed-in human, defeating the "confirm you're not
+    a bot" / 429 wall that hits datacenter IPs hardest.
+  • **Self-pacing** (``pace_seconds`` + ``pace_jitter_seconds``): the adapter
+    sleeps a jittered delay between successive network calls — between channels
+    (the RSS fetch reuses one adapter instance across a user's channels) and
+    between videos (yt-dlp) — so polling N channels back-to-back from one IP no
+    longer trips the limiter (the "1/7 channels succeeded" failure).
+Construct from :class:`Settings` via :meth:`YouTubeAdapter.from_settings`.
+
 Emitted ``CandidateStory`` shape:
   • ``candidate_external_id`` / ``candidate_url`` = the canonical watch URL.
   • ``candidate_title``           = the video title.
@@ -30,8 +44,10 @@ All external calls (RSS HTTP fetch, yt-dlp) are mockable at the boundary for tes
 from __future__ import annotations
 
 import asyncio
+import random
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from xml.etree import ElementTree
 
 import httpx
@@ -40,6 +56,9 @@ from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.models import CandidateStory
 from agents.shared.exceptions import AdapterFetchError
 from agents.shared.logger import get_logger
+
+if TYPE_CHECKING:
+    from agents.shared.settings import Settings
 
 logger = get_logger(__name__)
 
@@ -117,6 +136,13 @@ class YouTubeAdapter(BaseNewsAdapter):
         http_client: httpx.AsyncClient | None = None,
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
         ytdlp_extractor: "Any | None" = None,
+        *,
+        cookiefile: str | None = None,
+        cookies_from_browser: str | None = None,
+        pace_seconds: float = 0.0,
+        pace_jitter_seconds: float = 0.0,
+        sleeper: Callable[[float], Awaitable[None]] | None = None,
+        jitter_fn: Callable[[float, float], float] | None = None,
     ) -> None:
         """Build the adapter.
 
@@ -126,13 +152,92 @@ class YouTubeAdapter(BaseNewsAdapter):
             timeout_seconds: HTTP timeout (seconds) for the RSS fetch.
             ytdlp_extractor: Optional callable ``(video_url: str) -> dict`` that
                 returns yt-dlp's ``extract_info`` dict for a video. Injected by
-                tests to mock yt-dlp; defaults to the real yt-dlp extractor.
+                tests to mock yt-dlp; defaults to the real yt-dlp extractor (which
+                receives the cookie options below).
+            cookiefile: Optional path to a Netscape cookies.txt passed to yt-dlp
+                (``cookiefile``) so caption fetches authenticate as a signed-in
+                user — the main lever against YouTube's bot-check / 429 throttle on
+                datacenter IPs. Preferred over ``cookies_from_browser`` when both
+                are set. Ignored when a custom ``ytdlp_extractor`` is injected.
+            cookies_from_browser: Optional browser name (e.g. ``"chrome"``) yt-dlp
+                pulls cookies from (``cookiesfrombrowser``) when no ``cookiefile``
+                is given — convenient for local runs. Ignored when ``cookiefile``
+                is set or a custom ``ytdlp_extractor`` is injected.
+            pace_seconds: Base delay (seconds) slept between successive network
+                calls (channel→channel RSS, video→video yt-dlp). 0 (default)
+                disables pacing so existing callers/tests are unchanged.
+            pace_jitter_seconds: Random extra delay (0..this) added before each
+                paced sleep so calls are not evenly spaced. 0 (default) = no jitter.
+            sleeper: Optional async sleep ``(seconds) -> None`` (defaults to
+                :func:`asyncio.sleep`); injected by tests to assert pacing without
+                real waits.
+            jitter_fn: Optional ``(low, high) -> float`` jitter generator (defaults
+                to :func:`random.uniform`); injected by tests for determinism.
         """
         self._http_client = http_client
         self.timeout_seconds = timeout_seconds
+        # Reason: cookie options are merged into the real yt-dlp opts at fetch time;
+        # cookiefile wins over browser-cookies when both are configured.
+        self._ytdlp_extra_opts = _build_cookie_opts(cookiefile, cookies_from_browser)
         # Reason: dependency injection of the yt-dlp call keeps the adapter
         # testable without the network and without importing yt-dlp at module load.
-        self._ytdlp_extractor = ytdlp_extractor or _default_ytdlp_extract_info
+        # The default extractor carries this instance's cookie opts.
+        self._ytdlp_extractor = ytdlp_extractor or (
+            lambda url: _default_ytdlp_extract_info(
+                url, extra_opts=self._ytdlp_extra_opts
+            )
+        )
+        # Self-pacing state (anti-throttle). _pace_started gates the inter-channel
+        # sleep: the first fetch_new_items call on this instance does not wait; each
+        # later one does (the instance is reused across a user's channels).
+        self._pace_seconds = pace_seconds
+        self._pace_jitter_seconds = pace_jitter_seconds
+        self._sleeper = sleeper or asyncio.sleep
+        self._jitter_fn = jitter_fn or random.uniform
+        self._pace_started = False
+
+    @classmethod
+    def from_settings(cls, settings: "Settings") -> "YouTubeAdapter":
+        """Build a production adapter wired with cookie + pacing config from env.
+
+        The pure ingestion pipeline injects mock adapters in tests, so this is the
+        seam the real (lazy-built) path uses to pick up anti-throttle settings
+        without coupling the pipeline to :class:`Settings`.
+
+        Args:
+            settings: Loaded :class:`Settings` (``youtube_cookiefile`` /
+                ``youtube_cookies_from_browser`` / ``youtube_pace_seconds`` /
+                ``youtube_pace_jitter_seconds``).
+
+        Returns:
+            A configured :class:`YouTubeAdapter`.
+
+        Example:
+            >>> from agents.shared.settings import Settings
+            >>> # adapter = YouTubeAdapter.from_settings(Settings())
+        """
+        return cls(
+            cookiefile=settings.youtube_cookiefile,
+            cookies_from_browser=settings.youtube_cookies_from_browser,
+            pace_seconds=settings.youtube_pace_seconds,
+            pace_jitter_seconds=settings.youtube_pace_jitter_seconds,
+        )
+
+    async def _pace(self) -> None:
+        """Sleep the configured (jittered) anti-throttle delay; no-op when disabled.
+
+        Used between successive network calls so a burst of channel/video fetches
+        from one IP does not trip YouTube's rate limiter. Does nothing when
+        ``pace_seconds`` is 0 (the default), keeping the un-configured path instant.
+        """
+        if self._pace_seconds <= 0:
+            return
+        extra = (
+            self._jitter_fn(0.0, self._pace_jitter_seconds)
+            if self._pace_jitter_seconds > 0
+            else 0.0
+        )
+        await self._sleeper(self._pace_seconds + extra)
 
     # ------------------------------------------------------------------
     # Source-keyed entry point (the real path — called by source_pipeline, SP3)
@@ -187,6 +292,12 @@ class YouTubeAdapter(BaseNewsAdapter):
             since_utc=since.isoformat(),
         )
 
+        # Inter-channel pacing: skip the wait on the very first poll of this reused
+        # instance, then space out every subsequent channel's RSS hit (anti-throttle).
+        if self._pace_started:
+            await self._pace()
+        self._pace_started = True
+
         feed_xml = await self._fetch_channel_feed(channel_id)
         entries = self._parse_feed_entries(feed_xml, channel_id)
         new_entries = [e for e in entries if e["published_utc"] > since]
@@ -201,7 +312,12 @@ class YouTubeAdapter(BaseNewsAdapter):
         candidates: list[CandidateStory] = []
         skipped_no_captions = 0
         skipped_failed = 0
-        for entry in new_entries:
+        for video_index, entry in enumerate(new_entries):
+            # Inter-video pacing: space out the per-video yt-dlp caption downloads
+            # (the calls most likely to hit YouTube's bot-check). No wait before the
+            # first video of this channel.
+            if video_index > 0:
+                await self._pace()
             candidate = self._entry_to_candidate(entry)
             try:
                 enriched = await self.extract_body(candidate)
@@ -592,7 +708,41 @@ def _extract_best_thumbnail(info: dict[str, Any]) -> str | None:
     return None
 
 
-def _default_ytdlp_extract_info(video_url: str) -> dict[str, Any]:
+def _build_cookie_opts(
+    cookiefile: str | None, cookies_from_browser: str | None
+) -> dict[str, Any]:
+    """Build the yt-dlp cookie options from the adapter's cookie config.
+
+    Returns the yt-dlp option dict that authenticates caption downloads as a
+    signed-in user (the anti-throttle lever). ``cookiefile`` wins over
+    ``cookies_from_browser`` when both are given; an empty config returns ``{}``
+    (anonymous yt-dlp, the default).
+
+    Args:
+        cookiefile: Path to a Netscape cookies.txt, or None.
+        cookies_from_browser: Browser name (e.g. ``"chrome"``) to pull cookies
+            from, or None.
+
+    Returns:
+        A dict to merge into the yt-dlp options (``{}`` when no cookies configured).
+
+    Example:
+        >>> _build_cookie_opts("/tmp/c.txt", "chrome")
+        {'cookiefile': '/tmp/c.txt'}
+        >>> _build_cookie_opts(None, "chrome")
+        {'cookiesfrombrowser': ('chrome',)}
+    """
+    if cookiefile and cookiefile.strip():
+        return {"cookiefile": cookiefile.strip()}
+    if cookies_from_browser and cookies_from_browser.strip():
+        # Reason: yt-dlp expects a tuple (browser[, profile, keyring, container]).
+        return {"cookiesfrombrowser": (cookies_from_browser.strip(),)}
+    return {}
+
+
+def _default_ytdlp_extract_info(
+    video_url: str, extra_opts: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Real yt-dlp extractor: fetch metadata + caption text for one video.
 
     Imported lazily so the module loads (and tests run) without yt-dlp installed,
@@ -607,6 +757,8 @@ def _default_ytdlp_extract_info(video_url: str) -> dict[str, Any]:
 
     Args:
         video_url: The canonical watch URL.
+        extra_opts: Optional yt-dlp options merged over :data:`_YTDLP_BASE_OPTS`
+            (e.g. cookie auth from :func:`_build_cookie_opts`) to defeat throttling.
 
     Returns:
         yt-dlp's ``extract_info`` dict, with the best English caption format's vtt
@@ -624,7 +776,8 @@ def _default_ytdlp_extract_info(video_url: str) -> dict[str, Any]:
             fix_suggestion="pip install yt-dlp (add to the worker image)",
         ) from exc
 
-    with yt_dlp.YoutubeDL(_YTDLP_BASE_OPTS) as ydl:
+    opts = {**_YTDLP_BASE_OPTS, **(extra_opts or {})}
+    with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(video_url, download=False) or {}
         _attach_caption_text(ydl, info)
     return info

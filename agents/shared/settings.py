@@ -62,6 +62,39 @@ class Settings(BaseSettings):
         "thumbnail + subscriber count. Optional so existing envs without it "
         "still load; the seeder fails loud at run time when it is missing.",
     )
+    youtube_cookiefile: str | None = Field(
+        default=None,
+        description="Path to a Netscape-format cookies.txt for yt-dlp transcript "
+        "fetches (agents/ingestion/adapters/youtube.py). Makes caption downloads "
+        "look like a signed-in human, defeating YouTube's 'confirm you're not a "
+        "bot' / 429 throttle that blocks datacenter (Railway) IPs. Optional; when "
+        "empty yt-dlp runs anonymously (works locally, throttled in the cloud). "
+        "Mutually preferred over youtube_cookies_from_browser when both are set.",
+    )
+    youtube_cookies_from_browser: str | None = Field(
+        default=None,
+        description="Browser name yt-dlp pulls cookies from (e.g. 'chrome', "
+        "'safari', 'firefox') as an alternative to youtube_cookiefile — handy for "
+        "local runs on a machine with a logged-in browser. Ignored when "
+        "youtube_cookiefile is set. Empty by default (anonymous yt-dlp).",
+    )
+    youtube_pace_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Base delay (seconds) the YouTube adapter waits between "
+        "successive network calls — between channels (RSS) and between videos "
+        "(yt-dlp). Self-throttles so polling N followed channels back-to-back from "
+        "one IP does not trip YouTube's rate limiter (the '1/7 channels' failure). "
+        "0 (default) disables pacing — set ~2.0 for cloud runs.",
+    )
+    youtube_pace_jitter_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Random extra delay (0..this, seconds) added on top of "
+        "youtube_pace_seconds before each paced call, so requests are not evenly "
+        "spaced (harder to fingerprint as a bot). 0 (default) = no jitter; ~1.5 "
+        "pairs well with youtube_pace_seconds=2.0.",
+    )
     xai_api_key: SecretStr = Field(
         default=SecretStr(""),
         description="xAI / Grok API key (XAI_API_KEY) — used by the X account "

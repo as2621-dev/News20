@@ -100,6 +100,21 @@ DEFAULT_BREAKING_SLOTS = 4
 SLOT_KIND_BREAKING = "breaking"
 SLOT_KIND_INTEREST = "interest"
 SLOT_KIND_EXPLORATION = "exploration"
+# Reason (phase-5d SP4): a slot filled by a story from one of the user's FOLLOWED
+# sources (a YouTube upload / X post). Distinct from ``interest`` because it
+# carries NO matched interest (it was placed by the source axis, not a slug) and
+# the client renders the source attribution differently. ``feed_slot_kind`` is a
+# plain ``text`` column (migration 0003 — no CHECK), so this value persists safely.
+SLOT_KIND_SOURCE = "source"
+
+# Reason: map a source-origin story's outlet domain to its source FeedCategory so
+# a YouTube upload fills a ``youtube`` slot and an X post fills an ``x`` slot. The
+# youtube/x adapters stamp these exact domains (agents.ingestion.dedup
+# SOURCE_ORIGIN_DOMAINS); kept local so feed_assembly owns the slot mapping.
+_SOURCE_DOMAIN_TO_CATEGORY: dict[str, FeedCategory] = {
+    "youtube.com": "youtube",
+    "x.com": "x",
+}
 
 
 class AllocatedSlot(BaseModel):
@@ -357,6 +372,86 @@ def _take_top_qualifying(
     return taken
 
 
+def _source_candidate(
+    story: CanonicalStory, category: FeedCategory
+) -> ScoredCandidate:
+    """Wrap a produced source-origin story as a ``ScoredCandidate`` for a source slot.
+
+    Source slots are not scored against an interest (the user asked for the creator,
+    not a topic), so the synthetic candidate carries no matched interest and a flat
+    qualifying score — its placement is driven by the source budget + cadence, not
+    the Score ranking. ``feed_category`` records which source slot it fills.
+
+    Args:
+        story: The produced source-origin story (its outlet domain marks youtube/x).
+        category: The source category this story fills (``youtube`` / ``x``).
+
+    Returns:
+        A :class:`ScoredCandidate` placeholder for the source slot.
+    """
+    return ScoredCandidate(
+        story_id=story.canonical_story_id,
+        matched_interest_id="",
+        score=1.0,
+        affinity=1.0,
+        depth_match=1.0,
+        importance=0.0,
+        freshness=1.0,
+        feed_category=category,
+    )
+
+
+def _fill_source_slots(
+    source_stories: list[CanonicalStory],
+    source_budgets: dict[FeedCategory, int],
+    used_story_ids: set[str],
+    excluded_story_ids: set[str],
+) -> dict[FeedCategory, list[ScoredCandidate]]:
+    """Fill each source category's budget from the user's produced source stories.
+
+    A source story fills the slot of the category its outlet domain maps to
+    (youtube.com → ``youtube``, x.com → ``x``). Each category takes up to its budget,
+    skipping stories already placed in this feed or shown in a prior feed (§3.8).
+    A category with no produced source story stays unfilled — its budget then rolls
+    into the topic categories (the caller's existing soft-roll), so the feed still
+    totals 30 when a source produced nothing this run.
+
+    Args:
+        source_stories: This user's PRODUCED source-origin stories (youtube/x).
+        source_budgets: ``{source_category: slot_count}`` from the user's allocation.
+        used_story_ids: Mutated — a placed source story is added (within-feed dedup).
+        excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
+
+    Returns:
+        ``{source_category: [ScoredCandidate]}`` for the categories actually filled.
+    """
+    by_category: dict[FeedCategory, list[CanonicalStory]] = {}
+    for story in source_stories:
+        category = _SOURCE_DOMAIN_TO_CATEGORY.get(
+            (story.canonical_primary_outlet_domain or "").strip().lower()
+        )
+        if category is None:
+            continue
+        by_category.setdefault(category, []).append(story)
+
+    filled: dict[FeedCategory, list[ScoredCandidate]] = {}
+    for category, budget in source_budgets.items():
+        if budget <= 0:
+            continue
+        taken: list[ScoredCandidate] = []
+        for story in by_category.get(category, []):
+            if len(taken) >= budget:
+                break
+            story_id = story.canonical_story_id
+            if story_id in used_story_ids or story_id in excluded_story_ids:
+                continue
+            taken.append(_source_candidate(story, category))
+            used_story_ids.add(story_id)
+        if taken:
+            filled[category] = taken
+    return filled
+
+
 def assemble_user_feed(
     profile_interests: list[UserProfileInterest],
     stories: list[CanonicalStory],
@@ -366,6 +461,7 @@ def assemble_user_feed(
     category_allocation: list[CategoryAllocation] | None = None,
     prior_feed_story_ids: set[str] | None = None,
     exploration_candidates_by_interest: Any = None,
+    source_stories: list[CanonicalStory] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     default_breaking_slots: int = DEFAULT_BREAKING_SLOTS,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
@@ -401,6 +497,11 @@ def assemble_user_feed(
         exploration_candidates_by_interest: Accepted for backward-compat with the
             old allocator's callers (sim/orchestrator); IGNORED in the category-budget
             model (the user reserves slots by category, not an exploration reserve).
+        source_stories: This user's PRODUCED source-origin stories (followed YouTube
+            uploads / X posts). They fill the ``youtube``/``x`` source-category slots
+            (phase-5d) instead of those budgets soft-rolling into topics. A source
+            category with no produced story still soft-rolls (graceful). ``None``/empty
+            → the legacy all-soft-roll behaviour (no source slots).
         feed_slot_budget: ``N`` — total feed slots (30).
         default_breaking_slots: Breaking budget in the no-allocation default.
         score_threshold: ``T`` — the qualifying bar.
@@ -478,20 +579,38 @@ def assemble_user_feed(
         excluded_story_ids=excluded,
     )
 
+    # ── Pass 1.5: fill SOURCE slots (youtube/x) from the user's produced source
+    # stories (phase-5d). Each source category takes up to its budget; whatever it
+    # cannot fill (no produced story this run) stays as roll-over that Pass 4
+    # redistributes into topics — so the feed still totals 30 either way. ──
+    source_budgets: dict[FeedCategory, int] = {}
+    for row in ordered_allocation:
+        if row.allocation_category in SOURCE_CATEGORIES:
+            source_budgets[row.allocation_category] = (
+                source_budgets.get(row.allocation_category, 0)
+                + row.allocation_slot_count
+            )
+    source_filled_by_category = _fill_source_slots(
+        source_stories or [],
+        source_budgets,
+        used_story_ids=used_story_ids,
+        excluded_story_ids=excluded,
+    )
+    source_filled_total = sum(len(v) for v in source_filled_by_category.values())
+
     # ── Pass 2: gather each TOPIC category's own budget, in the user's sequence ──
-    # Reason: source categories (youtube/x) carry a budget but ZERO candidates today
-    # (phase-5d). We bank their budget as ``source_roll_slots`` and distribute it —
-    # together with any breaking/topic shortfall — across the topic categories by
-    # sequence in Pass 4 so the feed still totals 30 without overshooting N.
+    # Reason: a source category's UNFILLED budget (no produced youtube/x story this
+    # run) is banked as ``source_roll_slots`` and distributed — together with any
+    # breaking/topic shortfall — across the topic categories by sequence in Pass 4
+    # so the feed still totals 30 without overshooting N.
     topic_budgets: dict[FeedCategory, int] = {}
     topic_sequence: list[FeedCategory] = []
-    source_roll_slots = 0
+    source_roll_slots = sum(source_budgets.values()) - source_filled_total
     for row in ordered_allocation:
         category = row.allocation_category
         if category == "breaking":
             continue
         if category in SOURCE_CATEGORIES:
-            source_roll_slots += row.allocation_slot_count
             continue
         topic_budgets[category] = (
             topic_budgets.get(category, 0) + row.allocation_slot_count
@@ -504,7 +623,7 @@ def assemble_user_feed(
     # rolled-over source slots are a SEPARATE distribution (Pass 4), so the
     # per-category budgets are honored exactly when stories are available. The total
     # never overshoots the user's target (breaking already consumed ``len(breaking)``).
-    topic_capacity = max(total_target - len(breaking), 0)
+    topic_capacity = max(total_target - len(breaking) - source_filled_total, 0)
     placed_topic_slots = 0
     filled_by_category: dict[FeedCategory, list[ScoredCandidate]] = {}
     for category in topic_sequence:
@@ -563,7 +682,16 @@ def assemble_user_feed(
             breaking_emitted = True
             continue
         if category in SOURCE_CATEGORIES:
-            continue  # source budgets were already soft-rolled into topics (Pass 4)
+            if category in emitted_categories:
+                continue
+            # Reason: emit this source category's filled slots at its own sequence
+            # position (phase-5d). Any UNFILLED source budget already rolled into
+            # topics in Pass 4, so nothing is lost when a source produced nothing.
+            source_taken = source_filled_by_category.get(category, [])
+            ordered.extend(source_taken)
+            slot_kinds.extend([SLOT_KIND_SOURCE] * len(source_taken))
+            emitted_categories.add(category)
+            continue
         if category in emitted_categories:
             continue  # a category emits once even if duplicated in the allocation
         taken = filled_by_category.get(category, [])
@@ -583,7 +711,7 @@ def assemble_user_feed(
                 feed_score=candidate.score,
                 feed_matched_interest_id=(
                     None
-                    if slot_kind == SLOT_KIND_BREAKING
+                    if slot_kind in (SLOT_KIND_BREAKING, SLOT_KIND_SOURCE)
                     else candidate.matched_interest_id
                 ),
                 feed_slot_kind=slot_kind,
@@ -596,6 +724,7 @@ def assemble_user_feed(
         followed_entity_count=len(followed_entities or []),
         allocation_row_count=len(allocation),
         breaking_slots=len(breaking),
+        source_slots=source_filled_total,
         source_roll_slots=source_roll_slots,
         total_slots=len(slots),
         excluded_prior_count=len(excluded),
