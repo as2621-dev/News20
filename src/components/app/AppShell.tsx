@@ -24,13 +24,17 @@
  * <PhoneShell><AppShell /></PhoneShell>
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type LibraryTab, type SelectableTab, TabBar } from "@/components/app/TabBar";
 import { ArchiveScreen } from "@/components/blip/library/ArchiveScreen";
 import { SourcesScreen } from "@/components/blip/library/SourcesScreen";
 import { BlipReel } from "@/components/blip/reel/BlipReel";
 import { SettingsLayer } from "@/components/blip/reel/SettingsLayer";
 import { BuildYour30 } from "@/components/onboarding/BuildYour30";
+import { categoryBucketsFromInterestVector, type DesignBucketId, sourceBucketsFromFollows } from "@/lib/feedBuckets";
+import { rollUpInterestVector } from "@/lib/interestVector";
+import { logger } from "@/lib/logger";
+import { getFollowedSources } from "@/lib/sources";
 import "@/styles/blip-flow.css";
 import "@/styles/blip-library.css";
 
@@ -45,6 +49,50 @@ export function AppShell() {
   const [activeTab, setActiveTab] = useState<LibraryTab | null>(null);
   // Which day's briefing the reel is showing — moved by tapping an Archive day.
   const [reelDate, setReelDate] = useState<string>(todayFeedDate());
+  // The user's REAL backing for the "Thirty" tab: the category buckets they follow an interest
+  // in (rolled up from topic + entity follows) + the source buckets they follow a source on.
+  // Loaded once the Thirty tab first opens so "Build your 30" seeds + offers ONLY backed blocks
+  // (owner rule 2026-06-17 — no phantom category/source slots). null = not yet loaded.
+  const [thirtyBackedBuckets, setThirtyBackedBuckets] = useState<{
+    category: DesignBucketId[];
+    source: DesignBucketId[];
+  } | null>(null);
+  const hasLoadedThirtyBucketsRef = useRef(false);
+
+  // Load the user's backed buckets the first time the Thirty tab opens (a deliberate, owner-only
+  // navigation — no need to read on every app open). A failure is NON-FATAL: fall back to an
+  // empty signal so "Build your 30" stays usable on the full default seed (Rule 12 — logged).
+  useEffect(() => {
+    if (activeTab !== "thirty" || hasLoadedThirtyBucketsRef.current) {
+      return;
+    }
+    hasLoadedThirtyBucketsRef.current = true;
+    let isMounted = true;
+    void (async () => {
+      try {
+        const [interestVector, followedSources] = await Promise.all([rollUpInterestVector(), getFollowedSources()]);
+        if (!isMounted) {
+          return;
+        }
+        setThirtyBackedBuckets({
+          category: categoryBucketsFromInterestVector(interestVector),
+          source: sourceBucketsFromFollows(followedSources),
+        });
+      } catch (error) {
+        if (isMounted) {
+          setThirtyBackedBuckets({ category: [], source: [] });
+        }
+        logger.warn("app_shell_thirty_backed_buckets_load_failed", {
+          error_message: error instanceof Error ? error.message : "unknown",
+          fix_suggestion:
+            "Confirm the user is authed and interest/source reads are permitted; using the default 30 seed.",
+        });
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab]);
 
   /** Tab selection: "today" closes the library; the rest swap the open surface. */
   const handleSelectTab = (tab: SelectableTab): void => {
@@ -67,9 +115,18 @@ export function AppShell() {
           {activeTab === "sources" ? <SourcesScreen /> : null}
           {activeTab === "thirty" ? (
             // The "Thirty" tab hosts the allocation editor (moved out of Settings); saving
-            // the order returns to Today so the user sees their rebuilt briefing.
+            // the order returns to Today so the user sees their rebuilt briefing. We mount
+            // BuildYour30 only once the user's backed buckets have loaded so the seed + Add
+            // sheet are gated to real follows from first paint (no phantom blocks).
             <div className="thirty-tab">
-              <BuildYour30 embedded onDone={() => setActiveTab(null)} />
+              {thirtyBackedBuckets ? (
+                <BuildYour30
+                  embedded
+                  onDone={() => setActiveTab(null)}
+                  selectedCategoryBuckets={thirtyBackedBuckets.category}
+                  followedSourceBuckets={thirtyBackedBuckets.source}
+                />
+              ) : null}
             </div>
           ) : null}
           {activeTab === "settings" ? <SettingsLayer /> : null}

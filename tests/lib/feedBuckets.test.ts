@@ -2,15 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   ALLOCATION_TOTAL,
   ALWAYS_INCLUDED_CATEGORY_BUCKET,
+  allowedBucketsForSelections,
   buildDefaultSegments,
-  buildSegmentsForSelectedCategories,
+  buildSegmentsForSelections,
   categoryBucketsFromFollows,
+  categoryBucketsFromInterestVector,
   DESIGN_BUCKET_IDS,
   DESIGN_BUCKET_TO_ENUM,
   DESIGN_BUCKETS,
   type DesignBucketId,
   ENUM_TO_DESIGN_BUCKET,
   type FeedCategoryEnum,
+  sourceBucketsFromFollows,
   sumSegmentCounts,
 } from "@/lib/feedBuckets";
 
@@ -129,37 +132,105 @@ describe("categoryBucketsFromFollows (picker selections → the category blocks 
   });
 });
 
-describe("buildSegmentsForSelectedCategories (the filtered seed for a partial-category pick)", () => {
-  it("keeps breaking + source blocks + only the selected categories (Tech + Markets)", () => {
-    // WHY: encodes the owner-locked rule — breaking is always-on, sources are never filtered,
-    // and every UNpicked category (world/sport/culture) is dropped from the seed.
-    const seededBucketIds = buildSegmentsForSelectedCategories(["tech", "markets"]).map((segment) => segment.bucketId);
+describe("sourceBucketsFromFollows (followed sources → the source blocks the 30 may seed)", () => {
+  it("maps each content_source_type to its source bucket (youtube/podcast/x, deduped)", () => {
+    // WHY: this is the gate that backs the owner rule (2026-06-17) — only a source axis the user
+    // actually follows may seed a block. A YouTube + X follow must resolve to exactly those axes.
+    const buckets = sourceBucketsFromFollows([
+      { content_source_type: "youtube_channel" },
+      { content_source_type: "x_account" },
+      { content_source_type: "youtube_channel" },
+    ]);
+    expect(buckets).toEqual(["youtube", "x"]);
+  });
+
+  it("rides a 'personality' follow on the X axis (no axis of its own)", () => {
+    // WHY: the catalog has 4 source types but the screen draws 3 axes; a named creator shares the
+    // X axis (same circular avatar). Mis-dropping it would erase a source the user is owed.
+    expect(sourceBucketsFromFollows([{ content_source_type: "personality" }])).toEqual(["x"]);
+  });
+
+  it("returns an empty array for no followed sources (edge — no source blocks seeded)", () => {
+    expect(sourceBucketsFromFollows([])).toEqual([]);
+  });
+});
+
+describe("categoryBucketsFromInterestVector (persisted backing → the category blocks to seed)", () => {
+  it("maps each positively-weighted pinned key to its category bucket (ai→tech, sport→sport)", () => {
+    // WHY: the library 'Thirty' tab has no live picker — it must derive backed categories from the
+    // rolled-up vector. ai folds into Tech & Science; sport stays sport.
+    expect(categoryBucketsFromInterestVector({ ai: 4.0, sport: 1.2 })).toEqual(["tech", "sport"]);
+  });
+
+  it("folds geopolitics + politics + environment into ONE 'world' bucket (deduped)", () => {
+    // WHY: three pinned keys map to the single Geopolitics block; if they didn't collapse the seed
+    // would try to seed a duplicate world block.
+    expect(categoryBucketsFromInterestVector({ geopolitics: 2, politics: 1, environment: 0.5 })).toEqual(["world"]);
+  });
+
+  it("excludes a zero / non-positive weight key (no backing → no block)", () => {
+    // WHY: a key present at weight 0 is NOT real backing; seeding it would resurrect a phantom block
+    // — exactly the bug this fix removes.
+    expect(categoryBucketsFromInterestVector({ ai: 3, business: 0 })).toEqual(["tech"]);
+  });
+
+  it("returns an empty array for an empty/zero vector (edge — new user, no backing)", () => {
+    expect(categoryBucketsFromInterestVector({})).toEqual([]);
+  });
+});
+
+describe("allowedBucketsForSelections (the single guard for which blocks may appear)", () => {
+  it("unions the backed categories + followed sources and forces 'breaking' in", () => {
+    // WHY: this set gates BOTH the seed and the Add sheet — it must be exactly breaking + backed
+    // categories + followed sources, so neither a seed nor a hand-add can introduce a phantom.
+    const allowed = allowedBucketsForSelections(["tech"], ["youtube"]);
+    expect([...allowed].sort()).toEqual(["breaking", "tech", "youtube"].sort());
+  });
+
+  it("includes 'breaking' even when both inputs are empty (always-on tier)", () => {
+    expect(allowedBucketsForSelections([], []).has(ALWAYS_INCLUDED_CATEGORY_BUCKET)).toBe(true);
+  });
+});
+
+describe("buildSegmentsForSelections (the filtered seed gated on real category + source backing)", () => {
+  it("keeps breaking + only the selected categories + only the followed source axes (Tech+Markets, YouTube+X)", () => {
+    // WHY: encodes the owner rule (2026-06-17) — breaking is always-on, and every UNbacked
+    // category (world/sport/culture) AND unfollowed source axis is dropped from the seed.
+    const seededBucketIds = buildSegmentsForSelections(["tech", "markets"], ["youtube", "x"]).map(
+      (segment) => segment.bucketId,
+    );
     expect(seededBucketIds).toEqual(["breaking", "tech", "youtube", "markets", "x"]);
   });
 
-  it("force-includes 'breaking' even when it is not in the selected set", () => {
-    // WHY: breaking is not a pickable interest; omitting it would erase Breaking News from the
-    // 30 for every user. It must appear regardless of the passed category set.
-    const seededBucketIds = buildSegmentsForSelectedCategories([]).map((segment) => segment.bucketId);
-    expect(seededBucketIds).toContain(ALWAYS_INCLUDED_CATEGORY_BUCKET);
+  it("DROPS a source axis the user follows nothing on (the phantom-source-block fix)", () => {
+    // WHY: this is the core regression fix — a user who follows a YouTube channel but no X account
+    // must NOT get an X block seeded (the old behaviour seeded every source axis unconditionally).
+    const seededBucketIds = buildSegmentsForSelections(["tech", "markets"], ["youtube"]).map(
+      (segment) => segment.bucketId,
+    );
+    expect(seededBucketIds).toEqual(["breaking", "tech", "youtube", "markets"]);
+    expect(seededBucketIds).not.toContain("x");
   });
 
-  it("never filters source blocks — every 'src' bucket in the default survives", () => {
-    // WHY: sources come from the source swipe, not the topic picker (owner decision); filtering
-    // them here would drop YouTube/X the user is owed even with zero category picks.
-    const seededBucketIds = new Set(buildSegmentsForSelectedCategories([]).map((segment) => segment.bucketId));
-    const defaultSourceBucketIds = buildDefaultSegments()
-      .map((segment) => segment.bucketId)
-      .filter((bucketId) => DESIGN_BUCKETS[bucketId].kind === "src");
-    for (const sourceBucketId of defaultSourceBucketIds) {
-      expect(seededBucketIds).toContain(sourceBucketId);
+  it("seeds NO source blocks when the user follows no sources (zero source backing)", () => {
+    // WHY: with no followed sources, the 30 must contain only breaking + backed categories — never
+    // a source block with no backing follow.
+    const seededBucketIds = new Set(buildSegmentsForSelections(["tech"], []).map((segment) => segment.bucketId));
+    for (const bucketId of seededBucketIds) {
+      expect(DESIGN_BUCKETS[bucketId].kind).toBe("cat");
     }
   });
 
+  it("force-includes 'breaking' even when both backing sets are empty", () => {
+    // WHY: breaking is not a pickable interest; omitting it would erase Breaking News from the 30.
+    const seededBucketIds = buildSegmentsForSelections([], []).map((segment) => segment.bucketId);
+    expect(seededBucketIds).toEqual([ALWAYS_INCLUDED_CATEGORY_BUCKET]);
+  });
+
   it("seeds UNDER 30 for a narrow pick so the screen opens on 'Fill N more' (no auto-rescale)", () => {
-    // WHY: the owner chose to open under-budget rather than rescale; a Tech+Markets pick must
-    // total < 30 (here 20) so the budget CTA prompts the user to fill the rest, not auto-fill.
-    const total = sumSegmentCounts(buildSegmentsForSelectedCategories(["tech", "markets"]));
+    // WHY: the owner chose to open under-budget rather than rescale; Tech+Markets+YouTube+X totals
+    // 20 (< 30) so the budget CTA prompts the user to fill the rest, not auto-fill.
+    const total = sumSegmentCounts(buildSegmentsForSelections(["tech", "markets"], ["youtube", "x"]));
     expect(total).toBeLessThan(ALLOCATION_TOTAL);
     expect(total).toBe(20);
   });
@@ -167,7 +238,7 @@ describe("buildSegmentsForSelectedCategories (the filtered seed for a partial-ca
   it("preserves the default seed order for the surviving blocks", () => {
     // WHY: order IS the briefing sequence ("the first block plays first") — the filter must not
     // reorder the kept blocks relative to the default.
-    const seededBucketIds = buildSegmentsForSelectedCategories(["world", "sport", "culture"]).map(
+    const seededBucketIds = buildSegmentsForSelections(["world", "sport", "culture"], ["youtube", "x"]).map(
       (segment) => segment.bucketId,
     );
     expect(seededBucketIds).toEqual(["breaking", "world", "youtube", "sport", "x", "culture"]);

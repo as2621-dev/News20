@@ -47,13 +47,14 @@ import { OtpCodeEntry } from "@/components/onboarding/OtpCodeEntry";
 import { TopicTree } from "@/components/onboarding/TopicTree";
 import { SourceSwipe } from "@/components/sources/SourceSwipe";
 import { resolveRootGate } from "@/lib/auth/routeGuard";
-import { categoryBucketsFromFollows, type DesignBucketId } from "@/lib/feedBuckets";
+import { categoryBucketsFromFollows, type DesignBucketId, sourceBucketsFromFollows } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
 import {
   isSourceOnboardingComplete,
   markSourceOnboardingComplete,
   persistPickerFollows,
 } from "@/lib/onboardingProfile";
+import { getFollowedSources } from "@/lib/sources";
 import { getCurrentSession, TEST_AUTH_CODE, TEST_AUTH_MODE } from "@/lib/supabase/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { FollowSelection } from "@/types/picker";
@@ -89,6 +90,10 @@ export function OnboardingFlow() {
   // `handleComplete` so the later `build` step ("Build your 30") can seed ONLY those category
   // blocks. Empty (picker skipped) → the build screen falls back to the full default seed.
   const [selectedCategoryBuckets, setSelectedCategoryBuckets] = useState<DesignBucketId[]>([]);
+  // The source buckets the user actually follows, derived from their source swipe in
+  // `handleSourcesDone` so the `build` step seeds + offers ONLY backed source blocks. Empty
+  // (no sources followed / read failed) → no source blocks appear (never a phantom block).
+  const [followedSourceBuckets, setFollowedSourceBuckets] = useState<DesignBucketId[]>([]);
   // Hold the established session's user id so `loading` can scope the writes.
   const sessionUserIdRef = useRef<string | null>(null);
 
@@ -240,9 +245,21 @@ export function OnboardingFlow() {
   );
 
   /** Complete the source swipe: mark the source step done, then advance to "Build your 30". */
-  const handleSourcesDone = useCallback((total: number) => {
+  const handleSourcesDone = useCallback(async (total: number) => {
     logger.info("source_onboarding_completed", { total_followed: total });
     markSourceOnboardingComplete();
+    // Derive which SOURCE axes the user actually follows so "Build your 30" seeds + offers ONLY
+    // those source blocks (a followed-nothing axis must not appear — owner rule 2026-06-17). A
+    // read failure is non-fatal: proceed with no source blocks (safe — never seeds a phantom).
+    try {
+      const followedSources = await getFollowedSources();
+      setFollowedSourceBuckets(sourceBucketsFromFollows(followedSources));
+    } catch (error) {
+      logger.warn("onboarding_source_buckets_derive_failed", {
+        error_message: error instanceof Error ? error.message : "unknown",
+        fix_suggestion: "Could not read followed sources for the 30 seed; seeding no source blocks (safe fallback).",
+      });
+    }
     setStep("build");
   }, []);
 
@@ -337,6 +354,7 @@ export function OnboardingFlow() {
           onDone={handleBuildDone}
           onSkip={handleBuildSkip}
           selectedCategoryBuckets={selectedCategoryBuckets}
+          followedSourceBuckets={followedSourceBuckets}
         />
       ) : null}
     </main>

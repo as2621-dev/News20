@@ -27,8 +27,9 @@ import { getUserFeedAllocation, saveUserFeedAllocation } from "@/lib/feedAllocat
 import {
   ALLOCATION_TOTAL,
   type AllocationSegment,
+  allowedBucketsForSelections,
   buildDefaultSegments,
-  buildSegmentsForSelectedCategories,
+  buildSegmentsForSelections,
   DESIGN_BUCKET_IDS,
   DESIGN_BUCKETS,
   type DesignBucket,
@@ -66,6 +67,14 @@ export interface BuildYour30Props {
    * A saved allocation, when present, still takes precedence over this (returning users).
    */
   selectedCategoryBuckets?: DesignBucketId[];
+  /**
+   * The SOURCE buckets the user actually follows (derived via {@link sourceBucketsFromFollows}
+   * from `user_content_sources`). When the screen has a selection signal, ONLY these source
+   * blocks (`youtube`/`x`/`podcasts`) are seeded and offered in the Add sheet — a source axis
+   * the user follows nothing on no longer appears (owner rule 2026-06-17). Empty/undefined with
+   * an empty `selectedCategoryBuckets` = no signal → the full default seed (legacy behaviour).
+   */
+  followedSourceBuckets?: DesignBucketId[];
   /**
    * Render filling the parent container instead of the full viewport. Used by the library
    * "Thirty" tab ({@link AppShell}), which mounts this inside a `flex:1` surface above the
@@ -151,15 +160,33 @@ function SpineCells({ segments }: { segments: AllocationSegment[] }) {
  * @example
  * <BuildYour30 onDone={(segments) => router.push("/")} onSkip={() => router.push("/")} />
  */
-export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets, embedded = false }: BuildYour30Props) {
-  // The ordered allocation segments (the prototype's `segs`). Seeded from the user's picked
-  // categories when they made any selection (filtered seed), else the full default; the
-  // effect below replaces it with the user's saved allocation when one exists.
+export function BuildYour30({
+  onDone,
+  onSkip,
+  selectedCategoryBuckets,
+  followedSourceBuckets,
+  embedded = false,
+}: BuildYour30Props) {
+  // Whether the screen has a real selection signal (the user backs at least one category
+  // interest OR follows at least one source). With a signal we gate the seed + Add sheet to
+  // the buckets they actually back (owner rule 2026-06-17); with NO signal (picker skipped /
+  // legacy) we fall back to the full default seed + every Add chip.
+  const hasSelectionSignal = (selectedCategoryBuckets?.length ?? 0) > 0 || (followedSourceBuckets?.length ?? 0) > 0;
+
+  // The ordered allocation segments (the prototype's `segs`). Seeded from the user's backed
+  // categories + followed sources when they have a selection signal (filtered seed), else the
+  // full default; the effect below replaces it with the user's saved allocation when one exists.
   const [segments, setSegments] = useState<AllocationSegment[]>(() =>
-    selectedCategoryBuckets && selectedCategoryBuckets.length > 0
-      ? buildSegmentsForSelectedCategories(selectedCategoryBuckets)
+    hasSelectionSignal
+      ? buildSegmentsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? [])
       : buildDefaultSegments(),
   );
+
+  // The buckets the Add-block sheet may offer: gated to the user's real backing when there is a
+  // selection signal (so a phantom block can't be re-added by hand), else every bucket (legacy).
+  const addableBuckets = hasSelectionSignal
+    ? allowedBucketsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? [])
+    : new Set<DesignBucketId>(DESIGN_BUCKET_IDS);
   // Whether the Add-block bottom sheet is open.
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   // True while persisting on save — disables the CTA so a double-tap can't double-write.
@@ -277,8 +304,11 @@ export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets, embedded 
     setIsSheetOpen(false);
   }, []);
 
-  // Add-block is disabled when the budget is full OR every bucket is already in the list.
-  const isAddDisabled = allocatedTotal >= ALLOCATION_TOTAL || segments.length >= DESIGN_BUCKET_IDS.length;
+  // Add-block is disabled when the budget is full OR every ADDABLE bucket is already in the list
+  // (addable = the user's real backing when there is a selection signal, else every bucket).
+  const usedBucketIds = new Set<DesignBucketId>(segments.map((segment) => segment.bucketId));
+  const hasAddableRemaining = [...addableBuckets].some((bucketId) => !usedBucketIds.has(bucketId));
+  const isAddDisabled = allocatedTotal >= ALLOCATION_TOTAL || !hasAddableRemaining;
 
   /** Save: persist the allocation (RLS-scoped) then hand the ordered segments to onDone. */
   const handleSave = useCallback(async () => {
@@ -420,13 +450,17 @@ export function BuildYour30({ onDone, onSkip, selectedCategoryBuckets, embedded 
           <h3>Add to your 30</h3>
           <div className="grp">News categories</div>
           <div className="bk-grid" id="catGrid">
-            {DESIGN_BUCKET_IDS.filter((bucketId) => DESIGN_BUCKETS[bucketId].kind === "cat").map((bucketId) => (
+            {DESIGN_BUCKET_IDS.filter(
+              (bucketId) => DESIGN_BUCKETS[bucketId].kind === "cat" && addableBuckets.has(bucketId),
+            ).map((bucketId) => (
               <AddChip key={bucketId} bucketId={bucketId} segments={segments} onAdd={addBucket} />
             ))}
           </div>
           <div className="grp">From your sources</div>
           <div className="bk-grid" id="srcGrid">
-            {DESIGN_BUCKET_IDS.filter((bucketId) => DESIGN_BUCKETS[bucketId].kind === "src").map((bucketId) => (
+            {DESIGN_BUCKET_IDS.filter(
+              (bucketId) => DESIGN_BUCKETS[bucketId].kind === "src" && addableBuckets.has(bucketId),
+            ).map((bucketId) => (
               <AddChip key={bucketId} bucketId={bucketId} segments={segments} onAdd={addBucket} />
             ))}
           </div>

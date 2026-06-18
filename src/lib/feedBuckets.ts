@@ -21,6 +21,7 @@
  */
 
 import { logger } from "@/lib/logger";
+import type { ContentSourceType } from "@/types/source";
 
 /** The 9 design bucket ids the "Build your 30" screen draws (verbatim from the prototype). */
 export type DesignBucketId =
@@ -67,7 +68,7 @@ export interface DesignBucket {
  */
 export const DESIGN_BUCKETS: Readonly<Record<DesignBucketId, DesignBucket>> = {
   breaking: { name: "Breaking News", color: "#FACC15", kind: "cat" },
-  world: { name: "World & Politics", color: "#EF4444", kind: "cat" },
+  world: { name: "Geopolitics", color: "#EF4444", kind: "cat" },
   markets: { name: "Markets", color: "#22C55E", kind: "cat" },
   tech: { name: "Tech & Science", color: "#22D3EE", kind: "cat" },
   sport: { name: "Sport", color: "#F59E0B", kind: "cat" },
@@ -207,8 +208,8 @@ export const PICKER_ROOT_TO_CATEGORY_BUCKET: Readonly<Record<string, DesignBucke
  * so its root segment (`followId.split("/")[0]`) is the picker category root, mapped to a
  * screen category bucket via {@link PICKER_ROOT_TO_CATEGORY_BUCKET}. Unknown roots are
  * dropped + logged (never mis-bucketed — Rule 12). The result feeds
- * {@link buildSegmentsForSelectedCategories}; an EMPTY result means "no category signal"
- * and the caller falls back to the full default seed.
+ * {@link buildSegmentsForSelections}; an EMPTY result (with no followed sources) means "no
+ * selection signal" and the caller falls back to the full default seed.
  *
  * @param follows - The user's picker selections (only `followId` is read).
  * @returns The distinct category bucket ids the user picked (first-seen order).
@@ -237,33 +238,146 @@ export function categoryBucketsFromFollows(follows: ReadonlyArray<{ followId: st
 }
 
 /**
- * Build the seed segments for a user who picked a SUBSET of categories — the default
- * allocation filtered to the buckets they actually chose, so "Build your 30" no longer
- * shows categories the user skipped (the phase-5a behaviour was: always all 8 blocks).
+ * A followed CONTENT SOURCE's `content_source_type` → the SOURCE design bucket it stocks
+ * in "Build your 30". The screen draws three source axes (`youtube`/`x`/`podcasts`), but
+ * the catalog has four source types: `personality` (a named creator addressed as a source)
+ * has no axis of its own and rides the `x` axis — it shares `x_account`'s circular-avatar
+ * treatment (`SourceArtwork`) and is the closest "an account/person you follow" axis.
  *
- * Kept in the seed:
- *  - every SOURCE bucket (`youtube`/`x`/`podcasts`) — sources come from the source swipe,
- *    not the topic picker, so they are NOT filtered here (owner decision 2026-06-07);
+ * This is the SOURCE twin of {@link PICKER_ROOT_TO_CATEGORY_BUCKET}: it lets the screen
+ * gate which SOURCE blocks may seed the 30 on the sources the user ACTUALLY follows. A
+ * source bucket with no backing follow is exactly the phantom-block bug this removes —
+ * owner rule (2026-06-17): only categories the user has an interest OR a source for may
+ * appear in "Build your 30".
+ */
+export const SOURCE_TYPE_TO_DESIGN_BUCKET: Readonly<Record<ContentSourceType, DesignBucketId>> = {
+  youtube_channel: "youtube",
+  podcast: "podcasts",
+  x_account: "x",
+  personality: "x",
+};
+
+/**
+ * Derive the DISTINCT source buckets a user follows, from their followed content sources.
+ * Each source's `content_source_type` maps to a source design bucket via
+ * {@link SOURCE_TYPE_TO_DESIGN_BUCKET}. The result gates which SOURCE blocks
+ * {@link buildSegmentsForSelections} may seed (and which source chips the Add-block sheet
+ * offers) — so a source axis the user follows NOTHING on never appears in the 30.
+ *
+ * @param followedSources - The user's followed sources (only `content_source_type` is read).
+ * @returns The distinct source bucket ids the user follows (first-seen order).
+ *
+ * @example
+ * sourceBucketsFromFollows([{ content_source_type: "youtube_channel" }, { content_source_type: "x_account" }]);
+ * // ["youtube", "x"]
+ */
+export function sourceBucketsFromFollows(
+  followedSources: ReadonlyArray<{ content_source_type: ContentSourceType }>,
+): DesignBucketId[] {
+  const followedBuckets = new Set<DesignBucketId>();
+  for (const source of followedSources) {
+    const bucketId = SOURCE_TYPE_TO_DESIGN_BUCKET[source.content_source_type];
+    if (bucketId !== undefined) {
+      followedBuckets.add(bucketId);
+    }
+  }
+  return [...followedBuckets];
+}
+
+/**
+ * Derive the DISTINCT category buckets a user backs, from their rolled-up interest vector
+ * (`src/lib/interestVector.ts` `rollUpInterestVector` — summed over BOTH topic follows and
+ * entity follows). Each pinned key with a positive weight is mapped to its screen category
+ * bucket via {@link PICKER_ROOT_TO_CATEGORY_BUCKET} (the vector's keys are
+ * `ARCHETYPE_CATEGORY_KEYS`, which equal that map's keys exactly, so the fold is total).
+ *
+ * Unlike {@link categoryBucketsFromFollows} (which reads the IN-MEMORY picker selections by
+ * their `/`-joined `followId`), this reads PERSISTED backing — used by the library "Thirty"
+ * tab, where there is no live picker session, only the user's saved follows.
+ *
+ * @param interestVector - A pinned-key → weight map (an empty/zero vector = no backing).
+ * @returns The distinct category bucket ids the user backs (first-seen order).
+ *
+ * @example
+ * categoryBucketsFromInterestVector({ ai: 4.0, sport: 1.2 }); // ["tech", "sport"]
+ */
+export function categoryBucketsFromInterestVector(interestVector: Readonly<Record<string, number>>): DesignBucketId[] {
+  const backedBuckets = new Set<DesignBucketId>();
+  for (const [pinnedKey, weight] of Object.entries(interestVector)) {
+    if (weight <= 0) {
+      continue;
+    }
+    const bucketId = PICKER_ROOT_TO_CATEGORY_BUCKET[pinnedKey];
+    if (bucketId === undefined) {
+      logger.warn("category_bucket_pinned_key_unmapped", {
+        pinned_key: pinnedKey,
+        fix_suggestion:
+          "Add the pinned key to PICKER_ROOT_TO_CATEGORY_BUCKET if it should back a 'Build your 30' category block.",
+      });
+      continue;
+    }
+    backedBuckets.add(bucketId);
+  }
+  return [...backedBuckets];
+}
+
+/**
+ * The COMPLETE set of design buckets a user's "Build your 30" may contain, given their real
+ * backing — the SINGLE guard enforcing the owner rule (2026-06-17: only categories the user
+ * has a followed interest OR source for may appear). Membership:
+ *  - {@link ALWAYS_INCLUDED_CATEGORY_BUCKET} ("breaking") — always-on, not a pickable interest;
+ *  - every category bucket in `allowedCategoryBuckets` (backed by a followed interest);
+ *  - every source bucket in `followedSourceBuckets` (backed by a followed source).
+ *
+ * Both the seed ({@link buildSegmentsForSelections}) and the Add-block sheet read this set, so
+ * a phantom block can neither be seeded NOR manually re-added once the screen has a real
+ * selection signal.
+ *
+ * @param allowedCategoryBuckets - The category buckets the user backs (see
+ *   {@link categoryBucketsFromFollows} / {@link categoryBucketsFromInterestVector}).
+ * @param followedSourceBuckets - The source buckets the user follows (see {@link sourceBucketsFromFollows}).
+ * @returns A set of every bucket id the screen may show.
+ */
+export function allowedBucketsForSelections(
+  allowedCategoryBuckets: Iterable<DesignBucketId>,
+  followedSourceBuckets: Iterable<DesignBucketId>,
+): Set<DesignBucketId> {
+  const allowed = new Set<DesignBucketId>(allowedCategoryBuckets);
+  allowed.add(ALWAYS_INCLUDED_CATEGORY_BUCKET);
+  for (const sourceBucket of followedSourceBuckets) {
+    allowed.add(sourceBucket);
+  }
+  return allowed;
+}
+
+/**
+ * Build the seed segments for a user who backs a SUBSET of buckets — the default allocation
+ * filtered to the buckets they actually back, so "Build your 30" no longer shows categories
+ * the user skipped OR source axes they follow nothing on (the phase-5a behaviour was: always
+ * all 8 category blocks + all 3 source blocks).
+ *
+ * Kept in the seed (every other bucket is dropped):
  *  - {@link ALWAYS_INCLUDED_CATEGORY_BUCKET} ("breaking") — always-on;
- *  - every category bucket in `allowedCategoryBuckets`.
- * All other category buckets are dropped. Counts are the prototype defaults — the kept
- * blocks may total UNDER 30, so the screen opens on "Fill N more" (owner decision: no
- * auto-rescale), which the budget CTA already handles.
+ *  - every category bucket in `allowedCategoryBuckets` (backed by a followed interest);
+ *  - every source bucket in `followedSourceBuckets` (backed by a followed source).
+ * Counts are the prototype defaults — the kept blocks may total UNDER 30, so the screen opens
+ * on "Fill N more" (owner decision: no auto-rescale), which the budget CTA already handles.
  *
- * @param allowedCategoryBuckets - The category buckets the user selected (see
- *   {@link categoryBucketsFromFollows}). "breaking" need not be included — it is forced in.
+ * @param allowedCategoryBuckets - The category buckets the user backs ("breaking" is forced in).
+ * @param followedSourceBuckets - The source buckets the user follows (was previously never gated).
  * @returns A fresh, mutable ordered segment list (same order as the default seed).
  *
  * @example
- * // User picked only Tech + Markets → keeps breaking, tech, youtube, markets, x (= 20 slots):
- * buildSegmentsForSelectedCategories(["tech", "markets"]);
+ * // User picked Tech + Markets and follows a YouTube channel → breaking, tech, youtube, markets:
+ * buildSegmentsForSelections(["tech", "markets"], ["youtube"]);
  */
-export function buildSegmentsForSelectedCategories(
+export function buildSegmentsForSelections(
   allowedCategoryBuckets: Iterable<DesignBucketId>,
+  followedSourceBuckets: Iterable<DesignBucketId>,
 ): AllocationSegment[] {
-  const allowed = new Set<DesignBucketId>(allowedCategoryBuckets);
-  allowed.add(ALWAYS_INCLUDED_CATEGORY_BUCKET);
-  return DEFAULT_ALLOCATION_SEGMENTS.filter(
-    ([bucketId]) => DESIGN_BUCKETS[bucketId].kind === "src" || allowed.has(bucketId),
-  ).map(([bucketId, count]) => ({ bucketId, count }));
+  const allowed = allowedBucketsForSelections(allowedCategoryBuckets, followedSourceBuckets);
+  return DEFAULT_ALLOCATION_SEGMENTS.filter(([bucketId]) => allowed.has(bucketId)).map(([bucketId, count]) => ({
+    bucketId,
+    count,
+  }));
 }
