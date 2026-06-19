@@ -11,7 +11,9 @@
 - [x] 1: Close the no-signal gate (BuildYour30.tsx) — COMPLETED (25/25 vitest; CTA→onSkip, picker-routing deferred to SP2)
 - [x] 2: Gate saved allocation vs current backing + wire empty-state CTA→picker — COMPLETED (27/27 vitest; CTA→picker resolved)
 - [x] 3: Lock category-order persistence (test_feed_assembly_order.py) — COMPLETED (2 passed, Rule-9 proven)
-- [ ] 4: E2E selected-only + order smoke — PENDING
+- [x] 4: E2E selected-only + order smoke — COMPLETED (29/29 vitest; selected-only + order + nothing-picked proven)
+
+## Status: COMPLETE — commit f19dfa5
 
 ## Execution
 Mode: SP1∥SP3 concurrent (disjoint TSX vs Python), then SP2 (deps SP1, same file), then SP4 (deps all).
