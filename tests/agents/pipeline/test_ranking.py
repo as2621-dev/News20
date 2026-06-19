@@ -228,8 +228,8 @@ class TestAffinityDominantOrdering:
 # ── phase-5a SP2: entity-aware Score + story→category classifier ──────────────
 
 # The real seeded Semiconductors leaf (interests.sql) — a Nvidia earnings story is
-# leaf-tagged here. Its slug root 'business' maps up to the 'markets' screen
-# category (categories.SLUG_TO_CATEGORY), so the happy-path DoD lands in markets.
+# leaf-tagged here. Its slug root 'business' maps up to the 'business' screen
+# category (categories.SLUG_TO_CATEGORY), so the happy-path DoD lands in business.
 _SEMIS_INTEREST_ID = "int-semis"
 _SEMIS_NODE = InterestNode(
     interest_id=_SEMIS_INTEREST_ID,
@@ -355,10 +355,10 @@ class TestEntityBonusScore:
         nodes = {_SEMIS_INTEREST_ID: _SEMIS_NODE}
         return user, nodes
 
-    def test_nvidia_follower_scores_strictly_higher_and_lands_in_markets(self) -> None:
+    def test_nvidia_follower_scores_strictly_higher_and_lands_in_business(self) -> None:
         """HAPPY DoD: a Nvidia follower's 'Nvidia Q3 earnings beat' scores strictly
         higher than the same story WITHOUT the entity bonus, AND classifies into
-        'markets'.
+        'business'.
 
         WHY: this is the whole point of the phase — a followed entity must
         measurably lift its story within the user's category. If the bonus were
@@ -385,10 +385,10 @@ class TestEntityBonusScore:
             now_utc=_NOW,
         )
 
-        boosted = with_entity["markets"][0]
-        plain = baseline["markets"][0]
-        # Best-fit category is markets (business-rooted leaf tag).
-        assert boosted.feed_category == "markets"
+        boosted = with_entity["business"][0]
+        plain = baseline["business"][0]
+        # Best-fit category is business (business-rooted leaf tag).
+        assert boosted.feed_category == "business"
         assert boosted.matched_entity_id == _NVIDIA.entity_id
         # Strictly higher, and the lift is exactly the entity bonus term.
         assert boosted.score > plain.score
@@ -426,8 +426,8 @@ class TestEntityBonusScore:
             interest_nodes=nodes,
             now_utc=_NOW,
         )
-        boosted = with_entity["markets"][0]
-        plain = baseline["markets"][0]
+        boosted = with_entity["business"][0]
+        plain = baseline["business"][0]
         assert boosted.entity_bonus == 0.0
         assert boosted.matched_entity_id is None
         assert boosted.score == pytest.approx(plain.score)
@@ -478,7 +478,7 @@ class TestEntityBonusScore:
             interest_nodes=nodes,
             now_utc=_NOW,
         )
-        by_story = {c.story_id: c for c in buckets["markets"]}
+        by_story = {c.story_id: c for c in buckets["business"]}
         # Custom follow (normalized weight 1.0) earns the full bonus; seed (1/3) less.
         assert by_story["c"].entity_bonus == pytest.approx(ENTITY_BONUS_WEIGHT)
         assert by_story["s"].entity_bonus == pytest.approx(ENTITY_BONUS_WEIGHT / 3.0)
@@ -572,8 +572,8 @@ class TestAssignCategory:
         }
         assert assign_category("s1", tags_by_story, nodes) == "sport"
 
-    def test_unknown_root_slug_falls_back_to_culture(self) -> None:
-        """A slug whose root is not mapped falls back to the culture catch-all."""
+    def test_unknown_root_slug_falls_back_to_arts(self) -> None:
+        """A slug whose root is not mapped falls back to the arts catch-all."""
         nodes = {
             "int-x": InterestNode(
                 interest_id="int-x",
@@ -582,20 +582,20 @@ class TestAssignCategory:
                 interest_label="Obscure",
             )
         }
-        assert assign_category("s1", {"s1": {"int-x": 0}}, nodes) == "culture"
+        assert assign_category("s1", {"s1": {"int-x": 0}}, nodes) == "arts"
 
-    def test_no_tags_falls_back_to_culture_not_crash(self) -> None:
+    def test_no_tags_falls_back_to_arts_not_crash(self) -> None:
         """Edge: an untagged story classifies to the default, never raising."""
-        assert assign_category("missing", {}, {}) == "culture"
+        assert assign_category("missing", {}, {}) == "arts"
 
 
-class TestScoreAndClassifyReturnsAllEightKeys:
-    """The SP3 handoff contract — all 7 keys, source buckets empty (no breaking)."""
+class TestScoreAndClassifyReturnsAllTenKeys:
+    """The SP3 handoff contract — all 10 keys, source buckets empty (no breaking)."""
 
-    def test_returns_all_seven_category_keys(self) -> None:
+    def test_returns_all_ten_category_keys(self) -> None:
         """WHY: SP3 reads every budgeted category; a missing key would KeyError the
-        allocator. phase-SP1 removed the breaking key, leaving 7 (5 topic + 2
-        source); the source categories must be present-but-empty here."""
+        allocator. The SP3 taxonomy unification is 10 keys (8 topic roots + 2
+        source axes); the source categories must be present-but-empty here."""
         user = [
             UserProfileInterest(
                 profile_interest_id=_SEMIS_INTEREST_ID, profile_weight=1.0
@@ -612,17 +612,20 @@ class TestScoreAndClassifyReturnsAllEightKeys:
             now_utc=_NOW,
         )
         assert set(buckets.keys()) == {
-            "world_politics",
-            "tech_science",
-            "youtube",
-            "markets",
+            "ai",
+            "geopolitics",
+            "business",
+            "environment",
+            "politics",
+            "tech",
             "sport",
+            "arts",
+            "youtube",
             "x",
-            "culture",
         }
         assert "breaking" not in buckets
-        # The story classified into markets; source axes are empty.
-        assert [c.story_id for c in buckets["markets"]] == ["s"]
+        # The story classified into business; source axes are empty.
+        assert [c.story_id for c in buckets["business"]] == ["s"]
         assert buckets["youtube"] == []
         assert buckets["x"] == []
 
@@ -740,13 +743,13 @@ class TestLoaderHydratesEntitiesAndAllocation:
         allocation_rows = [
             {
                 "follow_user_id": "u1",
-                "allocation_category": "markets",
+                "allocation_category": "business",
                 "allocation_slot_count": 5,
                 "allocation_sort_order": 2,
             },
             {
                 "follow_user_id": "u1",
-                "allocation_category": "world_politics",
+                "allocation_category": "geopolitics",
                 "allocation_slot_count": 4,
                 "allocation_sort_order": 0,
             },
@@ -762,9 +765,9 @@ class TestLoaderHydratesEntitiesAndAllocation:
 
         inputs = daily_batch.load_active_user_inputs(_Client(), date(2026, 6, 1))
         allocs = {a.allocation_category: a for a in inputs[0].category_allocation}
-        assert allocs["markets"].allocation_slot_count == 5
-        assert allocs["markets"].allocation_sort_order == 2
-        assert allocs["world_politics"].allocation_slot_count == 4
+        assert allocs["business"].allocation_slot_count == 5
+        assert allocs["business"].allocation_sort_order == 2
+        assert allocs["geopolitics"].allocation_slot_count == 4
 
     def test_orphan_follow_without_joined_entity_is_skipped(self) -> None:
         """A follow whose joined entities row is missing is skipped (no labelless entity)."""

@@ -49,8 +49,12 @@ def _node(interest_slug: str, depth_level: int) -> InterestNode:
 
 
 def test_budget_splits_evenly_across_two_followed_subcategories() -> None:
-    """(a) markets=6 following crypto+stocks → 3 each (split, not duplicated)."""
-    allocation = [_allocation("markets", 6)]
+    """(a) business=6 following crypto+stocks → 3 each (split, not duplicated).
+
+    SP3: the old ``markets`` category folds into the ``business`` root; the
+    ``markets.*`` slugs remain valid (legacy aliases resolving to ``business``).
+    """
+    allocation = [_allocation("business", 6)]
     follows = [
         _node("markets.crypto.btc", depth_level=2),
         _node("markets.stocks", depth_level=1),
@@ -61,8 +65,8 @@ def test_budget_splits_evenly_across_two_followed_subcategories() -> None:
     )
 
     assert demand == {
-        ("markets", "markets.crypto"): 3,
-        ("markets", "markets.stocks"): 3,
+        ("business", "markets.crypto"): 3,
+        ("business", "markets.stocks"): 3,
     }
     # WHY: the pool is sized to demand, so two subcats share the 6 — never 6+6.
     assert sum(demand.values()) == 6
@@ -97,8 +101,8 @@ def test_no_row_user_inherits_default_as_all_cells_summing_to_30() -> None:
 
 
 def test_remainder_goes_to_lexicographically_first_subcategory() -> None:
-    """(d) markets=7 across crypto+stocks → crypto 4, stocks 3 (deterministic)."""
-    allocation = [_allocation("markets", 7)]
+    """(d) business=7 across crypto+stocks → crypto 4, stocks 3 (deterministic)."""
+    allocation = [_allocation("business", 7)]
     follows = [
         _node("markets.stocks", depth_level=1),  # input order reversed on purpose
         _node("markets.crypto.eth", depth_level=2),
@@ -112,8 +116,8 @@ def test_remainder_goes_to_lexicographically_first_subcategory() -> None:
     # goes to the lexicographically-first key ('markets.crypto' < 'markets.stocks'),
     # regardless of follow input order.
     assert demand == {
-        ("markets", "markets.crypto"): 4,
-        ("markets", "markets.stocks"): 3,
+        ("business", "markets.crypto"): 4,
+        ("business", "markets.stocks"): 3,
     }
     assert sum(demand.values()) == 7
 
@@ -124,18 +128,19 @@ def test_remainder_goes_to_lexicographically_first_subcategory() -> None:
 def test_pool_target_aggregates_max_not_sum_across_users() -> None:
     """(a) Two users each geopolitics=10 on the SAME subcat → max-sized, not summed.
 
-    geopolitics maps to the ``world_politics`` category. Both users put all 10 into
-    the ``geopolitics.elections`` subcategory (slugs ``.us`` and ``.eu`` both have
-    first-two-segments ``geopolitics.elections``), so both demands land on the SAME
-    cell. A SUM aggregate would size that cell to ceil(20 × 1.5) = 30; MAX sizes it
-    to ceil(10 × 1.5) = 15. This is the load-bearing max-not-sum assertion.
+    The screen category is ``geopolitics`` (SP3: the old ``world_politics`` fold
+    splits into geopolitics/politics/environment — geopolitics is the successor root).
+    Both users put all 10 into the ``geopolitics.elections`` subcategory (slugs ``.us``
+    and ``.eu`` both have first-two-segments ``geopolitics.elections``), so both demands
+    land on the SAME cell. A SUM aggregate would size that cell to ceil(20 × 1.5) = 30;
+    MAX sizes it to ceil(10 × 1.5) = 15. This is the load-bearing max-not-sum assertion.
     """
     buffer = 1.5
-    # allocation_category is the screen category (world_politics); the geopolitics.*
-    # follows supply the subcategory (geopolitics → world_politics via the slug map).
+    # allocation_category is the screen category (geopolitics); the geopolitics.*
+    # follows supply the subcategory (geopolitics root → geopolitics category).
     alloc = {
-        "u1": [_allocation("world_politics", 10)],
-        "u2": [_allocation("world_politics", 10)],
+        "u1": [_allocation("geopolitics", 10)],
+        "u2": [_allocation("geopolitics", 10)],
     }
     follows = {
         "u1": [_node("geopolitics.elections.us", depth_level=2)],
@@ -147,7 +152,7 @@ def test_pool_target_aggregates_max_not_sum_across_users() -> None:
         buffer=buffer, category_floor={},
     )
 
-    cell = ("world_politics", "geopolitics.elections")
+    cell = ("geopolitics", "geopolitics.elections")
     # WHY: both users demand the same cell at 10; the pool needs only the heaviest
     # single demand (max), buffered — NOT their sum. ceil(10×1.5)=15, not ceil(20×1.5)=30.
     assert target[cell] == math.ceil(10 * buffer) == 15
@@ -163,8 +168,8 @@ def test_pool_target_distinct_subcats_size_independently() -> None:
     """
     buffer = 1.5
     alloc = {
-        "u1": [_allocation("world_politics", 10)],
-        "u2": [_allocation("world_politics", 10)],
+        "u1": [_allocation("geopolitics", 10)],
+        "u2": [_allocation("geopolitics", 10)],
     }
     follows = {
         "u1": [_node("geopolitics.elections.us", depth_level=2)],
@@ -176,8 +181,8 @@ def test_pool_target_distinct_subcats_size_independently() -> None:
         buffer=buffer, category_floor={},
     )
 
-    assert target[("world_politics", "geopolitics.elections")] == 15
-    assert target[("world_politics", "geopolitics.conflict")] == 15
+    assert target[("geopolitics", "geopolitics.elections")] == 15
+    assert target[("geopolitics", "geopolitics.conflict")] == 15
     # WHY: every cell is ceil(10×buffer) — each owned by one user. No cell is 20-based.
     assert all(v == math.ceil(10 * buffer) for v in target.values())
 
@@ -185,14 +190,15 @@ def test_pool_target_distinct_subcats_size_independently() -> None:
 def test_pool_target_floors_unallocated_topic_category() -> None:
     """(b) A topic category NOBODY allocates still appears at its CATEGORY_FLOOR.
 
-    Both users only budget markets; nobody touches ``culture``. The floor must still
-    surface culture at CATEGORY_FLOOR['culture'] (=3) via a single (culture,'_all')
+    Both users only budget business; nobody touches ``arts``. The floor must still
+    surface arts at CATEGORY_FLOOR['arts'] (=3) via a single (arts,'_all')
     cell, so a live category is never starved out of the pool entirely.
+    (SP3: markets→business, culture→arts.)
     """
     buffer = 1.5
     alloc = {
-        "u1": [_allocation("markets", 4)],
-        "u2": [_allocation("markets", 4)],
+        "u1": [_allocation("business", 4)],
+        "u2": [_allocation("business", 4)],
     }
     follows = {"u1": [], "u2": []}
 
@@ -201,9 +207,9 @@ def test_pool_target_floors_unallocated_topic_category() -> None:
         buffer=buffer, category_floor=CATEGORY_FLOOR,
     )
 
-    # WHY: nobody demanded culture, but it has a positive floor — it must appear at
+    # WHY: nobody demanded arts, but it has a positive floor — it must appear at
     # exactly the floor via the "_all" sentinel cell so the category isn't starved.
-    assert target[("culture", "_all")] == CATEGORY_FLOOR["culture"] == 3
+    assert target[("arts", "_all")] == CATEGORY_FLOOR["arts"] == 3
     # Source categories have floor 0 → no phantom floor cell is created for them.
     assert ("youtube", "_all") not in target or target[("youtube", "_all")] > 0
 
@@ -215,8 +221,8 @@ def test_pool_target_buffer_one_no_floor_is_plain_max_demand() -> None:
     the per-cell max over users of the raw demand.
     """
     alloc = {
-        "u1": [_allocation("markets", 6)],
-        "u2": [_allocation("markets", 6)],
+        "u1": [_allocation("business", 6)],
+        "u2": [_allocation("business", 6)],
     }
     follows = {
         "u1": [
@@ -234,8 +240,8 @@ def test_pool_target_buffer_one_no_floor_is_plain_max_demand() -> None:
     # u1: crypto 3, stocks 3 (split of 6). u2: crypto 6 (all to crypto).
     # max per cell: crypto max(3,6)=6, stocks max(3,0)=3. No buffer, no floor.
     assert target == {
-        ("markets", "markets.crypto"): 6,
-        ("markets", "markets.stocks"): 3,
+        ("business", "markets.crypto"): 6,
+        ("business", "markets.stocks"): 3,
     }
 
 
@@ -246,8 +252,8 @@ def test_pool_target_two_user_shopping_list_is_correct_and_sane() -> None:
     buffer + ``CATEGORY_FLOOR``) the daily batch wires in, encoding the load-bearing
     M2 guarantees (Rule 9 — WHY, not just WHAT):
 
-      - **subcategory split for the customized user** — user A's markets=8 budget is
-        sized as crypto + stocks cells, never a lumped markets cell;
+      - **subcategory split for the customized user** — user A's business=8 budget is
+        sized as crypto + stocks cells, never a lumped business cell;
       - **'_all' cells for the default user** — user B never built their 30, so every
         category they inherit is sized via the ``"_all"`` sentinel;
       - **max-over-users, ×buffer, ceil** — each cell is ``ceil(max_demand × buffer)``,
@@ -262,8 +268,8 @@ def test_pool_target_two_user_shopping_list_is_correct_and_sane() -> None:
     buffer = Settings().pool_buffer
 
     allocation_by_user = {
-        # User A — customized: 8 markets slots, follows crypto + stocks subcats.
-        "user_a": [_allocation("markets", 8)],
+        # User A — customized: 8 business slots, follows crypto + stocks subcats.
+        "user_a": [_allocation("business", 8)],
         # User B — default: NO allocation rows (inherits DEFAULT_FEED_ALLOCATION).
     }
     interest_nodes_by_user = {
@@ -284,11 +290,11 @@ def test_pool_target_two_user_shopping_list_is_correct_and_sane() -> None:
         category_floor=CATEGORY_FLOOR,
     )
 
-    # ── Subcategory split for user A — 8 markets split 4/4 across crypto+stocks,
+    # ── Subcategory split for user A — 8 business split 4/4 across crypto+stocks,
     # each ×buffer ceil. WHY: the customized user's budget is sized at subcategory
     # granularity, not lumped — the pool fetches crypto AND stocks separately.
-    assert target[("markets", "markets.crypto")] == math.ceil(4 * buffer)
-    assert target[("markets", "markets.stocks")] == math.ceil(4 * buffer)
+    assert target[("business", "markets.crypto")] == math.ceil(4 * buffer)
+    assert target[("business", "markets.stocks")] == math.ceil(4 * buffer)
 
     # ── '_all' default cells for user B — every default category B inherits is sized
     # via the "_all" sentinel at ceil(default × buffer). WHY: a brand-new user is
@@ -299,11 +305,11 @@ def test_pool_target_two_user_shopping_list_is_correct_and_sane() -> None:
         assert cell in target, f"missing default '_all' cell for {category}"
         assert target[cell] >= math.ceil(default_slots * buffer)
 
-    # ── Max-over-users, not sum — A and B both touch markets, but via DIFFERENT cells
-    # (A: subcats, B: _all), so no markets cell is inflated by adding the two users.
-    # markets._all is purely B's default (4) → ceil(4×buffer), NOT A's 8 added in.
-    assert target[("markets", "_all")] == math.ceil(
-        DEFAULT_FEED_ALLOCATION["markets"] * buffer
+    # ── Max-over-users, not sum — A and B both touch business, but via DIFFERENT
+    # cells (A: subcats, B: _all), so no business cell is inflated by adding the two
+    # users. business._all is purely B's default (4) → ceil(4×buffer), NOT A's 8.
+    assert target[("business", "_all")] == math.ceil(
+        DEFAULT_FEED_ALLOCATION["business"] * buffer
     )
 
     # ── Every topic-category floor is honored (a live category is never starved).

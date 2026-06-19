@@ -1,21 +1,30 @@
 /**
  * Feed-allocation design buckets ("Build your 30, in order", Blip Flow Stage 3) and
- * the EXPLICIT mapping between the UI's 8 design bucket ids and the backend
- * `feed_category` enum (migration `0008_feed_allocation.sql` + `0010_feed_category_podcasts.sql`).
+ * the EXPLICIT mapping between the UI's design bucket ids and the backend
+ * `feed_category` enum.
+ *
+ * Phase SP3 (taxonomy unification on the picker tree). The onboarding picker, the
+ * "Build your 30, in order" screen, the reel chip, AND this allocation surface now
+ * draw the SAME canonical category set = the 8 onboarding picker roots
+ * (`src/lib/pickerSeedTree.ts` depth-0 ids) + the 2 source axes:
+ *
+ *    AI · Geopolitics · Business · Environment ·
+ *    Politics · Tech · Sport · Arts · YouTube · X
+ *
+ * There is NO folding: the old "5 topic buckets" design fold
+ * (`world → world_politics`, `tech → tech_science`, `markets`, `sport`,
+ * `culture` + youtube/x/podcasts) is RETIRED. Each picker root is its own bucket and
+ * maps to its own enum value (identity); {@link PICKER_ROOT_TO_CATEGORY_BUCKET} is
+ * now an identity map.
  *
  * WHY this module is the single source of truth (Rule 7 — never let two ids drift):
- *  - The prototype (`blip-sequence.js`) draws 8 buckets with its OWN short design ids
- *    (`world`, `tech`, …) and 9 colors/glyphs. The DB enum uses snake_case machine
- *    keys (`world_politics`, `tech_science`, …) and has NO color/label (those live in
- *    the frontend per migration 0008 §1). This file holds BOTH and the bijection between
- *    them, so the screen and the persistence layer can never disagree about which design
- *    chip writes which enum row.
- *  - `podcasts` is the ONE design bucket with no enum value YET — migration 0010 adds it
- *    (additive `alter type … add value`). Until 0010 is applied to the live DB, a
- *    `podcasts` write fails with a Postgres "invalid input value for enum" error; the
- *    persistence layer ({@link import("./feedAllocation")}) degrades gracefully on exactly
- *    that signal. The mapping is defined here regardless so the moment 0010 lands the
- *    round-trip just works with no code change.
+ *  - The DB `feed_category` enum (SP3 migration 0020 adds the 8 roots additively)
+ *    carries NO color/label — those live here, in the frontend. This file holds both
+ *    the design metadata (label + accent) and the bijection to the enum, so the screen
+ *    and the persistence layer can never disagree about which chip writes which row.
+ *  - {@link DEFAULT_ALLOCATION_SEGMENTS} is the Rule-7 TWIN of
+ *    `agents/pipeline/categories.py` `DEFAULT_FEED_ALLOCATION` — same keys + counts,
+ *    summing to {@link ALLOCATION_TOTAL}. If one changes, change both.
  *
  * Static-export safe: pure data + pure helpers, no `window`/server APIs at module scope.
  */
@@ -23,19 +32,30 @@
 import { logger } from "@/lib/logger";
 import type { ContentSourceType } from "@/types/source";
 
-/** The 8 design bucket ids the "Build your 30" screen draws (verbatim from the prototype). */
-export type DesignBucketId = "world" | "markets" | "tech" | "sport" | "culture" | "youtube" | "x" | "podcasts";
-
-/** The backend `feed_category` enum values (7 in-use from migration 0008 + `podcasts` from 0010). */
-export type FeedCategoryEnum =
-  | "world_politics"
-  | "tech_science"
-  | "youtube"
-  | "markets"
+/**
+ * The 10 design bucket ids the "Build your 30" screen draws — the 8 onboarding picker
+ * roots (`src/lib/pickerSeedTree.ts` depth-0 ids) + the 2 source axes (`youtube`/`x`).
+ * No fold: each id equals its picker root verbatim.
+ */
+export type DesignBucketId =
+  | "ai"
+  | "geopolitics"
+  | "business"
+  | "environment"
+  | "politics"
+  | "tech"
   | "sport"
-  | "x"
-  | "culture"
-  | "podcasts";
+  | "arts"
+  | "youtube"
+  | "x";
+
+/**
+ * The backend `feed_category` enum values — IDENTICAL to {@link DesignBucketId} after
+ * the SP3 unfold (the 8 picker roots + `youtube`/`x`). The old folded enum values
+ * (`world_politics`, `tech_science`, `markets`, `culture`, `podcasts`) are
+ * retained-unused in Postgres for reversibility but never emitted here.
+ */
+export type FeedCategoryEnum = DesignBucketId;
 
 /** Whether a bucket is a topic CATEGORY (solid fill) or a SOURCE axis (outlined + glyph). */
 export type DesignBucketKind = "cat" | "src";
@@ -44,7 +64,7 @@ export type DesignBucketKind = "cat" | "src";
 export interface DesignBucket {
   /** Human-readable label drawn on the chip / segment row. */
   readonly name: string;
-  /** The accent color (solid fill for `cat`, outline for `src`) — verbatim from the prototype. */
+  /** The accent color (solid fill for `cat`, outline for `src`). Matches the onboarding picker accent for the root. */
   readonly color: string;
   /** Whether this bucket is a topic category or a source axis. */
   readonly kind: DesignBucketKind;
@@ -53,40 +73,52 @@ export interface DesignBucket {
 }
 
 /**
- * The 8 design buckets, in the prototype's declaration order. Insertion order matters:
- * {@link DESIGN_BUCKET_IDS} (the Add-sheet / completeness checks) reads it.
+ * The 10 design buckets, in canonical order (the 8 picker roots first, then the 2
+ * source axes). Insertion order matters: {@link DESIGN_BUCKET_IDS} (the Add-sheet /
+ * completeness checks) reads it.
+ *
+ * Accent hexes mirror the onboarding picker / app-wide category palette
+ * (`src/lib/interests.ts` `SEGMENT_ACCENT_HEX`, `src/lib/sourceSwipeData.ts`
+ * `ACCENT_BY_TOPIC`). `geopolitics`/`business`/`tech`/`sport`/`arts` carry the locked
+ * legacy hexes (red/green/cyan/amber/rose). `environment` (emerald) and `politics`
+ * (purple) come from the source-swipe palette. `ai` uses the brand primary blue —
+ * the only INFERRED hex (no prior dedicated AI accent; flagged for owner review).
  */
 export const DESIGN_BUCKETS: Readonly<Record<DesignBucketId, DesignBucket>> = {
-  world: { name: "Geopolitics", color: "#EF4444", kind: "cat" },
-  markets: { name: "Markets", color: "#22C55E", kind: "cat" },
-  tech: { name: "Tech & Science", color: "#22D3EE", kind: "cat" },
+  ai: { name: "AI", color: "#3B82F6", kind: "cat" },
+  geopolitics: { name: "Geopolitics", color: "#EF4444", kind: "cat" },
+  business: { name: "Business", color: "#22C55E", kind: "cat" },
+  environment: { name: "Environment", color: "#34D399", kind: "cat" },
+  politics: { name: "Politics", color: "#A78BFA", kind: "cat" },
+  tech: { name: "Tech", color: "#22D3EE", kind: "cat" },
   sport: { name: "Sport", color: "#F59E0B", kind: "cat" },
-  culture: { name: "Culture", color: "#E8B7BC", kind: "cat" },
+  arts: { name: "Arts", color: "#E8B7BC", kind: "cat" },
   youtube: { name: "YouTube", color: "#94A3B8", kind: "src", glyph: "g-yt" },
   x: { name: "X", color: "#CBD5E1", kind: "src", glyph: "g-x" },
-  podcasts: { name: "Podcasts", color: "#A5B4FC", kind: "src", glyph: "g-pod" },
 };
 
-/** Every design bucket id, in the prototype's order (the Add-sheet `>= count` gate uses the length). */
+/** Every design bucket id, in canonical order (the Add-sheet `>= count` gate uses the length). */
 export const DESIGN_BUCKET_IDS: readonly DesignBucketId[] = Object.keys(DESIGN_BUCKETS) as DesignBucketId[];
 
 /** The total slots the user must allocate across all buckets (the 30 in "Build your 30"). */
 export const ALLOCATION_TOTAL = 30;
 
 /**
- * Design bucket id → `feed_category` enum value. The ONLY place the UI ids are mapped
- * to the DB keys (Rule 7). `world`/`tech` rename to their snake_case enum keys; the
- * rest are identical strings. `podcasts` maps to the 0010 enum value (see module JSDoc).
+ * Design bucket id → `feed_category` enum value. After the SP3 unfold this is an
+ * IDENTITY map (each of the 10 ids maps to itself) — kept explicit (not derived) so
+ * the bijection stays the ONE declared place the UI ids meet the DB keys (Rule 7).
  */
 export const DESIGN_BUCKET_TO_ENUM: Readonly<Record<DesignBucketId, FeedCategoryEnum>> = {
-  world: "world_politics",
-  markets: "markets",
-  tech: "tech_science",
+  ai: "ai",
+  geopolitics: "geopolitics",
+  business: "business",
+  environment: "environment",
+  politics: "politics",
+  tech: "tech",
   sport: "sport",
-  culture: "culture",
+  arts: "arts",
   youtube: "youtube",
   x: "x",
-  podcasts: "podcasts",
 };
 
 /**
@@ -102,24 +134,35 @@ export const ENUM_TO_DESIGN_BUCKET: Readonly<Record<FeedCategoryEnum, DesignBuck
 ) as Record<FeedCategoryEnum, DesignBucketId>;
 
 /**
- * The enum value `podcasts` maps to — the ONE value that may not yet exist in the live DB
- * (added by migration 0010). The persistence layer keys its graceful-degrade path off this.
+ * Legacy DB sentinel: the `podcasts` enum value the pre-SP3 persistence layer
+ * graceful-degraded around (migration 0010). `podcasts` is NOT a current design
+ * bucket (the SP3 taxonomy is the 8 roots + youtube/x), so it is typed as a plain
+ * string — the value the feed-allocation writer still matches on when an old DB
+ * raises "invalid input value for enum" for it.
  */
-export const PODCASTS_ENUM_VALUE: FeedCategoryEnum = "podcasts";
+export const PODCASTS_ENUM_VALUE = "podcasts";
 
 /**
- * The prototype's DEFAULT seed allocation (`blip-sequence.js` line 52): an ordered list of
- * `[designBucketId, slotCount]` totalling exactly {@link ALLOCATION_TOTAL}. Used when a user
- * has no saved allocation yet.
+ * The DEFAULT seed allocation: an ordered list of `[designBucketId, slotCount]` totalling
+ * exactly {@link ALLOCATION_TOTAL}. This is the Rule-7 TWIN of
+ * `agents/pipeline/categories.py` `DEFAULT_FEED_ALLOCATION` — SAME keys + counts (owner-locked
+ * 2026-06-18): ai 4 + tech 4 + geopolitics 4 + business 4 + politics 2 + environment 2 +
+ * sport 3 + arts 3 + youtube 2 + x 2 = 30. If one changes, change both.
+ *
+ * Order mirrors the Python dict's insertion order so the seeded "Build your 30" sequence
+ * matches the backend allocator's category order.
  */
 export const DEFAULT_ALLOCATION_SEGMENTS: ReadonlyArray<readonly [DesignBucketId, number]> = [
-  ["world", 5],
-  ["tech", 5],
-  ["youtube", 6],
-  ["markets", 4],
+  ["ai", 4],
+  ["tech", 4],
+  ["geopolitics", 4],
+  ["business", 4],
+  ["politics", 2],
+  ["environment", 2],
   ["sport", 3],
-  ["x", 3],
-  ["culture", 4],
+  ["arts", 3],
+  ["youtube", 2],
+  ["x", 2],
 ];
 
 /** One ordered allocation segment as the screen + persistence layer pass it around. */
@@ -150,33 +193,30 @@ export function buildDefaultSegments(): AllocationSegment[] {
 }
 
 /**
- * Picker ROOT slug → its screen CATEGORY design bucket. Keys are the 8 depth-0 ids of the
- * recursive interest picker (`src/lib/pickerSeedTree.ts`: `ai, geopolitics, business,
- * environment, politics, tech, sport, arts`); a selection's `followId` is a `/`-joined
- * path whose FIRST segment is its root.
+ * Picker ROOT slug → its screen CATEGORY design bucket. After the SP3 unfold this is an
+ * IDENTITY map: each of the 8 depth-0 picker roots (`src/lib/pickerSeedTree.ts`: `ai,
+ * geopolitics, business, environment, politics, tech, sport, arts`) maps to the design
+ * bucket of the SAME id. A selection's `followId` is a `/`-joined path whose FIRST
+ * segment is its root.
  *
- * This is the FRONTEND twin of `agents/pipeline/categories.py` `SLUG_TO_CATEGORY` (the
- * backend story-classifier), re-expressed over the PICKER roots and the 5 topic
- * category buckets the screen draws. The folds mirror that locked map:
- *  - `ai`/`tech` → `tech` (the AI subtree is part of Tech & Science on the screen).
- *  - `geopolitics`/`politics`/`environment` → `world` (World & Politics; climate folds in).
- *  - `business` → `markets` (the markets-accented root).
- *  - `sport` → `sport`; `arts` → `culture`.
+ * This is the FRONTEND twin of `agents/pipeline/categories.py` `SLUG_TO_CATEGORY` for the
+ * 8 roots (which is likewise identity there). The old fold map
+ * (`ai/tech → tech`, `geopolitics/politics/environment → world`, `business → markets`,
+ * `arts → culture`) is RETIRED.
  *
- * Source axes (`youtube`/`x`/`podcasts`) are NOT picker roots — they come from the source
- * swipe, not the topic picker, so they are absent here (and never filtered). A root NOT in
- * this map is DROPPED (logged), never mis-bucketed (Rule 12) — adding a wrong category is
- * exactly the bug this filter removes.
+ * Source axes (`youtube`/`x`) are NOT picker roots — they come from the source swipe, not
+ * the topic picker, so they are absent here (and never filtered). A root NOT in this map is
+ * DROPPED (logged), never mis-bucketed (Rule 12).
  */
 export const PICKER_ROOT_TO_CATEGORY_BUCKET: Readonly<Record<string, DesignBucketId>> = {
-  ai: "tech",
+  ai: "ai",
+  geopolitics: "geopolitics",
+  business: "business",
+  environment: "environment",
+  politics: "politics",
   tech: "tech",
-  geopolitics: "world",
-  politics: "world",
-  environment: "world",
-  business: "markets",
   sport: "sport",
-  arts: "culture",
+  arts: "arts",
 };
 
 /**
@@ -193,8 +233,8 @@ export const PICKER_ROOT_TO_CATEGORY_BUCKET: Readonly<Record<string, DesignBucke
  * @returns The distinct category bucket ids the user picked (first-seen order).
  *
  * @example
- * categoryBucketsFromFollows([{ followId: "tech/ai/llms/openai" }, { followId: "business/equities" }]);
- * // ["tech", "markets"]
+ * categoryBucketsFromFollows([{ followId: "ai/llms/openai" }, { followId: "business/equities" }]);
+ * // ["ai", "business"]
  */
 export function categoryBucketsFromFollows(follows: ReadonlyArray<{ followId: string }>): DesignBucketId[] {
   const selectedBuckets = new Set<DesignBucketId>();
@@ -217,10 +257,11 @@ export function categoryBucketsFromFollows(follows: ReadonlyArray<{ followId: st
 
 /**
  * A followed CONTENT SOURCE's `content_source_type` → the SOURCE design bucket it stocks
- * in "Build your 30". The screen draws three source axes (`youtube`/`x`/`podcasts`), but
- * the catalog has four source types: `personality` (a named creator addressed as a source)
- * has no axis of its own and rides the `x` axis — it shares `x_account`'s circular-avatar
- * treatment (`SourceArtwork`) and is the closest "an account/person you follow" axis.
+ * in "Build your 30". The screen draws two source axes (`youtube`/`x`), but the catalog has
+ * four source types: `personality` (a named creator addressed as a source) has no axis of
+ * its own and rides the `x` axis — it shares `x_account`'s circular-avatar treatment
+ * (`SourceArtwork`). `podcast` likewise has no dedicated SP3 axis and rides `youtube` (the
+ * closest "long-form creator feed" axis) so a followed podcast still seeds a source block.
  *
  * This is the SOURCE twin of {@link PICKER_ROOT_TO_CATEGORY_BUCKET}: it lets the screen
  * gate which SOURCE blocks may seed the 30 on the sources the user ACTUALLY follows. A
@@ -230,7 +271,7 @@ export function categoryBucketsFromFollows(follows: ReadonlyArray<{ followId: st
  */
 export const SOURCE_TYPE_TO_DESIGN_BUCKET: Readonly<Record<ContentSourceType, DesignBucketId>> = {
   youtube_channel: "youtube",
-  podcast: "podcasts",
+  podcast: "youtube",
   x_account: "x",
   personality: "x",
 };
@@ -277,7 +318,7 @@ export function sourceBucketsFromFollows(
  * @returns The distinct category bucket ids the user backs (first-seen order).
  *
  * @example
- * categoryBucketsFromInterestVector({ ai: 4.0, sport: 1.2 }); // ["tech", "sport"]
+ * categoryBucketsFromInterestVector({ ai: 4.0, sport: 1.2 }); // ["ai", "sport"]
  */
 export function categoryBucketsFromInterestVector(interestVector: Readonly<Record<string, number>>): DesignBucketId[] {
   const backedBuckets = new Set<DesignBucketId>();
@@ -330,12 +371,12 @@ export function allowedBucketsForSelections(
  * Build the seed segments for a user who backs a SUBSET of buckets — the default allocation
  * filtered to the buckets they actually back, so "Build your 30" no longer shows categories
  * the user skipped OR source axes they follow nothing on (the phase-5a behaviour was: always
- * all 8 category blocks + all 3 source blocks).
+ * all category blocks + all source blocks).
  *
  * Kept in the seed (every other bucket is dropped):
  *  - every category bucket in `allowedCategoryBuckets` (backed by a followed interest);
  *  - every source bucket in `followedSourceBuckets` (backed by a followed source).
- * Counts are the prototype defaults — the kept blocks may total UNDER 30, so the screen opens
+ * Counts are the default seed values — the kept blocks may total UNDER 30, so the screen opens
  * on "Fill N more" (owner decision: no auto-rescale), which the budget CTA already handles.
  *
  * @param allowedCategoryBuckets - The category buckets the user backs.
@@ -343,8 +384,8 @@ export function allowedBucketsForSelections(
  * @returns A fresh, mutable ordered segment list (same order as the default seed).
  *
  * @example
- * // User picked Tech + Markets and follows a YouTube channel → tech, youtube, markets:
- * buildSegmentsForSelections(["tech", "markets"], ["youtube"]);
+ * // User picked AI + Business and follows a YouTube channel → ai, business, youtube:
+ * buildSegmentsForSelections(["ai", "business"], ["youtube"]);
  */
 export function buildSegmentsForSelections(
   allowedCategoryBuckets: Iterable<DesignBucketId>,

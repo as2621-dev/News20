@@ -9,8 +9,8 @@ reels and lose them from assembly. This script instead:
   2. Produces up to ``MAX_YT`` YouTube + ``MAX_X`` X reels via ``orchestrate_story``
      — the proven source path: the video thumbnail / tweet image becomes the poster,
      so NO Nano Banana image generation is paid.
-  3. Surgically rebuilds ash's ``daily_feeds`` for today: keeps his existing breaking
-     + topic reels (capped to his per-category "Build your 30" budgets), inserts the
+  3. Surgically rebuilds ash's ``daily_feeds`` for today: keeps his existing topic
+     reels (capped to his per-category "Build your 30" budgets), inserts the
      new source reels at their ``youtube``/``x`` allocation positions as
      ``feed_slot_kind='source'``, and totals 30. The prior rows are backed up to a
      JSON file first (reversible: restore the backup, or re-run the daily batch).
@@ -61,12 +61,9 @@ def _category_of_existing_row(
 ) -> str:
     """Map an existing daily_feeds row to its allocation category.
 
-    A breaking row keeps ``breaking``; an interest row resolves its
-    ``feed_matched_interest_id`` → interest slug → screen category (the same
-    ``category_for_slug`` the allocator uses).
+    An interest row resolves its ``feed_matched_interest_id`` → interest slug →
+    screen category (the same ``category_for_slug`` the allocator uses).
     """
-    if row.get("feed_slot_kind") == "breaking":
-        return "breaking"
     interest_id = row.get("feed_matched_interest_id")
     slug = slug_by_interest_id.get(str(interest_id), "") if interest_id else ""
     return category_for_slug(slug)
@@ -267,7 +264,7 @@ def _rebuild_feed(
 ) -> int:
     """Rebuild ash's daily_feeds for ``target`` with the source reels in their slots.
 
-    Keeps his existing breaking + topic reels (capped to each category's allocation
+    Keeps his existing topic reels (capped to each category's allocation
     budget), inserts the produced source reels at the youtube/x allocation positions
     as ``feed_slot_kind='source'``, backfills any shortfall from trimmed topic reels,
     and totals up to 30. Backs up the prior rows to a JSON file before rewriting.

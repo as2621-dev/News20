@@ -166,11 +166,14 @@ export async function fetchChildInterests(
  * category dot color. A slug not in the map (or a null segment) → no dot color.
  */
 const SEGMENT_ACCENT_HEX: Readonly<Record<string, string>> = {
-  geopolitics: "#EF4444", // World & Politics — red
-  markets: "#22C55E", // Markets — green
-  tech: "#22D3EE", // Tech & Science — cyan
+  ai: "#3B82F6", // AI — brand primary blue
+  geopolitics: "#EF4444", // Geopolitics — red
+  business: "#22C55E", // Business — green
+  environment: "#34D399", // Environment — emerald
+  politics: "#A78BFA", // Politics — purple
+  tech: "#22D3EE", // Tech — cyan
   sport: "#F59E0B", // Sport — amber
-  wildcard: "#E8B7BC", // Culture — rose
+  arts: "#E8B7BC", // Arts — rose
 };
 
 /** One of the authed user's selected interests, shaped for the Sources "Interests" chips. */

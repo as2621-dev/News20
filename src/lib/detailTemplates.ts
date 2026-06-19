@@ -21,9 +21,15 @@
 import type { AnalyticKind, CoverageMode } from "@/types/detail";
 
 /**
- * The eight Detail-page buckets a story can fall into (phase-SP1 removed
- * `breaking`). Aligned to the 8 design buckets in `src/lib/feedBuckets.ts`
- * (`DesignBucketId`), distinct from the 5-valued `SegmentKey`.
+ * The Detail-page TEMPLATE buckets a story can fall into (phase-SP1 removed
+ * `breaking`). These are the panel-LAYOUT keys, NOT the SP3 picker taxonomy: each
+ * distinct panel layout keeps one canonical key (`world` carries the partisan-
+ * coverage layout; `markets` the market-impact layout; `culture` the long-tail
+ * profile layout). The SP3 taxonomy roots (`ai, geopolitics, business, environment,
+ * politics, tech, sport, arts`) resolve onto these via {@link DETAIL_CATEGORY_ALIASES}
+ * so a `geopolitics` or `business` story renders a meaningful template rather than the
+ * default. `podcasts` rides the `youtube` source layout (it has no SP3 axis of its
+ * own — see `feedBuckets.ts` `SOURCE_TYPE_TO_DESIGN_BUCKET`).
  */
 export type DetailCategory =
   | "world"
@@ -97,20 +103,55 @@ export const DETAIL_TEMPLATES: Readonly<Record<DetailCategory, readonly PanelSpe
   ],
 };
 
+/**
+ * SP3 taxonomy root → Detail-page TEMPLATE key. The SP3 picker roots
+ * (`src/lib/feedBuckets.ts` `DesignBucketId`) do not each own a bespoke panel
+ * layout; they fold onto the closest existing template so a `geopolitics` /
+ * `business` / `ai` story renders a meaningful Detail page instead of the
+ * Culture default. Byte-for-byte twin of `agents/pipeline/detail_templates.py`
+ * `DETAIL_CATEGORY_ALIASES` (Rule 7).
+ *
+ * Fold (new root → borrowed template, documented per the locked palette/segment
+ * map in `src/lib/feed/fixtureFeed.ts` `SEGMENT_DETAIL_CATEGORY`):
+ *  - `geopolitics` → `world`   (the split `world_politics` keeps the partisan-coverage layout)
+ *  - `politics`    → `world`   (no bespoke layout; nearest is the partisan/world layout)
+ *  - `environment` → `world`   (no bespoke layout; nearest is the world/stakes layout)
+ *  - `business`    → `markets` (the old `markets` fold collapses into business)
+ *  - `arts`        → `culture` (the old `culture` catch-all renames to arts)
+ *  - `ai`          → `tech`    (no bespoke layout; rides the tech why-it-matters/concept layout)
+ *  - `tech`/`sport`/`youtube`/`x` are already canonical template keys (identity, omitted).
+ */
+export const DETAIL_CATEGORY_ALIASES: Readonly<Record<string, DetailCategory>> = {
+  geopolitics: "world",
+  politics: "world",
+  environment: "world",
+  business: "markets",
+  arts: "culture",
+  ai: "tech",
+};
+
 /** Best-fit fallback when a story's detail category is unknown/missing. */
 export const DEFAULT_DETAIL_CATEGORY: DetailCategory = "culture";
 
 /**
- * Resolve a story's template defensively — falls back to the Culture template
- * when `detailCategory` is null/unknown (a pre-migration story with no
- * `story_detail_category`), so the Detail page always has three slots to draw.
+ * Resolve a story's template defensively. Accepts EITHER a canonical template key
+ * (`world`/`markets`/...) OR an SP3 taxonomy root (`geopolitics`/`business`/...),
+ * folding the latter onto its template via {@link DETAIL_CATEGORY_ALIASES}. Falls
+ * back to the Culture template when `detailCategory` is null/unknown (a pre-migration
+ * story with no `story_detail_category`), so the Detail page always has three slots.
  *
  * @param detailCategory - The story's `story_detail_category`, possibly null.
  * @returns The ordered panel specs to render.
  */
 export function templateForCategory(detailCategory: string | null | undefined): readonly PanelSpec[] {
-  if (detailCategory && detailCategory in DETAIL_TEMPLATES) {
-    return DETAIL_TEMPLATES[detailCategory as DetailCategory];
+  if (detailCategory) {
+    const aliased = DETAIL_CATEGORY_ALIASES[detailCategory];
+    if (aliased) {
+      return DETAIL_TEMPLATES[aliased];
+    }
+    if (detailCategory in DETAIL_TEMPLATES) {
+      return DETAIL_TEMPLATES[detailCategory as DetailCategory];
+    }
   }
   return DETAIL_TEMPLATES[DEFAULT_DETAIL_CATEGORY];
 }

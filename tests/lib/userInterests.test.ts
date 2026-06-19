@@ -5,7 +5,7 @@ import { getUserInterests } from "@/lib/interests";
  * getUserInterests — the read backing the Sources surface's interest chips.
  *
  * WHY these tests (Rule 9 — encode the product contract): the chips must (1)
- * carry the LOCKED category color so a Markets pick is unmistakably green and a
+ * carry the LOCKED category color so a Business pick is unmistakably green and a
  * Tech pick cyan (the whole point of the user's "permanent colors" ask), (2) lead
  * with root categories so the colored chips read first, and (3) degrade to an
  * empty chip row when signed out rather than throwing (the Sources surface must
@@ -44,7 +44,7 @@ function makeClient(options: {
 
 describe("getUserInterests (DB → colored interest chips)", () => {
   it("maps each pick to the locked category color and leads with root categories", async () => {
-    // WHY: Markets MUST be green (#22C55E) and Tech cyan (#22D3EE); a depth-0 root
+    // WHY: Business MUST be green (#22C55E) and Tech cyan (#22D3EE); a depth-0 root
     // must sort before a depth-2 leaf so the colored category chips lead the row.
     const client = makeClient({
       user: { id: "user-1" },
@@ -59,10 +59,10 @@ describe("getUserInterests (DB → colored interest chips)", () => {
         },
         {
           interests: {
-            interest_id: "i-mkt",
-            interest_label: "Markets",
+            interest_id: "i-biz",
+            interest_label: "Business",
             depth_level: 0,
-            interest_segment_slug: "markets",
+            interest_segment_slug: "business",
           },
         },
       ],
@@ -70,9 +70,9 @@ describe("getUserInterests (DB → colored interest chips)", () => {
 
     const chips = await getUserInterests(client);
 
-    // Root (Markets, depth 0) sorts ahead of the depth-2 leaf.
-    expect(chips.map((chip) => chip.label)).toEqual(["Markets", "Chips & GPUs"]);
-    expect(chips[0].accentHex).toBe("#22C55E"); // Markets → green
+    // Root (Business, depth 0) sorts ahead of the depth-2 leaf.
+    expect(chips.map((chip) => chip.label)).toEqual(["Business", "Chips & GPUs"]);
+    expect(chips[0].accentHex).toBe("#22C55E"); // Business → green
     expect(chips[1].accentHex).toBe("#22D3EE"); // Tech → cyan
   });
 

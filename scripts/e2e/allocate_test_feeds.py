@@ -40,7 +40,7 @@ from agents.ingestion.models import (  # noqa: E402
     InterestNode,
     StoryInterestTag,
 )
-from agents.pipeline.categories import category_for_slug  # noqa: E402
+from agents.pipeline.categories import DEFAULT_CATEGORY, category_for_slug  # noqa: E402
 from agents.pipeline.daily_batch import load_active_user_inputs  # noqa: E402
 from agents.pipeline.feed_assembly import (  # noqa: E402
     FEED_SLOT_BUDGET,
@@ -213,17 +213,15 @@ def _load_story_pool(
 
 
 def _slot_category(slot: AllocatedSlot, interest_nodes: dict[str, InterestNode]) -> str:
-    """Resolve a slot's screen category (source/breaking tier, else its interest's root)."""
+    """Resolve a slot's screen category (source tier, else its interest's root)."""
     if slot.feed_slot_kind == SLOT_KIND_SOURCE:
         return "source"
-    if slot.feed_slot_kind == "breaking":
-        return "breaking"
     node = (
         interest_nodes.get(slot.feed_matched_interest_id)
         if slot.feed_matched_interest_id
         else None
     )
-    return category_for_slug(node.interest_slug) if node else "culture"
+    return category_for_slug(node.interest_slug) if node else DEFAULT_CATEGORY
 
 
 def _matching_pool_story_count(

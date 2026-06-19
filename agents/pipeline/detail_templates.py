@@ -47,9 +47,14 @@ from typing import Literal
 
 from agents.pipeline.models import AnalyticKind, CoverageMode
 
-# The eight Detail-page buckets a story can fall into (phase-SP1 removed
-# ``breaking``). Distinct from the 5-valued ``segment_slug`` enum and aligned to
-# the frontend's design buckets (``src/lib/feedBuckets.ts`` ``DesignBucketId``).
+# The Detail-page TEMPLATE buckets a story can fall into (phase-SP1 removed
+# ``breaking``). These are panel-LAYOUT keys, NOT the SP3 picker taxonomy: each
+# distinct panel layout keeps one canonical key. The SP3 taxonomy roots
+# (``ai, geopolitics, business, environment, politics, tech, sport, arts``;
+# ``src/lib/feedBuckets.ts`` ``DesignBucketId``) resolve onto these via
+# :data:`DETAIL_CATEGORY_ALIASES` so a ``geopolitics``/``business`` story renders a
+# meaningful template instead of the default. ``podcasts`` rides the ``youtube``
+# source layout (no SP3 axis of its own).
 DetailCategory = Literal[
     "world",
     "markets",
@@ -149,32 +154,74 @@ DETAIL_TEMPLATES: dict[DetailCategory, list[PanelSpec]] = {
     ],
 }
 
+# SP3 taxonomy root → Detail-page TEMPLATE key. The SP3 picker roots
+# (``src/lib/feedBuckets.ts`` ``DesignBucketId``) do not each own a bespoke panel
+# layout; they fold onto the closest existing template so a ``geopolitics`` /
+# ``business`` / ``ai`` story renders a meaningful Detail page instead of the
+# Culture default. Byte-for-byte twin of ``src/lib/detailTemplates.ts``
+# ``DETAIL_CATEGORY_ALIASES`` (Rule 7). Folds (documented):
+#   geopolitics/politics/environment → world  (split world_politics keeps the
+#     partisan-coverage/world-stakes layout)
+#   business → markets   (old ``markets`` fold collapses into business)
+#   arts     → culture   (old ``culture`` catch-all renames to arts)
+#   ai       → tech      (no bespoke layout; rides the tech why-it-matters layout)
+# ``tech``/``sport``/``youtube``/``x`` are already canonical keys (identity, omitted).
+DETAIL_CATEGORY_ALIASES: dict[str, DetailCategory] = {
+    "geopolitics": "world",
+    "politics": "world",
+    "environment": "world",
+    "business": "markets",
+    "arts": "culture",
+    "ai": "tech",
+}
+
 # feed_category (``categories.py`` ``FeedCategory`` + the frontend-only
-# ``podcasts``) → detail category. The source buckets pass through unchanged;
-# the topic buckets rename to their screen-bucket key.
+# ``podcasts``) → detail category. Carries BOTH the legacy folded enum values
+# (``world_politics`` etc., retained-unused in Postgres) AND the SP3 roots
+# (``geopolitics``/``business``/...), so a story persisted under EITHER taxonomy
+# resolves a template. The source buckets pass through unchanged.
 _FEED_CATEGORY_TO_DETAIL: dict[str, DetailCategory] = {
+    # Legacy folded enum values (pre-SP3).
     "world_politics": "world",
     "tech_science": "tech",
     "markets": "markets",
-    "sport": "sport",
     "culture": "culture",
+    "podcasts": "podcasts",
+    # SP3 picker roots (post-SP3) — fold onto their borrowed template.
+    "geopolitics": "world",
+    "politics": "world",
+    "environment": "world",
+    "business": "markets",
+    "arts": "culture",
+    "ai": "tech",
+    # Identity keys shared by both taxonomies.
+    "tech": "tech",
+    "sport": "sport",
     "youtube": "youtube",
     "x": "x",
-    "podcasts": "podcasts",
 }
 
-# story_segment_slug (the 5-valued ``segment_slug`` enum) → detail category. The
-# persist layer already resolves a story's segment, and the 5 segments map 1:1 onto
-# the 5 TOPIC detail categories — ``wildcard`` is the Culture catch-all
-# (matches ``categories.SLUG_TO_CATEGORY``'s wildcard→culture). Source categories
-# (youtube/podcasts/x) are NOT reachable from a segment — they come from source
-# ingestion (phase-5d), which sets the detail category directly from the source type.
+# story_segment_slug → detail category. Carries BOTH the legacy 5-valued segment
+# enum (``geopolitics``/``markets``/``tech``/``sport``/``wildcard``) AND the SP3
+# roots the segment backfill added (``ai``/``business``/``environment``/
+# ``politics``/``arts``), so a story persisted under EITHER taxonomy resolves a
+# template. ``wildcard``/``arts`` are the Culture catch-all (matches
+# ``categories.SLUG_TO_CATEGORY``). Source categories (youtube/podcasts/x) are NOT
+# reachable from a segment — source ingestion (phase-5d) sets the detail category
+# directly from the source type.
 _SEGMENT_TO_DETAIL: dict[str, DetailCategory] = {
+    # Legacy 5-valued segment enum (pre-SP3).
     "geopolitics": "world",
     "markets": "markets",
     "tech": "tech",
     "sport": "sport",
     "wildcard": "culture",
+    # SP3 roots the segment backfill added (post-SP3) — fold onto their template.
+    "ai": "tech",
+    "business": "markets",
+    "environment": "world",
+    "politics": "world",
+    "arts": "culture",
 }
 
 # Best-fit fallback when a category is unknown/empty — Culture is the long-tail

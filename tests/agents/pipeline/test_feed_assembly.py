@@ -45,8 +45,8 @@ _NOW = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
 _TARGET_DATE = date(2026, 5, 31)
 
 # ── Taxonomy: one depth-0 interest per topic category (slug → category map). ──
-# world → world_politics ; tech → tech_science ; business → markets ;
-# sport → sport ; entertainment → culture (per agents/pipeline/categories.py).
+# world → geopolitics ; tech → tech ; business → business ;
+# sport → sport ; entertainment → arts (per agents/pipeline/categories.py, SP3).
 _INTEREST_WORLD = "int-world"
 _INTEREST_TECH = "int-tech"
 _INTEREST_BUSINESS = "int-business"
@@ -76,11 +76,11 @@ _INTEREST_NODES = {
 }
 
 _CATEGORY_INTEREST = {
-    "world_politics": _INTEREST_WORLD,
-    "tech_science": _INTEREST_TECH,
-    "markets": _INTEREST_BUSINESS,
+    "geopolitics": _INTEREST_WORLD,
+    "tech": _INTEREST_TECH,
+    "business": _INTEREST_BUSINESS,
     "sport": _INTEREST_SPORT,
-    "culture": _INTEREST_ENT,
+    "arts": _INTEREST_ENT,
 }
 
 _ALL_TOPIC_PROFILE = [
@@ -142,16 +142,16 @@ def _category_of(story_id: str) -> str:
 def _dod_allocation() -> list[CategoryAllocation]:
     """The DoD allocation: 5/5/4/3/4 topics, 6+3 source (sums to 30).
 
-    phase-SP1 removed the breaking tier; its 2 default slots were absorbed by
-    world_politics +1 and culture +1 (mirroring DEFAULT_FEED_ALLOCATION), so the
-    7-category budgets still total 30.
+    SP3 unified the taxonomy onto the picker roots (geopolitics/tech/business/sport/
+    arts); the per-category counts are kept identical so the assertions below stay
+    meaningful — the 5-category topic budgets (21) + the 9 source slots total 30.
     """
     spec = [
-        ("world_politics", 5, 0),
-        ("tech_science", 5, 1),
-        ("markets", 4, 2),
+        ("geopolitics", 5, 0),
+        ("tech", 5, 1),
+        ("business", 4, 2),
         ("sport", 3, 3),
-        ("culture", 4, 4),
+        ("arts", 4, 4),
         ("youtube", 6, 5),
         ("x", 3, 6),
     ]
@@ -237,11 +237,11 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
     # Each topic holds EXACTLY its budgeted count of equal-coverage stories, so the
     # topic-slot count per category is unambiguous (no surplus to roll, no shortfall).
     budget_by_category = {
-        "world_politics": 5,
-        "tech_science": 5,
-        "markets": 4,
+        "geopolitics": 5,
+        "tech": 5,
+        "business": 4,
         "sport": 3,
-        "culture": 4,
+        "arts": 4,
     }
     stories: list[CanonicalStory] = []
     tags: list[StoryInterestTag] = []
@@ -254,17 +254,17 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
 
     allocation = [
         CategoryAllocation(
-            allocation_category="world_politics",
+            allocation_category="geopolitics",
             allocation_slot_count=5,
             allocation_sort_order=0,
         ),
         CategoryAllocation(
-            allocation_category="tech_science",
+            allocation_category="tech",
             allocation_slot_count=5,
             allocation_sort_order=1,
         ),
         CategoryAllocation(
-            allocation_category="markets",
+            allocation_category="business",
             allocation_slot_count=4,
             allocation_sort_order=2,
         ),
@@ -274,7 +274,7 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
             allocation_sort_order=3,
         ),
         CategoryAllocation(
-            allocation_category="culture",
+            allocation_category="arts",
             allocation_slot_count=4,
             allocation_sort_order=4,
         ),
@@ -295,16 +295,16 @@ def test_allocation_honors_per_category_budgets_in_sequence() -> None:
 
     # Each category's TOPIC slots match its budget EXACTLY.
     topic_by_category = Counter(_category_of(s.feed_story_id) for s in slots)
-    assert topic_by_category["world_politics"] == 5
-    assert topic_by_category["tech_science"] == 5
-    assert topic_by_category["markets"] == 4
+    assert topic_by_category["geopolitics"] == 5
+    assert topic_by_category["tech"] == 5
+    assert topic_by_category["business"] == 4
     assert topic_by_category["sport"] == 3
-    assert topic_by_category["culture"] == 4
+    assert topic_by_category["arts"] == 4
 
-    # Topic slots appear in the user's sequence: all world_politics before any
-    # tech_science, etc.
+    # Topic slots appear in the user's sequence: all geopolitics before any
+    # tech, etc.
     topic_order = [_category_of(s.feed_story_id) for s in slots]
-    sequence = ["world_politics", "tech_science", "markets", "sport", "culture"]
+    sequence = ["geopolitics", "tech", "business", "sport", "arts"]
     last_rank = -1
     for category in topic_order:
         rank = sequence.index(category)
@@ -443,12 +443,12 @@ def test_no_slot_is_ever_breaking_kind() -> None:
     stories, tags = _pool_per_category(6)
     # Two very-high-coverage stories (would have been Importance "spikes").
     stories += [
-        _story("world_politics-big", outlet_count=40),
-        _story("tech_science-big", outlet_count=38),
+        _story("geopolitics-big", outlet_count=40),
+        _story("tech-big", outlet_count=38),
     ]
     tags += [
-        _tag("world_politics-big", _INTEREST_WORLD),
-        _tag("tech_science-big", _INTEREST_TECH),
+        _tag("geopolitics-big", _INTEREST_WORLD),
+        _tag("tech-big", _INTEREST_TECH),
     ]
 
     slots = assemble_user_feed(
@@ -471,28 +471,28 @@ def test_no_slot_is_ever_breaking_kind() -> None:
 
 def test_followed_entity_lifts_story_within_its_category() -> None:
     """A Nvidia-followed story outranks an equivalent non-followed story WITHIN its
-    category (markets/tech_science).
+    category (business).
 
     WHY: the entity follow is a Layer-2 score bonus that must change the ORDER
     within a category's slots — a Nvidia follower should see the Nvidia story above
     its twin. This fails if the allocator does not feed ``followed_entities`` into
     the entity-aware scorer, or sorts a category by something other than Score.
     """
-    # Two equivalent markets stories (same coverage), one mentioning Nvidia.
+    # Two equivalent business stories (same coverage), one mentioning Nvidia.
     nvidia_story = _story(
-        "markets-nvidia",
+        "business-nvidia",
         outlet_count=5,
         title="Nvidia Q3 earnings beat expectations",
     )
     twin_story = _story(
-        "markets-twin",
+        "business-twin",
         outlet_count=5,
         title="Chipmaker quarterly earnings beat expectations",
     )
     stories = [nvidia_story, twin_story]
     tags = [
-        _tag("markets-nvidia", _INTEREST_BUSINESS),
-        _tag("markets-twin", _INTEREST_BUSINESS),
+        _tag("business-nvidia", _INTEREST_BUSINESS),
+        _tag("business-twin", _INTEREST_BUSINESS),
     ]
     profile = [
         UserProfileInterest(profile_interest_id=_INTEREST_BUSINESS, profile_weight=3.0)
@@ -508,7 +508,7 @@ def test_followed_entity_lifts_story_within_its_category() -> None:
     ]
     allocation = [
         CategoryAllocation(
-            allocation_category="markets",
+            allocation_category="business",
             allocation_slot_count=2,
             allocation_sort_order=0,
         ),
@@ -525,11 +525,11 @@ def test_followed_entity_lifts_story_within_its_category() -> None:
     )
 
     order = [s.feed_story_id for s in slots]
-    assert order.index("markets-nvidia") < order.index("markets-twin"), (
+    assert order.index("business-nvidia") < order.index("business-twin"), (
         "the Nvidia-followed story must rank above its non-followed twin"
     )
-    nvidia_slot = next(s for s in slots if s.feed_story_id == "markets-nvidia")
-    twin_slot = next(s for s in slots if s.feed_story_id == "markets-twin")
+    nvidia_slot = next(s for s in slots if s.feed_story_id == "business-nvidia")
+    twin_slot = next(s for s in slots if s.feed_story_id == "business-twin")
     assert nvidia_slot.feed_score > twin_slot.feed_score, (
         "the entity bonus must lift the Nvidia story's Score above the twin's"
     )
@@ -597,17 +597,17 @@ def test_empty_category_yields_slots_to_next_in_sequence() -> None:
 
     allocation = [
         CategoryAllocation(
-            allocation_category="world_politics",
+            allocation_category="geopolitics",
             allocation_slot_count=5,
             allocation_sort_order=0,
         ),
         CategoryAllocation(
-            allocation_category="tech_science",
+            allocation_category="tech",
             allocation_slot_count=5,
             allocation_sort_order=1,
         ),
         CategoryAllocation(
-            allocation_category="markets",
+            allocation_category="business",
             allocation_slot_count=5,
             allocation_sort_order=2,
         ),
@@ -617,7 +617,7 @@ def test_empty_category_yields_slots_to_next_in_sequence() -> None:
             allocation_sort_order=3,
         ),
         CategoryAllocation(
-            allocation_category="culture",
+            allocation_category="arts",
             allocation_slot_count=5,
             allocation_sort_order=4,
         ),
@@ -651,7 +651,7 @@ def test_dont_repeat_excludes_prior_feed_stories() -> None:
     specific story and assert it is absent even though it would otherwise qualify.
     """
     stories, tags = _pool_per_category(6)
-    excluded_id = "markets-0"
+    excluded_id = "business-0"
     allocation = _dod_allocation()
 
     slots = assemble_user_feed(

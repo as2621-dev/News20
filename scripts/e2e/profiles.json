@@ -58,7 +58,7 @@
         { "path": ["Environment", "Conservation & biodiversity", "Topics"], "value": "Urban beekeeping" }
       ],
       "source_follows_per_screen": 2,
-      "build_30": { "mode": "save", "boost_bucket": "culture" },
+      "build_30": { "mode": "save", "boost_bucket": "arts" },
       "text_question": "Why does this story matter?"
     }
   ]

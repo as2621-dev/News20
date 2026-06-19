@@ -341,16 +341,18 @@ def build_exploration_candidates(
 
 # The DoD allocation (phase-5a SP4 (a)/(b)): topic + source budgets sum to 30, so
 # the assembled feed must be exactly 30 slots with the 9 source slots (youtube 6 +
-# x 3) rolled into the topic categories by sequence. phase-SP1 removed the breaking
-# tier: its 2 slots were absorbed by world_politics +1 and culture +1 (mirroring
-# DEFAULT_FEED_ALLOCATION) so the budgets still total 30 across the 7 categories.
+# x 3) rolled into the topic categories by sequence. phase-SP3 unified the taxonomy
+# onto the 8 picker roots: the categories are the new roots the fillers populate
+# (geopolitics/tech/business/sport) plus ``arts`` (no fillers → its slots roll, as
+# old ``culture`` did). business sits after geopolitics/tech in the sequence so the
+# roll-over fills earlier categories first and business holds exactly its budget.
 _ENTITY_SCENARIO_ALLOCATION: tuple[tuple[str, int, int], ...] = (
     # (allocation_category, allocation_slot_count, allocation_sort_order)
-    ("world_politics", 5, 0),
-    ("tech_science", 5, 1),
-    ("markets", 4, 2),
+    ("geopolitics", 5, 0),
+    ("tech", 5, 1),
+    ("business", 4, 2),
     ("sport", 3, 3),
-    ("culture", 4, 4),
+    ("arts", 4, 4),  # no filler stories → its slots roll into the earlier categories
     ("youtube", 6, 5),  # source-axis: empty today → budget rolls into topics
     ("x", 3, 6),  # source-axis: empty today → budget rolls into topics
 )
@@ -362,7 +364,7 @@ _ENTITY_SCENARIO_FILLER_COUNTS: dict[str, int] = {
     "tech.ai": 10,
     "markets.stocks": 8,
     "sport.soccer.arsenal": 8,
-    "world.health": 6,  # tech_science via the health→tech_science slug map
+    "world.health": 6,  # geopolitics via its ``world`` root (SP3: world→geopolitics)
 }
 
 
@@ -378,7 +380,8 @@ def build_entity_boost_scenario(
     follows the matching topic leaves AND a custom-source Nvidia entity, with the
     DoD per-category allocation. Because the twins are equal on every base-Score
     term, the EntityBonus is the ONLY differentiator, so a correct allocator must
-    place the Nvidia story above its twin within ``markets``.
+    place the Nvidia story above its twin within ``business`` (SP3: the
+    ``markets.stocks`` twins resolve to the ``business`` root).
 
     Args:
         interest_nodes: The taxonomy map from :func:`build_taxonomy` (the scenario

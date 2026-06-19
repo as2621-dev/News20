@@ -147,9 +147,10 @@ def test_entity_follow_lifts_story_above_twin_within_category():
     assert "ent-twin-plain" in by_id, "the non-followed twin must be placed too"
 
     nvidia, twin = by_id["ent-twin-nvidia"], by_id["ent-twin-plain"]
-    # Both must classify into markets (same interest) — the lift is WITHIN a category.
-    assert category_for_slug(nvidia.feed_matched_interest_id) == "markets"
-    assert category_for_slug(twin.feed_matched_interest_id) == "markets"
+    # Both must classify into business (same interest) — the lift is WITHIN a category.
+    # (SP3: markets.stocks now resolves to the ``business`` root, not the old markets.)
+    assert category_for_slug(nvidia.feed_matched_interest_id) == "business"
+    assert category_for_slug(twin.feed_matched_interest_id) == "business"
     # The entity bonus lifts the Nvidia story's Score and its position above the twin.
     assert nvidia.feed_score > twin.feed_score, (
         "the EntityBonus must lift the Nvidia story's Score above its twin's"
@@ -168,7 +169,7 @@ def test_entity_scenario_honors_category_budgets_and_sequence():
     ``category_allocation`` (would fall to the balanced default), if a breaking tier
     reappears (phase-SP1 removed it — only {interest, source} kinds), if the source
     budgets are not rolled (feed would be 21), or if a story is placed twice. The
-    markets category is asserted at EXACTLY its budget (4) because it sits late
+    business category is asserted at EXACTLY its budget (4) because it sits late
     enough in the sequence that the roll-over fills earlier categories first — so its
     count is controlled."""
     nodes = build_taxonomy()
@@ -185,18 +186,18 @@ def test_entity_scenario_honors_category_budgets_and_sequence():
         s.feed_slot_kind in {"interest", "source"} for s in slots
     ), "only {interest, source} slot kinds — no breaking tier (phase-SP1)"
 
-    # markets is budgeted to 4 and sits after world_politics/tech_science in the
-    # sequence, so the roll-over does not inflate it — it holds exactly its budget.
-    markets_slots = [
+    # business is budgeted to 4 and sits after geopolitics/tech in the sequence, so
+    # the roll-over does not inflate it — it holds exactly its budget.
+    business_slots = [
         s
         for s in slots
         if s.feed_slot_kind == "interest"
-        and category_for_slug(s.feed_matched_interest_id) == "markets"
+        and category_for_slug(s.feed_matched_interest_id) == "business"
     ]
-    assert len(markets_slots) == 4, "markets must hold exactly its 4-slot budget"
+    assert len(business_slots) == 4, "business must hold exactly its 4-slot budget"
 
     # Sequence: the topic categories appear in the user's allocation_sort_order
-    # (world_politics < tech_science < markets < sport — culture has no stories).
+    # (geopolitics < tech < business < sport — arts has no stories).
     category_sequence: list[str] = []
     for slot in slots:
         if slot.feed_matched_interest_id is None:
@@ -204,7 +205,7 @@ def test_entity_scenario_honors_category_budgets_and_sequence():
         category = category_for_slug(slot.feed_matched_interest_id)
         if category not in category_sequence:
             category_sequence.append(category)
-    expected_order = ["world_politics", "tech_science", "markets", "sport"]
+    expected_order = ["geopolitics", "tech", "business", "sport"]
     assert category_sequence == [c for c in expected_order if c in category_sequence]
 
 

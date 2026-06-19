@@ -13,10 +13,9 @@ import type { AllocationSegment } from "@/lib/feedBuckets";
  *    "Build your 30, IN ORDER"). We assert the exact rows + onConflict key.
  *  - SAVE must DELETE rows for removed buckets so the table reflects EXACTLY the saved set
  *    — a stale row would keep allocating slots to a bucket the user deleted (a ghost block).
- *  - The `podcasts`-enum-missing path (migration 0010 not yet applied) must DEGRADE: persist
- *    the other 8, surface podcasts as deferred, and NOT throw — else the whole onboarding
- *    save crashes for every user until 0010 ships.
- *  - A NON-podcasts upsert error MUST surface (throw) — never swallowed (Rule 12).
+ *  - Under the SP3 taxonomy every bucket has a real `feed_category` enum value, so a clean
+ *    save persists every bucket, defers NOTHING, and never silently drops one.
+ *  - An upsert error MUST surface (throw) — never swallowed (Rule 12).
  *  - READ must be owner-scoped, ordered by sort order, and mapped back to design buckets.
  *
  * Mocks the Supabase client at the boundary (CLAUDE.md mocking strategy), mirroring
@@ -24,17 +23,6 @@ import type { AllocationSegment } from "@/lib/feedBuckets";
  */
 
 const AUTHED_USER_ID = "user-uuid-1";
-
-/** A PostgrestError shaped like Postgres' "unknown enum literal" failure (SQLSTATE 22P02). */
-function makePodcastsEnumMissingError(): PostgrestError {
-  return {
-    message: 'invalid input value for enum feed_category: "podcasts"',
-    code: "22P02",
-    details: "",
-    hint: "",
-    name: "PostgrestError",
-  } as PostgrestError;
-}
 
 /**
  * Fake client for the owner-scoped user_feed_allocation read + save chains.
@@ -44,8 +32,8 @@ function makePodcastsEnumMissingError(): PostgrestError {
  * DELETE: `.from().delete().eq().not()`  (and `.eq()` alone when the saved set is empty)
  *
  * Captures every upsert (payload + onConflict) and the delete's `.not()` args so a test
- * can assert exactly what was written/pruned, owner-scoped. `upsertErrors` is a QUEUE so the
- * podcasts-degrade path (first upsert fails, retry succeeds) can be modelled.
+ * can assert exactly what was written/pruned, owner-scoped. `upsertErrors` is a QUEUE so a
+ * multi-upsert sequence (e.g. an error then a retry) can be modelled if ever needed.
  */
 function makeAllocationClient(options: {
   user: { id: string } | null;
@@ -99,7 +87,7 @@ function makeAllocationClient(options: {
 
 const HAPPY_SEGMENTS: AllocationSegment[] = [
   { bucketId: "sport", count: 2 },
-  { bucketId: "world", count: 4 },
+  { bucketId: "geopolitics", count: 4 },
   { bucketId: "tech", count: 24 },
 ];
 
@@ -122,13 +110,13 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
       },
       {
         follow_user_id: AUTHED_USER_ID,
-        allocation_category: "world_politics",
+        allocation_category: "geopolitics",
         allocation_slot_count: 4,
         allocation_sort_order: 1,
       },
       {
         follow_user_id: AUTHED_USER_ID,
-        allocation_category: "tech_science",
+        allocation_category: "tech",
         allocation_slot_count: 24,
         allocation_sort_order: 2,
       },
@@ -150,31 +138,27 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     expect(notColumn).toBe("allocation_category");
     expect(operator).toBe("in");
     // The saved enum values are excluded from the delete (so they survive; everything else is pruned).
-    expect(listValue).toBe("(sport,world_politics,tech_science)");
+    expect(listValue).toBe("(sport,geopolitics,tech)");
   });
 
-  it("degrades gracefully when the podcasts enum value is missing (migration 0010 not applied)", async () => {
-    // WHY: until 0010 ships, a podcasts upsert 22P02-fails. The whole save must NOT crash —
-    // it drops podcasts, re-upserts the rest, surfaces podcasts as deferred, and succeeds.
-    // FAILS if it throws, or if the retry doesn't exclude podcasts.
+  it("persists every bucket with no deferral under the SP3 taxonomy (no degrade case)", async () => {
+    // WHY: every SP3 design bucket has a real feed_category enum value (the pre-0010
+    // `podcasts`-missing degrade path is retired). A clean multi-bucket save must therefore
+    // upsert ONCE, defer NOTHING, and drop no bucket — if a bucket were ever silently
+    // dropped the user's "Build your 30" would persist short.
     const segments: AllocationSegment[] = [
-      { bucketId: "world", count: 10 },
-      { bucketId: "podcasts", count: 20 },
+      { bucketId: "geopolitics", count: 10 },
+      { bucketId: "arts", count: 20 },
     ];
-    const { client, upsert, upsertCalls } = makeAllocationClient({
-      user: { id: AUTHED_USER_ID },
-      upsertErrors: [makePodcastsEnumMissingError(), null], // first fails, retry succeeds
-    });
+    const { client, upsert, upsertCalls } = makeAllocationClient({ user: { id: AUTHED_USER_ID } });
 
     const result = await saveUserFeedAllocation(segments, client);
 
-    expect(upsert).toHaveBeenCalledTimes(2); // initial (all) + retry (without podcasts)
-    // The retry rows exclude the podcasts row.
-    const retryCategories = upsertCalls[1].rows.map((row) => row.allocation_category);
-    expect(retryCategories).toEqual(["world_politics"]);
-    expect(retryCategories).not.toContain("podcasts");
-    expect(result.deferred_buckets).toEqual(["podcasts"]);
-    expect(result.persisted_count).toBe(1); // only world_politics persisted
+    expect(upsert).toHaveBeenCalledTimes(1); // single upsert, no degrade retry
+    const persistedCategories = upsertCalls[0].rows.map((row) => row.allocation_category);
+    expect(persistedCategories).toEqual(["geopolitics", "arts"]);
+    expect(result.deferred_buckets).toEqual([]);
+    expect(result.persisted_count).toBe(2);
   });
 
   it("throws on a NON-podcasts upsert error (surface, never swallow — Rule 12)", async () => {
@@ -203,7 +187,7 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     // WHY: the screen enforces 30, but the helper must never silently persist a drifted total
     // (Rule 12) — it warns loudly yet still saves rather than crashing the flow.
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const nonThirty: AllocationSegment[] = [{ bucketId: "world", count: 5 }];
+    const nonThirty: AllocationSegment[] = [{ bucketId: "geopolitics", count: 5 }];
     const { client, upsert } = makeAllocationClient({ user: { id: AUTHED_USER_ID } });
 
     const result = await saveUserFeedAllocation(nonThirty, client);
@@ -221,8 +205,8 @@ describe("getUserFeedAllocation (RLS owner-scoped read, mapped back to design bu
     // WHY: hydrating a returning user's screen must rebuild their EXACT saved order with the
     // correct buckets. A wrong inverse map shows the wrong blocks; a dropped order scrambles them.
     const rows = [
-      { allocation_category: "world_politics", allocation_slot_count: 4, allocation_sort_order: 0 },
-      { allocation_category: "tech_science", allocation_slot_count: 26, allocation_sort_order: 1 },
+      { allocation_category: "geopolitics", allocation_slot_count: 4, allocation_sort_order: 0 },
+      { allocation_category: "tech", allocation_slot_count: 26, allocation_sort_order: 1 },
     ];
     const { client, from, selectEqCalls } = makeAllocationClient({
       user: { id: AUTHED_USER_ID },
@@ -234,7 +218,7 @@ describe("getUserFeedAllocation (RLS owner-scoped read, mapped back to design bu
     expect(from).toHaveBeenCalledWith("user_feed_allocation");
     expect(selectEqCalls).toContainEqual(["follow_user_id", AUTHED_USER_ID]);
     expect(result).toEqual([
-      { bucketId: "world", count: 4 },
+      { bucketId: "geopolitics", count: 4 },
       { bucketId: "tech", count: 26 },
     ]);
   });

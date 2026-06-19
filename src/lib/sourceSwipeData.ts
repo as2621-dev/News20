@@ -80,12 +80,12 @@ const CARDS_PER_PLATFORM = 12;
  * (`reference/design-language.md`) — no carried-over prototype neon.
  */
 const ACCENT_BY_TOPIC: Readonly<Record<string, string>> = {
-  ai: "#22D3EE",
-  tech: "#22D3EE",
+  ai: "#3B82F6",
+  geopolitics: "#EF4444",
   business: "#22C55E",
-  geopolitics: "#A78BFA",
-  politics: "#A78BFA",
   environment: "#34D399",
+  politics: "#A78BFA",
+  tech: "#22D3EE",
   sport: "#F59E0B",
   arts: "#E8B7BC",
 };

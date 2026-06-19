@@ -20,7 +20,7 @@ What it proves end-to-end against the live DB (phase-5a SP4 (a)):
      twin-Nvidia scenario) so the entity ordering is provable.
   5. Asserts: the per-category budgets + sequence are honored, the source budgets
      (youtube/x) roll into the topics so the feed totals 30, and the Nvidia story
-     outranks its non-followed twin WITHIN markets.
+     outranks its non-followed twin WITHIN business.
   6. The disposable user is deleted — the FK cascade removes the seeded allocation
      + follow rows, leaving the live DB with only schema + the 248-row entity seed.
 
@@ -66,14 +66,14 @@ _NVIDIA_ENTITY_ID = "ai/ai-hardware-compute/companies-topics/nvidia"
 
 # The DoD allocation (phase-5a SP4): topic + source budgets sum to 30, so the feed
 # must be 30 slots with the 9 source slots (youtube 6 + x 3) rolled into topics.
-# phase-SP1 removed the breaking tier; its 2 slots were absorbed by world_politics
-# +1 and culture +1 (mirroring DEFAULT_FEED_ALLOCATION) so budgets still total 30.
+# SP3 unified the taxonomy onto the picker roots (geopolitics/tech/business/sport/
+# arts); the per-category counts are kept identical so the budgets still total 30.
 _DOD_ALLOCATION: tuple[tuple[str, int, int], ...] = (
-    ("world_politics", 5, 0),
-    ("tech_science", 5, 1),
-    ("markets", 4, 2),
+    ("geopolitics", 5, 0),
+    ("tech", 5, 1),
+    ("business", 4, 2),
     ("sport", 3, 3),
-    ("culture", 4, 4),
+    ("arts", 4, 4),
     ("youtube", 6, 5),
     ("x", 3, 6),
 )
@@ -194,13 +194,13 @@ def test_live_allocator_honors_budgets_and_lifts_followed_entity() -> None:
             s.feed_slot_kind in {"interest", "source"} for s in slots
         ), "only {interest, source} slot kinds (no breaking tier)"
 
-        markets_slots = [
+        business_slots = [
             s
             for s in slots
             if s.feed_slot_kind == "interest"
-            and category_for_slug(s.feed_matched_interest_id) == "markets"
+            and category_for_slug(s.feed_matched_interest_id) == "business"
         ]
-        assert len(markets_slots) == 4, "markets must hold exactly its 4-slot budget"
+        assert len(business_slots) == 4, "business must hold exactly its 4-slot budget"
 
         # Sequence: topics in allocation_sort_order (no breaking tier to lead).
         category_sequence: list[str] = []
@@ -210,16 +210,16 @@ def test_live_allocator_honors_budgets_and_lifts_followed_entity() -> None:
             category = category_for_slug(slot.feed_matched_interest_id)
             if category not in category_sequence:
                 category_sequence.append(category)
-        expected_order = ["world_politics", "tech_science", "markets", "sport"]
+        expected_order = ["geopolitics", "tech", "business", "sport"]
         assert category_sequence == [c for c in expected_order if c in category_sequence]
 
-        # ── Entity invariant (the Nvidia story outranks its twin WITHIN markets) ──
+        # ── Entity invariant (the Nvidia story outranks its twin WITHIN business) ──
         by_id = {s.feed_story_id: s for s in slots}
         assert "ent-twin-nvidia" in by_id, "the Nvidia story must be placed"
         assert "ent-twin-plain" in by_id, "the non-followed twin must be placed"
         nvidia_slot, twin_slot = by_id["ent-twin-nvidia"], by_id["ent-twin-plain"]
-        assert category_for_slug(nvidia_slot.feed_matched_interest_id) == "markets"
-        assert category_for_slug(twin_slot.feed_matched_interest_id) == "markets"
+        assert category_for_slug(nvidia_slot.feed_matched_interest_id) == "business"
+        assert category_for_slug(twin_slot.feed_matched_interest_id) == "business"
         assert nvidia_slot.feed_score > twin_slot.feed_score, (
             "the live-hydrated Nvidia follow must lift its story's Score above the twin"
         )

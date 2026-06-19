@@ -76,16 +76,20 @@ interface WsRecord {
 }
 
 // ── Bucket display names (mirror of src/lib/feedBuckets.ts DESIGN_BUCKETS) ────
+// The 8 onboarding picker roots + the 2 source axes. Labels are IDENTICAL to
+// DESIGN_BUCKETS[id].name so a given root renders the same string on every surface
+// (onboarding / Build-your-30 / these E2E surfaces). No fold, no `breaking`.
 const BUCKET_DISPLAY_NAMES: Record<string, string> = {
-  breaking: "Breaking News",
-  world: "World & Politics",
-  markets: "Markets",
-  tech: "Tech & Science",
+  ai: "AI",
+  geopolitics: "Geopolitics",
+  business: "Business",
+  environment: "Environment",
+  politics: "Politics",
+  tech: "Tech",
   sport: "Sport",
-  culture: "Culture",
+  arts: "Arts",
   youtube: "YouTube",
   x: "X",
-  podcasts: "Podcasts",
 };
 
 const CHROME_BINARY = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";

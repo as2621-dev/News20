@@ -1,7 +1,7 @@
 """Unit tests for the per-category produce caps (agents/pipeline/produce_caps.py).
 
 These encode WHY the cap exists (Rule 9): the live batch once produced 39 reels
-all in markets/semiconductor because nothing bounded per-category production. The
+all in business/semiconductor because nothing bounded per-category production. The
 cap must hold the cross-user max per category, drop categories nobody picked, and
 trim an overall ceiling without re-skewing. (phase-SP1 removed the breaking tier,
 so there is no breaking-headroom union any more — caps are returned alone.)
@@ -24,8 +24,9 @@ from agents.pipeline.produce_caps import (
     enforce_overall_ceiling,
 )
 
-# Reason: two interest nodes whose roots map to distinct screen categories so
-# assign_category buckets stories deterministically (business→markets, sport→sport).
+# Reason: three interest nodes whose roots map to distinct screen categories so
+# assign_category buckets stories deterministically (business→business, sport→sport,
+# tech→tech). (SP3: ``business.semis`` now resolves to the ``business`` root.)
 _INTEREST_NODES: dict[str, InterestNode] = {
     "i-markets": InterestNode(
         interest_id="i-markets",
@@ -87,17 +88,18 @@ def _alloc(category: str, slot_count: int) -> CategoryAllocation:
 # ── compute_category_produce_caps ──────────────────────────────────────────────
 
 # The universal default a no-row user inherits (mirrors DEFAULT_FEED_ALLOCATION).
-_DEFAULT = {"markets": 4, "sport": 3, "culture": 2}
+# (SP3: markets→business, culture→arts.)
+_DEFAULT = {"business": 4, "sport": 3, "arts": 2}
 
 
 def test_compute_caps_takes_cross_user_max_per_category():
     """Happy path: cap = the highest slot_count any single user requested."""
     allocation_by_user = {
-        "u1": [_alloc("markets", 5), _alloc("sport", 3)],
-        "u2": [_alloc("markets", 7), _alloc("sport", 6)],
+        "u1": [_alloc("business", 5), _alloc("sport", 3)],
+        "u2": [_alloc("business", 7), _alloc("sport", 6)],
     }
     caps = compute_category_produce_caps(allocation_by_user, ["u1", "u2"], _DEFAULT)
-    assert caps == {"markets": 7, "sport": 6}
+    assert caps == {"business": 7, "sport": 6}
 
 
 def test_compute_caps_no_active_users_returns_empty():
@@ -109,19 +111,19 @@ def test_compute_caps_no_active_users_returns_empty():
 def test_compute_caps_no_row_user_inherits_default():
     """A user who never built their 30 counts as the universal default allocation."""
     caps = compute_category_produce_caps({}, ["u1"], _DEFAULT)
-    assert caps == {"markets": 4, "sport": 3, "culture": 2}
+    assert caps == {"business": 4, "sport": 3, "arts": 2}
 
 
 def test_compute_caps_explicit_rows_override_default_per_user():
     """A user WITH rows uses exactly those rows — a left-out category is 0, not default.
 
-    u1 explicitly wants only sport (no markets) → u1 contributes 0 to markets; u2
-    has no rows → inherits the default (markets 4). Cross-user max markets = 4.
+    u1 explicitly wants only sport (no business) → u1 contributes 0 to business; u2
+    has no rows → inherits the default (business 4). Cross-user max business = 4.
     """
     allocation_by_user = {"u1": [_alloc("sport", 6)]}
     caps = compute_category_produce_caps(allocation_by_user, ["u1", "u2"], _DEFAULT)
     assert caps["sport"] == 6  # u1's explicit 6 beats the default 3
-    assert caps["markets"] == 4  # only u2 (default) wants markets
+    assert caps["business"] == 4  # only u2 (default) wants business
 
 
 def test_compute_caps_zero_slot_user_does_not_lower_the_max():
@@ -138,7 +140,7 @@ def test_compute_caps_zero_slot_user_does_not_lower_the_max():
 
 
 def test_cap_keeps_top_n_by_importance_no_skew():
-    """Happy path: 39 markets stories, markets cap 7 → exactly 7, highest first.
+    """Happy path: 39 business stories, business cap 7 → exactly 7, highest first.
 
     This is the regression guard for the 39-reel single-category skew.
     """
@@ -146,7 +148,7 @@ def test_cap_keeps_top_n_by_importance_no_skew():
     tags = [_tag(f"m{i}", "i-markets") for i in range(39)]
     # Ascending importance so the top 7 are deterministically m32..m38.
     decisions = [_decision(f"m{i}", importance=i / 100.0) for i in range(39)]
-    caps = {"markets": 7}
+    caps = {"business": 7}
 
     kept = cap_stories_per_category(
         stories, decisions, tags, _INTEREST_NODES, caps, default_cap=8
@@ -162,7 +164,7 @@ def test_cap_drops_category_nobody_picked():
     stories = [_story("s1"), _story("m1")]
     tags = [_tag("s1", "i-sport"), _tag("m1", "i-markets")]
     decisions = [_decision("s1", 0.9), _decision("m1", 0.9)]
-    caps = {"markets": 5}  # nobody picked sport
+    caps = {"business": 5}  # nobody picked sport
 
     kept = cap_stories_per_category(
         stories, decisions, tags, _INTEREST_NODES, caps, default_cap=8
@@ -176,13 +178,13 @@ def test_cap_keeps_only_the_category_cap_no_headroom_union():
 
     WHY (Rule 9): phase-SP1 removed the breaking-headroom union that used to keep
     extra top-importance stories beyond a category's cap. This pins the new
-    contract: with markets cap 1, ONLY the single most-important markets story (m4)
+    contract: with business cap 1, ONLY the single most-important business story (m4)
     survives — nothing extra leaks through.
     """
     stories = [_story(f"m{i}") for i in range(5)]
     tags = [_tag(f"m{i}", "i-markets") for i in range(5)]
     decisions = [_decision(f"m{i}", importance=i / 10.0) for i in range(5)]
-    caps = {"markets": 1}  # cap keeps only m4 (highest)
+    caps = {"business": 1}  # cap keeps only m4 (highest)
 
     kept = cap_stories_per_category(
         stories, decisions, tags, _INTEREST_NODES, caps, default_cap=8
@@ -209,7 +211,7 @@ def test_cap_empty_pool_returns_empty():
     """Edge: nothing to cap."""
     assert (
         cap_stories_per_category(
-            [], [], [], _INTEREST_NODES, {"markets": 5}, default_cap=8
+            [], [], [], _INTEREST_NODES, {"business": 5}, default_cap=8
         )
         == []
     )
@@ -219,8 +221,8 @@ def test_cap_empty_pool_returns_empty():
 
 
 def test_ceiling_trims_round_robin_balanced():
-    """Happy path: 20 stories across 4 categories, ceiling 8 → 8 kept, balanced."""
-    # 5 stories in each of markets / sport / tech_science / culture.
+    """Happy path: 15 stories across 3 categories, ceiling 6 → 6 kept, balanced."""
+    # 5 stories in each of business / sport / tech.
     stories: list[CanonicalStory] = []
     tags: list[StoryInterestTag] = []
     decisions: list[ProduceDecision] = []

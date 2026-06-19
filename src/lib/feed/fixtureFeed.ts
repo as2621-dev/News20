@@ -48,35 +48,49 @@ interface FixtureStoryMeta {
   anchors: [AnchorSpeaker, AnchorSpeaker];
 }
 
-/** Segment slug → display label + accent hex. Mirrors `data.js` SEGMENTS. */
+/**
+ * Segment slug → display label. The 8 picker roots; labels EQUAL the onboarding
+ * chips (`src/lib/feedBuckets.ts` `DESIGN_BUCKETS`) so the reel chip matches.
+ */
 const SEGMENT_LABELS: Record<SegmentKey, string> = {
+  ai: "AI",
   geopolitics: "Geopolitics",
-  markets: "Markets",
-  tech: "Tech & Science",
+  business: "Business",
+  environment: "Environment",
+  politics: "Politics",
+  tech: "Tech",
   sport: "Sport",
-  wildcard: "Wildcard",
+  arts: "Arts",
 };
 
-/** Segment slug → accent hex. Equals the `seg-*` tokens (design-language.md). */
+/** Segment slug → accent hex. Equals the onboarding chips (`DESIGN_BUCKETS`). */
 const SEGMENT_ACCENT_HEX: Record<SegmentKey, string> = {
+  ai: "#3B82F6",
   geopolitics: "#EF4444",
-  markets: "#22C55E",
+  business: "#22C55E",
+  environment: "#34D399",
+  politics: "#A78BFA",
   tech: "#22D3EE",
   sport: "#F59E0B",
-  wildcard: "#E8B7BC",
+  arts: "#E8B7BC",
 };
 
 /**
  * Segment slug → Detail category, so fixture stories render the right panel
- * template. Mirrors the backend `_SEGMENT_TO_DETAIL` (`detail_templates.py`):
- * wildcard is the Culture catch-all. Fixtures have no breaking signal.
+ * template. The Detail templates still key off the legacy bucket names
+ * (`detail_templates.py` / `detailTemplates.ts`), so the new roots map onto the
+ * nearest legacy template (`business→markets`, `arts→culture`, the split
+ * geopolitics/politics/environment→world). Fixtures have no breaking signal.
  */
 const SEGMENT_DETAIL_CATEGORY: Record<SegmentKey, string> = {
+  ai: "tech",
   geopolitics: "world",
-  markets: "markets",
+  business: "markets",
+  environment: "world",
+  politics: "world",
   tech: "tech",
   sport: "sport",
-  wildcard: "culture",
+  arts: "culture",
 };
 
 /** Story metadata for the 5 M0 digests, positionally `digest-N` ↔ STORIES[N-1]. */
@@ -102,13 +116,13 @@ const FIXTURE_STORY_META: readonly FixtureStoryMeta[] = [
   {
     digest_id: "digest-4",
     headline: "Nvidia's blowout quarter — yet the stock slips",
-    segment_key: "markets",
+    segment_key: "business",
     anchors: ["JORDAN", "ALEX"],
   },
   {
     digest_id: "digest-5",
     headline: "Pope Leo XIV issues his strongest warning yet on AI",
-    segment_key: "wildcard",
+    segment_key: "arts",
     anchors: ["ALEX", "JORDAN"],
   },
 ] as const;

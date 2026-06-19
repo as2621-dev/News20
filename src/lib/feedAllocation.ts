@@ -14,17 +14,14 @@
  * id app-side so an UNAUTHENTICATED write throws a loud, actionable error (Rule 12) rather
  * than relying on RLS to reject an anon write with an opaque PostgREST message.
  *
- * ── The `podcasts` enum value (migration 0010, not yet applied) ──────────────────────
- * The screen draws 9 buckets but the 0008 enum has only 8 values — `podcasts` is added by
- * migration `0010_feed_category_podcasts.sql`, which the owner applies separately. Until
- * then a `podcasts` upsert fails with a Postgres "invalid input value for enum" error.
- * {@link saveUserFeedAllocation} treats THAT specific failure as a graceful-degrade: it
- * logs a structured warning (with a fix_suggestion to apply 0010) and persists the other 8
- * buckets successfully, rather than failing the whole save / crashing the onboarding flow.
- * All 9 buckets still render in the UI.
+ * Taxonomy (SP3): the screen draws the 10 canonical buckets (the 8 picker roots +
+ * `youtube`/`x`), each of which is its own `feed_category` enum value (identity map in
+ * `feedBuckets.ts`). The retired `podcasts` design bucket — and the pre-0010 "podcasts
+ * enum value missing" graceful-degrade path — no longer exist, so every saved bucket has
+ * a real enum value and the save has no degrade case.
  */
 
-import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ALLOCATION_TOTAL,
   type AllocationSegment,
@@ -32,7 +29,6 @@ import {
   type DesignBucketId,
   ENUM_TO_DESIGN_BUCKET,
   type FeedCategoryEnum,
-  PODCASTS_ENUM_VALUE,
   sumSegmentCounts,
 } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
@@ -76,23 +72,6 @@ async function requireAuthedUserId(client: SupabaseClient): Promise<string> {
   return data.user.id;
 }
 
-/**
- * Whether a PostgREST error is the "the `podcasts` enum value does not exist yet" signal —
- * i.e. migration 0010 has not been applied to this DB. Postgres raises SQLSTATE `22P02`
- * ("invalid input value for enum feed_category: \"podcasts\"") on an unknown enum literal.
- * We match on the code AND the value name so an unrelated `22P02` (some other bad literal)
- * is NOT mistaken for the pre-migration podcasts gap (it would re-throw and surface).
- *
- * @param error - The PostgrestError from a failed upsert.
- * @returns `true` only when the failure is specifically the missing `podcasts` enum value.
- */
-function isPodcastsEnumMissingError(error: PostgrestError): boolean {
-  const code = error.code ?? "";
-  const message = (error.message ?? "").toLowerCase();
-  const isInvalidEnumInput = code === "22P02" || message.includes("invalid input value for enum");
-  return isInvalidEnumInput && message.includes(PODCASTS_ENUM_VALUE);
-}
-
 /** One `user_feed_allocation` row to upsert (migration 0008 column shape). */
 interface FeedAllocationUpsertRow {
   follow_user_id: string;
@@ -112,7 +91,7 @@ interface FeedAllocationUpsertRow {
  *
  * @example
  * const saved = await getUserFeedAllocation();
- * saved; // [{ bucketId: "world", count: 5 }, { bucketId: "tech", count: 5 }, …]
+ * saved; // [{ bucketId: "geopolitics", count: 5 }, { bucketId: "tech", count: 5 }, …]
  */
 export async function getUserFeedAllocation(
   client: SupabaseClient = getSupabaseBrowserClient(),
@@ -166,9 +145,10 @@ export interface SaveAllocationResult {
   /** How many `user_feed_allocation` rows were upserted (the persisted buckets). */
   persisted_count: number;
   /**
-   * Design bucket ids that could NOT be persisted because their enum value does not exist
-   * in the live DB yet (today only `podcasts`, until migration 0010 is applied). Surfaced
-   * (never silently dropped — Rule 12); the caller may show "Podcasts saved once we ship it".
+   * Design bucket ids that could NOT be persisted because their enum value does not exist in
+   * the live DB. Under the SP3 taxonomy every bucket has a real enum value, so this is ALWAYS
+   * empty — the field is retained for the result-shape stability the caller logs against, and
+   * keeps the surface ready if a future bucket ever ships ahead of its enum migration.
    */
   deferred_buckets: DesignBucketId[];
 }
@@ -186,22 +166,18 @@ export interface SaveAllocationResult {
  * non-30 total here (that would crash the flow on a UI bug), but we LOG it loudly (Rule 12)
  * so a drifting invariant is visible rather than silently persisted.
  *
- * **`podcasts` graceful-degrade:** if the upsert fails with the "missing `podcasts` enum
- * value" signal (migration 0010 not yet applied), we DROP the podcasts row, re-upsert the
- * remaining 8, and surface `podcasts` in {@link SaveAllocationResult.deferred_buckets} —
- * the save SUCCEEDS for the other buckets and the flow continues (see module JSDoc).
- *
  * @param segments - The ordered `[{ bucketId, count }]` from the screen (index = sort order).
  * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
- * @returns A {@link SaveAllocationResult} — rows written + any deferred (pre-0010) buckets.
- * @throws If unauthenticated, or if a NON-podcasts upsert/delete fails (surfaced — Rule 12).
+ * @returns A {@link SaveAllocationResult} — rows written (`deferred_buckets` is always empty
+ *   under the SP3 taxonomy, where every bucket has a real enum value).
+ * @throws If unauthenticated, or if an upsert/delete fails (surfaced — Rule 12).
  *
  * @example
  * const result = await saveUserFeedAllocation([
- *   { bucketId: "world", count: 5 },
+ *   { bucketId: "geopolitics", count: 5 },
  *   { bucketId: "tech", count: 25 },
  * ]);
- * result.persisted_count;   // 2 (or 1 + deferred_buckets:["podcasts"] pre-0010)
+ * result.persisted_count;   // 2
  */
 export async function saveUserFeedAllocation(
   segments: AllocationSegment[],
@@ -238,7 +214,6 @@ export async function saveUserFeedAllocation(
 
   // Track which design buckets are in this save so we can DELETE the rest (removed buckets).
   const savedEnumValues = new Set<FeedCategoryEnum>(upsertRows.map((row) => row.allocation_category));
-  const deferredBuckets: DesignBucketId[] = [];
 
   // 1. Upsert the allocation rows (idempotent on the (follow_user_id, allocation_category) PK).
   if (upsertRows.length > 0) {
@@ -247,47 +222,15 @@ export async function saveUserFeedAllocation(
       .upsert(upsertRows, { onConflict: "follow_user_id,allocation_category" });
 
     if (upsertError) {
-      // Graceful-degrade ONLY for the specific "podcasts enum value missing" (pre-0010) case.
-      if (isPodcastsEnumMissingError(upsertError)) {
-        logger.warn("feed_allocation_podcasts_enum_missing", {
-          user_id: authedUserId,
-          error_message: upsertError.message,
-          fix_suggestion:
-            "Apply migration 0010_feed_category_podcasts.sql (adds the 'podcasts' feed_category enum value); " +
-            "until then the Podcasts bucket is not persisted — the other 8 buckets save fine.",
-        });
-        deferredBuckets.push("podcasts");
-
-        // Re-upsert WITHOUT the podcasts row(s) so the other 8 buckets persist.
-        const rowsWithoutPodcasts = upsertRows.filter((row) => row.allocation_category !== PODCASTS_ENUM_VALUE);
-        savedEnumValues.delete(PODCASTS_ENUM_VALUE);
-        if (rowsWithoutPodcasts.length > 0) {
-          const { error: retryError } = await client
-            .from(USER_FEED_ALLOCATION_TABLE)
-            .upsert(rowsWithoutPodcasts, { onConflict: "follow_user_id,allocation_category" });
-          if (retryError) {
-            logger.error("save_user_feed_allocation_retry_failed", {
-              error_message: retryError.message,
-              fix_suggestion:
-                "Confirm migration 0008 applied and user_feed_allocation owner-all RLS permits the authed upsert.",
-            });
-            throw new Error(
-              `Failed to persist feed allocation (after dropping podcasts): ${retryError.message}. ` +
-                "fix_suggestion: confirm migration 0008 applied and RLS permits the owner upsert.",
-            );
-          }
-        }
-      } else {
-        logger.error("save_user_feed_allocation_upsert_failed", {
-          error_message: upsertError.message,
-          fix_suggestion:
-            "Confirm migration 0008 applied and the user_feed_allocation_owner_all RLS policy permits the authed upsert.",
-        });
-        throw new Error(
-          `Failed to persist feed allocation: ${upsertError.message}. ` +
-            "fix_suggestion: confirm migration 0008 applied and user_feed_allocation permits the authed upsert.",
-        );
-      }
+      logger.error("save_user_feed_allocation_upsert_failed", {
+        error_message: upsertError.message,
+        fix_suggestion:
+          "Confirm migration 0008 applied and the user_feed_allocation_owner_all RLS policy permits the authed upsert.",
+      });
+      throw new Error(
+        `Failed to persist feed allocation: ${upsertError.message}. ` +
+          "fix_suggestion: confirm migration 0008 applied and user_feed_allocation permits the authed upsert.",
+      );
     }
   }
 
@@ -315,7 +258,7 @@ export async function saveUserFeedAllocation(
 
   const result: SaveAllocationResult = {
     persisted_count: savedEnumList.length,
-    deferred_buckets: deferredBuckets,
+    deferred_buckets: [],
   };
   logger.info("save_user_feed_allocation_completed", {
     user_id: authedUserId,

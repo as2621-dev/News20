@@ -1,22 +1,30 @@
-"""Feed-category taxonomy — the single source of truth for the 7 screen buckets.
+"""Feed-category taxonomy — the single source of truth for the 10 screen buckets.
 
-Phase 5a, Sub-phase 2 (breaking removed in phase-SP1). The "Build your 30, in
-order" screen arranges a user's feed across **7 fixed categories**, drawn as:
+Phase SP3 (taxonomy unification on the picker tree). The onboarding picker, the
+"Build your 30, in order" screen, and the reel chip all draw the **same canonical
+category set = the 8 onboarding picker roots** + the 2 source axes:
 
-    World & Politics · Tech & Science · YouTube ·
-    Markets · Sport · X · Culture
+    AI · Geopolitics · Business · Environment ·
+    Politics · Tech · Sport · Arts · YouTube · X
+
+The 8 roots are the depth-0 ids of ``src/lib/pickerSeedTree.ts`` (the single source
+of truth). There is **no folding**: ``ai`` stays ``ai`` (NOT ``tech_science``);
+``geopolitics``/``politics``/``environment`` are three distinct roots (NOT a single
+``world_politics``); ``arts`` replaces the old ``culture`` catch-all. The earlier
+"5 topic categories" fold (``world_politics, tech_science, markets, sport,
+culture``) is retired.
 
 This module mirrors that taxonomy for the Python ranking/allocation path:
 
-  - ``FeedCategory`` — the 7 keys, mirroring the Postgres ``feed_category`` enum
-    (migration 0008) in order, MINUS the now-unused ``breaking`` value (a story is
-    bucketed into exactly one of these for clean 30-slot accounting). The Postgres
-    enum retains the ``breaking`` value as dead-but-unused (phase-SP1 SP3); the
-    Python taxonomy no longer emits it.
-  - ``SLUG_TO_CATEGORY`` — the locked map from a seeded interest slug up into its
-    screen category (``reference/ranking-spec.md`` / phase-5a "slug → category").
+  - ``FeedCategory`` — the 10 keys (8 topic roots + ``youtube``/``x``), mirroring the
+    Postgres ``feed_category`` enum (SP3 migration 0020 adds the 8 roots additively).
+    A story is bucketed into exactly one of these for clean 30-slot accounting. Old
+    folded enum values (``world_politics`` etc.) are retained-unused in Postgres for
+    reversibility; the Python taxonomy no longer emits them.
+  - ``SLUG_TO_CATEGORY`` — each root maps to itself, and every known subcategory root
+    / legacy alias maps UP to its picker root (no cross-fold).
   - ``category_for_slug`` — the best-fit lookup: resolve any interest slug
-    (leaf/parent/grandparent, dotted or depth-0) to its screen category.
+    (leaf/parent/grandparent, dotted or depth-0) to its screen category via its root.
   - ``CategoryAllocation`` — one ``user_feed_allocation`` row (the per-category
     slot budget + manual sequence) the loader hydrates and the SP3 allocator reads.
 
@@ -24,8 +32,8 @@ It is intentionally tiny and **pure** (no DB, no clock, no network) — the
 classifier and allocator both import the map from here rather than re-deriving it.
 
 ``youtube``/``x`` are *source-axis* categories that no interest slug maps to
-(empty until phase-5d source ingestion). So every story still classifies into one
-of the five **topic** categories below.
+(empty until source ingestion delivers a followed reel). So every story still
+classifies into one of the eight **topic** roots below.
 """
 
 from __future__ import annotations
@@ -34,109 +42,130 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-# Reason: the 7 keys the "Build your 30" screen draws (phase-SP1 removed
-# ``breaking``). Mirrors the in-use values of the Postgres ``feed_category`` enum
-# (migration 0008) in enum order; the dead ``breaking`` enum value is retained in
-# Postgres but never emitted here. A Literal (not a str) so a typo at a call
-# boundary is a type error, not a silent miss.
+# Reason: the 10 keys every category surface draws — the 8 onboarding picker roots
+# (src/lib/pickerSeedTree.ts depth-0 ids) plus the 2 source axes. Mirrors the in-use
+# values of the Postgres ``feed_category`` enum (SP3 migration 0020); old folded
+# values are retained-unused in Postgres but never emitted here. A Literal (not a
+# str) so a typo at a call boundary is a type error, not a silent miss.
 FeedCategory = Literal[
-    "world_politics",
-    "tech_science",
-    "youtube",
-    "markets",
+    "ai",
+    "geopolitics",
+    "business",
+    "environment",
+    "politics",
+    "tech",
     "sport",
+    "arts",
+    "youtube",
     "x",
-    "culture",
 ]
 
-# Reason: the ordered topic categories an interest slug can classify into. EXCLUDES
-# the source-axis ``youtube``/``x`` (no slug maps to them — empty until phase-5d).
-# Used to seed empty buckets so ``score_and_classify_for_user`` always returns all
-# 7 keys.
+# Reason: the 8 topic roots an interest slug can classify into. EXCLUDES the
+# source-axis ``youtube``/``x`` (no slug maps to them — empty until a followed
+# source reel exists). Used to seed empty buckets so ``score_and_classify_for_user``
+# always returns all 10 keys.
 TOPIC_CATEGORIES: tuple[FeedCategory, ...] = (
-    "world_politics",
-    "tech_science",
-    "markets",
+    "ai",
+    "geopolitics",
+    "business",
+    "environment",
+    "politics",
+    "tech",
     "sport",
-    "culture",
+    "arts",
 )
 
 # Reason: the source-axis categories — budgeted on the screen but fed by source
-# ingestion (phase-5d), not interest slugs. Zero items today; their budgeted slots
-# soft-roll into the topic categories by sequence (SP3). Listed so the 8-key bucket
-# dict is complete + forward-compatible.
+# ingestion (followed YouTube channels / X handles), not interest slugs. Zero items
+# until a user follows a source; their budgeted slots soft-roll into the topic
+# categories by sequence. Listed so the 10-key bucket dict is complete.
 SOURCE_CATEGORIES: tuple[FeedCategory, ...] = ("youtube", "x")
 
-# Reason: the locked slug → screen-category map (phase-5a, owner-confirmed
-# 2026-06-05). Keys are interest *root* slugs. The three ambiguous defaults are:
-# ``climate`` → world_politics, ``health`` → tech_science, ``wildcard`` → culture.
-# Includes the seeded depth-0 slugs (``world``, ``tech``, ``business`` ...) AND the
-# segment-accent aliases the locked map names (``geopolitics``, ``markets``,
-# ``wildcard``) so the map matches the spec verbatim and stays forward-compatible
-# even though no *interest* row currently carries those exact slugs.
+# Reason: the slug → picker-root map. Each of the 8 roots maps to itself; every
+# known subcategory root and every legacy alias the old map carried maps UP to its
+# picker root with NO cross-fold. Subcategories arrive as dotted slugs (e.g.
+# ``sport.cricket.india``) and resolve via ``category_for_slug`` on the root segment,
+# so they do not each need an entry here — only depth-0 roots + legacy aliases do.
+# The four legacy aliases that are *ambiguous* between two new roots are remapped
+# deterministically (see the inline ``# Reason:`` on each).
 SLUG_TO_CATEGORY: dict[str, FeedCategory] = {
-    # World & Politics
-    "geopolitics": "world_politics",
-    "world": "world_politics",
-    "climate": "world_politics",
-    "politics": "world_politics",
-    "environment": "world_politics",
-    # Tech & Science
-    "ai": "tech_science",
-    "tech": "tech_science",
-    "science": "tech_science",
-    "health": "tech_science",
-    # Markets
-    "business": "markets",
-    "markets": "markets",
-    "crypto": "markets",
-    # Sport
+    # The 8 picker roots — identity (no fold).
+    "ai": "ai",
+    "geopolitics": "geopolitics",
+    "business": "business",
+    "environment": "environment",
+    "politics": "politics",
+    "tech": "tech",
     "sport": "sport",
-    # Culture
-    "arts": "culture",
-    "entertainment": "culture",
-    "lifestyle": "culture",
-    "wildcard": "culture",
+    "arts": "arts",
+    # Legacy / alias slugs the old taxonomy carried, remapped to the new roots.
+    # Reason: old ``world`` (the world_politics root) now lands on geopolitics — the
+    # closest of the three split roots (geopolitics/politics/environment).
+    "world": "geopolitics",
+    # Reason: ``climate`` is environment's own concern now (was folded into
+    # world_politics); environment is a first-class root.
+    "climate": "environment",
+    # Reason: ``science`` has no dedicated root; tech is its nearest picker root
+    # (the picker keeps space/semiconductors/etc. under tech).
+    "science": "tech",
+    # Reason: ``crypto`` lives under the picker's business → "Crypto & fintech" sub.
+    "crypto": "business",
+    # Reason: ``markets`` is the picker's business → "Markets & investing" sub
+    # (the old ``markets`` fold root collapses into business).
+    "markets": "business",
+    # Reason: ``entertainment`` maps to arts (the old culture catch-all → arts).
+    "entertainment": "arts",
+    # Reason: ``lifestyle`` has no dedicated root; arts is the long-tail catch-all.
+    "lifestyle": "arts",
+    # Reason: ``wildcard`` was the culture/long-tail accent; arts inherits it.
+    "wildcard": "arts",
+    # Reason: ``health`` has no dedicated root; tech is its nearest picker root
+    # (mirrors the old ``health`` → tech_science choice, now un-folded to tech).
+    "health": "tech",
 }
 
-# Reason: best-fit fallback when a slug's root is not in the map — Culture is the
-# long-tail catch-all (mirrors the ``wildcard`` segment accent in interests.sql).
-# Keeps every story classifiable into exactly one topic category (no gap, no crash).
-DEFAULT_CATEGORY: FeedCategory = "culture"
+# Reason: best-fit fallback when a slug's root is not in the map — Arts is the
+# long-tail catch-all (it replaces the old ``culture`` catch-all). Keeps every story
+# classifiable into exactly one topic root (no gap, no crash).
+DEFAULT_CATEGORY: FeedCategory = "arts"
 
 # Reason: the default "Build your 30" allocation a user inherits until they
-# customize it — the ONE source of truth is the frontend
-# ``src/lib/feedBuckets.ts`` ``DEFAULT_ALLOCATION_SEGMENTS`` (the onboarding
-# screen's pre-filled default). Mirrored here so the produce cap can treat a user
-# who never built their 30 as having this exact distribution (Rule 7: keep the two
-# in sync — if the TS default changes, change this too). Sums to 30 across the 7
-# categories (phase-SP1 removed ``breaking``; its 2 default slots were absorbed by
-# world_politics +1 and culture +1).
+# customize it. Owner-locked split (2026-06-18) across the 10 categories — kept in
+# sync with the frontend ``src/lib/feedBuckets.ts`` ``DEFAULT_ALLOCATION_SEGMENTS``
+# (Rule 7 twins: if one changes, change both). Sums to 30:
+# ai 4 + tech 4 + geopolitics 4 + business 4 + politics 2 + environment 2 +
+# sport 3 + arts 3 + youtube 2 + x 2 = 30.
 DEFAULT_FEED_ALLOCATION: dict[FeedCategory, int] = {
-    "world_politics": 5,
-    "tech_science": 5,
-    "youtube": 6,
-    "markets": 4,
+    "ai": 4,
+    "tech": 4,
+    "geopolitics": 4,
+    "business": 4,
+    "politics": 2,
+    "environment": 2,
     "sport": 3,
-    "x": 3,
-    "culture": 4,
+    "arts": 3,
+    "youtube": 2,
+    "x": 2,
 }
 
 
 # Reason: per-category minimum unique-story floor for the shared-pool target so a
 # live (allocated) category is never starved below a usable depth even when no user
-# demands much of it (reference/shared-pool-pipeline.md §2A). The 5 TOPIC categories
-# get a small uniform floor of 3; the 2 SOURCE categories (``youtube``/``x``) get 0
-# because they are follow-gated — a story only exists there if the user follows a
-# YouTube channel / X handle, so there is nothing to floor-ingest. M2 applies this
-# floor after max-over-users × pool_buffer; the values themselves are placeholders
-# tuned in M6 (per the master plan open questions).
+# demands much of it (reference/shared-pool-pipeline.md §2A). The 8 TOPIC roots get a
+# small uniform floor of 3; the 2 SOURCE categories (``youtube``/``x``) get 0 because
+# they are follow-gated — a story only exists there if the user follows a YouTube
+# channel / X handle, so there is nothing to floor-ingest. M2 applies this floor
+# after max-over-users × pool_buffer; the values themselves are placeholders tuned
+# in M6 (per the master plan open questions).
 CATEGORY_FLOOR: dict[FeedCategory, int] = {
-    "world_politics": 3,
-    "tech_science": 3,
-    "markets": 3,
+    "ai": 3,
+    "geopolitics": 3,
+    "business": 3,
+    "environment": 3,
+    "politics": 3,
+    "tech": 3,
     "sport": 3,
-    "culture": 3,
+    "arts": 3,
     "youtube": 0,
     "x": 0,
 }
@@ -145,11 +174,11 @@ CATEGORY_FLOOR: dict[FeedCategory, int] = {
 def category_for_slug(interest_slug: str) -> FeedCategory:
     """Resolve an interest slug to its screen ``FeedCategory`` (best-fit).
 
-    Interest slugs are dotted paths rooted at a depth-0 category, e.g.
+    Interest slugs are dotted paths rooted at a depth-0 picker root, e.g.
     ``sport.cricket.india`` or ``business.equities.semis``. The screen category is
     fixed by the **root** segment (the depth-0 slug), so a leaf, its parent, and
-    its grandparent all classify into the same category. A slug whose root is not
-    in :data:`SLUG_TO_CATEGORY` (or an empty slug) falls back to
+    its grandparent all classify into the same root. A slug whose root is not in
+    :data:`SLUG_TO_CATEGORY` (or an empty slug) falls back to
     :data:`DEFAULT_CATEGORY` so every story is always classifiable.
 
     Args:
@@ -157,38 +186,43 @@ def category_for_slug(interest_slug: str) -> FeedCategory:
             ``'business.equities'`` ...).
 
     Returns:
-        The owner-locked screen category for that slug's root.
+        The picker root for that slug's root segment.
 
     Example:
         >>> category_for_slug("sport.cricket.india")
         'sport'
         >>> category_for_slug("business.equities.semis")
-        'markets'
+        'business'
+        >>> category_for_slug("ai.interpretability")
+        'ai'
         >>> category_for_slug("unknown.thing")
-        'culture'
+        'arts'
     """
     root_slug = interest_slug.split(".", 1)[0] if interest_slug else ""
     return SLUG_TO_CATEGORY.get(root_slug, DEFAULT_CATEGORY)
 
 
 def empty_category_buckets() -> dict[FeedCategory, list]:
-    """Return all 7 ``FeedCategory`` keys mapped to fresh empty lists.
+    """Return all 10 ``FeedCategory`` keys mapped to fresh empty lists.
 
     The classifier seeds its output with this so ``score_and_classify_for_user``
-    always returns a complete 7-key dict (source categories present-but-empty) —
-    the SP3 allocator can read every budgeted category without a ``KeyError``.
+    always returns a complete 10-key dict (source categories present-but-empty) —
+    the allocator can read every budgeted category without a ``KeyError``.
 
     Returns:
-        ``{feed_category: []}`` for all 7 keys, in enum order.
+        ``{feed_category: []}`` for all 10 keys, in enum order.
     """
     return {
-        "world_politics": [],
-        "tech_science": [],
-        "youtube": [],
-        "markets": [],
+        "ai": [],
+        "geopolitics": [],
+        "business": [],
+        "environment": [],
+        "politics": [],
+        "tech": [],
         "sport": [],
+        "arts": [],
+        "youtube": [],
         "x": [],
-        "culture": [],
     }
 
 
@@ -197,14 +231,14 @@ class CategoryAllocation(BaseModel):
 
     The Layer-1 control surface (phase-5a): the user sets, per screen category,
     how many of their 30 slots it gets (``allocation_slot_count``) and where it
-    sits in the manual sequence (``allocation_sort_order``). The SP3 allocator
-    reads these to fill each category's slots from SP2's entity-aware scored
-    candidates, in the user's order. The DB does NOT enforce the cross-category
+    sits in the manual sequence (``allocation_sort_order``). The allocator reads
+    these to fill each category's slots from the entity-aware scored candidates, in
+    the user's order. The DB does NOT enforce the cross-category
     ``SUM(slot_count) == 30`` invariant (a per-row CHECK can't see siblings) — the
-    writer (UI/seed) + the allocator's roll-over logic own it (SP1 report §7.4).
+    writer (UI/seed) + the allocator's roll-over logic own it.
 
     Attributes:
-        allocation_category: Which of the 7 screen categories this budget is for.
+        allocation_category: Which of the 10 screen categories this budget is for.
         allocation_slot_count: How many feed slots the user gave this category
             (0..30; 0 means "don't show me this category").
         allocation_sort_order: The category's position in the user's manual
@@ -212,16 +246,16 @@ class CategoryAllocation(BaseModel):
 
     Example:
         >>> alloc = CategoryAllocation(
-        ...     allocation_category="markets",
-        ...     allocation_slot_count=5,
+        ...     allocation_category="business",
+        ...     allocation_slot_count=4,
         ...     allocation_sort_order=2,
         ... )
         >>> alloc.allocation_category
-        'markets'
+        'business'
     """
 
     allocation_category: FeedCategory = Field(
-        ..., description="Which of the 7 screen categories this budget is for"
+        ..., description="Which of the 10 screen categories this budget is for"
     )
     allocation_slot_count: int = Field(
         ..., ge=0, le=30, description="Feed slots the user gave this category (0..30)"

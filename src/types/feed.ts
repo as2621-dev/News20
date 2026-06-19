@@ -29,10 +29,24 @@
 export type AnchorSpeaker = "ALEX" | "JORDAN";
 
 /**
- * The five fixed editorial segment slugs. Mirrors the `segment_slug` Postgres
- * enum and `data.js` `SEGMENTS` keys exactly.
+ * The eight canonical editorial segment slugs — the onboarding picker roots
+ * (`src/lib/feedBuckets.ts` `DESIGN_BUCKETS`). Mirrors the in-use `segment_slug`
+ * Postgres enum values after SP3 migration 0020. The reel chip resolves its
+ * label + accent for a story from this root, EQUAL to the onboarding chip.
+ *
+ * The legacy folded slugs (`markets`, `wildcard`) are retained-unused in the
+ * Postgres enum for reversibility but are no longer emitted here (SP3 backfilled
+ * existing stories off them: `markets→business`, `wildcard→arts`).
  */
-export type SegmentKey = "geopolitics" | "markets" | "tech" | "sport" | "wildcard";
+export type SegmentKey =
+  | "ai"
+  | "geopolitics"
+  | "business"
+  | "environment"
+  | "politics"
+  | "tech"
+  | "sport"
+  | "arts";
 
 /**
  * One karaoke word token — the atom the caption renderer lights word-by-word.
