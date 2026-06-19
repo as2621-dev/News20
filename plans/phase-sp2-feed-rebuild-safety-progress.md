@@ -6,8 +6,10 @@
 ## Sub-phase progress
 - [x] 1: Preserve + merge existing source rows in `_rebuild_feed` — COMPLETED
 - [x] 2: Fail-safe write + non-clobbering backup — COMPLETED
-- [ ] 3: Make `allocate_test_feeds.py` source-aware (or refuse real users) — IN PROGRESS
-- [ ] 4: Regression test — two-run source survival — IN PROGRESS
+- [x] 3: Make `allocate_test_feeds.py` source-aware (or refuse real users) — COMPLETED
+- [x] 4: Regression test — two-run source survival — COMPLETED
+
+## Status: COMPLETE — commit 90191f7
 
 ## Execution
 Mode: sequential (1→2→4 chain on produce_source_reels.py; 3 independent file)
