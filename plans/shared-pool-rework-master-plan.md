@@ -104,6 +104,11 @@ Stop hunting news per-user. Run News20's daily batch like a **newsroom**: size t
 
 ### M1 — Kill breaking + taxonomy cleanup
 - [Phase SP1](phase-sp1-kill-breaking.md) — remove the breaking category from Python + TS + DB + sims; keep the velocity signal; 7 categories, feed still totals 30. **SHIPPED (12380e2)**; migration 0017 authored, live apply deferred.
+- [Phase SP2](phase-sp2-feed-rebuild-safety.md) — make the source-reel feed rebuild non-destructive (the "Nitish-eviction" bug): preserve existing source rows, fail-safe write, non-clobbering backup, source-aware `allocate_test_feeds`. Prereq for safe taxonomy reassembly.
+- [Phase SP3](phase-sp3-taxonomy-unification.md) — **SUPERSEDES the 5-category fold**: unify onboarding + Build-your-30 + reel chip on the **8 picker roots** (`ai, geopolitics, business, environment, politics, tech, sport, arts`) + youtube/x; `0020` enum + `segment_slug` reconcile + backfill; finish breaking removal in the 3 lagging scripts. (Owner decision 2026-06-18; see `~/.claude/plans/a-few-things-to-bright-lamport.md`.)
+- [Phase SP4](phase-sp4-build-your-30-gate.md) — Build-your-30 shows ONLY backed categories (close the no-signal + stale-saved gates) and locks selected-order == feed-order with a test.
+
+*(Phases P3–P6 of the owner plan — demand→ingest wiring, online clusterer + cross-category single-assignment, importance + final-pass dedup + distribution, source-reel YT/X refinements — map to M3b/M3c/M4/M5 below and are sliced on a later `/plan-phases` pass once the SP3 taxonomy lands and M3 thresholds are tuned.)*
 
 ### M2 — Demand computation + pool sizing
 - [Phase M2](phase-m2-demand-pool-sizing.md) — aggregate per-user allocator demand → subcategory-granular `pool_target = ceil(max_over_users × BUFFER)`, floored; emit the shopping list (additive, no migration). **SHIPPED (b176dc3)**.
