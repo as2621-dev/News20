@@ -100,6 +100,8 @@ Source of truth: `prototype/` (runnable prototype + `ui-design-decisions.md` + `
 
 ### M0 — Quality spike (de-risk gate)
 - [Phase 0](phase-0-m0-quality-spike.md) — Render 5 real anchor-duo digests (TTS → forced-alignment captions → Remotion 9:16 compositor → 5 MP4s) for the "watch 10 in a row?" go/no-go gate.
+- [Phase 0b](phase-0b-serp-seeded-poster-pipeline.md) — SERP-seeded, concept-first poster pipeline (Nano Banana Pro).
+- [Phase 0c](phase-0c-poster-identity-grounding.md) — Identity grounding: resolve the story's real named person + condition the image model on a verified canonical reference photo so posters stop depicting stale-prior substitutes (Biden-for-Trump, Powell-for-new-Fed-chair).
 
 ### M1 — Audio-first karaoke reel MVP
 - [Phase 1](phase-1-audio-first-reel.md) — Next.js static-SPA reel playing the 5 real M0 digests as fixtures: audio-driven karaoke captions, finite swipe loop, all-caught-up. *(front-loads the M1 experience risk; no backend)*

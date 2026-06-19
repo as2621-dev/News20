@@ -10,8 +10,11 @@ Each story is independent; a failure is recorded in the report and surfaced
 
 from __future__ import annotations
 
+import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Any
 
 from google import genai
 
@@ -21,6 +24,7 @@ from agents.m0.download_candidates import (
     _fetch,
     download_candidate,
 )
+from agents.m0.entity_reference_images import get_or_fetch_entity_reference_image
 from agents.m0.generate_posters import _extract_image_bytes, generate_from_reference
 from agents.m0.grade_and_brand import grade_and_brand
 from agents.m0.image_scorer import score_candidates, select_winner
@@ -30,6 +34,7 @@ from agents.m0.poster_models import (
     SEGMENT_ACCENT_BY_DIGEST,
     ScoredCandidate,
     SelectionReport,
+    StoryConcept,
 )
 from agents.m0.reference_prompt_synthesizer import synthesize_prompt
 from agents.m0.serper_image_search import search_images, youtube_thumbnail_candidate
@@ -46,11 +51,125 @@ def _summary_from_digest(digest: Digest) -> str:
     return " ".join(turn.text for turn in digest.turns)
 
 
+def _run_coroutine_blocking(coroutine: Any) -> Any:
+    """Run an async coroutine to completion from a synchronous caller.
+
+    The poster pipeline is synchronous but the canonical-photo lookup
+    (:func:`get_or_fetch_entity_reference_image`) is ``async``. ``asyncio.run``
+    cannot be called when a loop is already running (the orchestrator drives the
+    sync builder from inside its own event loop), so when a running loop is
+    detected the coroutine is executed in a throwaway thread with its own loop.
+    With no running loop (e.g. ``fill_batch_posters`` worker threads, tests) it
+    runs directly via ``asyncio.run``.
+
+    Args:
+        coroutine: The awaitable to drive to completion.
+
+    Returns:
+        Whatever the coroutine resolves to.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # Reason: no loop running in this thread → the simple path is safe.
+        return asyncio.run(coroutine)
+    # Reason: a loop is already running here; offload to a fresh thread+loop so we
+    # never raise "asyncio.run() cannot be called from a running event loop".
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(lambda: asyncio.run(coroutine)).result()
+
+
+def resolve_canonical_reference_seed(
+    concept: StoryConcept,
+    supabase_client: Any | None,
+    genai_client: genai.Client,
+) -> tuple[bytes, str] | None:
+    """Return verified canonical reference bytes for a resolved person, else None.
+
+    Phase 0c Sub-phase 4 (L5 wire + L3 redirect entry point). When the resolved
+    primary subject is a **person** and we hold a VERIFIED canonical photo, those
+    bytes — NOT the best-effort SERP winner — should condition the image model so
+    the poster depicts the correct CURRENT person (never a stale-prior substitute).
+
+    This is the single selection seam shared by both the synchronous
+    (:func:`build_poster_for_digest`) and batch
+    (:func:`agents.m0.batch_posters.prepare_poster_generation`) paths so the two
+    never diverge. It returns ``None`` — and the caller runs the UNCHANGED SERP
+    seed path — whenever any of these hold:
+
+      * no ``supabase_client`` was injected (today's default production wiring, so
+        behaviour is byte-for-byte unchanged until the store is threaded through);
+      * the concept's ``entity_kind`` is not ``"person"`` or its ``entity_key`` is
+        empty (no person to ground);
+      * :func:`get_or_fetch_entity_reference_image` returns ``None`` (no verified
+        photo exists — we only stop guessing when we hold a trusted face);
+      * the verified photo's public URL could not be fetched.
+
+    No symbolic / faceless fallback is ever introduced (explicitly rejected by the
+    user) — the only fallback is the existing SERP path.
+
+    Args:
+        concept: The extracted story concept (carries ``entity_kind`` /
+            ``entity_key`` / ``entity_name`` / ``entity_as_of`` from SP2).
+        supabase_client: Service-role Supabase client for the reference store, or
+            ``None`` to skip the canonical lookup entirely (SERP path unchanged).
+        genai_client: Gemini client for the SP3 identity-verification call.
+
+    Returns:
+        ``(reference_image_bytes, reference_mime_type)`` of the verified canonical
+        photo, or ``None`` to fall back to the unchanged SERP seed path.
+    """
+    if supabase_client is None:
+        return None
+    if concept.entity_kind != "person" or not concept.entity_key:
+        return None
+
+    reference = _run_coroutine_blocking(
+        get_or_fetch_entity_reference_image(
+            concept.entity_key,
+            concept.entity_name,
+            concept.entity_kind,
+            concept.entity_as_of,
+            supabase_client,
+            genai_client,
+        )
+    )
+    if reference is None:
+        logger.info(
+            "canonical_reference_absent_serp_fallback",
+            entity_key=concept.entity_key,
+            entity_name=concept.entity_name,
+            fix_suggestion="No verified canonical photo for this person; using the unchanged SERP seed.",
+        )
+        return None
+
+    reference_bytes = _fetch(reference.reference_public_url)
+    if not reference_bytes:
+        logger.warning(
+            "canonical_reference_fetch_failed",
+            entity_key=concept.entity_key,
+            reference_public_url=reference.reference_public_url,
+            fix_suggestion="The verified reference URL did not download; falling back to the SERP seed.",
+        )
+        return None
+
+    logger.info(
+        "canonical_reference_used",
+        entity_key=concept.entity_key,
+        entity_name=concept.entity_name,
+        reference_public_url=reference.reference_public_url,
+        verification_confidence=round(reference.verification_confidence, 3),
+    )
+    # Reason: SP3 always uploads JPEG bytes (entity_reference_images._REFERENCE_CONTENT_TYPE).
+    return reference_bytes, "image/jpeg"
+
+
 def build_poster_for_digest(
     digest: Digest,
     client: genai.Client,
     *,
     supplied_poster_image_url: str | None = None,
+    supabase_client: Any | None = None,
 ) -> SelectionReport:
     """Run the full seed→generate→grade pipeline for one digest.
 
@@ -71,6 +190,11 @@ def build_poster_for_digest(
         client: Initialized google-genai client (unused on the supplied-image path).
         supplied_poster_image_url: Optional source-origin image URL/path. When set,
             generation is skipped and this image becomes the poster.
+        supabase_client: Optional service-role Supabase client for the canonical
+            entity-reference-image store (phase 0c SP4). When provided AND the
+            resolved primary subject is a person with a VERIFIED canonical photo,
+            that photo conditions generation instead of the SERP winner. ``None``
+            (the default) keeps the unchanged SERP seed path — no regression.
 
     Returns:
         A SelectionReport (also written to disk as selection-report.json).
@@ -100,7 +224,11 @@ def build_poster_for_digest(
         )
 
     # (0) concept-first (poster-pipeline §4): drives query, scoring, and synthesis.
-    concept = extract_story_concept(headline, summary, client)
+    # Reason: the joined narration IS the full story body; Digest carries no
+    # separate date field, so story_date stays None (resolution relies on text).
+    concept = extract_story_concept(
+        headline, summary, client, story_body=summary, story_date=None
+    )
     report.story_concept = concept.model_dump()
 
     # (1) search on the concept query  (2) gate is inside search_images
@@ -162,11 +290,21 @@ def build_poster_for_digest(
     )
     report.synthesized_prompt = synthesized_prompt
 
+    # (8a) Identity grounding (phase 0c SP4): when the resolved subject is a person
+    # with a VERIFIED canonical photo, condition on THAT photo; otherwise the SERP
+    # winner's bytes are used unchanged (no regression).
+    canonical_seed = resolve_canonical_reference_seed(concept, supabase_client, client)
+    if canonical_seed is not None:
+        reference_image_bytes, reference_mime_type = canonical_seed
+    else:
+        reference_image_bytes = winner_downloaded.image_bytes
+        reference_mime_type = winner_downloaded.mime_type
+
     response = generate_from_reference(
         client,
         synthesized_prompt,
-        winner_downloaded.image_bytes,
-        winner_downloaded.mime_type,
+        reference_image_bytes,
+        reference_mime_type,
     )
     raw_bytes, _mime = _extract_image_bytes(response)
     if not raw_bytes:

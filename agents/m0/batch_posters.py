@@ -17,11 +17,13 @@ import time
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from google import genai
 from google.genai import types
 from PIL import Image
 
+from agents.m0.build_poster_from_news import resolve_canonical_reference_seed
 from agents.m0.digests_input import Digest
 from agents.m0.download_candidates import DownloadedCandidate, download_candidate
 from agents.m0.generate_posters import (
@@ -108,6 +110,7 @@ def prepare_poster_generation(
     client: genai.Client,
     *,
     accent_hex: str = DEFAULT_ACCENT_HEX,
+    supabase_client: Any | None = None,
 ) -> PreparedPoster | None:
     """Run the cheap poster prep (concept -> SERP -> score -> prompt), no image call.
 
@@ -121,6 +124,11 @@ def prepare_poster_generation(
         digest: The reel (headline + dialogue turns seed the concept).
         client: Initialized google-genai client (LLM + scoring use it).
         accent_hex: Brand accent passed to the prompt synthesizer + grade.
+        supabase_client: Optional service-role Supabase client for the canonical
+            entity-reference-image store (phase 0c SP4). When provided AND the
+            resolved subject is a person with a VERIFIED canonical photo, that
+            photo becomes the batch seed instead of the SERP winner. ``None`` (the
+            default) keeps the unchanged SERP seed path — no regression.
 
     Returns:
         A :class:`PreparedPoster`, or ``None`` when prep could not produce a seed.
@@ -129,7 +137,11 @@ def prepare_poster_generation(
     summary = _summary_from_digest(digest)
     refs_dir = ASSETS_M0_DIR / digest.digest_id / "refs"
 
-    concept = extract_story_concept(headline, summary, client)
+    # Reason: the joined narration IS the full story body; Digest carries no
+    # separate date field, so story_date stays None (resolution relies on text).
+    concept = extract_story_concept(
+        headline, summary, client, story_body=summary, story_date=None
+    )
     candidates = search_images(concept.image_search_query, digest.digest_id)[
         :CANDIDATE_LIMIT
     ]
@@ -171,9 +183,14 @@ def prepare_poster_generation(
     synthesized_prompt = synthesize_prompt(
         winner_downloaded, concept, accent_hex, client
     )
-    reference_bytes, reference_mime = _downscale_reference(
-        winner_downloaded.image_bytes, winner_downloaded.mime_type
-    )
+    # Identity grounding (phase 0c SP4): condition on a VERIFIED canonical photo of
+    # the resolved person when one exists; otherwise use the SERP winner unchanged.
+    canonical_seed = resolve_canonical_reference_seed(concept, supabase_client, client)
+    if canonical_seed is not None:
+        seed_bytes, seed_mime = canonical_seed
+    else:
+        seed_bytes, seed_mime = winner_downloaded.image_bytes, winner_downloaded.mime_type
+    reference_bytes, reference_mime = _downscale_reference(seed_bytes, seed_mime)
     logger.info(
         "batch_poster_prep_ready",
         digest_id=digest.digest_id,

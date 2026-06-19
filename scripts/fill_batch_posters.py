@@ -186,7 +186,13 @@ def main() -> int:
 
     def _prep(reel: dict) -> tuple[dict, PreparedPoster | None]:
         try:
-            return reel, prepare_poster_generation(_digest_for(reel), client)
+            # Reason (phase 0c SP4 activation): thread the service-role `supabase`
+            # client so the batch prep grounds a person on a VERIFIED canonical photo
+            # (else the SERP winner seeds the batch, unchanged). `supabase` is the
+            # same service-role client built in `main` and closed over here.
+            return reel, prepare_poster_generation(
+                _digest_for(reel), client, supabase_client=supabase
+            )
         except Exception as exc:  # noqa: BLE001 — one bad prep never aborts the fill
             logger.error("fill_prep_failed", story_id=reel["story_id"], error=str(exc))
             return reel, None

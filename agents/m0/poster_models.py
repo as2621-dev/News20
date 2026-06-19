@@ -145,6 +145,17 @@ class StoryConcept(BaseModel):
         description="The single named entity to depict — the company (e.g. 'Nvidia'), person "
         "(e.g. 'Jensen Huang'), or country (e.g. 'France'). Empty when entity_kind is 'other'.",
     )
+    entity_key: str = Field(
+        default="",
+        description="Normalized (lowercased, trimmed) form of entity_name, used as the lookup key "
+        "into the entity-reference-image store. Empty string when there is no named person/entity.",
+    )
+    entity_as_of: str | None = Field(
+        default=None,
+        description="ISO date (YYYY-MM-DD) the identity resolution is anchored to — the story's own "
+        "date. None when no date was supplied. The resolved person is the one the story names AS OF "
+        "this date, never the model's own knowledge of who currently holds the office.",
+    )
 
 
 class ImageCandidate(BaseModel):

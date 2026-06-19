@@ -195,3 +195,17 @@ Ship **static**. Spotify Canvas + Apple Music both warn that motion *under text*
 ## 14. Sources (load-bearing)
 - **Covers:** en.wikipedia.org/wiki/List_of_covers_of_Time_magazine_(2020s) · imd.org/ibyimd/creativity/time-magazines-iconic-covers · magculture.com/blogs/journal/stephen-petch-the-economist · itsnicethat.com/features/francoise-mouly · tabletmag.com/sections/news/articles/art-spiegelmans-911-new-yorker-cover
 - **Craft / pipeline:** partnerhelp.netflixstudios.com (title-safe) · m1.material.io/style/imagery.html (scrim) · smashingmagazine.com/2023/08/designing-accessible-text-over-images-part1 · 99designs.com/blog/trends/duotone-design · blog.google/innovation-and-ai/products/nano-banana-pro · serper.dev (Google Images SERP)
+
+## 15. Canonical reference-image store (phase-0c — identity grounding)
+
+**Problem it fixes:** today identity is sourced from the image model's training prior, so a *role* story ("Fed chair", "G7 leader") renders the former-but-famous incumbent (Powell, Biden) instead of the person the story actually names. The fix: resolve WHO from the **story text** (the name) and condition the image model on a **verified, current canonical photo** (the face) — never let the model decide who a person is. See `plans/phase-0c-poster-identity-grounding.md`.
+
+**The store (migration `0019_entity_reference_images.sql`):**
+
+- **Table `entity_reference_images`** — one row per resolved person, holding the VERIFIED current reference photo used to condition Nano Banana Pro:
+  - `reference_id` (uuid pk), `entity_key` (text, **unique**), `entity_kind` (text, default `'person'`), `reference_storage_path`, `reference_public_url`, `source_page_url`, `verified_at`, `valid_as_of` (date), `verification_confidence` (real, 0–1), `created_at`, `updated_at`.
+  - **`entity_key`** is the **normalized resolved person name** — lowercased + trimmed (e.g. `donald trump`). It is the demand-driven lookup key: SP3 upserts by it, SP4 reads by it. UNIQUE ⇒ one canonical photo per resolved entity; a re-fetch upserts the same row. It is computed in code, NOT an FK to the `entities` registry (0007) — resolution is demand-driven from story text, not the static catalog.
+  - **RLS:** public-read (anon `select using (true)`), service-role-only write (no INSERT/UPDATE policy) — same shape as `entities` (0007) and the content tables (0002).
+- **Bucket `entity-reference-images`** (public read) — holds the uploaded verified reference photos. Created idempotently in the migration via `insert into storage.buckets`, mirroring `digest-audio` / `story-posters` (0002), with a public-read object policy.
+
+**What it holds:** VERIFIED, *current* reference photos — accepted only after a Flash identity-verification pass (SP3) confirms the face is the named person and a recent likeness (not a former office-holder), at `verification_confidence` above threshold. When no verified photo exists for a resolved person, the pipeline behaves exactly as today (the best-SERP-seed path, §1–§9) — this store only stops the model from *guessing* once a trusted photo is held.

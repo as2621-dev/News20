@@ -22,6 +22,7 @@ orchestrator is testable with mocks and the live e2e wires the real ones.
 
 from __future__ import annotations
 
+import inspect
 import io
 import time
 from datetime import date
@@ -250,11 +251,36 @@ def _read_poster_bytes(poster_path: str | None) -> bytes | None:
     return path.read_bytes()
 
 
+def _builder_accepts_supabase_client(builder: Any) -> bool:
+    """Whether ``builder`` declares a ``supabase_client`` parameter.
+
+    The real M0 entry (:func:`build_poster_for_digest`) takes a keyword-only
+    ``supabase_client`` for identity grounding, but test stubs inject a strict
+    two-arg ``builder(digest, client)``. This signature check lets the orchestrator
+    thread the live client into the real builder while leaving the two-arg stubs'
+    call shape untouched (a builder whose signature can't be introspected — e.g. a
+    C callable — is treated as not accepting it, so the safe two-arg path runs).
+
+    Args:
+        builder: The poster-builder callable (real entry or an injected stub).
+
+    Returns:
+        ``True`` when the builder accepts a ``supabase_client`` keyword.
+    """
+    try:
+        signature = inspect.signature(builder)
+    except (TypeError, ValueError):
+        return False
+    return "supabase_client" in signature.parameters
+
+
 def generate_poster_bytes(
     story: CanonicalStory,
     script: DigestScript,
     poster_genai_client: Any | None,
     poster_builder: Any | None = None,
+    *,
+    supabase_client: Any | None = None,
 ) -> bytes | None:
     """Generate a poster for the story via the reused M0 poster pipeline.
 
@@ -272,6 +298,13 @@ def generate_poster_bytes(
             supplied image since generation is skipped — see below).
         poster_builder: Injectable builder fn (defaults to the M0 entry); tests
             pass a stub returning a report with ``poster_path``.
+        supabase_client: Service-role Supabase client for the canonical
+            entity-reference-image store (phase 0c SP4). Threaded to the M0 builder
+            ONLY on the news path and ONLY when present, so the builder activates
+            identity grounding (a verified person photo conditions generation
+            instead of the SERP winner). ``None`` (the default) keeps the unchanged
+            SERP seed path — and preserves the strict 2-arg ``builder(digest,
+            client)`` call shape that test stubs rely on.
 
     Returns:
         The graded poster PNG bytes, or None when disabled/failed.
@@ -326,6 +359,17 @@ def generate_poster_bytes(
                 m0_digest,
                 poster_genai_client,
                 supplied_poster_image_url=supplied_poster_image_url,
+            )
+        elif supabase_client is not None and _builder_accepts_supabase_client(builder):
+            # Reason (phase 0c SP4 activation): thread the live service-role client so
+            # the M0 builder grounds a person on a VERIFIED canonical photo. Guarded by
+            # a signature check so the strict 2-arg ``builder(digest, client)`` stubs in
+            # tests keep their exact call shape; only a builder that declares the param
+            # (the real ``build_poster_for_digest``) receives it.
+            report = builder(
+                m0_digest,
+                poster_genai_client,
+                supabase_client=supabase_client,
             )
         else:
             report = builder(m0_digest, poster_genai_client)
@@ -545,6 +589,7 @@ async def render_phase(
         script=script,
         poster_genai_client=poster_genai_client,
         poster_builder=poster_builder,
+        supabase_client=supabase_client,
     )
 
     # ── 6. Detail analytics (Phase 2c) — grounded enrichment + GDELT coverage ──
