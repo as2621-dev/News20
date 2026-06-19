@@ -69,10 +69,25 @@ afterEach(() => {
   container.remove();
 });
 
+/**
+ * The full backing signal (all 8 category roots + both source axes) so the screen seeds the
+ * complete default 30 and the Save CTA (#cta) is enabled. phase-SP4 closed the no-signal path:
+ * with NO backing the screen now shows the "pick interests first" empty state (no #cta), so this
+ * suite — which exercises handleSave on a savable 30 — must pass a real selection signal.
+ */
+const FULL_CATEGORY_BACKING = ["ai", "geopolitics", "business", "environment", "politics", "tech", "sport", "arts"];
+const FULL_SOURCE_BACKING = ["youtube", "x"];
+
 /** Render BuildYour30 with a captured onDone, flushing the mount seed effect. */
 async function renderBuild(onDone: (segments: unknown) => void): Promise<void> {
   await act(async () => {
-    root.render(<BuildYour30 onDone={onDone as never} />);
+    root.render(
+      <BuildYour30
+        onDone={onDone as never}
+        selectedCategoryBuckets={FULL_CATEGORY_BACKING as never}
+        followedSourceBuckets={FULL_SOURCE_BACKING as never}
+      />,
+    );
   });
 }
 

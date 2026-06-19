@@ -28,7 +28,6 @@ import {
   ALLOCATION_TOTAL,
   type AllocationSegment,
   allowedBucketsForSelections,
-  buildDefaultSegments,
   buildSegmentsForSelections,
   DESIGN_BUCKET_IDS,
   DESIGN_BUCKETS,
@@ -59,12 +58,21 @@ export interface BuildYour30Props {
    */
   onSkip?: () => void;
   /**
+   * Optional "return to the interest picker" handler (phase-SP4 SP2). Wired to the no-signal
+   * empty-state CTA so a user with NO backing is routed BACK to the picker to choose something
+   * (owner decision) — not onward to the reel. When provided it takes precedence over `onSkip`
+   * for that CTA; omit it (e.g. the embedded "Thirty" tab, which has no picker step) and the
+   * CTA falls back to `onSkip`, or renders no button when neither is set.
+   */
+  onPickInterests?: () => void;
+  /**
    * The CATEGORY buckets the user selected in the interest picker (derived via
    * {@link categoryBucketsFromFollows}). When provided and NON-EMPTY, the screen seeds
    * only those category blocks (+ the source blocks) instead of all 7 — so categories
    * the user skipped no longer appear (phase-SP1 removed the always-on "breaking"
-   * block). Empty/undefined (picker skipped, or a returning user re-onboarding) falls
-   * back to the full default seed, never an empty one.
+   * block). Empty/undefined AND no followed sources (picker skipped) = NO selection
+   * signal → the screen shows a "pick interests first" empty state, NOT the old full
+   * default seed (phase-SP4 closed that phantom-bucket leak).
    * A saved allocation, when present, still takes precedence over this (returning users).
    */
   selectedCategoryBuckets?: DesignBucketId[];
@@ -73,7 +81,7 @@ export interface BuildYour30Props {
    * from `user_content_sources`). When the screen has a selection signal, ONLY these source
    * blocks (`youtube`/`x`/`podcasts`) are seeded and offered in the Add sheet — a source axis
    * the user follows nothing on no longer appears (owner rule 2026-06-17). Empty/undefined with
-   * an empty `selectedCategoryBuckets` = no signal → the full default seed (legacy behaviour).
+   * an empty `selectedCategoryBuckets` = no signal → the "pick interests first" empty state.
    */
   followedSourceBuckets?: DesignBucketId[];
   /**
@@ -164,30 +172,31 @@ function SpineCells({ segments }: { segments: AllocationSegment[] }) {
 export function BuildYour30({
   onDone,
   onSkip,
+  onPickInterests,
   selectedCategoryBuckets,
   followedSourceBuckets,
   embedded = false,
 }: BuildYour30Props) {
   // Whether the screen has a real selection signal (the user backs at least one category
   // interest OR follows at least one source). With a signal we gate the seed + Add sheet to
-  // the buckets they actually back (owner rule 2026-06-17); with NO signal (picker skipped /
-  // legacy) we fall back to the full default seed + every Add chip.
+  // the buckets they actually back (owner rule 2026-06-17); with NO signal (picker skipped AND
+  // no sources) we seed NOTHING and show a "pick interests first" empty state instead of the
+  // old full default seed (phase-SP4: that default seed was the phantom Sport/Culture leak).
   const hasSelectionSignal = (selectedCategoryBuckets?.length ?? 0) > 0 || (followedSourceBuckets?.length ?? 0) > 0;
 
   // The ordered allocation segments (the prototype's `segs`). Seeded from the user's backed
-  // categories + followed sources when they have a selection signal (filtered seed), else the
-  // full default; the effect below replaces it with the user's saved allocation when one exists.
+  // categories + followed sources when they have a selection signal (filtered seed); with NO
+  // signal it starts EMPTY (the empty-state CTA renders instead). The effect below replaces it
+  // with the user's saved allocation when one exists — FILTERED through their current backing
+  // (phase-SP4 SP2), so a stale saved category with no live backing can't resurrect.
   const [segments, setSegments] = useState<AllocationSegment[]>(() =>
-    hasSelectionSignal
-      ? buildSegmentsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? [])
-      : buildDefaultSegments(),
+    hasSelectionSignal ? buildSegmentsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? []) : [],
   );
 
-  // The buckets the Add-block sheet may offer: gated to the user's real backing when there is a
-  // selection signal (so a phantom block can't be re-added by hand), else every bucket (legacy).
-  const addableBuckets = hasSelectionSignal
-    ? allowedBucketsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? [])
-    : new Set<DesignBucketId>(DESIGN_BUCKET_IDS);
+  // The buckets the Add-block sheet may offer: ALWAYS gated to the user's real backing (so a
+  // phantom block can't be re-added by hand). With no signal `allowedBucketsForSelections([], [])`
+  // is empty → the Add sheet offers nothing (phase-SP4: the `DESIGN_BUCKET_IDS` fallback is gone).
+  const addableBuckets = allowedBucketsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? []);
   // Whether the Add-block bottom sheet is open.
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   // True while persisting on save — disables the CTA so a double-tap can't double-write.
@@ -197,6 +206,13 @@ export function BuildYour30({
 
   // Seed from the user's saved allocation on mount (browser-only; static-export safe). A read
   // failure (e.g. signed out) is non-fatal — we keep the default segments and log it (Rule 12).
+  //
+  // Reason for the empty dep array: this is a RUN-ONCE mount effect (guarded by `hasSeededRef`).
+  // It reads `selectedCategoryBuckets`/`followedSourceBuckets` to filter the saved allocation
+  // against the mount-time backing — which is exactly right, since both callers (OnboardingFlow,
+  // AppShell) fix those props before mounting BuildYour30. Adding them to the deps would not
+  // re-run the effect (the ref-guard short-circuits) but would imply a re-seed that never happens.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run-once mount seed; reads mount-time backing intentionally.
   useEffect(() => {
     if (hasSeededRef.current) {
       return;
@@ -206,16 +222,54 @@ export function BuildYour30({
     void (async () => {
       try {
         const saved = await getUserFeedAllocation();
-        // Only adopt a saved allocation that actually totals 30 — a partial/legacy row set
-        // (e.g. a pre-0010 save that dropped podcasts) would seed a non-30 budget the user
-        // could not save. Falling back to the default keeps the screen immediately savable.
-        if (isMounted && saved.length > 0 && sumSegmentCounts(saved) === ALLOCATION_TOTAL) {
-          setSegments(saved);
-          logger.info("build_your_30_seeded_from_saved", { segment_count: saved.length });
-        } else if (saved.length > 0) {
+        if (!isMounted) {
+          return;
+        }
+        // Only consider a saved allocation that actually totals 30 — a partial/legacy row set
+        // (e.g. a pre-0010 save that dropped podcasts) is ignored so we never seed a non-30
+        // budget the user couldn't have saved. This guard is on the RAW saved set (BEFORE the
+        // backing filter below, whose under-30 result is the INTENDED "Fill N more" state).
+        if (saved.length > 0 && sumSegmentCounts(saved) !== ALLOCATION_TOTAL) {
           logger.info("build_your_30_saved_ignored_non_30", {
             segment_count: saved.length,
             total_slots: sumSegmentCounts(saved),
+          });
+          return;
+        }
+        // Gate the SAVED allocation against the user's CURRENT backing (phase-SP4 SP2): a saved
+        // category with no live interest/source backing (e.g. a stale `sport` the user has since
+        // dropped) is DROPPED before seeding, so it cannot resurrect the phantom block SP1 closed.
+        // The dropped slots are NOT redistributed — the remaining blocks total under 30 and the
+        // budget CTA surfaces "Fill N more" (owner decision 2026-06-18: no auto-rescale).
+        const allowed = allowedBucketsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? []);
+        const filteredSaved = saved.filter((segment) => allowed.has(segment.bucketId));
+        const droppedBucketIds = saved
+          .filter((segment) => !allowed.has(segment.bucketId))
+          .map((segment) => segment.bucketId);
+        if (droppedBucketIds.length > 0) {
+          logger.info("build_your_30_saved_category_dropped", {
+            dropped_bucket_ids: droppedBucketIds,
+            dropped_count: droppedBucketIds.length,
+            fix_suggestion:
+              "A saved allocation category had no current interest/source backing; dropped so it can't resurrect.",
+          });
+        }
+        // Adopt the (filtered) saved allocation only when it leaves at least one backed block.
+        // If filtering empties it AND there is no live signal, leave `segments = []` so SP1's
+        // no-signal empty state persists (do NOT fall back to the full default seed).
+        if (filteredSaved.length > 0) {
+          setSegments(filteredSaved);
+          logger.info("build_your_30_seeded_from_saved", {
+            segment_count: filteredSaved.length,
+            dropped_count: droppedBucketIds.length,
+            total_slots: sumSegmentCounts(filteredSaved),
+          });
+        } else if (saved.length > 0) {
+          logger.info("build_your_30_saved_dropped_to_empty", {
+            saved_count: saved.length,
+            dropped_count: droppedBucketIds.length,
+            fix_suggestion:
+              "Every saved category lost its backing; leaving the screen empty so the pick-interests state shows.",
           });
         }
       } catch (error) {
@@ -362,6 +416,55 @@ export function BuildYour30({
 
   // The budget label mirrors the prototype: "N/30 · X left | X over | full".
   const budgetTail = slotsLeft > 0 ? `${slotsLeft} left` : slotsLeft < 0 ? `${Math.abs(slotsLeft)} over` : "full";
+
+  // No-signal empty state: the user picked nothing AND follows no source, so there is nothing to
+  // allocate. We render a "pick interests first" CTA instead of the allocation chrome (phase-SP4
+  // — the old full default seed here is what leaked phantom Sport/Culture blocks). The saved
+  // effect can still seed `segments` for a returning user (SP2's path), which flips this off.
+  const showNoSignalEmptyState = !hasSelectionSignal && segments.length === 0;
+
+  // Log once when the no-signal empty state is shown (so the gate is observable in prod logs).
+  useEffect(() => {
+    if (showNoSignalEmptyState) {
+      logger.info("build_your_30_no_signal_empty_state", {
+        selected_category_count: selectedCategoryBuckets?.length ?? 0,
+        followed_source_count: followedSourceBuckets?.length ?? 0,
+        fix_suggestion: "Route the user back to the interest picker; with no backing there is nothing to allocate.",
+      });
+    }
+  }, [showNoSignalEmptyState, selectedCategoryBuckets?.length, followedSourceBuckets?.length]);
+
+  // The empty-state CTA prefers routing BACK to the interest picker (owner decision — a no-signal
+  // user has nothing to allocate, so send them to pick something), falling back to `onSkip` (route
+  // onward) and finally to no button at all (the embedded "Thirty" tab, which has neither).
+  const pickInterestsHandler = onPickInterests ?? onSkip;
+
+  if (showNoSignalEmptyState) {
+    return (
+      <div style={embedded ? EMBEDDED_SURFACE_STYLE : SCENE_SURFACE_STYLE}>
+        <div style={{ "--ac": ACCENT_RED } as CSSProperties}>
+          <BlipIconDefs />
+          <div className="a-scroll" data-screen-label="Allocation · Sequence" id="noSignalEmpty">
+            <div className="a-top">
+              <span className="ey">Allocation · Sequence</span>
+              <h1>Pick a few interests first.</h1>
+              <p>
+                Your 30-story briefing is built from the topics and sources you follow — choose at least one so we have
+                something to fill it with.
+              </p>
+            </div>
+            {pickInterestsHandler ? (
+              <div className="a-blocks">
+                <button type="button" className="addseg" id="pickInterestsCta" onClick={pickInterestsHandler}>
+                  ＋ Pick your interests
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={embedded ? EMBEDDED_SURFACE_STYLE : SCENE_SURFACE_STYLE}>

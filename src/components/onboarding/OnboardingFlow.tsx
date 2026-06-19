@@ -353,6 +353,7 @@ export function OnboardingFlow() {
         <BuildYour30
           onDone={handleBuildDone}
           onSkip={handleBuildSkip}
+          onPickInterests={() => setStep("picker")}
           selectedCategoryBuckets={selectedCategoryBuckets}
           followedSourceBuckets={followedSourceBuckets}
         />
