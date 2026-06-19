@@ -13,8 +13,10 @@ ai 4, tech 4, geopolitics 4, business 4, politics 2, environment 2, sport 3, art
 - [x] 2: Canonical taxonomy in the TS twin — COMPLETED (feedBuckets 32/32; build red from collateral → R3)
 - [x] R3: TS collateral (feedAllocation.ts dead podcasts path + feedAllocation.test.ts fixtures) — COMPLETED (build green, 10/10)
 - [x] 3: DB migration (0020+0021) + reel-chip parity (⚠ irreversible) — COMPLETED (applied to remote, backfill 0 invalid, live e2e green)
-- [ ] 4: Finish breaking removal in 3 scripts + cross-surface parity — IN PROGRESS
-- [ ] R4: collateral drift (userInterests.test.ts red + detailTemplates twin + sourceSwipeData accent) — IN PROGRESS
+- [x] 4: Finish breaking removal in 3 scripts + cross-surface parity — COMPLETED
+- [x] R4: collateral drift (userInterests.test.ts red + detailTemplates twin + sourceSwipeData accent) — COMPLETED
+
+## Status: COMPLETE — commit 3493a39
 
 ## Python suite state
 308 passed, 1 failed = test_phase5a_live_e2e (LIVE DB, needs migration 0020 applied to remote). Clears after SP3 applies.
