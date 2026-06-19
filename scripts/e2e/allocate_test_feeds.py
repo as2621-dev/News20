@@ -43,6 +43,8 @@ from agents.ingestion.models import (  # noqa: E402
 from agents.pipeline.categories import category_for_slug  # noqa: E402
 from agents.pipeline.daily_batch import load_active_user_inputs  # noqa: E402
 from agents.pipeline.feed_assembly import (  # noqa: E402
+    FEED_SLOT_BUDGET,
+    SLOT_KIND_SOURCE,
     AllocatedSlot,
     assemble_user_feed,
     write_daily_feed,
@@ -211,7 +213,9 @@ def _load_story_pool(
 
 
 def _slot_category(slot: AllocatedSlot, interest_nodes: dict[str, InterestNode]) -> str:
-    """Resolve a slot's screen category (breaking tier, else its interest's root)."""
+    """Resolve a slot's screen category (source/breaking tier, else its interest's root)."""
+    if slot.feed_slot_kind == SLOT_KIND_SOURCE:
+        return "source"
     if slot.feed_slot_kind == "breaking":
         return "breaking"
     node = (
@@ -240,6 +244,103 @@ def _matching_pool_story_count(
             if tag.story_interest_interest_id in followed_ids
         }
     )
+
+
+def _load_existing_source_rows(
+    supabase_client: Any, user_id: str, feed_date_iso: str
+) -> list[dict[str, Any]]:
+    """Load a user's existing ``feed_slot_kind='source'`` daily_feeds rows for the day.
+
+    Reason: ``assemble_user_feed`` is run here with NO ``source_stories`` argument,
+    so the freshly-assembled feed has ZERO source slots. The idempotent delete then
+    drops the user's whole day — silently evicting any followed-source reels produced
+    by ``produce_source_reels.py``. We capture them BEFORE the delete so they can be
+    re-placed (sub-phase 3 of phase-sp2-feed-rebuild-safety).
+
+    Args:
+        supabase_client: Service-role client.
+        user_id: The user whose source rows to capture.
+        feed_date_iso: The ISO feed date.
+
+    Returns:
+        The user's existing source rows (``feed_story_id`` / ``feed_score`` /
+        ``feed_matched_interest_id`` carried), ordered by ``feed_position``.
+    """
+    return (
+        supabase_client.table("daily_feeds")
+        .select("feed_story_id,feed_score,feed_matched_interest_id,feed_position")
+        .eq("feed_user_id", user_id)
+        .eq("feed_date", feed_date_iso)
+        .eq("feed_slot_kind", SLOT_KIND_SOURCE)
+        .order("feed_position")
+        .execute()
+        .data
+        or []
+    )
+
+
+def _replace_source_slots(
+    slots: list[AllocatedSlot], existing_source_rows: list[dict[str, Any]]
+) -> list[AllocatedSlot]:
+    """Re-place carried source rows into the assembled feed, guaranteeing survival.
+
+    The freshly-assembled ``slots`` carry ZERO source slots (no ``source_stories`` is
+    passed to ``assemble_user_feed`` here). The user's prior source reels were part of
+    their original 30, so we re-place them WITHOUT overshooting the budget: carried
+    source rows are placed FIRST (guaranteed to survive, up to :data:`FEED_SLOT_BUDGET`)
+    and the assembled topic slots fill the REMAINING budget — the lowest-priority topic
+    slots are trimmed from the tail only if the combined count would exceed 30. Source
+    rows are deduped on ``feed_story_id`` against the topic slots (so the
+    ``uq_daily_feed_story`` constraint can't trip) and against each other. Positions are
+    reassigned 1..len so the ``uq_daily_feed_position`` constraint holds. Source rows
+    lead the feed in their original ``feed_position`` order; mirrors the SP1 source-row
+    shape in ``produce_source_reels.py`` (``feed_slot_kind='source'``, no matched
+    interest).
+
+    Args:
+        slots: The freshly-assembled topic slots (positions 1..len).
+        existing_source_rows: The user's prior source rows (``feed_position`` order).
+
+    Returns:
+        The merged ordered slots (source rows first, then topic slots), repositioned
+        1..len, capped at :data:`FEED_SLOT_BUDGET`. When there are no prior source
+        rows this returns ``slots`` unchanged.
+    """
+    if not existing_source_rows:
+        return slots
+
+    source_slots: list[AllocatedSlot] = []
+    seen_source_ids: set[str] = set()
+    for row in existing_source_rows:
+        if len(source_slots) >= FEED_SLOT_BUDGET:
+            break
+        story_id = str(row["feed_story_id"])
+        if story_id in seen_source_ids:
+            continue
+        seen_source_ids.add(story_id)
+        source_slots.append(
+            AllocatedSlot(
+                feed_story_id=story_id,
+                feed_position=len(source_slots) + 1,  # repositioned below
+                feed_score=float(row.get("feed_score") or 0.0),
+                feed_matched_interest_id=None,
+                feed_slot_kind=SLOT_KIND_SOURCE,
+            )
+        )
+
+    # Reason: source rows are guaranteed-preserved; topic slots fill the remaining
+    # budget. A topic slot whose story id collides with a carried source row is
+    # dropped (uq_daily_feed_story). Trim topic tail so total never exceeds 30.
+    topic_capacity = max(FEED_SLOT_BUDGET - len(source_slots), 0)
+    topic_slots = [s for s in slots if s.feed_story_id not in seen_source_ids][
+        :topic_capacity
+    ]
+
+    merged = source_slots + topic_slots
+    return [
+        slot.model_copy(update={"feed_position": position})
+        for position, slot in enumerate(merged, start=1)
+    ]
 
 
 def main() -> int:
@@ -311,6 +412,27 @@ def main() -> int:
                 category_allocation=user_inputs.category_allocation,
                 prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
                 now_utc=now_utc,
+            )
+
+        # Source-aware re-placement (phase-sp2 SP3): assemble_user_feed is run here
+        # WITHOUT source_stories, so the fresh feed has zero source slots. Capture the
+        # user's existing followed-source reels BEFORE the delete and re-place them
+        # (leading the feed, within the 30-budget) so the idempotent delete can never
+        # silently evict a previously-produced source reel (the Nitish-eviction bug).
+        existing_source_rows = _load_existing_source_rows(
+            supabase_client, user_id, target_date.isoformat()
+        )
+        slots = _replace_source_slots(slots, existing_source_rows)
+        carried_source_count = sum(
+            1 for slot in slots if slot.feed_slot_kind == SLOT_KIND_SOURCE
+        )
+        if carried_source_count:
+            _log(
+                "source_rows_replaced",
+                profile_name=profile_name,
+                user_id=user_id,
+                existing_source_row_count=len(existing_source_rows),
+                carried_source_count=carried_source_count,
             )
 
         # Idempotent re-run: clear THIS user's rows for today, then write fresh

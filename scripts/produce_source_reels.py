@@ -29,6 +29,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 from datetime import date, datetime
 from typing import Any
 
@@ -215,11 +216,47 @@ async def _main() -> int:
 
     print(f"\nproduced {len(produced_yt)} youtube + {len(produced_x)} x reels")
     if not produced_yt and not produced_x:
-        print("FAIL: nothing produced — feed left unchanged.")
-        return 1
+        # Empty produce. We must NOT blindly early-return past the rebuild when
+        # prior source rows exist — that would skip SP1's carry-forward and the
+        # next run's allocator could evict them. Route into the (fail-safe)
+        # rebuild ONLY when there are prior source rows to preserve; if there
+        # are genuinely zero prior source rows too, a no-op return is correct.
+        prior_source_row_count = _count_existing_source_rows(supabase, target)
+        if prior_source_row_count == 0:
+            print("FAIL: nothing produced and no prior source rows — feed left unchanged.")
+            return 1
+        print(
+            f"nothing produced, but {prior_source_row_count} prior source rows exist "
+            "— routing into fail-safe rebuild to carry them forward."
+        )
 
     # ── 3. Surgical feed rebuild (back up first, then honour ash's allocation) ──
     return _rebuild_feed(supabase, target, produced_yt, produced_x)
+
+
+def _count_existing_source_rows(supabase: Any, target: date) -> int:
+    """Count current ``feed_slot_kind='source'`` rows in ash's feed for ``target``.
+
+    Used to decide whether an empty-produce run still needs the fail-safe rebuild
+    (to carry forward prior source reels) versus a safe no-op early return.
+
+    Args:
+        supabase: Supabase client.
+        target: The feed date to inspect.
+
+    Returns:
+        The number of source-slot rows currently in ``daily_feeds`` for ash/target.
+    """
+    rows = (
+        supabase.table("daily_feeds")
+        .select("feed_slot_kind")
+        .eq("feed_user_id", ASH_UID)
+        .eq("feed_date", target.isoformat())
+        .execute()
+        .data
+        or []
+    )
+    return sum(1 for row in rows if row.get("feed_slot_kind") == "source")
 
 
 def _rebuild_feed(
@@ -246,7 +283,22 @@ def _rebuild_feed(
         .data
         or []
     )
-    backup_path = f"/tmp/ash_feed_backup_{feed_date_iso}.json"
+    # Epoch+pid suffix so a same-day re-run never clobbers the prior backup —
+    # the backup is the only recovery path if the rebuild misbehaves, and the
+    # old fixed-name "w" open destroyed it on the second run of the day. If even
+    # that collides (same pid, same second, same dir), bump a counter until the
+    # path is free so two consecutive rebuilds ALWAYS leave two distinct files.
+    backup_epoch_suffix = int(time.time())
+    backup_path = (
+        f"/tmp/ash_feed_backup_{feed_date_iso}_{backup_epoch_suffix}_{os.getpid()}.json"
+    )
+    _collision_counter = 1
+    while os.path.exists(backup_path):
+        backup_path = (
+            f"/tmp/ash_feed_backup_{feed_date_iso}_{backup_epoch_suffix}"
+            f"_{os.getpid()}_{_collision_counter}.json"
+        )
+        _collision_counter += 1
     with open(backup_path, "w") as handle:
         json.dump(existing, handle, indent=2, default=str)
     print(f"\nbacked up {len(existing)} existing rows → {backup_path}")
@@ -267,15 +319,26 @@ def _rebuild_feed(
     slug_by_id = {str(r["interest_id"]): str(r["interest_slug"]) for r in interests}
 
     # Bucket existing rows by category, preserving their score order. Existing
-    # SOURCE rows are dropped here — they are re-placed from the produced lists
-    # (which reuse already-produced ids), so a re-run is idempotent and never
-    # misclassifies a prior source reel into a topic bucket.
+    # SOURCE rows are NOT dropped — they are CARRIED FORWARD (keyed by
+    # feed_story_id) into ``carried_source_rows`` so a short/empty produce run
+    # never silently evicts a previously-produced source reel (the Nitish bug).
+    # A topic row keeps its allocation category; a source row is preserved in
+    # feed_position order to refill any source slot this run didn't produce.
     existing_by_category: dict[str, list[dict[str, Any]]] = {}
+    carried_source_rows: list[dict[str, Any]] = []
     for row in existing:
         if row.get("feed_slot_kind") == "source":
+            carried_source_rows.append(row)
             continue
         category = _category_of_existing_row(row, slug_by_id)
         existing_by_category.setdefault(category, []).append(row)
+
+    if carried_source_rows:
+        logger.info(
+            "source_rows_carried_forward",
+            carried_source_row_count=len(carried_source_rows),
+            feed_date=feed_date_iso,
+        )
 
     source_by_category = {"youtube": produced_yt, "x": produced_x}
 
@@ -303,16 +366,35 @@ def _rebuild_feed(
             "feed_slot_kind": "source",
         }
 
+    # Shared pool of carried-forward source story ids, drawn in feed_position
+    # order to refill source budget this run didn't produce. They are NOT
+    # category-tagged in daily_feeds (a source row only records
+    # feed_slot_kind='source'), so a freshly produced reel always takes
+    # precedence for a given slot and prior rows fill the remainder.
+    carried_source_ids = [r["feed_story_id"] for r in carried_source_rows]
+
     for alloc_row in alloc:
         category = alloc_row["allocation_category"]
         budget = int(alloc_row["allocation_slot_count"])
         if category in ("youtube", "x"):
+            # This run's freshly produced reels first (precedence), then carried
+            # forward prior source reels fill any remaining slots in this budget.
+            filled_in_category = 0
             taken = source_by_category.get(category, [])[:budget]
             for story_id in taken:
                 if story_id in used_story_ids:
                     continue
                 new_rows.append(_source_row(story_id))
                 used_story_ids.add(story_id)
+                filled_in_category += 1
+            for story_id in carried_source_ids:
+                if filled_in_category >= budget:
+                    break
+                if story_id in used_story_ids:
+                    continue
+                new_rows.append(_source_row(story_id))
+                used_story_ids.add(story_id)
+                filled_in_category += 1
         else:
             rows = existing_by_category.get(category, [])
             for index, row in enumerate(rows):
@@ -338,6 +420,43 @@ def _rebuild_feed(
     new_rows = new_rows[:30]
     for position, row in enumerate(new_rows, start=1):
         row["feed_position"] = position
+
+    # ── Fail-safe write guard ──────────────────────────────────────────────
+    # The write is a non-transactional delete-then-insert. NEVER delete when the
+    # proposed feed would contain FEWER source reels than the feed already has —
+    # that is a strict source-reel regression (the Nitish-eviction bug). Abort
+    # loudly (Rule 12) and leave daily_feeds untouched; the backup above is the
+    # recovery copy. Edge case (documented): a user who genuinely UNFOLLOWED a
+    # source legitimately shrinks their source count. That is out of scope for
+    # this script (it has no unfollow path — it only ingests followed sources),
+    # so a strict-less-than abort cannot deadlock a legitimate shrink here. If a
+    # future caller needs to shrink, it must take a different (intentional) path.
+    current_source_row_count = sum(
+        1 for row in existing if row.get("feed_slot_kind") == "source"
+    )
+    new_source_row_count = sum(
+        1 for row in new_rows if row.get("feed_slot_kind") == "source"
+    )
+    if new_source_row_count < current_source_row_count:
+        logger.error(
+            "feed_rebuild_aborted",
+            fail_loud=True,
+            feed_date=feed_date_iso,
+            current_source_row_count=current_source_row_count,
+            new_source_row_count=new_source_row_count,
+            backup_path=backup_path,
+            fix_suggestion=(
+                "Proposed feed has fewer source reels than the live feed — a "
+                "strict source-reel regression. Refusing to delete. Re-run with "
+                "a non-empty source pool (FORCE_REINGEST=1) or restore the backup."
+            ),
+        )
+        print(
+            "FAIL: feed_rebuild_aborted — proposed source reels "
+            f"({new_source_row_count}) < current ({current_source_row_count}). "
+            "daily_feeds left UNCHANGED."
+        )
+        return 1
 
     # Replace ash's feed for today.
     supabase.table("daily_feeds").delete().eq("feed_user_id", ASH_UID).eq(
