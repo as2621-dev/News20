@@ -16,6 +16,8 @@ PARALLEL SP1∥SP2 (independent, disjoint files), then SP3 (deps SP1+SP2), then 
 - [x] 3: Online clustering orchestrator — DONE (6 new tests, 49 total no-regression, ruff clean, DoD PASS; ClusterRun.clusters = spawned+touched-existing; outlet_count on join = non-regressing floor)
 - [x] 4: Cross-day id bridge + persistence wiring — DONE (7 tests, 56 total no-regression, ruff clean, DoD PASS; reuses agents.ingestion.dedup.normalize_url verbatim — parity tested; multi-id tie-break = min(existing_ids); run_and_persist entry point added, NOT yet wired into daily_batch (M3c))
 
+## Status: COMPLETE — commit fbabc18 (pushed). Phase DoD + slop scan + CSO all PASS.
+
 ## Merge checkpoint
 SP1+SP2 merged to main worktree (disjoint new files, conflict-free). Combined: `pytest tests/agents/pipeline/clustering/ -q` → 43 passed; ruff clean. Worktrees torn down.
 - [ ] 4: Cross-day id bridge + persistence wiring — PENDING
