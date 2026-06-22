@@ -21,6 +21,13 @@ SAFETY (this run costs real paid Gemini calls):
   * ``MAX_PRODUCE`` is an OPTIONAL overall ceiling on top of those caps (default 8),
     trimmed round-robin across categories so balance is preserved. Set
     ``MAX_PRODUCE=0`` to let the per-category caps be the only bound (full scale).
+  * ``PRODUCE_CAP_HEADROOM`` (default 2.0) over-provisions every per-category cap so
+    downstream quality gates (verification halt, editorial-JSON failure) that reject
+    a fraction of reels still leave enough survivors to fill each category's real
+    feed budget. demand 4 → renders ceil(4×2.0)=8. The feed is still capped at the
+    user's true allocation by ``feed_assembly``. Pair with ``MAX_PRODUCE=0`` — a low
+    overall ceiling trims the pool back down and negates the headroom (the preflight
+    warns when this happens). Set ``1.0`` for the old 1×-demand behaviour.
   * ``LOOKBACK_DAYS`` (default 1) bounds GDELT recency.
   * ``INGEST_SOURCE`` (default ``doc``) — set ``bigquery`` to ingest AND run the
     Phase-2c coverage census via the unthrottled GDELT BigQuery dataset instead of
@@ -352,6 +359,7 @@ async def _run() -> int:
 
     paid = os.environ.get("RUN_LIVE_BATCH") == "1"
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
+    produce_cap_headroom = float(os.environ.get("PRODUCE_CAP_HEADROOM", "2.0"))
     lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
 
     supabase = create_client(
@@ -446,8 +454,12 @@ async def _run() -> int:
     # the run will enforce after the gate (no single category can exceed it).
     allocation_by_user = _load_category_allocation(supabase, active_user_ids)
     caps = compute_category_produce_caps(
-        allocation_by_user, active_user_ids, DEFAULT_FEED_ALLOCATION
+        allocation_by_user,
+        active_user_ids,
+        DEFAULT_FEED_ALLOCATION,
+        headroom_multiplier=produce_cap_headroom,
     )
+    print(f"  produce cap headroom .......... {produce_cap_headroom}x (demand → render pool)")
     print("  per-category produce caps ....")
     if caps:
         for category, cap in sorted(caps.items()):
@@ -459,6 +471,14 @@ async def _run() -> int:
         )
     if max_produce > 0:
         print(f"  overall ceiling (MAX_PRODUCE) . {max_produce}")
+        caps_sum = sum(caps.values()) if caps else 0
+        if produce_cap_headroom > 1.0 and caps_sum > max_produce:
+            print(
+                f"  ⚠ WARNING: MAX_PRODUCE={max_produce} trims the pool BELOW the "
+                f"{produce_cap_headroom}x-headroomed caps (sum={caps_sum}) — the "
+                f"round-robin ceiling will NEGATE the rejection headroom.\n"
+                f"    fix: re-run with MAX_PRODUCE=0 so the headroomed caps bind."
+            )
 
     if not active_user_ids or not followed_ids:
         print(
@@ -533,6 +553,7 @@ async def _run() -> int:
         interest_nodes=interest_nodes,
         poster_genai_client=poster_client,
         max_total_productions=max_produce,
+        produce_cap_headroom=produce_cap_headroom,
         enable_detail_enrichment=True,
         enable_editorial_rewrite=True,
         interest_segment_lookup=interest_segment_lookup,

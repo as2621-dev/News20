@@ -658,6 +658,7 @@ async def run_daily_pipeline(
     since_utc: datetime | None = None,
     max_concurrent_productions: int = DEFAULT_MAX_CONCURRENT_PRODUCTIONS,
     max_total_productions: int | None = None,
+    produce_cap_headroom: float = 1.0,
     enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
     enable_produce_dedup: bool = True,
@@ -691,6 +692,14 @@ async def run_daily_pipeline(
             AFTER the per-category caps and trimmed round-robin across categories so
             balance is preserved (the re-purposed ``MAX_PRODUCE``). ``None``/``<=0``
             leaves the per-category caps as the only bound.
+        produce_cap_headroom: Over-provision factor for the per-category produce
+            caps (``PRODUCE_CAP_HEADROOM``). ``1.0`` (default) renders 1× demand;
+            ``2.0`` doubles the render pool so downstream quality-gate rejections
+            still leave enough survivors to fill each category's real feed budget.
+            The feed itself is still capped at the user's true allocation by
+            ``feed_assembly``. Note: a low ``max_total_productions`` ceiling applied
+            AFTER the caps can negate this — set ``MAX_PRODUCE=0`` to let the
+            headroomed caps bind.
         enable_detail_enrichment: Phase 2c gate — when True, each produced story
             also gets grounded detail enrichment + the GDELT coverage census.
             Defaults False (the M1 produce path) until the production wiring passes
@@ -758,7 +767,10 @@ async def run_daily_pipeline(
     active_user_ids = _load_active_user_ids(supabase_client)
     allocation_by_user = _load_category_allocation(supabase_client, active_user_ids)
     caps = compute_category_produce_caps(
-        allocation_by_user, active_user_ids, DEFAULT_FEED_ALLOCATION
+        allocation_by_user,
+        active_user_ids,
+        DEFAULT_FEED_ALLOCATION,
+        headroom_multiplier=produce_cap_headroom,
     )
     to_produce = cap_stories_per_category(
         to_produce,

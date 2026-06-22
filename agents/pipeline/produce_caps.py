@@ -21,6 +21,7 @@ Three pure helpers (no DB, no clock, no network — fully unit-testable):
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
@@ -36,6 +37,8 @@ def compute_category_produce_caps(
     allocation_by_user: dict[str, list],
     active_user_ids: list[str],
     default_allocation: dict[FeedCategory, int],
+    *,
+    headroom_multiplier: float = 1.0,
 ) -> dict[FeedCategory, int]:
     """Fold per-user allocations into per-category produce caps.
 
@@ -47,16 +50,29 @@ def compute_category_produce_caps(
     finishes onboarding. A user WITH rows uses exactly those rows: a category they
     left out means they don't want it (contributes 0), not the default.
 
+    ``headroom_multiplier`` over-provisions every cap by a constant factor BEFORE
+    the paid render fan-out, so downstream quality gates (verification halt,
+    editorial-JSON failure) that reject a fraction of produced reels still leave
+    enough survivors to fill each category's real feed budget. The final feed is
+    still capped at the user's true ``allocation_slot_count`` by
+    :mod:`agents.pipeline.feed_assembly` — this only enlarges the *render pool*, not
+    the feed. Example: a category with demand 4 at ``headroom_multiplier=2.0``
+    renders ``ceil(4 * 2.0) = 8`` candidates so a ~60% gate pass-rate still yields
+    ≥ 4. Default ``1.0`` preserves the original 1×-demand behaviour.
+
     Args:
         allocation_by_user: ``{user_id: [CategoryAllocation, ...]}`` — the shape
             :func:`agents.pipeline.daily_batch._load_category_allocation` returns.
         active_user_ids: Every active user id (so no-row users count as default).
         default_allocation: ``{category: slot_count}`` a no-row user inherits
             (``agents.pipeline.categories.DEFAULT_FEED_ALLOCATION``).
+        headroom_multiplier: Over-provision factor applied to every folded cap
+            (``ceil``-rounded). ``1.0`` (default) = no headroom; ``2.0`` = double the
+            render pool to absorb downstream rejections.
 
     Returns:
-        ``caps`` — ``{category: max slot_count}`` over the 7 topic/source
-        categories.
+        ``caps`` — ``{category: ceil(max slot_count * headroom_multiplier)}`` over
+        the 7 topic/source categories.
 
     Example:
         >>> from agents.pipeline.categories import CategoryAllocation
@@ -68,6 +84,10 @@ def compute_category_produce_caps(
         >>> caps = compute_category_produce_caps(allocs, ["u1"], {"markets": 4})
         >>> caps["markets"]  # u1's explicit 7 beats the default 4
         7
+        >>> caps2 = compute_category_produce_caps(
+        ...     allocs, ["u1"], {"markets": 4}, headroom_multiplier=2.0)
+        >>> caps2["markets"]  # 7 demand → 14 rendered (2× headroom)
+        14
     """
     caps: dict[FeedCategory, int] = {}
     users_using_default = 0
@@ -83,9 +103,20 @@ def compute_category_produce_caps(
             pairs = list(default_allocation.items())
         for category, slot_count in pairs:
             caps[category] = max(caps.get(category, 0), slot_count)
+    # Reason: over-provision the render pool so downstream quality gates that reject
+    # a fraction of reels still leave enough survivors to fill each category's real
+    # feed budget (feed_assembly re-caps to the true allocation_slot_count).
+    demand = dict(caps)
+    if headroom_multiplier != 1.0:
+        caps = {
+            category: math.ceil(slot_count * headroom_multiplier)
+            for category, slot_count in caps.items()
+        }
     logger.info(
         "category_produce_caps_computed",
         caps=caps,
+        demand=demand,
+        headroom_multiplier=headroom_multiplier,
         active_users=len(active_user_ids),
         users_with_allocation=len(active_user_ids) - users_using_default,
         users_using_default=users_using_default,
