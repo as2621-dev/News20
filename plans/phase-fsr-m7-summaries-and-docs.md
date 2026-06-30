@@ -1,7 +1,7 @@
 # Phase FSR-M7: Summaries (long vs short) + revamp docs
 
 **Milestone:** M7 — Summaries (long vs short) + docs (PRD `plans/prd.md` M7)
-**Status:** Not started
+**Status:** Done (2026-06-30) — all 4 sub-phases shipped, 40/40 target tests pass, news path byte-identical, docs reconciled.
 **Estimated effort:** M
 
 > **Source of truth:** `plans/prd.md` is the master plan for this revamp (NOT `plans/master-plan.md`, which is stale). Brief: `documents/feed-source-revamp-plan.md` (WS6 summaries, WS7 docs). This is a **PROMPT-ONLY** milestone — refine existing prompts; **no new ingestion, no schema, no new pipeline stage** (PRD Decision #10, Implementation Decision "Summaries").

@@ -1,6 +1,6 @@
 # Ranking spec — per-user personalized feed (M1)
 
-> **⚠ Revamp banner (2026-06-30):** the **feed-source revamp** (`plans/prd.md`) changes how the §1 `Importance` term is computed and how stories are categorized at ingest, and reweights assembly. Specifically: (1) `Importance` becomes the shared-pool **E1 `story_importance`** — authority-weighted outlet count + within-category normalization + ~24h recency decay + syndication dampening — replacing `produce_gate`'s raw `min(1, story_outlet_count/12)`; (2) `IMPORTANCE_WEIGHT` (β) is **raised** so a genuinely big story outranks a well-matched minor one (fixes the diagnosed bug); (3) a story's **category is assigned from its GDELT theme** (`V2Themes`/`V2EnhancedThemes`) at ingestion-time tagging, not from the matched keyword — `assign_category` already picks the lowest-`match_depth` `story_interests` tag, so the fix is to the *tags it reads*, not to `assign_category` itself; (4) **followed-source items get priority slots first** in assembly (`feed_assembly.py`), then category top-stories fill the remaining ~30. The Score shape (§1), EntityBonus (§3a.1), and category-budget allocation (§3a.2) are **preserved**; only the `Importance` definition, β weight, ingest-time category source, and source-slot priority change. See `plans/prd.md` M2/M3/M6 and Decision #5.
+> **⚠ Revamp banner (2026-06-30):** the **feed-source revamp** (`plans/prd.md`) changes how the §1 `Importance` term is computed and how stories are categorized at ingest, and reweights assembly. Specifically: (1) `Importance` becomes the shared-pool **E1 `story_importance`** — authority-weighted outlet count + within-category normalization + ~24h recency decay + syndication dampening (M3 also makes E1 **authority-weighted**: a few authoritative, ideologically-varied outlets outweigh a many-content-farm syndication burst) — replacing `produce_gate`'s raw `min(1, story_outlet_count/12)`; (2) `IMPORTANCE_WEIGHT` (β) is **raised `0.3 → 0.45`** (shipped value in `agents/pipeline/stages/ranking.py`, M3) so a genuinely big story outranks a well-matched minor one (fixes the diagnosed bug); (3) a story's **category is assigned from its GDELT theme** (`V2Themes`/`V2EnhancedThemes`) at ingestion-time tagging, not from the matched keyword — `assign_category` already picks the lowest-`match_depth` `story_interests` tag, so the fix is to the *tags it reads*, not to `assign_category` itself; (4) **followed-source items get priority slots first** in assembly (`feed_assembly.py`, M6b) — see §3a.4. The Score shape (§1), EntityBonus (§3a.1), and category-budget allocation (§3a.2) are **preserved**; only the `Importance` definition, β weight, ingest-time category source, and source-slot priority change. See `plans/prd.md` M2/M3/M6 and Decision #5.
 
 > **⚠ Rework banner (2026-06-18):** the **shared-pool rework** changes the layers *around* this spec — see `reference/shared-pool-pipeline.md`. It supersedes the candidate-generation half of §2 (per-user fallback-tree search → demand-sized shared pool), enriches the §1 `Importance` term into the full `story_importance` (E1), adds an MMR diversity term, and retires the breaking tier (→ velocity signal). The per-user Score (§1), EntityBonus (§3a.1), and category-budget allocation (§3a.2) below are **preserved**.
 
@@ -128,6 +128,29 @@ The passes:
 
 - **Supersedes §3 steps 2–6** (proportional split / floor-1 / ~40% cap / redistribute): the user now sets the split **explicitly** via per-category budgets. §3 remains documented as the M1 history; phase-5a is the active model for signed-in users with an allocation.
 - **Retires §3.7 (auto-exploration ~10%):** there is **no** exploration reserve and **no** `exploration` slot kind is ever emitted. The user controls breadth via their category budgets (e.g. budgeting a category they don't yet follow), so an algorithm-chosen exploration tier is redundant under the user-set model. This is intentional, not a silent drop.
+
+### 3a.4 Source-first priority slots + deterministic spill (M6b, feed-source revamp)
+
+**Status:** Active (FSR-M6b, 2026-06-30). Implements PRD Decision #8 / M6 feed mix in `agents/pipeline/feed_assembly.py` + `agents/pipeline/produce_caps.py`.
+
+The product thesis is that **follows are the personalization** — so fresh followed-source items must be *visible*, not buried under importance-gated news. The assembler now runs source-first:
+
+1. **Source-first priority.** All fresh followed-source items (gate-exempt YouTube/X items, `is_source_origin_domain`) take their `SLOT_KIND_SOURCE` slots **first/with priority**, before category top-stories fill the rest. The feed still totals `FEED_SLOT_BUDGET = 30`.
+2. **Deterministic spill / over-budget rule.** When fresh source items exceed the source budget, they are ordered and capped by a **deterministic key: recency → importance → id** (most-recent first; ties broken by `story_importance`, then by stable story id). The cut items spill out deterministically — no randomness, fully testable. Remaining slots fill from category top-`Score` candidates in the user's sequence.
+3. **Produce-cap headroom 1.5.** `produce_caps.DEFAULT_HEADROOM_MULTIPLIER = 1.5` over-provisions every folded category cap by `ceil(demand × 1.5)` BEFORE the verification gate, so a ~67% gate pass-rate still yields ≥ demand survivors (e.g. demand 4 → render 6). Headroom enlarges the **render pool**, never the feed; `1.0` disables it. (Adopted from the phase-5d note; PRD M6 open item resolved.)
+4. **Preserved.** §3a.2's don't-repeat (prior `daily_feeds`), within-feed dedup, the source-budget soft-roll, and a place-once rule (a story qualifying for both a source and a topic slot is placed once, source wins) are all preserved verbatim.
+
+### 3a.5 Long-vs-short summary mode (M7, feed-source revamp)
+
+**Status:** Active (FSR-M7, 2026-06-30). PRD Decision #10 — **prompt-only, no new ingestion / schema / pipeline stage.**
+
+A followed-source item's *summary shape* now differs by content length, selected **in code** (Rule 5) by `agents/pipeline/summary_mode.summary_mode_for(story)` from the outlet domain:
+
+- **`youtube.com` → `"long"`** — a long-form video/podcast is summarized as **key points** drawing out the substance of a 90-minute piece (US-19).
+- **`x.com` → `"short"`** — a tweet/short clip is summarized **tightly**, not padded into filler (US-20).
+- **anything else → `"news"`** — the scripting + detail-enrichment prompts stay **byte-for-byte identical to before M7** (regression guard).
+
+The mode is interpolated into the existing prompt templates (`DIGEST_SCRIPTING_PROMPT` `{SUMMARY_SHAPE}`, `DETAIL_ENRICHMENT_PROMPT` `{KEY_POINTS_SHAPE}`) — it does **not** add a new ranking term, a new stage, or any schema. The "exactly 5 key points" requirement, the numeric-grounding gate, the single-source rule, persona/JSON contracts, and the digest length budgets are all unchanged. The domain set is single-sourced from `is_source_origin_domain` / `SOURCE_ORIGIN_DOMAINS` (Rule 7). See `plans/prd.md` M7.
 
 ---
 

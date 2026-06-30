@@ -70,7 +70,11 @@ from agents.pipeline.prompts import (
     DETAIL_ENRICHMENT_PROMPT,
     DETAIL_TIMELINE_CONTRACT,
     DETAIL_TIMELINE_PRODUCE,
+    KEY_POINTS_LONG,
+    KEY_POINTS_NEWS,
+    KEY_POINTS_SHORT,
 )
+from agents.pipeline.summary_mode import summary_mode_for
 from agents.shared.exceptions import PipelineStageError
 from agents.shared.logger import get_logger
 
@@ -114,6 +118,16 @@ _DIGIT_RUN_REGEX = re.compile(r"\d")
 # token appears in the source body's digit stream — robust to "+4%" vs "4 percent",
 # "$81.6B" vs "81.6 billion", and to thousands separators.
 _NUMERIC_TOKEN_REGEX = re.compile(r"\d[\d.,]*")
+
+# Reason: the long-vs-short key-points shaping clause injected at {KEY_POINTS_SHAPE},
+# keyed by the code-side summary mode (summary_mode.summary_mode_for). news → "" so a
+# news story's enrichment prompt stays byte-for-byte identical to today. The "EXACTLY
+# 5" requirement + the numeric-grounding gate are untouched — only the SHAPE varies.
+_KEY_POINTS_SHAPE_BY_MODE: dict[str, str] = {
+    "long": KEY_POINTS_LONG,
+    "short": KEY_POINTS_SHORT,
+    "news": KEY_POINTS_NEWS,
+}
 
 
 class DetailEnrichment(BaseModel):
@@ -476,6 +490,12 @@ def _build_system_prompt(
 ) -> str:
     """Fill the detail-enrichment prompt with this story's source + panel set.
 
+    The key_points instruction is shaped long-vs-short in code from the story's
+    summary mode (``summary_mode.summary_mode_for`` — long for youtube.com, short
+    for x.com, news otherwise), interpolated at ``{KEY_POINTS_SHAPE}``. A news
+    story interpolates the empty shape so its prompt is byte-for-byte unchanged;
+    the "EXACTLY 5" requirement + the numeric-grounding gate are not touched.
+
     Args:
         story: The canonical story whose body/headline/outlet seed the prompt.
         analytic_specs: The template's ``analytic`` PanelSpecs (in slot order) the
@@ -494,6 +514,7 @@ def _build_system_prompt(
     outlet = (
         story.canonical_primary_outlet_name or story.canonical_primary_outlet_domain
     )
+    key_points_shape = _KEY_POINTS_SHAPE_BY_MODE[summary_mode_for(story)]
     return (
         DETAIL_ENRICHMENT_PROMPT.replace(
             "{TIMELINE_PRODUCE}", DETAIL_TIMELINE_PRODUCE if include_timeline else ""
@@ -501,6 +522,7 @@ def _build_system_prompt(
         .replace(
             "{TIMELINE_CONTRACT}", DETAIL_TIMELINE_CONTRACT if include_timeline else ""
         )
+        .replace("{KEY_POINTS_SHAPE}", key_points_shape)
         .replace("{PANEL_INSTRUCTIONS}", _build_panel_instructions(analytic_specs))
         .replace("{SOURCE_HEADLINE}", story.canonical_title)
         .replace("{SOURCE_OUTLET}", outlet)

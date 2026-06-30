@@ -16,6 +16,49 @@ constants with ``{PLACEHOLDER}`` slots the stages ``.replace()`` at call time
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
+# Long-vs-short summary-shape variants (feed-source revamp, M7)
+# ---------------------------------------------------------------------------
+# A followed-source item is long-form (a youtube.com video/podcast) or short-form
+# (an x.com tweet/short clip); news (non-source) stories are neither. The summary
+# SHAPE the model is asked for differs by mode — these blocks are interpolated by
+# the scripting + detail-enrichment stages via agents/pipeline/summary_mode.py
+# (the mode is decided in CODE from the outlet domain, never by the model — Rule 5).
+# The news variant is EMPTY so a news story's prompt stays byte-for-byte identical
+# to today (regression guard). long and short are distinct, non-empty, and assert
+# different shapes (key-points/substance vs tight/no-padding).
+
+# Injected at {SUMMARY_SHAPE} in DIGEST_SCRIPTING_PROMPT (an extra shaping line
+# inside the LENGTH BUDGET block). Each value either starts with a newline + its
+# instruction, or is "" for news (so empty substitution leaves the surrounding
+# text unchanged).
+SCRIPTING_SHAPE_LONG = (
+    "\n- LONG-FORM SOURCE (a video or podcast): the hosts draw out the KEY POINTS "
+    "/ the substance of a long piece — the main arguments, the most important "
+    "takeaways, what was actually said. Cover the substance, not just one beat."
+)
+SCRIPTING_SHAPE_SHORT = (
+    "\n- SHORT-FORM SOURCE (a tweet or short clip): keep it a TIGHT summary. Do "
+    "NOT pad a tweet into filler — say only what the post actually says, briefly. "
+    "A short accurate digest beats a stretched one."
+)
+SCRIPTING_SHAPE_NEWS = ""
+
+# Injected at {KEY_POINTS_SHAPE} in DETAIL_ENRICHMENT_PROMPT (an extra clause on
+# the key_points instruction). Same convention: news is "" (byte-identical), long
+# draws out fuller key-points coverage, short asks for a tight set.
+KEY_POINTS_LONG = (
+    " For this LONG-FORM source (a video or podcast), draw out the key points / "
+    "the substance of a long piece — cover the main arguments and most important "
+    "takeaways, not just one beat."
+)
+KEY_POINTS_SHORT = (
+    " For this SHORT-FORM source (a tweet or short clip), keep the key points a "
+    "TIGHT set — do not pad a tweet into filler; capture only what the post says."
+)
+KEY_POINTS_NEWS = ""
+
+
+# ---------------------------------------------------------------------------
 # Single-source dialogue scripting (Gemini text)
 # ---------------------------------------------------------------------------
 
@@ -97,7 +140,7 @@ LENGTH BUDGET — HARD CONSTRAINT
   {MAX_WORDS}). At the calibrated TTS rate that is roughly {TARGET_SECONDS}
   seconds of audio. This is a tight digest, not a briefing.
 - Aim for {MIN_TURNS} to {MAX_TURNS} short turns total, with at least one turn
-  from each host.
+  from each host.{SUMMARY_SHAPE}
 
 STRUCTURE
 1. THE OPENER — Alex cold-opens directly on the story.
@@ -391,7 +434,7 @@ WHAT TO PRODUCE
   article, or null), analytic_row_direction ('up'|'down'|'flat'|null),
   analytic_row_note (optional, or null).
 - key_points: EXACTLY 5 at-a-glance bullets summarizing the story, most important
-  first. Each one short sentence. These are distinct from the long-form body.
+  first. Each one short sentence. These are distinct from the long-form body.{KEY_POINTS_SHAPE}
 
 ANALYTIC PANELS
 {PANEL_INSTRUCTIONS}

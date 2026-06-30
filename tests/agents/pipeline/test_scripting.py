@@ -19,10 +19,12 @@ import json
 import pytest
 
 from agents.pipeline.models import DigestScript
+from agents.pipeline.prompts import SCRIPTING_SHAPE_LONG, SCRIPTING_SHAPE_SHORT
 from agents.pipeline.stages.scripting import (
     HANDOFF_STYLES,
     MAX_WORDS,
     OPENER_ARCHETYPES,
+    _build_system_prompt,
     _parse_json_dialogue,
     _select_handoff_style,
     _select_opener_archetype,
@@ -121,6 +123,92 @@ class TestSingleSourceConstraint:
         assert source_body in system_prompt
         # The constraint is reinforced in the user prompt too.
         assert "ONLY the SOURCE_ARTICLE" in call_kwargs["prompt"]
+
+
+class TestLongVsShortSummaryShape:
+    """M7 SP2: the long/short summary-shape block is selected in code by outlet domain.
+
+    WHY (Rule 9): a long-form video and a short-form tweet need different summary
+    shapes (PRD US-19/US-20, Decision #10). The mode is decided in code from the
+    outlet domain (Rule 5) and interpolated into the scripting prompt — these
+    assert the RIGHT shape reaches the mocked client, and that a NEWS story's
+    prompt is BYTE-FOR-BYTE unchanged (the regression guard). Selecting the wrong
+    shape, or regressing the news path, fails here.
+    """
+
+    def _restory(self, story, domain: str):
+        return story.model_copy(update={"canonical_primary_outlet_domain": domain})
+
+    def test_youtube_story_gets_long_form_shape(self, canonical_story) -> None:
+        """A youtube.com story carries the long-form key-points shaping (not short)."""
+        prompt = _build_system_prompt(self._restory(canonical_story, "youtube.com"))
+        assert SCRIPTING_SHAPE_LONG in prompt
+        assert SCRIPTING_SHAPE_SHORT not in prompt
+        assert "{SUMMARY_SHAPE}" not in prompt
+
+    def test_x_story_gets_tight_shape(self, canonical_story) -> None:
+        """An x.com story carries the tight shaping and NOT the long-form block."""
+        prompt = _build_system_prompt(self._restory(canonical_story, "x.com"))
+        assert SCRIPTING_SHAPE_SHORT in prompt
+        assert SCRIPTING_SHAPE_LONG not in prompt
+        assert "{SUMMARY_SHAPE}" not in prompt
+
+    def test_news_prompt_is_byte_identical_to_no_shape(self, canonical_story) -> None:
+        """A news story's prompt equals the template with the shape slot emptied.
+
+        This is the regression guard: the news (non-source) path must be
+        byte-for-byte what it was before M7 added the {SUMMARY_SHAPE} slot. We
+        rebuild the expected prompt by emptying that one slot and assert equality.
+        """
+        from agents.pipeline.prompts import DIGEST_SCRIPTING_PROMPT
+        from agents.pipeline.stages import scripting as scripting_mod
+
+        news_prompt = _build_system_prompt(canonical_story)  # bbc.com → news
+        # Neither shape block leaks into a news prompt.
+        assert SCRIPTING_SHAPE_LONG not in news_prompt
+        assert SCRIPTING_SHAPE_SHORT not in news_prompt
+        assert "{SUMMARY_SHAPE}" not in news_prompt
+
+        # Rebuild the EXACT bytes by substituting "" for the shape slot, exactly as
+        # the template did before the slot existed (empty news variant).
+        published = canonical_story.canonical_published_utc.strftime("%B %d, %Y")
+        outlet = (
+            canonical_story.canonical_primary_outlet_name
+            or canonical_story.canonical_primary_outlet_domain
+        )
+        expected = (
+            DIGEST_SCRIPTING_PROMPT.replace(
+                "{TARGET_WORDS}", str(scripting_mod.TARGET_WORDS)
+            )
+            .replace("{MAX_WORDS}", str(scripting_mod.MAX_WORDS))
+            .replace("{TARGET_SECONDS}", str(scripting_mod.TARGET_SECONDS))
+            .replace("{MIN_TURNS}", str(scripting_mod.MIN_TURNS))
+            .replace("{MAX_TURNS}", str(scripting_mod.MAX_TURNS))
+            .replace("{SUMMARY_SHAPE}", "")
+            .replace(
+                "{OPENER_ARCHETYPE}", scripting_mod._select_opener_archetype(None)
+            )
+            .replace("{HANDOFF_STYLE}", scripting_mod._select_handoff_style(None))
+            .replace("{SOURCE_HEADLINE}", canonical_story.canonical_title)
+            .replace("{SOURCE_OUTLET}", outlet)
+            .replace("{SOURCE_PUBLISHED}", published)
+            .replace("{SOURCE_BODY}", (canonical_story.canonical_body_text or "").strip())
+        )
+        assert news_prompt == expected
+
+    @pytest.mark.asyncio
+    async def test_shape_reaches_mocked_client_for_youtube(
+        self, canonical_story, make_llm_client
+    ) -> None:
+        """End-to-end: the long-form shape is in the system prompt actually sent."""
+        story = self._restory(canonical_story, "youtube.com")
+        client = make_llm_client(
+            _two_host_script_json("Big interview?", "Yes — here's the gist.")
+        )
+        await run_single_source_scripting(story=story, llm_client=client)
+        system_prompt = client.call_gemini.call_args.kwargs["system"]
+        assert SCRIPTING_SHAPE_LONG in system_prompt
+        assert SCRIPTING_SHAPE_SHORT not in system_prompt
 
 
 class TestOpenerHandoffRotation:

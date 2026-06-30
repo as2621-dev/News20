@@ -16,6 +16,8 @@ npm run lint       # Biome
 
 Cross-phase feed contract: `src/types/feed.ts`. Reel UI: `src/components/reel/`, `src/lib/reel/`. Karaoke selector: `src/lib/captions/captionState.ts`. Phase record: `plans/phase-1-audio-first-reel-progress.md`.
 
+**Feed-source revamp (2026-06-30, `plans/prd.md`).** News is a shared backbone; personalization comes from the YouTube channels / X accounts / Personalities you follow (interests collapse to 8 top-level roots; clusters bulk-select sources; followed items lead the feed). Followed-source items are summarized by content length via a **code-side long-vs-short summary selector** (`agents/pipeline/summary_mode.py`): a `youtube.com` long-form video/podcast gets a **key-points** summary, an `x.com` tweet/short clip a **tight** one, and news stories keep today's prompt unchanged — **prompt-only, no new ingestion or schema**. See `reference/ranking-spec.md` and `personalization-and-source-curation-spec.md`.
+
 Karaoke caption timing is produced server-side by **acoustic forced alignment** (`agents/pipeline/stages/acoustic_alignment.py` — offline torchaudio Wav2Vec2 CTC, no paid API; requires `torch`/`torchaudio`/`num2words` from `requirements.txt`, ~360MB model auto-downloaded to the torch cache on first run). If those deps are absent the pipeline falls back to heuristic char-weight slicing (`forced_alignment.py`).
 
 ### Environment variables

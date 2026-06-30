@@ -359,6 +359,124 @@ class TestPerPanelGroundingGate:
         assert enrichment.analytic_panels[0].analytic_is_grounded is False
 
 
+class TestLongVsShortKeyPointsShape:
+    """M7 SP3: the key_points instruction is shaped long-vs-short by outlet domain.
+
+    WHY (Rule 9): a long-form video's key points should draw out the substance; a
+    short-form tweet's should stay a tight set (PRD US-19/US-20, Decision #10). The
+    mode is chosen in code (Rule 5). These assert the right shape reaches the
+    mocked client and that a NEWS story's enrichment prompt is unchanged — and the
+    "exactly 5" + numeric-grounding invariants (covered by the other classes) are
+    untouched. A wrong key-points shape OR a regressed news path fails here.
+    """
+
+    def _restory(self, story, domain: str):
+        return story.model_copy(update={"canonical_primary_outlet_domain": domain})
+
+    @pytest.mark.asyncio
+    async def test_youtube_story_gets_long_key_points_shape(
+        self, hormuz_story, digest_script, make_llm_client
+    ) -> None:
+        """A youtube.com story's prompt carries the long-form key-points shaping."""
+        from agents.pipeline.prompts import KEY_POINTS_LONG, KEY_POINTS_SHORT
+
+        story = self._restory(hormuz_story, "youtube.com")
+        client = make_llm_client(
+            _enrichment_payload(analytic_panels=[_panel(0), _panel(1), _panel(2)])
+        )
+        await run_detail_enrichment(
+            story=story, script=digest_script, llm_client=client, detail_category="youtube"
+        )
+        system_prompt = client.call_gemini.call_args.kwargs["system"]
+        assert KEY_POINTS_LONG in system_prompt
+        assert KEY_POINTS_SHORT not in system_prompt
+        assert "{KEY_POINTS_SHAPE}" not in system_prompt
+
+    @pytest.mark.asyncio
+    async def test_x_story_gets_tight_key_points_shape(
+        self, hormuz_story, digest_script, make_llm_client
+    ) -> None:
+        """An x.com story's prompt carries the tight shaping, NOT the long block."""
+        from agents.pipeline.prompts import KEY_POINTS_LONG, KEY_POINTS_SHORT
+
+        story = self._restory(hormuz_story, "x.com")
+        client = make_llm_client(
+            _enrichment_payload(analytic_panels=[_panel(0), _panel(1), _panel(2)])
+        )
+        await run_detail_enrichment(
+            story=story, script=digest_script, llm_client=client, detail_category="x"
+        )
+        system_prompt = client.call_gemini.call_args.kwargs["system"]
+        assert KEY_POINTS_SHORT in system_prompt
+        assert KEY_POINTS_LONG not in system_prompt
+        assert "{KEY_POINTS_SHAPE}" not in system_prompt
+
+    @pytest.mark.asyncio
+    async def test_news_prompt_is_byte_identical_to_no_shape(
+        self, hormuz_story, digest_script, make_llm_client
+    ) -> None:
+        """A news story's enrichment prompt equals the template with the slot emptied.
+
+        Regression guard: the news (non-source) path must be byte-for-byte what it
+        was before M7 added {KEY_POINTS_SHAPE}. hormuz_story's domain is bbc.com
+        (news). We rebuild the expected prompt by emptying that one slot.
+        """
+        from agents.pipeline.prompts import KEY_POINTS_LONG, KEY_POINTS_SHORT
+        from agents.pipeline.stages import detail_enrichment as de_mod
+
+        client = make_llm_client(_enrichment_payload())
+        await run_detail_enrichment(
+            story=hormuz_story, script=digest_script, llm_client=client, detail_category="markets"
+        )
+        news_prompt = client.call_gemini.call_args.kwargs["system"]
+        assert KEY_POINTS_LONG not in news_prompt
+        assert KEY_POINTS_SHORT not in news_prompt
+        assert "{KEY_POINTS_SHAPE}" not in news_prompt
+
+        # Rebuild the exact bytes a news story would have produced before the slot
+        # existed: same builder, but with the shape slot forced empty.
+        from agents.pipeline.detail_templates import (
+            DETAIL_TEMPLATES,
+            analytic_panel_specs,
+        )
+
+        template = DETAIL_TEMPLATES["markets"]
+        analytic_specs = analytic_panel_specs("markets")
+        include_timeline = any(spec.panel_kind == "timeline" for spec in template)
+
+        from agents.pipeline.prompts import (
+            DETAIL_ENRICHMENT_PROMPT,
+            DETAIL_TIMELINE_CONTRACT,
+            DETAIL_TIMELINE_PRODUCE,
+        )
+
+        body = (hormuz_story.canonical_body_text or "").strip()
+        published = hormuz_story.canonical_published_utc.strftime("%B %d, %Y")
+        outlet = (
+            hormuz_story.canonical_primary_outlet_name
+            or hormuz_story.canonical_primary_outlet_domain
+        )
+        expected = (
+            DETAIL_ENRICHMENT_PROMPT.replace(
+                "{TIMELINE_PRODUCE}", DETAIL_TIMELINE_PRODUCE if include_timeline else ""
+            )
+            .replace(
+                "{TIMELINE_CONTRACT}",
+                DETAIL_TIMELINE_CONTRACT if include_timeline else "",
+            )
+            .replace("{KEY_POINTS_SHAPE}", "")
+            .replace(
+                "{PANEL_INSTRUCTIONS}",
+                de_mod._build_panel_instructions(analytic_specs),
+            )
+            .replace("{SOURCE_HEADLINE}", hormuz_story.canonical_title)
+            .replace("{SOURCE_OUTLET}", outlet)
+            .replace("{SOURCE_PUBLISHED}", published)
+            .replace("{SOURCE_BODY}", body)
+        )
+        assert news_prompt == expected
+
+
 class TestAnalyticInstructions:
     """The per-kind prompt instructions back the grounding contract."""
 

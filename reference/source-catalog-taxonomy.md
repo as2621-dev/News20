@@ -118,11 +118,20 @@ onboarding **pre-select recommended clusters the user deselects (opt-out)** rath
 than opt-in.
 
 **One model for both axes.** A single cluster model serves **both** X and YouTube
-(YouTube clusters simply have fewer members per cluster). Net-new tables (names
-illustrative; pin in M1): `source_clusters` (one row per named grouping;
+(YouTube clusters simply have fewer members per cluster). Net-new tables (migration
+**`0022_source_clusters.sql`**): `source_clusters` (one row per named grouping;
 `cluster_category` ∈ the 8 `ALLOWED_TOPIC_TAGS`; ordered) + `source_cluster_members`
 (cluster → catalog row / personality ref, ordered by `popularity_score`). Public-read
 RLS, service-role writes (same tier as `content_sources`).
+
+**Supersedes the 5c archetype/persona SourceSwipe deck (M6a).** The category-keyed
+**cluster onboarding** is now the onboarding source-selection step — it **supersedes**
+the phase-5c archetype/persona-keyed **SourceSwipe deck** described at the top of this
+doc. The 12 archetypes + persona-union catalog generation (above) remain the
+**curation/seed** machinery, but the *user-facing source picker* at onboarding is
+cluster-driven (filtered by `topic_tags ∩ chosen categories`, ordered by
+`popularity_score`, recommended clusters pre-selected for opt-out). See `plans/prd.md`
+M6 / Decision #6/#7 and `reference/sources-reuse-map.md`.
 
 **The no-dup rule (load-bearing).** A person who is a followable **personality**
 (bundling their handles via `personalities.youtube_channel_ids` / `aliases`) is shown

@@ -6,6 +6,10 @@
 
 **When to update:** mark ✅ ported as modules land; if a NEW item turns out to have a donor analog, move it up; if the donor moves, fix the paths.
 
+> **⚠ Feed-source revamp (2026-06-30, `plans/prd.md`).** The source axis changed in two load-bearing ways:
+> - **M1 — net-new cluster layer.** Two **net-new** tables (`source_clusters` + `source_cluster_members`, migration **`0022_source_clusters.sql`**) group catalog rows into named, category-keyed bulk-select **clusters** ("Leading AI-lab researchers", "AI founders"). A cluster is **NOT** an archetype and **NOT** a `persona` (those stay a recommendation-matching key, §2). The **no-dup rule** lives in the cluster/no-dup resolver: a followable **personality** is shown once as a personality card; their individual `content_sources` YouTube/X rows are excluded from the grid and from any cluster's rendered members. Full spec: `reference/source-catalog-taxonomy.md` §Clusters.
+> - **M6a — cluster onboarding supersedes the 5c SourceSwipe deck.** The category-keyed **cluster onboarding** (after the top-level category picker, filtered by `topic_tags ∩ chosen categories`, ordered by `popularity_score`, **recommended clusters pre-selected for opt-out**) is now the source-selection step — it **supersedes** the §2/§5 phase-5c **archetype/persona-keyed SourceSwipe deck** as the onboarding source picker. The §2 archetype recommendation engine and the §5 picker UI remain documented as history / reusable structure, but the live source step is cluster-driven. See `plans/prd.md` M6 / Decision #6/#7.
+
 ## Donor location
 
 ```

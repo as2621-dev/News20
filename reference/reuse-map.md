@@ -28,7 +28,7 @@ Legend: **PORT** = copy with minimal edits · **ADAPT** = copy then meaningfully
 ### Script + caption timing + hallucination guardrail
 | TLDW path | News20 use | Decision |
 |---|---|---|
-| `agents/pipeline/stages/scripting.py` | LLM condenses one source article → ~140-word two-person dialogue | **ADAPT** (retarget to 50–55s news digest, single-source constraint) |
+| `agents/pipeline/stages/scripting.py` | LLM condenses one source article → ~140-word two-person dialogue | **ADAPT** (retarget to 50–55s news digest, single-source constraint; FSR-M7: long-vs-short summary shape selected in code via `agents/pipeline/summary_mode.py` — `youtube.com`→key-points, `x.com`→tight, news unchanged; prompt-only, no new ingestion) |
 | `agents/pipeline/stages/forced_alignment.py` | Word-level timing → word-by-word animated captions | **PORT** (drives Remotion caption track) |
 | `agents/pipeline/stages/verification.py` | Hallucination guardrail — verify claims against source | **PORT** (also gates interrogation/voice answers, Decision #5) |
 | `agents/pipeline/stages/ranking.py` | Story ranking / selection for the daily set | **ADAPT** (add interest-category weighting) |

@@ -2,6 +2,17 @@
 
 > Scope: onboarding, profile mapping, source recommendation, and the settings/preferences control surface that lets a user balance **topic-driven discovery** against **source-driven follows** across the fixed 30-story digest.
 
+> **⚠ Feed-source revamp (2026-06-30, `plans/prd.md`) — the product direction shifted to SOURCE-FIRST. Read this before the sections below; where they conflict, the revamp wins (Rule 7).**
+>
+> **News is a shared backbone; personalization is the people you follow.** Keyword-fetched "niche news" was a noisy personalization signal (and the root of the mis-categorization bug). The new model:
+> - **Onboarding interests collapse to the 8 top-level roots** (geopolitics / tech / markets / sport / …). The §2.1 3-step drill-down is **superseded** for *news fetching*: the picker shows top-level categories only. Existing deep `user_interest_profile` rows collapse to their root (migration `0024`). The hierarchical `interests` table + `DepthMatch` term **remain** for scoring source-tagged/followed content — only the onboarding picker + news-fetch keying collapse to roots.
+> - **Personalization is carried by YouTube channels, X accounts, and Personalities you follow**, not by news keywords. After categories, onboarding shows these filtered by `topic_tags ∩ chosen categories`, ordered by `popularity_score`, **bulk-selectable via category-keyed clusters** with recommended clusters **pre-selected for opt-out** (deselect, don't hand-pick ~90). The §2.2 archetype profile-mapping + §3 three-screen recommendation flow are **superseded** by this cluster onboarding (see `reference/source-catalog-taxonomy.md` §Clusters / `reference/sources-reuse-map.md`). Niche depth (deep cricket, a specific founder) now comes from these follows.
+> - **The feed leads with what you follow.** Fresh followed-source items get guaranteed priority slots first (the §5.5 "pinned sources fill first" rule, now in `feed_assembly.py`); category top-stories fill the rest to 30. See `reference/ranking-spec.md` §3a.4.
+>
+> **Long-vs-short summaries (M7, prompt-only).** A followed-source item is summarized by *content length*, chosen in code (`agents/pipeline/summary_mode.summary_mode_for`): a **`youtube.com`** long-form video/podcast → **key-points** summary; an **`x.com`** tweet/short clip → **tight** summary; a news (non-source) story keeps today's prompt byte-for-byte. **No new ingestion, schema, or pipeline stage** — only the existing `scripting.py` / `prompts.py` / `detail_enrichment.py` prompts are refined (Decision #10). See `reference/ranking-spec.md` §3a.5.
+>
+> **Revamp migration ledger:** `0022_source_clusters.sql` (M1 — net-new cluster tables) · `0023_root_interest_nodes.sql` (root-nodes phase) · `0024_collapse_interest_profile_to_roots.sql` (M5 — idempotent deep→root collapse via `category_for_slug`).
+
 ---
 
 ## 1. Context & Goal

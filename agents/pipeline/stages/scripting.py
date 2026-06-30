@@ -35,7 +35,13 @@ from agents.ingestion.models import CanonicalStory
 from agents.pipeline.json_utils import extract_json_from_llm_response
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import DialogueTurn, DigestScript
-from agents.pipeline.prompts import DIGEST_SCRIPTING_PROMPT
+from agents.pipeline.prompts import (
+    DIGEST_SCRIPTING_PROMPT,
+    SCRIPTING_SHAPE_LONG,
+    SCRIPTING_SHAPE_NEWS,
+    SCRIPTING_SHAPE_SHORT,
+)
+from agents.pipeline.summary_mode import summary_mode_for
 from agents.shared.exceptions import PipelineStageError
 from agents.shared.logger import get_logger
 
@@ -152,6 +158,15 @@ _BRACKET_TAG_REGEX = re.compile(
 
 _VALID_SPEAKERS = {"ALEX", "JORDAN"}
 
+# Reason: the long-vs-short summary-shape block injected at {SUMMARY_SHAPE}, keyed
+# by the code-side summary mode (agents/pipeline/summary_mode.summary_mode_for).
+# news → "" so a news story's prompt stays byte-for-byte identical to today.
+_SCRIPTING_SHAPE_BY_MODE: dict[str, str] = {
+    "long": SCRIPTING_SHAPE_LONG,
+    "short": SCRIPTING_SHAPE_SHORT,
+    "news": SCRIPTING_SHAPE_NEWS,
+}
+
 
 def _strip_unsafe_brackets(text: str) -> str:
     """Drop forbidden bracket tags the model occasionally emits; keep ellipses.
@@ -241,6 +256,11 @@ def _compute_script_metrics(turns: list[DialogueTurn]) -> tuple[int, int]:
 def _build_system_prompt(story: CanonicalStory, pool_index: int | None = None) -> str:
     """Fill the single-source scripting prompt with this story's source article.
 
+    The long-vs-short summary-shape block is selected in code from the story's
+    summary mode (``summary_mode.summary_mode_for`` — long for youtube.com, short
+    for x.com, news otherwise) and interpolated at ``{SUMMARY_SHAPE}``; a news
+    story interpolates the empty block so its prompt is byte-for-byte unchanged.
+
     Args:
         story: The canonical story whose body/headline/outlet seed the prompt.
         pool_index: Zero-based position of this reel in the day's production pool,
@@ -259,12 +279,15 @@ def _build_system_prompt(story: CanonicalStory, pool_index: int | None = None) -
         story.canonical_primary_outlet_name or story.canonical_primary_outlet_domain
     )
 
+    summary_shape = _SCRIPTING_SHAPE_BY_MODE[summary_mode_for(story)]
+
     return (
         DIGEST_SCRIPTING_PROMPT.replace("{TARGET_WORDS}", str(TARGET_WORDS))
         .replace("{MAX_WORDS}", str(MAX_WORDS))
         .replace("{TARGET_SECONDS}", str(TARGET_SECONDS))
         .replace("{MIN_TURNS}", str(MIN_TURNS))
         .replace("{MAX_TURNS}", str(MAX_TURNS))
+        .replace("{SUMMARY_SHAPE}", summary_shape)
         .replace("{OPENER_ARCHETYPE}", _select_opener_archetype(pool_index))
         .replace("{HANDOFF_STYLE}", _select_handoff_style(pool_index))
         .replace("{SOURCE_HEADLINE}", story.canonical_title)
