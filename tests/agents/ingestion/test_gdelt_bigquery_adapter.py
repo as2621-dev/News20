@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 import pytest
 
 from agents.ingestion.adapters.gdelt_bigquery import (
+    _BATCH_SQL,
     GdeltBigQueryAdapter,
     match_terms,
     recall_terms,
@@ -150,6 +151,55 @@ class TestRowsToCandidates:
             ].candidate_social_image_url
             is None
         )
+
+    def test_v2_themes_parsed_offset_stripped_and_deduped(self, make_bq_row) -> None:
+        """V2Themes (CODE,offset;…) → offset-stripped, deduped, order-preserved
+        codes in VERBATIM case (the theme→category whitelist keys on the uppercase
+        GDELT codes — lowercasing here would silently break SP1's lookup)."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [
+            make_bq_row(
+                "https://x.com/a",
+                "T",
+                "x.com",
+                v2_themes="WB_2670_JOBS,123;ECON_STOCKMARKET,456;WB_2670_JOBS,789",
+            )
+        ]
+        cand = adapter._rows_to_candidates(rows, stamp_interest=True)[0]
+        assert cand.candidate_themes == ["WB_2670_JOBS", "ECON_STOCKMARKET"]
+
+    def test_v2_themes_none_yields_empty_list(self, make_bq_row) -> None:
+        """A NULL V2Themes yields [] (the no-theme story must not crash ingest)."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [make_bq_row("https://x.com/a", "T", "x.com", v2_themes=None)]
+        assert adapter._rows_to_candidates(rows, stamp_interest=True)[0].candidate_themes == []
+
+    def test_v2_themes_empty_string_yields_empty_list(self, make_bq_row) -> None:
+        """An empty-string V2Themes yields [] (same fail-safe as NULL)."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [make_bq_row("https://x.com/a", "T", "x.com", v2_themes="")]
+        assert adapter._rows_to_candidates(rows, stamp_interest=True)[0].candidate_themes == []
+
+
+class TestBatchSqlIncludesThemes:
+    """Static guards: V2Themes must flow from the raw SELECT to the projection.
+
+    WHY: themes are the category signal (M2). If V2Themes is dropped from `raw`
+    or the final projection, every candidate gets candidate_themes=[] and category
+    silently reverts to keyword-inherited — these substring asserts fail loud."""
+
+    def test_raw_select_includes_v2_themes(self) -> None:
+        """V2Themes is selected in the `raw` CTE (alongside the entity columns)."""
+        assert "V2Persons, V2Organizations, V2Locations, V2Themes" in _BATCH_SQL
+
+    def test_final_projection_includes_theme_column(self) -> None:
+        """The v2_themes column reaches the final projection (so the parser sees it).
+
+        Isolates the final ``SELECT … FROM ranked`` block (the LAST select, not the
+        CTEs) so the assert fails if v2_themes is dropped only from the projection."""
+        assert "FROM ranked" in _BATCH_SQL
+        projection = _BATCH_SQL.rsplit("SELECT", 1)[1].split("FROM ranked", 1)[0]
+        assert "v2_themes" in projection
 
 
 class TestParseGkgDate:

@@ -131,6 +131,9 @@ class CandidateStory(BaseModel):
         candidate_matched_interest_id: Interest whose query surfaced this article
             (set by the pipeline, not the adapter).
         candidate_matched_interest_slug: Slug of the matched interest (set by the pipeline).
+        candidate_themes: GDELT GKG ``V2Themes`` codes carried from ingestion
+            (offset-stripped, deduped, verbatim case). The category source for
+            theme-derived categorization downstream; empty when GKG had no themes.
 
     Example:
         >>> from datetime import datetime, timezone
@@ -178,6 +181,10 @@ class CandidateStory(BaseModel):
     )
     candidate_matched_interest_slug: str | None = Field(
         default=None, description="Slug of the matched interest (set by the pipeline)"
+    )
+    candidate_themes: list[str] = Field(
+        default_factory=list,
+        description="GDELT GKG V2Themes codes (offset-stripped, deduped, verbatim case)",
     )
     candidate_platform_metadata: dict[str, Any] | None = Field(
         default=None,

@@ -169,6 +169,33 @@ def _term_regex(token: str) -> str:
     return r"\b" + re.escape(token) + r"\b"
 
 
+def _parse_v2_themes(v2_themes: Any) -> list[str]:
+    """Parse a GKG ``V2Themes`` string into deduped theme codes (verbatim case).
+
+    ``V2Themes`` is ``CODE,charoffset;CODE,charoffset;…`` — semicolon-delimited
+    entries, each ``CODE,offset``. We split on ``;``, take the part before the
+    first ``,`` (the code), strip whitespace, drop empties, and dedup preserving
+    first-seen order. NULL/empty/missing → ``[]`` (never raises).
+
+    Case is kept VERBATIM (GDELT codes are uppercase) so the downstream
+    theme→category whitelist — keyed on the uppercase GDELT codes — matches.
+
+    Example:
+        >>> _parse_v2_themes("WB_2670_JOBS,123;ECON_STOCKMARKET,456;WB_2670_JOBS,789")
+        ['WB_2670_JOBS', 'ECON_STOCKMARKET']
+    """
+    if not v2_themes:
+        return []
+    seen: set[str] = set()
+    codes: list[str] = []
+    for entry in str(v2_themes).split(";"):
+        code = entry.split(",", 1)[0].strip()
+        if code and code not in seen:
+            seen.add(code)
+            codes.append(code)
+    return codes
+
+
 # Reason: one parameterized query — interest terms arrive as a STRUCT array
 # (@interest_terms, one row per (interest, term)), so the SQL is fixed and
 # injection-safe regardless of interest count. A row matches an interest if ANY
@@ -185,7 +212,7 @@ WITH raw AS (
     DATE AS gkg_date,
     NULLIF(SharingImage, '') AS sharing_image,
     REGEXP_EXTRACT(Extras, r'<PAGE_TITLE>(.*?)</PAGE_TITLE>') AS title,
-    V2Persons, V2Organizations, V2Locations
+    V2Persons, V2Organizations, V2Locations, V2Themes
   FROM `gdelt-bq.gdeltv2.gkg_partitioned`
   WHERE _PARTITIONTIME >= @since_partition
     AND DATE >= @since_date
@@ -194,7 +221,7 @@ WITH raw AS (
 ),
 base AS (
   SELECT
-    url, outlet, gkg_date, sharing_image, title,
+    url, outlet, gkg_date, sharing_image, title, V2Themes AS v2_themes,
     LOWER(IFNULL(title, '')) AS title_hay,
     LOWER(CONCAT(
       IFNULL(title, ''), ' ', IFNULL(V2Persons, ''), ' ',
@@ -204,14 +231,14 @@ base AS (
 ),
 matched AS (
   SELECT
-    b.url, b.outlet, b.gkg_date, b.sharing_image, b.title,
+    b.url, b.outlet, b.gkg_date, b.sharing_image, b.title, b.v2_themes,
     t.interest_id, t.interest_slug,
     COUNT(DISTINCT t.term) AS match_count,
     COUNT(DISTINCT IF(REGEXP_CONTAINS(b.title_hay, t.term), t.term, NULL)) AS title_match_count
   FROM base AS b
   JOIN UNNEST(@interest_terms) AS t
     ON REGEXP_CONTAINS(b.hay, t.term)
-  GROUP BY b.url, b.outlet, b.gkg_date, b.sharing_image, b.title,
+  GROUP BY b.url, b.outlet, b.gkg_date, b.sharing_image, b.title, b.v2_themes,
            t.interest_id, t.interest_slug
 ),
 ranked AS (
@@ -221,8 +248,8 @@ ranked AS (
   ) AS rn
   FROM matched
 )
-SELECT url, outlet, gkg_date, sharing_image, title, interest_id, interest_slug,
-       match_count, title_match_count
+SELECT url, outlet, gkg_date, sharing_image, title, v2_themes,
+       interest_id, interest_slug, match_count, title_match_count
 FROM ranked
 WHERE rn <= @per_interest_limit
 ORDER BY interest_id, rn
@@ -470,6 +497,7 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                 continue
             published_utc = self._parse_gkg_date(row.get("gkg_date"))
             social_image = (row.get("sharing_image") or None) or None
+            candidate_themes = _parse_v2_themes(row.get("v2_themes"))
 
             matched_interest_id: str | None = None
             matched_interest_slug: str | None = None
@@ -492,6 +520,7 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                     candidate_social_image_url=social_image,
                     candidate_matched_interest_id=matched_interest_id,
                     candidate_matched_interest_slug=matched_interest_slug,
+                    candidate_themes=candidate_themes,
                 )
             )
         return candidates

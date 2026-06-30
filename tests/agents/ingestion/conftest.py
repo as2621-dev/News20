@@ -188,6 +188,7 @@ def make_bq_row():
         sharing_image: str | None = None,
         match_count: int = 1,
         title_match_count: int = 1,
+        v2_themes: str | None = None,
     ) -> dict:
         return {
             "url": url,
@@ -195,6 +196,7 @@ def make_bq_row():
             "gkg_date": gkg_date,
             "sharing_image": sharing_image,
             "title": title,
+            "v2_themes": v2_themes,
             "interest_id": interest_id,
             "interest_slug": interest_slug,
             "match_count": match_count,
