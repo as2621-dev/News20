@@ -36,6 +36,9 @@ const USER_CONTENT_SOURCES_TABLE = "user_content_sources";
 /** The public-read `archetypes` reference table name (migration 0009). */
 const ARCHETYPES_TABLE = "archetypes";
 
+/** The `user_personalities` follow-junction table name (migration 0009). */
+const USER_PERSONALITIES_TABLE = "user_personalities";
+
 /**
  * The exact `archetypes` column projection {@link getArchetypes} requests — every
  * field of {@link Archetype}, pinning the row shape to the type (not `*`).
@@ -146,6 +149,74 @@ export async function listSourcesByArchetype(
 
   const rows = data ?? [];
   logger.info("list_sources_by_archetype_completed", { kind, returned: rows.length });
+  return rows;
+}
+
+/**
+ * Browse the public catalog for sources whose `topic_tags` overlap a set of chosen
+ * top-level categories on a single axis, ranked by popularity (PRD M6 — the
+ * source/cluster onboarding filter `topic_tags ∩ chosen categories`, ordered by
+ * `popularity_score`). This REPLACES the {@link listSourcesByArchetype} `personas`
+ * overlap for the M6 onboarding grid: M5 collapsed onboarding to root categories, so
+ * the source surface is keyed on the user's chosen categories, NOT an archetype.
+ *
+ * Filters `content_sources` where `topic_tags && $categories` (ANY-overlap, served by
+ * the `idx_content_sources_topic_tags` GIN index) AND `content_source_type = kind`,
+ * orders by `popularity_score desc`, and limits. An empty `categories` array can never
+ * overlap a `NOT NULL` `topic_tags text[]`, so it short-circuits to `[]` without a
+ * round-trip (the "no randoms" rule — no categories means no sources, never a
+ * fallback to everything).
+ *
+ * @param categories - Chosen top-level category slugs to match (ANY-overlap). Empty → `[]`.
+ * @param kind - The single source axis to browse ({@link ContentSourceType}).
+ * @param limit - Max rows to return (default {@link DEFAULT_LIMIT}).
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns The matching {@link ContentSource} rows, popularity-desc ordered.
+ * @throws If the query fails (errors are surfaced, never swallowed — Rule 12).
+ *
+ * @example
+ * const channels = await listSourcesByCategory(["ai", "tech"], "youtube_channel", 40);
+ * channels[0].source_name; // the most popular AI/Tech channel
+ */
+export async function listSourcesByCategory(
+  categories: string[],
+  kind: ContentSourceType,
+  limit: number = DEFAULT_LIMIT,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<ContentSource[]> {
+  logger.info("list_sources_by_category_started", { categories, kind, limit });
+
+  // No chosen categories → no sources (the "no randoms" rule). An empty array
+  // overlaps nothing, but skipping the round-trip is cheaper and makes the rule
+  // explicit: an unfiltered browse must never fall back to the whole catalog.
+  if (categories.length === 0) {
+    logger.info("list_sources_by_category_completed", { kind, returned: 0, reason: "empty_categories" });
+    return [];
+  }
+
+  const { data, error } = await client
+    .from(CONTENT_SOURCES_TABLE)
+    .select(CONTENT_SOURCE_COLUMNS)
+    .overlaps("topic_tags", categories)
+    .eq("content_source_type", kind)
+    .order("popularity_score", { ascending: false })
+    .limit(limit)
+    .returns<ContentSource[]>();
+
+  if (error) {
+    logger.error("list_sources_by_category_failed", {
+      kind,
+      error_message: error.message,
+      fix_suggestion: "Confirm migration 0009 applied, the catalog seeder ran, and content_sources allows anon SELECT.",
+    });
+    throw new Error(
+      `Failed to list ${kind} sources for categories [${categories.join(", ")}]: ${error.message}. ` +
+        "fix_suggestion: confirm migration 0009 applied and content_sources is readable.",
+    );
+  }
+
+  const rows = data ?? [];
+  logger.info("list_sources_by_category_completed", { kind, returned: rows.length });
   return rows;
 }
 
@@ -642,4 +713,104 @@ export async function setSourcePriority(
   }
 
   logger.info("set_source_priority_completed", { user_id: authedUserId, source_id: sourceId, priority });
+}
+
+/**
+ * Follow a PERSONALITY for the authed user: upsert one owner-scoped
+ * `user_personalities` row (migration 0009). Mirrors {@link followSource} for the
+ * named-creator axis — the M6 onboarding cluster grid commits personality members
+ * here while content-source members go through {@link followSource}.
+ *
+ * Idempotent against the `(user_id, personality_id)` PK — re-following an
+ * already-followed personality is a no-op write (no duplicate row). `is_active`
+ * defaults to `true` (the product default — a freshly-followed personality is live;
+ * the table has no 3-state priority like `user_content_sources`).
+ *
+ * RLS: the `user_personalities_owner_all` policy (migration 0009) pins every row to
+ * `auth.uid()`; we additionally resolve the user id app-side so an UNAUTHENTICATED
+ * follow throws a loud, actionable error (Rule 12), mirroring {@link followSource}.
+ *
+ * @param personalityId - The `personalities.personality_id` to follow.
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns Nothing on success.
+ * @throws If unauthenticated, or if the upsert fails (surfaced, never swallowed — Rule 12).
+ *
+ * @example
+ * await followPersonality("p-uuid-1"); // follows the personality (is_active true)
+ */
+export async function followPersonality(
+  personalityId: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<void> {
+  const authedUserId = await requireAuthedUserId(client);
+  logger.info("follow_personality_started", { user_id: authedUserId, personality_id: personalityId });
+
+  // Upsert on the (user_id, personality_id) PK → idempotent re-follow. The row pins
+  // user_id to the authed id (also enforced by the owner-all RLS WITH CHECK).
+  const { error } = await client.from(USER_PERSONALITIES_TABLE).upsert(
+    {
+      user_id: authedUserId,
+      personality_id: personalityId,
+      is_active: true,
+    },
+    { onConflict: "user_id,personality_id" },
+  );
+
+  if (error) {
+    logger.error("follow_personality_failed", {
+      personality_id: personalityId,
+      error_message: error.message,
+      fix_suggestion:
+        "Confirm migration 0009 applied and the user_personalities_owner_all RLS policy allows the authed INSERT.",
+    });
+    throw new Error(
+      `Failed to follow personality "${personalityId}": ${error.message}. ` +
+        "fix_suggestion: confirm migration 0009 applied and user_personalities allows the authed upsert.",
+    );
+  }
+
+  logger.info("follow_personality_completed", { user_id: authedUserId, personality_id: personalityId });
+}
+
+/**
+ * Unfollow a personality for the authed user: delete the caller's
+ * `user_personalities` row (mirrors {@link unfollowSource}). A no-op (no error) when
+ * no row exists. The delete filters on `user_id` (also pinned by RLS), so a caller
+ * can never delete another user's follow.
+ *
+ * @param personalityId - The `personalities.personality_id` to unfollow.
+ * @param client - Optional Supabase client (injected in tests). Defaults to the shared browser client.
+ * @returns Nothing on success.
+ * @throws If unauthenticated, or if the delete fails (surfaced, never swallowed — Rule 12).
+ *
+ * @example
+ * await unfollowPersonality("p-uuid-1"); // removes the personality follow row
+ */
+export async function unfollowPersonality(
+  personalityId: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<void> {
+  const authedUserId = await requireAuthedUserId(client);
+  logger.info("unfollow_personality_started", { user_id: authedUserId, personality_id: personalityId });
+
+  const { error } = await client
+    .from(USER_PERSONALITIES_TABLE)
+    .delete()
+    .eq("user_id", authedUserId)
+    .eq("personality_id", personalityId);
+
+  if (error) {
+    logger.error("unfollow_personality_failed", {
+      personality_id: personalityId,
+      error_message: error.message,
+      fix_suggestion:
+        "Confirm migration 0009 applied and the user_personalities_owner_all RLS policy allows the authed DELETE.",
+    });
+    throw new Error(
+      `Failed to unfollow personality "${personalityId}": ${error.message}. ` +
+        "fix_suggestion: confirm migration 0009 applied and user_personalities allows the authed DELETE.",
+    );
+  }
+
+  logger.info("unfollow_personality_completed", { user_id: authedUserId, personality_id: personalityId });
 }

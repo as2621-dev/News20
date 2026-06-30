@@ -22,11 +22,13 @@
  *      follows (free-text customs / unmatched topics) are surfaced inline (Rule 12 —
  *      not silently dropped). A zero-follow completion persists nothing (no error)
  *      and still advances to the source swipe.
- *   5. `sources`  — {@link SourceSwipe}; the Tinder-style source-onboarding deck
- *      (Phase 5c). On its final "You're all set." it marks the source step complete
- *      ({@link markSourceOnboardingComplete}) and advances to the `build` step.
- *      A returning user who already completed the source step skips it (gated in
- *      `onboarding/page.tsx` via {@link isSourceOnboardingComplete}).
+ *   5. `sources`  — {@link SourceClusterScreen}; the M6 source/cluster onboarding step
+ *      (Phase FSR-M6a). It loads the chosen categories' resolved clusters (no-dup
+ *      applied), renders the opt-out cluster/member grid, and on continue commits the
+ *      resolved follow set to `user_content_sources`/`user_personalities`. It then
+ *      marks the source step complete ({@link markSourceOnboardingComplete}) and
+ *      advances to the `build` step. A returning user who already completed the source
+ *      step skips it (gated in `onboarding/page.tsx` via {@link isSourceOnboardingComplete}).
  *   6. `build`    — {@link BuildYour30}; the Blip Flow Stage 3 "Build your 30, in order"
  *      feed-allocation screen. On "Save this order →" it persists the allocation
  *      ({@link saveUserFeedAllocation}, inside the component) and routes to the reel
@@ -45,7 +47,7 @@ import { EmailSignIn } from "@/components/onboarding/EmailSignIn";
 import { OnboardingSplash } from "@/components/onboarding/OnboardingSplash";
 import { OtpCodeEntry } from "@/components/onboarding/OtpCodeEntry";
 import { TopicTree } from "@/components/onboarding/TopicTree";
-import { SourceSwipe } from "@/components/sources/SourceSwipe";
+import { SourceClusterScreen } from "@/components/sources/SourceClusterScreen";
 import { resolveRootGate } from "@/lib/auth/routeGuard";
 import { categoryBucketsFromFollows, type DesignBucketId, sourceBucketsFromFollows } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
@@ -244,9 +246,9 @@ export function OnboardingFlow() {
     [router],
   );
 
-  /** Complete the source swipe: mark the source step done, then advance to "Build your 30". */
-  const handleSourcesDone = useCallback(async (total: number) => {
-    logger.info("source_onboarding_completed", { total_followed: total });
+  /** Complete the source/cluster step: mark it done, then advance to "Build your 30". */
+  const handleSourcesDone = useCallback(async () => {
+    logger.info("source_onboarding_completed", {});
     markSourceOnboardingComplete();
     // Derive which SOURCE axes the user actually follows so "Build your 30" seeds + offers ONLY
     // those source blocks (a followed-nothing axis must not appear — owner rule 2026-06-17). A
@@ -347,7 +349,9 @@ export function OnboardingFlow() {
         </section>
       ) : null}
 
-      {step === "sources" ? <SourceSwipe onDone={handleSourcesDone} /> : null}
+      {step === "sources" ? (
+        <SourceClusterScreen categories={selectedCategoryBuckets} onDone={() => void handleSourcesDone()} />
+      ) : null}
 
       {step === "build" ? (
         <BuildYour30

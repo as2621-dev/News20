@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  followPersonality,
   followSource,
   getArchetypes,
   getUserSources,
   listSourcesByArchetype,
+  listSourcesByCategory,
   setSourcePriority,
+  unfollowPersonality,
   unfollowSource,
   upsertUserAddedSource,
 } from "@/lib/sources";
@@ -202,6 +205,44 @@ describe("listSourcesByArchetype (public catalog browse)", () => {
   });
 });
 
+describe("listSourcesByCategory (M6 onboarding filter — topic_tags ∩ chosen categories)", () => {
+  it("filters by topic_tags overlap + axis and orders by popularity desc", async () => {
+    // WHY: the M6 onboarding grid is keyed on the user's CHOSEN CATEGORIES (M5
+    // collapsed onboarding to roots), filtered by topic_tags overlap and ranked by
+    // popularity. A dropped overlaps()/order() surfaces the wrong or unranked sources.
+    const rows = [makeContentSource(), makeContentSource({ source_id: "src-uuid-cat-2", popularity_score: 80 })];
+    const { client, from, calls } = makeBrowseClient({ data: rows, error: null });
+
+    const result = await listSourcesByCategory(["ai", "tech"], "youtube_channel", 40, client);
+
+    expect(from).toHaveBeenCalledWith("content_sources");
+    expect(calls.overlaps).toContainEqual(["topic_tags", ["ai", "tech"]]);
+    expect(calls.eq).toContainEqual(["content_source_type", "youtube_channel"]);
+    expect(calls.order).toContainEqual(["popularity_score", { ascending: false }]);
+    expect(calls.limit).toContain(40);
+    expect(result).toHaveLength(2);
+  });
+
+  it("short-circuits an empty category set to [] without a round-trip (the 'no randoms' rule)", async () => {
+    // WHY: no chosen categories must mean NO sources — never a fallback to the whole
+    // catalog. The `from` must never fire.
+    const { client, from } = makeBrowseClient({ data: [], error: null });
+
+    const result = await listSourcesByCategory([], "x_account", 50, client);
+
+    expect(result).toEqual([]);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("throws when the browse query errors (surface, never swallow — Rule 12)", async () => {
+    const { client } = makeBrowseClient({ data: null, error: { message: "permission denied" } });
+
+    await expect(listSourcesByCategory(["ai"], "youtube_channel", 20, client)).rejects.toThrow(
+      /Failed to list youtube_channel sources/i,
+    );
+  });
+});
+
 describe("followSource (owner-scoped upsert)", () => {
   it("upserts a row with default priority 'everything' for a fresh follow (the DoD)", async () => {
     // WHY: the product default — a freshly-followed source ingests EVERYTHING
@@ -248,6 +289,45 @@ describe("followSource (owner-scoped upsert)", () => {
     });
 
     await expect(followSource(SOURCE_ID, undefined, client)).rejects.toThrow(/Failed to follow source/i);
+  });
+});
+
+describe("followPersonality / unfollowPersonality (owner-scoped user_personalities — M6a SP4)", () => {
+  const PERSONALITY_ID = "p-uuid-1";
+
+  it("upserts an owner-scoped active row on the (user_id, personality_id) PK (the write path M6 needs)", async () => {
+    // WHY: M6 commits personality cluster members here. The row MUST be owner-scoped
+    // and idempotent on the PK so a re-commit is a no-op (the DoD's idempotent re-commit).
+    const { client, from, upsert } = makeUserSourcesClient({ user: { id: AUTHED_USER_ID } });
+
+    await followPersonality(PERSONALITY_ID, client);
+
+    expect(from).toHaveBeenCalledWith("user_personalities");
+    expect(upsert).toHaveBeenCalledTimes(1);
+    const [payload, options] = upsert.mock.calls[0];
+    expect(payload).toMatchObject({ user_id: AUTHED_USER_ID, personality_id: PERSONALITY_ID, is_active: true });
+    expect(options).toMatchObject({ onConflict: "user_id,personality_id" });
+  });
+
+  it("throws when signed out — never writes an anon personality follow (Rule 12)", async () => {
+    const { client, upsert } = makeUserSourcesClient({ user: null });
+    await expect(followPersonality(PERSONALITY_ID, client)).rejects.toThrow(/signed out/i);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("throws when the upsert errors (surface, never swallow — Rule 12)", async () => {
+    const { client } = makeUserSourcesClient({ user: { id: AUTHED_USER_ID }, writeError: { message: "rls denied" } });
+    await expect(followPersonality(PERSONALITY_ID, client)).rejects.toThrow(/Failed to follow personality/i);
+  });
+
+  it("unfollow deletes the caller's row, owner-scoped on user_id + personality_id", async () => {
+    const { client, from, deleteEqCalls } = makeUserSourcesClient({ user: { id: AUTHED_USER_ID } });
+
+    await unfollowPersonality(PERSONALITY_ID, client);
+
+    expect(from).toHaveBeenCalledWith("user_personalities");
+    expect(deleteEqCalls).toContainEqual(["user_id", AUTHED_USER_ID]);
+    expect(deleteEqCalls).toContainEqual(["personality_id", PERSONALITY_ID]);
   });
 });
 

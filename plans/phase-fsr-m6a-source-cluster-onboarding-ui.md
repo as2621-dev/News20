@@ -1,7 +1,7 @@
 # Phase FSR-M6a: Source/cluster onboarding UI (filter ∩ category, opt-out clusters, no-dup)
 
 **Milestone:** M6 — Source/cluster onboarding UI + priority feed mix (feed-source revamp, `plans/prd.md`)
-**Status:** Not started
+**Status:** Shipped (2026-06-30) — see `plans/phase-fsr-m6a-source-cluster-onboarding-ui-progress.md`
 **Estimated effort:** L
 
 ## Goal
