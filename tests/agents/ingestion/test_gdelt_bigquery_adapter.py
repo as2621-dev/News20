@@ -24,6 +24,7 @@ import pytest
 from agents.ingestion.adapters.gdelt_bigquery import (
     _BATCH_SQL,
     GdeltBigQueryAdapter,
+    build_domain_filter_sql,
     match_terms,
     recall_terms,
 )
@@ -200,6 +201,77 @@ class TestBatchSqlIncludesThemes:
         assert "FROM ranked" in _BATCH_SQL
         projection = _BATCH_SQL.rsplit("SELECT", 1)[1].split("FROM ranked", 1)[0]
         assert "v2_themes" in projection
+
+
+class TestDomainFilterPredicate:
+    """SP3: the additive trusted-outlet domain predicate (string-level, no BigQuery).
+
+    WHY this matters: the predicate is what makes the GKG path trusted-outlet-only —
+    it is the alternate to the DOC ``domainis:`` fetch. If it is missing when domains
+    are given the GKG path fetches every outlet (not trusted-only); if it is present
+    when no domains are given the no-domains SQL diverges from today's (the path is
+    no longer additive/reversible). Both are encoded below.
+    """
+
+    def test_builder_emits_in_unnest_predicate(self) -> None:
+        """The pure builder emits the LOWER(SourceCommonName) IN UNNEST predicate."""
+        assert build_domain_filter_sql() == (
+            "AND LOWER(SourceCommonName) IN UNNEST(@domains)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_domains_inject_predicate_and_bind_lowercased_array(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """With domains supplied: the SQL contains the IN-UNNEST predicate and the
+        job binds an ArrayQueryParameter('domains', 'STRING', [...]) lowercased."""
+        from agents.ingestion.models import ActiveInterest
+
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://reuters.com/x", "T", "reuters.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="a", interest_slug="a", interest_search_query="Arsenal FC"
+            )
+        ]
+
+        await adapter.search_active_interests(
+            active, _SINCE, domains=["Reuters.com", "APNews.com"]
+        )
+
+        sql = client.captured["sql"]
+        assert "LOWER(SourceCommonName) IN UNNEST(@domains)" in sql
+        # the predicate sits in the raw WHERE, not in the projection (V2Themes intact)
+        assert "V2Persons, V2Organizations, V2Locations, V2Themes" in sql
+        domains_param = _param(client.captured["job_config"], "domains")
+        assert domains_param.array_type == "STRING"
+        assert domains_param.values == ["reuters.com", "apnews.com"]  # lowercased
+
+    @pytest.mark.asyncio
+    async def test_no_domains_sql_equals_batch_sql_and_binds_no_domains_param(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """Without domains: the emitted SQL equals the current _BATCH_SQL (additive /
+        reversible) and no @domains param is bound."""
+        from agents.ingestion.models import ActiveInterest
+
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://reuters.com/x", "T", "reuters.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="a", interest_slug="a", interest_search_query="Arsenal FC"
+            )
+        ]
+
+        await adapter.search_active_interests(active, _SINCE)
+
+        assert client.captured["sql"] == _BATCH_SQL  # byte-identical to today
+        names = {p.name for p in client.captured["job_config"].query_parameters}
+        assert "domains" not in names
 
 
 class TestParseGkgDate:

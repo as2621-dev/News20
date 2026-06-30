@@ -20,6 +20,7 @@ from agents.ingestion.interest_keyed_pipeline import (
     _DEFAULT_LOOKBACK_DAYS,
     build_active_interest_set,
     ingest_active_interests,
+    ingest_trusted_outlets,
 )
 from agents.ingestion.models import CandidateStory
 from agents.shared.exceptions import AdapterFetchError, IngestionError
@@ -334,3 +335,234 @@ class TestCatalogWindowDefaultLookback:
             since_utc=two_days_ago,
         )
         assert adapter.received_since_utc == two_days_ago
+
+
+# Reason: each candidate must cluster ALONE (the StoryClusterer merges titles at >=0.85
+# SequenceMatcher ratio — near-identical titles, even across outlets, would collapse and
+# distort a cell's story count). We build each title from TWO disjoint distinct words —
+# one keyed on the OUTLET, one on n — so no two candidates (same outlet or cross-outlet)
+# share both and every title stays under the merge threshold. A cell's story count then
+# faithfully reflects distinct fetched candidates, not title noise.
+_OUTLET_WORDS = [
+    "Alpha",
+    "Bravo",
+    "Charlie",
+    "Delta",
+    "Echo",
+    "Foxtrot",
+    "Golf",
+    "Hotel",
+]
+_STORY_WORDS = [
+    "Eclipse",
+    "Harvest",
+    "Quantum",
+    "Lighthouse",
+    "Avalanche",
+    "Orchard",
+    "Tempest",
+    "Compass",
+    "Meridian",
+    "Cascade",
+]
+
+# Stable, distinct per-outlet index assigned on first sight (deterministic per run).
+_outlet_word_index: dict[str, int] = {}
+
+
+def _domain_candidate(domain: str, n: int) -> CandidateStory:
+    """A distinct candidate from ``domain`` with a dissimilar title (clusters alone)."""
+    if domain not in _outlet_word_index:
+        _outlet_word_index[domain] = len(_outlet_word_index) % len(_OUTLET_WORDS)
+    oi = _outlet_word_index[domain]
+    outlet_word = _OUTLET_WORDS[oi]
+    # Pick the n-word from a per-outlet-rotated start so two outlets never share the
+    # n-word at the same n — every (outlet, n) title differs in BOTH words, keeping the
+    # SequenceMatcher ratio under the 0.85 merge threshold so each candidate clusters alone.
+    story_word = _STORY_WORDS[(oi * 3 + n) % len(_STORY_WORDS)]
+    url = f"https://{domain}/{story_word.lower()}-{n}"
+    return CandidateStory(
+        candidate_external_id=url,
+        candidate_title=f"{outlet_word} {story_word} dispatch {oi}-{n}",
+        candidate_url=url,
+        candidate_outlet_domain=domain,
+        candidate_published_utc=_NOW,
+    )
+
+
+class _CategoryKeyedAdapter(BaseNewsAdapter):
+    """A trusted-outlet fake: routes on the ``domains`` kwarg (no network).
+
+    Returns, per domain in the set, ``per_domain`` distinct candidates — so a cell's
+    story count is ``len(domains) * per_domain`` and is tunable. ``fail_domains`` forces
+    an AdapterFetchError when the set contains a sentinel domain (per-cell resilience).
+    ``records`` captures each call's ``(since_utc, domains)`` so gap-fill widening is
+    assertable; ``widen_yield`` lets the SECOND call for a domain return more (so the
+    widened re-fetch can lift a thin cell over the floor).
+    """
+
+    def __init__(
+        self,
+        *,
+        per_domain: int = 1,
+        fail_domain: str | None = None,
+        widen_yield: int | None = None,
+    ) -> None:
+        self.per_domain = per_domain
+        self.fail_domain = fail_domain
+        self.widen_yield = widen_yield
+        self.records: list[tuple[datetime, tuple[str, ...]]] = []
+        self.calls_by_domainset: dict[tuple[str, ...], int] = {}
+
+    async def search(self, search_query, since_utc, *, domains=None, **kwargs):
+        domains = domains or []
+        key = tuple(domains)
+        self.records.append((since_utc, key))
+        call_index = self.calls_by_domainset.get(key, 0)
+        self.calls_by_domainset[key] = call_index + 1
+
+        if self.fail_domain is not None and self.fail_domain in domains:
+            raise AdapterFetchError(message="forced cell failure", adapter_name="fake")
+
+        # The widened (2nd) call for a domain-set may yield a richer pool.
+        per_domain = self.per_domain
+        if call_index >= 1 and self.widen_yield is not None:
+            per_domain = self.widen_yield
+
+        out: list[CandidateStory] = []
+        for domain in domains:
+            for n in range(per_domain):
+                out.append(_domain_candidate(domain, n))
+        return out
+
+    async def extract_body(self, candidate, **kwargs):
+        return candidate
+
+
+_FAKE_DOMAINS = {
+    "ai": ["ai-one.com", "ai-two.com"],
+    "sport": ["sport-one.com", "sport-two.com"],
+    "business": ["biz-one.com"],
+}
+
+
+def _accessor(category: str) -> list[str]:
+    """A test domain accessor over the small fixture map (raises on unknown)."""
+    return list(_FAKE_DOMAINS[category])
+
+
+class TestIngestTrustedOutlets:
+    """SP4: the trusted-outlet (category + domain-set) rekey.
+
+    Each test encodes a user-facing intent: the fetch is domain-scoped per category;
+    one bad outlet must not blank the feed; a thin category must widen exactly once,
+    not silently under-deliver.
+    """
+
+    @pytest.mark.asyncio
+    async def test_each_category_cell_fetches_its_domains(self) -> None:
+        """A multi-category run fetches each cell and the pool carries stories from
+        that category's injected fixture domains (the fetch IS domain-scoped)."""
+        adapter = _CategoryKeyedAdapter(per_domain=3)
+        result = await ingest_trusted_outlets(
+            adapter,
+            categories=["ai", "sport"],
+            domain_accessor=_accessor,
+            min_stories_per_category=1,  # high enough yield; no gap-fill needed
+        )
+
+        assert set(result.canonical_stories_by_category) == {"ai", "sport"}
+        ai_outlets = {
+            s.canonical_primary_outlet_domain
+            for s in result.canonical_stories_by_category["ai"]
+        }
+        assert ai_outlets == {"ai-one.com", "ai-two.com"}
+        sport_outlets = {
+            s.canonical_primary_outlet_domain
+            for s in result.canonical_stories_by_category["sport"]
+        }
+        assert sport_outlets == {"sport-one.com", "sport-two.com"}
+        assert result.failed_categories == []
+
+    @pytest.mark.asyncio
+    async def test_one_cell_failure_does_not_abort_batch(self) -> None:
+        """A cell whose fetch raises is skipped (failed count 1); the OTHER cells'
+        stories are still present — one bad outlet must not blank the feed."""
+        adapter = _CategoryKeyedAdapter(per_domain=3, fail_domain="ai-one.com")
+        result = await ingest_trusted_outlets(
+            adapter,
+            categories=["ai", "sport"],
+            domain_accessor=_accessor,
+            min_stories_per_category=1,
+        )
+
+        assert result.failed_categories == ["ai"]
+        assert len(result.failed_categories) == 1
+        # the surviving category still produced its pool
+        assert "sport" in result.canonical_stories_by_category
+        assert len(result.canonical_stories_by_category["sport"]) == 6  # 2 domains × 3
+        # the failed category is absent from the pool (not a silent empty)
+        assert "ai" not in result.canonical_stories_by_category
+
+    @pytest.mark.asyncio
+    async def test_under_filled_cell_triggers_one_widened_refetch(self) -> None:
+        """A cell below the floor re-fetches ONCE with an earlier ``since`` (by the
+        bounded delta) and, when the widen lifts it over the floor, is NOT flagged
+        under_filled."""
+        from datetime import timedelta as _td
+
+        # business has 1 domain → first call yields 1 story (< floor 5); the widened
+        # call yields 8 per domain → over the floor.
+        adapter = _CategoryKeyedAdapter(per_domain=1, widen_yield=8)
+        since = datetime(2026, 5, 31, 0, 0, 0, tzinfo=timezone.utc)
+        widen = _td(days=1)
+        result = await ingest_trusted_outlets(
+            adapter,
+            categories=["business"],
+            domain_accessor=_accessor,
+            since_utc=since,
+            min_stories_per_category=5,
+            gap_fill_widen=widen,
+        )
+
+        # exactly two calls for the business domain-set: first + ONE widen
+        biz_key = ("biz-one.com",)
+        assert adapter.calls_by_domainset[biz_key] == 2
+        # the second call's since is earlier by exactly the bounded delta
+        first_since, _ = adapter.records[0]
+        second_since, _ = adapter.records[1]
+        assert second_since == first_since - widen
+        # the widen lifted it over the floor → not under-filled
+        assert result.under_filled_categories == []
+        assert len(result.canonical_stories_by_category["business"]) == 8
+
+    @pytest.mark.asyncio
+    async def test_still_short_after_widen_is_flagged_not_crashed(self) -> None:
+        """If a cell is STILL short after the single widen it is flagged
+        under_filled (fail loud) rather than crashing or silently under-delivering."""
+        # 1 domain, no widen boost → stays at 1 story (< floor 5) even after widening.
+        adapter = _CategoryKeyedAdapter(per_domain=1)
+        result = await ingest_trusted_outlets(
+            adapter,
+            categories=["business"],
+            domain_accessor=_accessor,
+            min_stories_per_category=5,
+        )
+
+        assert result.under_filled_categories == ["business"]
+        # still returned a (thin) pool — did not crash
+        assert "business" in result.canonical_stories_by_category
+
+    @pytest.mark.asyncio
+    async def test_gap_fill_is_bounded_to_one_refetch(self) -> None:
+        """Gap-fill never re-fetches a cell more than once (no unbounded loop) even
+        when the cell stays under the floor."""
+        adapter = _CategoryKeyedAdapter(per_domain=1)  # stays under floor 5
+        await ingest_trusted_outlets(
+            adapter,
+            categories=["business"],
+            domain_accessor=_accessor,
+            min_stories_per_category=5,
+        )
+        # first fetch + exactly one widened re-fetch == 2; never more.
+        assert adapter.calls_by_domainset[("biz-one.com",)] == 2

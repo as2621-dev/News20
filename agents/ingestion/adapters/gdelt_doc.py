@@ -61,6 +61,59 @@ _GDELT_RETRY_BASE_BACKOFF_SECONDS = 5.0
 _GDELT_RETRY_BACKOFF_CAP_SECONDS = 30.0
 
 
+def build_domain_query(
+    domains: list[str], *, search_query: str | None = None
+) -> str:
+    """Build a GDELT DOC 2.0 trusted-domain query (a pure string function).
+
+    DOC has no native multi-domain parameter, so a domain set is OR-composed from
+    ``domainis:`` atoms: ``(domainis:reuters.com OR domainis:apnews.com OR …)``. A
+    single domain emits one bare ``domainis:reuters.com`` (no needless parens). When
+    a ``search_query`` (a category/keyword string) is given it is AND-composed with
+    the domain clause as ``<search_query> AND <domain_clause>`` — so the fetch is
+    both topic- and outlet-scoped.
+
+    Domains are emitted **verbatim** (SP1 already normalized them to lowercase
+    bare-host); this function does not re-normalize.
+
+    Args:
+        domains: The curated authority domains (must be non-empty).
+        search_query: Optional topic/keyword clause to AND with the domains.
+
+    Returns:
+        The DOC query string.
+
+    Raises:
+        ValueError: If ``domains`` is empty — emitting a query with no ``domainis:``
+            clause would no longer be domain-scoped and would pull random outlets,
+            defeating M4's trusted-outlet fetch (fail loud, never silent).
+
+    Example:
+        >>> build_domain_query(["reuters.com", "apnews.com"])
+        '(domainis:reuters.com OR domainis:apnews.com)'
+        >>> build_domain_query(["reuters.com"])
+        'domainis:reuters.com'
+        >>> build_domain_query(["reuters.com"], search_query="climate")
+        'climate AND domainis:reuters.com'
+    """
+    if not domains:
+        raise ValueError(
+            "build_domain_query requires a non-empty domain set — an empty set would "
+            "emit an un-scoped query that pulls random outlets (M4 fetch must be "
+            "trusted-outlet-only)"
+        )
+    atoms = [f"domainis:{domain}" for domain in domains]
+    if len(atoms) == 1:
+        domain_clause = atoms[0]
+    else:
+        domain_clause = "(" + " OR ".join(atoms) + ")"
+
+    query = (search_query or "").strip()
+    if query:
+        return f"{query} AND {domain_clause}"
+    return domain_clause
+
+
 class GdeltDocAdapter(BaseNewsAdapter):
     """News adapter backed by the keyless GDELT DOC 2.0 article index.
 
@@ -99,6 +152,8 @@ class GdeltDocAdapter(BaseNewsAdapter):
         self,
         search_query: str,
         since_utc: datetime,
+        *,
+        domains: list[str] | None = None,
         **kwargs: Any,
     ) -> list[CandidateStory]:
         """Run one GDELT DOC query and parse the article list into candidates.
@@ -107,6 +162,11 @@ class GdeltDocAdapter(BaseNewsAdapter):
             search_query: The news query string (an interest's search query).
             since_utc: Lower-bound publish time; converted to a GDELT ``timespan``
                 of 1–3 days.
+            domains: Optional curated authority-domain set (M4). When given, the
+                outgoing query is built by ``build_domain_query`` — the
+                ``search_query`` (when truthy) is AND-composed with a ``domainis:``
+                clause so the fetch is outlet-scoped. When ``None`` the existing
+                keyword path is used unchanged.
             **kwargs: Unused (accepted for interface compatibility).
 
         Returns:
@@ -116,10 +176,16 @@ class GdeltDocAdapter(BaseNewsAdapter):
             AdapterFetchError: On HTTP error, timeout, the rate-limit notice, or
                 a non-JSON response. The pipeline catches this per-interest so
                 one failed query does not abort the whole batch.
+            ValueError: If ``domains`` is an empty list (via ``build_domain_query``).
         """
+        effective_query = (
+            build_domain_query(domains, search_query=search_query)
+            if domains is not None
+            else search_query
+        )
         timespan = self._compute_timespan(since_utc)
         params = {
-            "query": search_query,
+            "query": effective_query,
             "mode": "ArtList",
             "format": "json",
             "sort": "hybridrel",

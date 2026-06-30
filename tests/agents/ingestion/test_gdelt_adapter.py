@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter
+from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter, build_domain_query
 from agents.ingestion.models import CandidateStory
 from agents.shared.exceptions import AdapterFetchError
 
@@ -87,6 +87,99 @@ class TestGdeltSearchParsing:
         adapter = _adapter(mock_http_client)
 
         assert await adapter.search("Arsenal FC", _SINCE) == []
+
+
+class TestBuildDomainQuery:
+    """build_domain_query — the pure DOC trusted-domain query builder (no HTTP).
+
+    WHY this matters: if the ``domainis:`` clause is dropped or the OR-join breaks,
+    the fetch is no longer domain-scoped and GDELT returns random outlets — defeating
+    M4's trusted-outlet fetch. An empty set must refuse rather than emit an un-scoped
+    query that pulls randoms. These encode exactly those failure modes.
+    """
+
+    def test_multi_domain_or_clause_wrapped_in_parens(self) -> None:
+        """A domain set yields a parenthesized OR of one domainis: atom per domain,
+        in input order."""
+        q = build_domain_query(["reuters.com", "apnews.com", "bbc.co.uk"])
+        assert q == (
+            "(domainis:reuters.com OR domainis:apnews.com OR domainis:bbc.co.uk)"
+        )
+        # every domain contributes a domainis: atom
+        for d in ["reuters.com", "apnews.com", "bbc.co.uk"]:
+            assert f"domainis:{d}" in q
+        assert q.count(" OR ") == 2  # n-1 joins for 3 atoms
+
+    def test_single_domain_has_no_parens(self) -> None:
+        """A single domain emits a bare domainis: atom (no needless parens)."""
+        assert build_domain_query(["reuters.com"]) == "domainis:reuters.com"
+
+    def test_order_is_preserved_deterministically(self) -> None:
+        """Atom order mirrors input order (deterministic — SP1 owns the ordering)."""
+        q = build_domain_query(["b.com", "a.com", "c.com"])
+        assert q == "(domainis:b.com OR domainis:a.com OR domainis:c.com)"
+
+    def test_search_query_is_anded_with_domain_clause(self) -> None:
+        """A keyword/category query AND-composes with the domain clause."""
+        q = build_domain_query(["reuters.com", "apnews.com"], search_query="climate")
+        assert q == "climate AND (domainis:reuters.com OR domainis:apnews.com)"
+
+    def test_blank_search_query_omits_the_and(self) -> None:
+        """A blank/whitespace search_query yields just the domain clause (no dangling
+        AND)."""
+        assert build_domain_query(["reuters.com"], search_query="   ") == (
+            "domainis:reuters.com"
+        )
+
+    def test_empty_domain_set_raises(self) -> None:
+        """An empty domain set RAISES — never emit an un-scoped query (M4 fetch must
+        stay trusted-outlet-only)."""
+        with pytest.raises(ValueError):
+            build_domain_query([])
+
+
+class TestSearchRoutesThroughDomainBuilder:
+    """search(domains=[...]) sends the domainis: clause; the keyword path is untouched."""
+
+    @pytest.mark.asyncio
+    async def test_domains_kwarg_puts_domainis_in_outgoing_query(
+        self, mock_http_client, make_gdelt_response, gdelt_articles_json
+    ) -> None:
+        """Passing domains routes the OUTGOING params['query'] through the builder so
+        it carries the domainis: clause; response parsing reuses the recorded-fixture
+        article path (no live call)."""
+        mock_http_client.get = AsyncMock(
+            return_value=make_gdelt_response(gdelt_articles_json)
+        )
+        adapter = _adapter(mock_http_client)
+
+        candidates = await adapter.search(
+            "Arsenal FC", _SINCE, domains=["bbc.com", "cnn.com"]
+        )
+
+        # parsing still works over the fixture
+        assert len(candidates) == 2
+        # the outgoing query carried the domain clause
+        sent_params = mock_http_client.get.call_args.kwargs["params"]
+        assert sent_params["query"] == (
+            "Arsenal FC AND (domainis:bbc.com OR domainis:cnn.com)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_domains_leaves_keyword_query_unchanged(
+        self, mock_http_client, make_gdelt_response, gdelt_articles_json
+    ) -> None:
+        """Without domains, the outgoing query is the raw keyword string (the existing
+        path is byte-for-byte unchanged — surgical, Rule 3)."""
+        mock_http_client.get = AsyncMock(
+            return_value=make_gdelt_response(gdelt_articles_json)
+        )
+        adapter = _adapter(mock_http_client)
+
+        await adapter.search("Arsenal FC", _SINCE)
+
+        sent_params = mock_http_client.get.call_args.kwargs["params"]
+        assert sent_params["query"] == "Arsenal FC"
 
 
 class TestGdeltSearchFailures:

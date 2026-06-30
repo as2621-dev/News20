@@ -1,7 +1,7 @@
 # Phase FSR-M4: Trusted-outlet top-stories fetch
 
 **Milestone:** M4 — Trusted-outlet top-stories fetch (PRD `plans/prd.md` §Milestones). Replaces keyword-first news fetch with a fetch keyed on **category + a curated ~10–15-domain authority set per category** (GDELT DOC `domainis:` query construction or GKG `SourceCommonName ∈ set`), preserving per-cell resilience + bounded gap-fill.
-**Status:** Not started
+**Status:** Shipped (offline DoD met; LIVE-E2E deferred). SP1–SP4 complete — see commit.
 **Estimated effort:** L
 
 ## Goal

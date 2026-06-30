@@ -22,17 +22,21 @@ Example:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.ancestor_tagging import merge_story_tags
+from agents.ingestion.authority_domains import domains_for_category
 from agents.ingestion.dedup import StoryClusterer, normalize_url
 from agents.ingestion.models import (
     ActiveInterest,
+    CanonicalStory,
     IngestionResult,
     InterestNode,
 )
+from agents.pipeline.categories import TOPIC_CATEGORIES
 from agents.shared.exceptions import AdapterFetchError, IngestionError
 from agents.shared.logger import get_logger
 
@@ -42,6 +46,39 @@ logger = get_logger(__name__)
 # catalog to "today's" news; a missed run is self-healed by the 05:00 ET
 # readiness cron (Phase 7c SP3) rather than a wider lookback.
 _DEFAULT_LOOKBACK_DAYS = 1
+
+# Reason: M4 trusted-outlet gap-fill. A category cell whose first fetch returns fewer
+# than the floor is re-fetched ONCE with a window widened by the bounded delta — a
+# thin category should widen, not silently under-deliver ("is that really all?"). The
+# delta is capped at the DOC 3-day ceiling by ``_compute_timespan`` downstream, so the
+# widen never exceeds the source window. Tuning values (PRD open item); the MECHANISM
+# (one bounded widen + fail-loud log) is the contract, not the constants.
+_DEFAULT_MIN_STORIES_PER_CATEGORY = 5
+_DEFAULT_GAP_FILL_WIDEN = timedelta(days=1)
+
+
+@dataclass
+class TrustedOutletResult:
+    """Output of one trusted-outlet (category + domain-set) ingestion batch.
+
+    Distinct from ``IngestionResult`` (the interest-keyed shape): M4 keys the fetch
+    on category, so the pool is grouped by category and the resilience/gap-fill
+    bookkeeping is per-category cell.
+
+    Attributes:
+        canonical_stories_by_category: Deduped canonical pool per category cell.
+        failed_categories: Categories whose fetch raised (skipped — batch survived).
+        under_filled_categories: Categories still below the floor after gap-fill
+            (fail-loud signal — surfaced, not silently swallowed).
+        total_candidates_fetched: Raw candidate count across all cells (monitoring).
+    """
+
+    canonical_stories_by_category: dict[str, list[CanonicalStory]] = field(
+        default_factory=dict
+    )
+    failed_categories: list[str] = field(default_factory=list)
+    under_filled_categories: list[str] = field(default_factory=list)
+    total_candidates_fetched: int = 0
 
 
 def build_active_interest_set(
@@ -297,3 +334,131 @@ async def ingest_active_interests(
         active_interests=active,
         total_candidates_fetched=total_candidates,
     )
+
+
+async def ingest_trusted_outlets(
+    adapter: BaseNewsAdapter,
+    *,
+    categories: Sequence[str] = TOPIC_CATEGORIES,
+    domain_accessor: Callable[[str], list[str]] = domains_for_category,
+    clusterer: StoryClusterer | None = None,
+    since_utc: datetime | None = None,
+    min_stories_per_category: int = _DEFAULT_MIN_STORIES_PER_CATEGORY,
+    gap_fill_widen: timedelta = _DEFAULT_GAP_FILL_WIDEN,
+) -> TrustedOutletResult:
+    """Fetch the day's biggest stories per category from each category's trusted domains.
+
+    The M4 trusted-outlet fetch: one cell per (category, curated domain-set). For each
+    category the adapter is asked for that category's curated authority domains (routed
+    through the DOC ``domainis:`` builder by default — the adapter's ``search`` accepts
+    a ``domains`` kwarg), the returned candidates are clustered into a per-category
+    canonical pool. Replaces keyword-first fetch for news; ``ingest_active_interests``
+    is retained (a later hybrid stays possible), so this is additive, not a removal.
+
+    Resilience is **per-cell**: one category's fetch raising ``AdapterFetchError`` skips
+    ONLY that category (recorded in ``failed_categories``) — the batch never aborts
+    (mirrors the keyword path's ``failed_interests`` loop).
+
+    Gap-fill is **bounded**: when a cell returns fewer clustered stories than
+    ``min_stories_per_category`` it is re-fetched EXACTLY once with the time window
+    widened by ``gap_fill_widen`` (``since`` pushed back). If still short the category
+    is recorded in ``under_filled_categories`` and an ``under_filled`` warning is logged
+    (fail loud, never silent). The widen happens at most once per cell (no unbounded
+    loop). The DOC ``_compute_timespan`` caps the effective window at the 3-day ceiling.
+
+    Pure over its injected inputs (categories, domain accessor, adapter, clock), so it
+    is fully unit-testable with a fake adapter and no network.
+
+    Args:
+        adapter: A BaseNewsAdapter whose ``search`` accepts a ``domains`` kwarg
+            (GDELT DOC in prod; a fake in tests).
+        categories: The category cells to fetch (defaults to the 8 topic roots).
+        domain_accessor: ``category -> [domain, …]`` (defaults to SP1's accessor;
+            injectable for tests).
+        clusterer: Optional StoryClusterer (defaults to standard thresholds).
+        since_utc: Lower-bound publish time for the FIRST fetch (defaults to ~1 day
+            ago); gap-fill widens it per cell.
+        min_stories_per_category: Floor below which a cell triggers the one widen.
+        gap_fill_widen: How much earlier ``since`` is pushed for the widened re-fetch.
+
+    Returns:
+        A TrustedOutletResult with the per-category canonical pools, the failed and
+        under-filled category lists, and the raw candidate count.
+
+    Note:
+        Theme→category tagging (``assign_category``) is M2's surface and is NOT done
+        here — this entry only fetches + clusters the trusted-outlet pool per category.
+    """
+    clusterer = clusterer or StoryClusterer()
+    base_since = since_utc or (
+        datetime.now(timezone.utc) - timedelta(days=_DEFAULT_LOOKBACK_DAYS)
+    )
+
+    result = TrustedOutletResult()
+    for category in categories:
+        domains = domain_accessor(category)
+        try:
+            candidates = await adapter.search("", base_since, domains=domains)
+        except AdapterFetchError as exc:
+            # Reason: one category's source failure must not blank the whole feed.
+            result.failed_categories.append(category)
+            logger.warning(
+                "trusted_outlet_cell_failed",
+                category=category,
+                error_message=str(exc)[:300],
+                fix_suggestion="Trusted-outlet fetch failed for this category; skipped this run",
+            )
+            continue
+
+        stories = clusterer.cluster_candidates(candidates)
+        candidate_count = len(candidates)
+
+        # --- Bounded gap-fill: ONE widened-window re-fetch when under the floor ---
+        if len(stories) < min_stories_per_category:
+            widened_since = base_since - gap_fill_widen
+            logger.warning(
+                "trusted_outlet_gap_fill",
+                category=category,
+                stories=len(stories),
+                floor=min_stories_per_category,
+                widened_since=widened_since.isoformat(),
+                fix_suggestion="Cell under floor; widening the window once and re-fetching",
+            )
+            try:
+                refetched = await adapter.search("", widened_since, domains=domains)
+            except AdapterFetchError as exc:
+                # A failed widen still must not abort the batch — keep the thin pool
+                # and flag under-filled (the widen is best-effort, bounded to once).
+                logger.warning(
+                    "trusted_outlet_gap_fill_failed",
+                    category=category,
+                    error_message=str(exc)[:300],
+                    fix_suggestion="Widened re-fetch failed; keeping the first-pass pool",
+                )
+                refetched = []
+            if refetched:
+                stories = clusterer.cluster_candidates(refetched)
+                candidate_count = len(refetched)
+            if len(stories) < min_stories_per_category:
+                # Still short after the single bounded widen — surface it (fail loud).
+                result.under_filled_categories.append(category)
+                logger.warning(
+                    "trusted_outlet_under_filled",
+                    category=category,
+                    stories=len(stories),
+                    floor=min_stories_per_category,
+                    fix_suggestion="Category still below floor after one widen; "
+                    "broaden the curated domain set or lower the floor",
+                )
+
+        result.canonical_stories_by_category[category] = stories
+        result.total_candidates_fetched += candidate_count
+
+    logger.info(
+        "trusted_outlet_ingestion_completed",
+        categories=len(categories),
+        failed_categories=len(result.failed_categories),
+        under_filled_categories=len(result.under_filled_categories),
+        total_candidates=result.total_candidates_fetched,
+    )
+    return result

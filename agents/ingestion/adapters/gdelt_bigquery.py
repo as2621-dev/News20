@@ -256,6 +256,54 @@ ORDER BY interest_id, rn
 LIMIT @max_rows
 """
 
+# Reason: the anchor predicate in the ``raw`` CTE WHERE clause that the optional
+# domain filter is injected AFTER. It is the last ``raw``-WHERE line, so appending
+# the domain predicate here keeps the SELECT (incl. M2's V2Themes) untouched — the
+# domain path is line-disjoint from the projection (no M2/M4 collision).
+_RAW_WHERE_ANCHOR = "AND SourceCommonName IS NOT NULL AND SourceCommonName != ''"
+
+# Reason: the additive trusted-outlet predicate — restricts the ``raw`` CTE to the
+# curated authority outlets via a bound STRING array (injection-safe like
+# @interest_terms). ``outlet`` is ``LOWER(SourceCommonName)``, so the array is bound
+# lowercased and compared against ``LOWER(SourceCommonName)``.
+_DOMAIN_FILTER_SQL = "AND LOWER(SourceCommonName) IN UNNEST(@domains)"
+
+
+def build_domain_filter_sql(param_name: str = "domains") -> str:
+    """Return the GKG domain-restriction predicate for the ``raw`` CTE (pure).
+
+    Emits ``AND LOWER(SourceCommonName) IN UNNEST(@<param_name>)`` — the additive
+    trusted-outlet filter SP3 injects when a curated domain set is supplied. Kept a
+    pure string builder (mirrors SP2's DOC builder) so it is unit-testable offline.
+
+    Args:
+        param_name: The bound array parameter name (default ``"domains"``).
+
+    Returns:
+        The SQL predicate fragment.
+
+    Example:
+        >>> build_domain_filter_sql()
+        'AND LOWER(SourceCommonName) IN UNNEST(@domains)'
+    """
+    return f"AND LOWER(SourceCommonName) IN UNNEST(@{param_name})"
+
+
+def _batch_sql_with_domains(domains: list[str] | None) -> str:
+    """Return ``_BATCH_SQL`` with the domain predicate injected when domains given.
+
+    With ``domains`` falsy the SQL is **identical** to ``_BATCH_SQL`` (the path is
+    additive/reversible). With domains, the predicate is appended right after the
+    last ``raw``-WHERE line — leaving the SELECT (incl. V2Themes) untouched.
+    """
+    if not domains:
+        return _BATCH_SQL
+    return _BATCH_SQL.replace(
+        _RAW_WHERE_ANCHOR,
+        f"{_RAW_WHERE_ANCHOR}\n    {build_domain_filter_sql()}",
+        1,
+    )
+
 
 class GdeltBigQueryAdapter(BaseNewsAdapter):
     """News adapter backed by the GDELT BigQuery GKG dataset (no rate limit).
@@ -294,7 +342,12 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
     # ------------------------------------------------------------------
 
     async def search(
-        self, search_query: str, since_utc: datetime, **kwargs: Any
+        self,
+        search_query: str,
+        since_utc: datetime,
+        *,
+        domains: list[str] | None = None,
+        **kwargs: Any,
     ) -> list[CandidateStory]:
         """Run one GKG query for a single free-text query (interest-agnostic).
 
@@ -302,6 +355,13 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
         does NOT stamp an interest (the pipeline / caller does). Recall-oriented
         (keeps event words, wider per-interest cap) — used for the ABC contract and
         by the Phase-2c coverage census.
+
+        Args:
+            search_query: The free-text query.
+            since_utc: Lower-bound article time (also fixes the partition floor).
+            domains: Optional curated authority-domain set (M4). When given, the
+                query is restricted to those outlets via the additive
+                ``LOWER(SourceCommonName) IN UNNEST(@domains)`` predicate.
 
         Raises:
             AdapterFetchError: On any BigQuery error.
@@ -322,11 +382,16 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
             since_utc,
             self.recall_per_interest_limit,
             f"search:{search_query[:60]}",
+            domains=domains,
         )
         return self._rows_to_candidates(rows, stamp_interest=False)
 
     async def search_active_interests(
-        self, active_interests: list[ActiveInterest], since_utc: datetime
+        self,
+        active_interests: list[ActiveInterest],
+        since_utc: datetime,
+        *,
+        domains: list[str] | None = None,
     ) -> list[CandidateStory]:
         """Run ONE GKG query for the whole active-interest set (the batched win).
 
@@ -376,7 +441,11 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
             term_predicates=len(terms),
         )
         rows = await self._run_query(
-            terms, since_utc, self.per_interest_limit, f"{used_interests} interests"
+            terms,
+            since_utc,
+            self.per_interest_limit,
+            f"{used_interests} interests",
+            domains=domains,
         )
         candidates = self._rows_to_candidates(rows, stamp_interest=True)
         logger.info(
@@ -418,12 +487,23 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
         since_utc: datetime,
         per_interest_limit: int,
         label: str,
+        domains: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Execute the batched GKG query off the event loop; return raw row dicts.
+
+        When ``domains`` is supplied the SQL gains the additive
+        ``LOWER(SourceCommonName) IN UNNEST(@domains)`` predicate and a bound
+        lowercased STRING array; without it the SQL is unchanged (additive path).
 
         Raises:
             AdapterFetchError: On any BigQuery / Google API error.
         """
+        # Reason: the curated domains arrive lowercase (SP1) but lowercase again
+        # defensively so the @domains array always matches LOWER(SourceCommonName).
+        lowered_domains = (
+            [d.lower() for d in domains] if domains else None
+        )
+        sql = _batch_sql_with_domains(lowered_domains)
         since = (
             since_utc if since_utc.tzinfo else since_utc.replace(tzinfo=timezone.utc)
         )
@@ -450,22 +530,29 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                 )
                 for t in terms
             ]
-            job_config = bigquery.QueryJobConfig(
-                query_parameters=[
+            query_parameters = [
+                bigquery.ArrayQueryParameter(
+                    "interest_terms", "STRUCT", term_structs
+                ),
+                bigquery.ScalarQueryParameter(
+                    "since_partition", "TIMESTAMP", since_partition
+                ),
+                bigquery.ScalarQueryParameter("since_date", "INT64", since_date),
+                bigquery.ScalarQueryParameter(
+                    "per_interest_limit", "INT64", per_interest_limit
+                ),
+                bigquery.ScalarQueryParameter("max_rows", "INT64", self.max_rows),
+            ]
+            # Reason: bind the @domains array only when the predicate is present, so
+            # the no-domains job config is byte-identical to today's (additive path).
+            if lowered_domains:
+                query_parameters.append(
                     bigquery.ArrayQueryParameter(
-                        "interest_terms", "STRUCT", term_structs
-                    ),
-                    bigquery.ScalarQueryParameter(
-                        "since_partition", "TIMESTAMP", since_partition
-                    ),
-                    bigquery.ScalarQueryParameter("since_date", "INT64", since_date),
-                    bigquery.ScalarQueryParameter(
-                        "per_interest_limit", "INT64", per_interest_limit
-                    ),
-                    bigquery.ScalarQueryParameter("max_rows", "INT64", self.max_rows),
-                ]
-            )
-            job = self._get_client().query(_BATCH_SQL, job_config=job_config)
+                        "domains", "STRING", lowered_domains
+                    )
+                )
+            job_config = bigquery.QueryJobConfig(query_parameters=query_parameters)
+            job = self._get_client().query(sql, job_config=job_config)
             return [dict(row.items()) for row in job.result()]
 
         try:
