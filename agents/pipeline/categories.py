@@ -202,6 +202,40 @@ def category_for_slug(interest_slug: str) -> FeedCategory:
     return SLUG_TO_CATEGORY.get(root_slug, DEFAULT_CATEGORY)
 
 
+def root_interest_slug_for_category(category: FeedCategory) -> str | None:
+    """Resolve a ``FeedCategory`` to the depth-0 ROOT interest slug it tags onto.
+
+    The stable category→root-interest contract M2's ingest-time tagging (SP3) uses:
+    to tag a story's category onto a real interest node, emit a depth-0
+    ``story_interests`` tag on the interest whose ``interest_slug`` this returns.
+    Migration ``0023_root_interest_nodes.sql`` mints exactly one depth-0 interest
+    per **topic** root, with ``interest_slug`` equal to the category key — so for the
+    8 topic roots this is the identity (``ai`` → ``"ai"`` …), and it is the inverse
+    of :func:`category_for_slug` on a bare root slug (``category_for_slug(root) ==
+    category`` and ``root_interest_slug_for_category(category) == root``).
+
+    The 2 **source-axis** categories (``youtube``/``x``) have NO interest node — no
+    interest slug maps to them (they are follow-gated) and ``0023`` mints no root for
+    them — so this returns ``None`` for those: there is nothing to tag.
+
+    Args:
+        category: One of the 10 :data:`FeedCategory` keys.
+
+    Returns:
+        The depth-0 root interest slug for a topic category (== the category key), or
+        ``None`` for the source-axis categories ``youtube``/``x`` (no interest node).
+
+    Example:
+        >>> root_interest_slug_for_category("ai")
+        'ai'
+        >>> root_interest_slug_for_category("business")
+        'business'
+        >>> root_interest_slug_for_category("youtube") is None
+        True
+    """
+    return category if category in TOPIC_CATEGORIES else None
+
+
 def empty_category_buckets() -> dict[FeedCategory, list]:
     """Return all 10 ``FeedCategory`` keys mapped to fresh empty lists.
 
