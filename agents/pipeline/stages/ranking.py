@@ -59,7 +59,15 @@ logger = get_logger("pipeline.stages.ranking")
 # purpose (α=0.5) so a niche-but-small story surfaces for the user who follows
 # it. They live here as the single config source — never hardcoded scattered.
 AFFINITY_WEIGHT = 0.5
-IMPORTANCE_WEIGHT = 0.3
+# Reason: β (the Importance weight) is RAISED from 0.3 → 0.45 by the feed-source revamp
+# (FSR-M3 SP4, PRD Decision #5 / ranking-spec revamp banner). At the old 0.3 a
+# well-matched MINOR story could outrank a genuinely BIG one (the diagnosed bug); at 0.45
+# the big story's (now authority-weighted E1) Importance lifts it back above the minor
+# one. The exact value is PINNED by the flip test in test_ranking.py
+# (TestImportanceWeightFlip): 0.45 is the documented value at which the known minor-vs-
+# major ordering flips while α=0.5 stays affinity-dominant overall. Do not drift it
+# silently — the flip test fails if it regresses to ≤0.3. Single config source.
+IMPORTANCE_WEIGHT = 0.45
 FRESHNESS_WEIGHT = 0.2
 
 # Reason: DepthMatch (reference/ranking-spec.md §1) — how *specifically* the
@@ -487,15 +495,21 @@ def compute_story_score(
     match_depth: int,
     story: CanonicalStory,
     now_utc: datetime,
+    cluster_importance: float | None = None,
 ) -> tuple[float, float, float, float]:
     """Compute the per-(user, story) Score and its component terms.
 
-    Implements ``reference/ranking-spec.md`` §1 verbatim::
+    Implements ``reference/ranking-spec.md`` §1 (β raised by FSR-M3 SP4)::
 
-        Score = (Affinity × DepthMatch)·0.5 + Importance·0.3 + Freshness·0.2
+        Score = (Affinity × DepthMatch)·0.5 + Importance·0.45 + Freshness·0.2
 
-    The Importance/Freshness terms reuse the produce-gate primitives so a
-    story scores identically at gate-time and rank-time.
+    The Importance term is the shared-pool **E1 ``cluster_importance``** when the story is
+    clustered (``cluster_importance`` supplied) — authority-weighted, within-category-
+    normalized, syndication-dampened (``agents/pipeline/importance/story_importance.py``).
+    For an UN-clustered story (no E1 value), it falls back to the produce-gate's raw
+    ``compute_importance_score(story_outlet_count)`` so the change is purely additive and
+    the un-clustered path is unchanged (Rule 3). Freshness still reuses the produce-gate
+    primitive so a story's freshness is identical at gate-time and rank-time.
 
     Args:
         affinity: The user's normalized 0–1 affinity for the matched interest.
@@ -504,6 +518,9 @@ def compute_story_score(
         story: The canonical story (carries ``story_outlet_count`` and
             ``canonical_published_utc``).
         now_utc: Current time for the freshness decay (injected for tests).
+        cluster_importance: The story's E1 ``cluster_importance`` (0–1) when it is
+            clustered; ``None`` → fall back to the raw outlet-count importance for an
+            un-clustered story.
 
     Returns:
         ``(score, depth_match, importance, freshness)``.
@@ -523,7 +540,13 @@ def compute_story_score(
         1.0
     """
     depth_match = DEPTH_MATCH_BY_DEPTH.get(match_depth, 0.0)
-    importance = compute_importance_score(story.story_outlet_count)
+    # Reason: prefer the E1 cluster importance (authority-weighted, normalized) when the
+    # story is clustered; fall back to the raw outlet-count importance for un-clustered
+    # stories so the seam is additive (PRD M3 Open Q#4).
+    if cluster_importance is not None:
+        importance = max(0.0, min(1.0, cluster_importance))
+    else:
+        importance = compute_importance_score(story.story_outlet_count)
     freshness = compute_freshness_score(story.canonical_published_utc, now_utc)
     score = (
         (affinity * depth_match) * AFFINITY_WEIGHT

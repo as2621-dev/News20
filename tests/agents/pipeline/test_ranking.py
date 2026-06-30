@@ -800,3 +800,114 @@ class TestLoaderHydratesEntitiesAndAllocation:
 
         inputs = daily_batch.load_active_user_inputs(_Client(), date(2026, 6, 1))
         assert inputs[0].followed_entities == []
+
+
+class TestImportanceWeightFlip:
+    """SP4 DoD (Rule 9) — the big-story-beats-minor reordering at the raised β.
+
+    The diagnosed bug (PRD Problem #4 / US6, US7): at the OLD β=0.3 a well-matched MINOR
+    story outranks a genuinely BIG one. The fix raises β so the big story's (now
+    authority-weighted E1) Importance lifts it back above the minor. This test PINS the
+    flip so β cannot silently drift back below the value that fixes the bug.
+
+    The fixture pair (scored via ``compute_story_score`` with an injected E1
+    ``cluster_importance``):
+      - BIG: a genuinely big story — high E1 importance (0.95), but only a MODEST
+        affinity×depth (parent match on a half-affinity interest → 0.5×0.6 = 0.30).
+      - MINOR: a well-matched minor story — high affinity×depth (leaf match on the top
+        interest → 1.0×1.0 = 1.0), but low E1 importance (0.10).
+    Both equally fresh, so freshness is neutral to the ordering.
+
+    Closed form (freshness=1.0 both):
+        big(β)   = 0.5·0.30 + β·0.95 + 0.2 = 0.35 + 0.95β
+        minor(β) = 0.5·1.00 + β·0.10 + 0.2 = 0.70 + 0.10β
+        big > minor  ⇔  0.85β > 0.35  ⇔  β > ~0.4118
+    So the ordering flips between the old 0.3 (minor wins) and the new 0.45 (big wins);
+    any β ≤ ~0.41 (including the old 0.3) leaves the bug unfixed.
+    """
+
+    # E1 importances injected as cluster_importance (authority-weighted, normalized).
+    _BIG_E1 = 0.95
+    _MINOR_E1 = 0.10
+    _BIG_AFFINITY, _BIG_DEPTH = 0.5, 1  # parent match (DepthMatch 0.6)
+    _MINOR_AFFINITY, _MINOR_DEPTH = 1.0, 0  # leaf match (DepthMatch 1.0)
+
+    def _score_at_beta(self, terms: tuple[float, float, float, float], beta: float) -> float:
+        """Reconstruct the Score at an arbitrary β from the (score, depth, imp, fresh)."""
+        _score, depth_match, importance, freshness = terms
+        affinity = self._affinity  # set by the caller for the term being rebuilt
+        return (
+            (affinity * depth_match) * AFFINITY_WEIGHT
+            + importance * beta
+            + freshness * FRESHNESS_WEIGHT
+        )
+
+    def _terms(self, affinity: float, depth: int, e1: float):
+        story = _story("x", outlet_count=1, published=_NOW)
+        self._affinity = affinity
+        return affinity, compute_story_score(
+            affinity=affinity, match_depth=depth, story=story, now_utc=_NOW,
+            cluster_importance=e1,
+        )
+
+    def test_minor_wins_at_old_beta_big_wins_at_new_beta(self) -> None:
+        """The known minor-vs-major ordering flips between β=0.3 (old) and β=0.45 (new)."""
+        big_aff, big_terms = self._terms(self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1)
+        minor_aff, minor_terms = self._terms(
+            self._MINOR_AFFINITY, self._MINOR_DEPTH, self._MINOR_E1
+        )
+
+        # OLD β=0.3: the well-matched MINOR story wins — reproduces the diagnosed bug.
+        self._affinity = big_aff
+        big_old = self._score_at_beta(big_terms, 0.3)
+        self._affinity = minor_aff
+        minor_old = self._score_at_beta(minor_terms, 0.3)
+        assert minor_old > big_old, "at old β=0.3 the minor story should still win (bug)"
+
+        # NEW β=0.45: the genuinely BIG story wins — the bug is fixed.
+        self._affinity = big_aff
+        big_new = self._score_at_beta(big_terms, 0.45)
+        self._affinity = minor_aff
+        minor_new = self._score_at_beta(minor_terms, 0.45)
+        assert big_new > minor_new, "at new β=0.45 the big story should win (fix)"
+
+    def test_live_importance_weight_satisfies_the_flip(self) -> None:
+        """The shipped ``IMPORTANCE_WEIGHT`` is on the big-story-wins side of the flip.
+
+        Pins the live constant: if someone drifts β back to ≤~0.41 (e.g. the old 0.3),
+        this fails — the big story would no longer outrank the minor one.
+        """
+        assert IMPORTANCE_WEIGHT >= 0.45, (
+            f"IMPORTANCE_WEIGHT={IMPORTANCE_WEIGHT} regressed below the pinned 0.45 — "
+            "the big-story-beats-minor flip would break"
+        )
+        big_aff, big_terms = self._terms(self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1)
+        minor_aff, minor_terms = self._terms(
+            self._MINOR_AFFINITY, self._MINOR_DEPTH, self._MINOR_E1
+        )
+        self._affinity = big_aff
+        big = self._score_at_beta(big_terms, IMPORTANCE_WEIGHT)
+        self._affinity = minor_aff
+        minor = self._score_at_beta(minor_terms, IMPORTANCE_WEIGHT)
+        assert big > minor
+
+    def test_e1_cluster_importance_overrides_raw_outlet_count(self) -> None:
+        """When ``cluster_importance`` is supplied it REPLACES the raw outlet-count term.
+
+        WHY: the raised β must lift the authority-weighted E1 importance, not the raw,
+        gameable ``min(1, outlet_count/12)``. A 1-outlet story with a high E1 importance
+        must score its E1 value, not the ~0.083 its outlet count would give.
+        """
+        story = _story("x", outlet_count=1, published=_NOW)
+        _s, _dm, raw_importance, _f = compute_story_score(1.0, 0, story, _NOW)
+        _s2, _dm2, e1_importance, _f2 = compute_story_score(
+            1.0, 0, story, _NOW, cluster_importance=0.9
+        )
+        assert raw_importance < 0.1  # 1/12
+        assert e1_importance == pytest.approx(0.9)
+
+    def test_unclustered_story_unchanged_falls_back_to_raw(self) -> None:
+        """An un-clustered story (no E1) keeps the raw outlet-count importance (Rule 3)."""
+        story = _story("x", outlet_count=6, published=_NOW)
+        _s, _dm, importance, _f = compute_story_score(1.0, 0, story, _NOW)
+        assert importance == pytest.approx(0.5)  # 6/12, the preserved un-clustered path

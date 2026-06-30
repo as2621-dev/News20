@@ -440,21 +440,30 @@ def build_entity_boost_scenario(
             )
             global_index += 1
 
-    # The TWIN PAIR (markets.stocks): identical importance (5 outlets) + freshness
-    # (3h old), so the EntityBonus is the ONLY thing separating them. The "twin"
-    # title deliberately avoids the word "Nvidia"/"NVDA" so it earns no bonus.
+    # The TWIN PAIR (markets.stocks): identical importance (16 outlets → saturated
+    # Importance) + freshness (3h old), so the EntityBonus is the ONLY thing separating
+    # them. The "twin" title deliberately avoids the word "Nvidia"/"NVDA" so it earns no
+    # bonus.
+    # Reason (FSR-M3 SP4): the outlet count is set high (16, the cycle max) so BOTH twins
+    # sit at the top of the business Importance ordering and clear the 4-slot budget under
+    # the RAISED β (IMPORTANCE_WEIGHT 0.3 → 0.45). At the old β the twins placed at
+    # outlet_count=5; raising β reorders a category by Importance, so a mid-importance
+    # twin would now be out-competed by higher-importance filler and fall out of the
+    # budget — making the EntityBonus invariant ("nvidia above its placed twin")
+    # unobservable. Keeping the twins EQUAL and high preserves the invariant's intent
+    # (the bonus is still the sole differentiator between them) under any β ≥ 0.3.
     _add_story(
         story_id="ent-twin-nvidia",
         title="Nvidia Q3 earnings beat expectations",
         matched_node_id="markets.stocks",
-        outlet_count=5,
+        outlet_count=16,
         age_hours=3,
     )
     _add_story(
         story_id="ent-twin-plain",
         title="Chipmaker quarterly earnings beat expectations",
         matched_node_id="markets.stocks",
-        outlet_count=5,
+        outlet_count=16,
         age_hours=3,
     )
 

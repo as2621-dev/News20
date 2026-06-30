@@ -1,7 +1,7 @@
 # Phase FSR-M3: Authority-weighted importance (E1)
 
 **Milestone:** M3 — Authority-weighted importance (E1) (`plans/prd.md`)
-**Status:** Not started
+**Status:** SHIPPED (2026-06-30) — β pinned at 0.45; see `plans/phase-fsr-m3-authority-importance-progress.md`
 **Estimated effort:** M
 
 ## Goal
