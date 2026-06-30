@@ -1,0 +1,175 @@
+{
+  "_doc": "Committed multi-category catalog fixture for Phase FSR-M1 SP4's offline de-risking check. Top-level keys mirror the SP2 Pydantic model field names: clusters=ClusterRow, members=ClusterMemberRef, sources=CatalogSourceRow, personalities=PersonalityRow. The four required edge shapes are tagged inline with EDGE(x) markers in the *_note fields. 'ai' is the richest category (the DoD calls clusters_for_category('ai')); 'sport' deliberately has NO clusters (the [] path).",
+
+  "clusters": [
+    {
+      "_note": "AI cluster 1 — holds the bundling personality (drives EDGE(a) suppression) + the SHARED source s_shared (EDGE(d) first-cluster-wins) + a normal source.",
+      "cluster_id": "cl-ai-leaders",
+      "cluster_slug": "ai-lab-leaders",
+      "cluster_label": "Leading AI-lab researchers",
+      "cluster_category": "ai",
+      "cluster_sort_order": 0,
+      "is_curated": true
+    },
+    {
+      "_note": "AI cluster 2 — also lists the SHARED source s_shared (EDGE(d): it is rendered in cluster 1, so dropped here) plus a unique source so this cluster still surfaces.",
+      "cluster_id": "cl-ai-builders",
+      "cluster_slug": "ai-founders",
+      "cluster_label": "AI founders",
+      "cluster_category": "ai",
+      "cluster_sort_order": 1,
+      "is_curated": true
+    },
+    {
+      "_note": "EDGE(b) — AI empty cluster: its only member references an un-curated source, so it resolves to zero members and must be dropped.",
+      "cluster_id": "cl-ai-empty",
+      "cluster_slug": "ai-empty",
+      "cluster_label": "AI empties (should be dropped)",
+      "cluster_category": "ai",
+      "cluster_sort_order": 2,
+      "is_curated": true
+    },
+    {
+      "_note": "A tech cluster holding the multi-category source s_multi (EDGE(c)) — proves s_multi surfaces under tech too. Not asserted heavily; present for realism.",
+      "cluster_id": "cl-tech-tools",
+      "cluster_slug": "tech-tools",
+      "cluster_label": "Dev tooling",
+      "cluster_category": "tech",
+      "cluster_sort_order": 0,
+      "is_curated": true
+    }
+  ],
+
+  "members": [
+    {
+      "_note": "AI cluster 1, order 0: the bundling personality (EDGE(a)). Being a personality member here makes it 'present' so its bundled handles suppress.",
+      "cluster_id": "cl-ai-leaders",
+      "personality_id": "p-demis",
+      "member_sort_order": 0
+    },
+    {
+      "_note": "AI cluster 1, order 1: REDUNDANTLY lists the personality's bundled YT row — must be suppressed (EDGE(a)).",
+      "cluster_id": "cl-ai-leaders",
+      "source_id": "s-demis-yt",
+      "member_sort_order": 1
+    },
+    {
+      "_note": "AI cluster 1, order 2: REDUNDANTLY lists the personality's bundled X row — must be suppressed (EDGE(a)).",
+      "cluster_id": "cl-ai-leaders",
+      "source_id": "s-demis-x",
+      "member_sort_order": 2
+    },
+    {
+      "_note": "AI cluster 1, order 3: the SHARED source (EDGE(d)) — rendered HERE (first cluster wins).",
+      "cluster_id": "cl-ai-leaders",
+      "source_id": "s-shared",
+      "member_sort_order": 3
+    },
+    {
+      "_note": "AI cluster 1, order 4: the multi-category source (EDGE(c)) under ai.",
+      "cluster_id": "cl-ai-leaders",
+      "source_id": "s-multi",
+      "member_sort_order": 4
+    },
+    {
+      "_note": "AI cluster 2, order 0: the SHARED source again (EDGE(d)) — already rendered in cluster 1, so dropped here.",
+      "cluster_id": "cl-ai-builders",
+      "source_id": "s-shared",
+      "member_sort_order": 0
+    },
+    {
+      "_note": "AI cluster 2, order 1: a source unique to cluster 2, so cluster 2 still surfaces with one member.",
+      "cluster_id": "cl-ai-builders",
+      "source_id": "s-founder",
+      "member_sort_order": 1
+    },
+    {
+      "_note": "AI empty cluster, order 0: the only member references an UN-CURATED source (EDGE(b)) → cluster emptied + dropped.",
+      "cluster_id": "cl-ai-empty",
+      "source_id": "s-uncurated",
+      "member_sort_order": 0
+    },
+    {
+      "_note": "Tech cluster, order 0: the multi-category source (EDGE(c)) under tech.",
+      "cluster_id": "cl-tech-tools",
+      "source_id": "s-multi",
+      "member_sort_order": 0
+    }
+  ],
+
+  "sources": [
+    {
+      "_note": "EDGE(a) — the personality's bundled YouTube channel as a standalone content_sources row. Tagged 'ai' so the repo's sources_for_category('ai') returns it (so the no-dup match can see + suppress it). external_id matches p-demis.youtube_channel_ids.",
+      "source_id": "s-demis-yt",
+      "content_source_type": "youtube_channel",
+      "external_id": "UC_demis",
+      "source_name": "Demis (YouTube)",
+      "topic_tags": ["ai"],
+      "popularity_score": 70.0,
+      "is_curated": true
+    },
+    {
+      "_note": "EDGE(a) — the personality's bundled X account as a standalone row. external_id matches p-demis.aliases. Must be suppressed.",
+      "source_id": "s-demis-x",
+      "content_source_type": "x_account",
+      "external_id": "demishassabis",
+      "source_name": "@demishassabis",
+      "topic_tags": ["ai"],
+      "popularity_score": 65.0,
+      "is_curated": true
+    },
+    {
+      "_note": "EDGE(d) — shared across AI cluster 1 and AI cluster 2; first cluster wins.",
+      "source_id": "s-shared",
+      "content_source_type": "youtube_channel",
+      "external_id": "UC_shared",
+      "source_name": "Two Minute Papers",
+      "topic_tags": ["ai"],
+      "popularity_score": 60.0,
+      "is_curated": true
+    },
+    {
+      "_note": "EDGE(c) — multi-category source: topic_tags span ai AND tech roots. Surfaces under both clusters_for_category('ai') and ('tech').",
+      "source_id": "s-multi",
+      "content_source_type": "youtube_channel",
+      "external_id": "UC_multi",
+      "source_name": "Fireship",
+      "topic_tags": ["ai", "tech"],
+      "popularity_score": 80.0,
+      "is_curated": true
+    },
+    {
+      "_note": "A source unique to AI cluster 2 so it still surfaces after EDGE(d) drops the shared one.",
+      "source_id": "s-founder",
+      "content_source_type": "x_account",
+      "external_id": "founder_x",
+      "source_name": "@aifounder",
+      "topic_tags": ["ai"],
+      "popularity_score": 55.0,
+      "is_curated": true
+    },
+    {
+      "_note": "EDGE(b) — un-curated source: empties its cluster so the cluster is dropped.",
+      "source_id": "s-uncurated",
+      "content_source_type": "youtube_channel",
+      "external_id": "UC_uncurated",
+      "source_name": "Uncurated AI Channel",
+      "topic_tags": ["ai"],
+      "popularity_score": 10.0,
+      "is_curated": false
+    }
+  ],
+
+  "personalities": [
+    {
+      "_note": "EDGE(a) — bundles a youtube_channel_id (UC_demis → s-demis-yt) AND an x alias (demishassabis → s-demis-x), both of which exist as content_sources rows. Tagged 'ai' so personalities_for_category('ai') returns it.",
+      "personality_id": "p-demis",
+      "display_name": "Demis Hassabis",
+      "aliases": ["demishassabis"],
+      "youtube_channel_ids": ["UC_demis"],
+      "topic_tags": ["ai"],
+      "popularity_score": 90.0,
+      "is_curated": true
+    }
+  ]
+}
