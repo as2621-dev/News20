@@ -817,6 +817,7 @@ def assemble_daily_feeds(
     supabase_client: Any,
     now_utc: Any = None,
     source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
+    cluster_importance_by_story: dict[str, float] | None = None,
 ) -> DailyFeedsBatchResult:
     """Assemble + persist a per-user ``daily_feeds`` feed for every active user.
 
@@ -845,6 +846,12 @@ def assemble_daily_feeds(
             user's followed YouTube/X reels produced this run, used to fill their
             ``youtube``/``x`` source slots (phase-5d). ``None`` → no source slots
             (every source budget soft-rolls into topics, the legacy behaviour).
+        cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
+            within-category-normalized importance (FSR-M3) for clustered stories,
+            SHARED across users (importance is intrinsic, not per-user). Threaded into
+            each user's ``assemble_user_feed`` so a clustered story's Importance term is
+            its authority-weighted E1 score; un-clustered stories fall back to the raw
+            outlet count (Rule 3 — additive). ``None`` → the pre-M3 raw-importance feed.
 
     Returns:
         A :class:`DailyFeedsBatchResult` summarizing writes/skips per user.
@@ -884,6 +891,7 @@ def assemble_daily_feeds(
             source_stories=(
                 (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
             ),
+            cluster_importance_by_story=cluster_importance_by_story,
             now_utc=now_utc,
         )
         # Reason: empty allocation → skip the user (no daily_feeds row) — SP4 DoD-c.

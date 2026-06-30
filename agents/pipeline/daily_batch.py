@@ -45,6 +45,7 @@ from agents.pipeline.orchestrator import (
     write_phase,
 )
 from agents.pipeline.produce_caps import (
+    DEFAULT_HEADROOM_MULTIPLIER,
     cap_stories_per_category,
     compute_category_produce_caps,
     enforce_overall_ceiling,
@@ -658,7 +659,7 @@ async def run_daily_pipeline(
     since_utc: datetime | None = None,
     max_concurrent_productions: int = DEFAULT_MAX_CONCURRENT_PRODUCTIONS,
     max_total_productions: int | None = None,
-    produce_cap_headroom: float = 1.0,
+    produce_cap_headroom: float = DEFAULT_HEADROOM_MULTIPLIER,
     enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
     enable_produce_dedup: bool = True,
@@ -693,7 +694,9 @@ async def run_daily_pipeline(
             balance is preserved (the re-purposed ``MAX_PRODUCE``). ``None``/``<=0``
             leaves the per-category caps as the only bound.
         produce_cap_headroom: Over-provision factor for the per-category produce
-            caps (``PRODUCE_CAP_HEADROOM``). ``1.0`` (default) renders 1× demand;
+            caps (``PRODUCE_CAP_HEADROOM``). Defaults to
+            :data:`agents.pipeline.produce_caps.DEFAULT_HEADROOM_MULTIPLIER` (``1.5``,
+            FSR-M6b SP3 — sized for the source-led mix); ``1.0`` renders 1× demand;
             ``2.0`` doubles the render pool so downstream quality-gate rejections
             still leave enough survivors to fill each category's real feed budget.
             The feed itself is still capped at the user's true allocation by
@@ -876,6 +879,28 @@ async def run_daily_pipeline(
     active_user_inputs = load_active_user_inputs(
         supabase_client, target_date, exploration_by_user
     )
+    # ── FSR-M3 cluster-importance bridge (RESIDUAL — see note) ────────────────
+    # The assembly seam is wired: ``assemble_daily_feeds`` accepts a SHARED
+    # ``cluster_importance_by_story`` map and threads it through ``assemble_user_feed`` →
+    # ``score_and_classify_for_user`` → ``compute_story_score(cluster_importance=…)`` so a
+    # clustered story's Importance term is its authority-weighted, within-category-
+    # normalized E1 score (``agents/pipeline/importance/story_importance.score_clusters``),
+    # falling back to the raw outlet count for un-clustered stories (Rule 3, additive).
+    #
+    # RESIDUAL (NOT closed this phase — surfaced, not faked, Rule 12): the SOURCE of that
+    # map is not yet produced in this batch. The shared-pool ONLINE clusterer
+    # (``agents/pipeline/clustering/online_clusterer.cluster_candidates`` → ``StoryCluster``
+    # rows + the ``story_clusters`` table, M3a/M3b) is NOT called anywhere in
+    # ``run_daily_pipeline`` today — ingestion uses the simpler URL+title
+    # ``StoryClusterer`` (``agents/ingestion/dedup``) that produces ``CanonicalStory`` with
+    # NO ``cluster_id``. Closing this requires, post-clustering: (1) call ``score_clusters``
+    # on the clustered batch and persist via ``cluster_store.upsert``; (2) bridge each
+    # cluster's ``cluster_importance`` onto the candidate at the ``cluster_id ↔ story_id``
+    # seam (``build_story_id_resolver`` / ``story_url_aliases``) to build the map below. That
+    # wiring (embeddings + blocking + continuity persistence) is an entangled, paid-Gemini
+    # change beyond M6b's surgical scope — tracked as a LIVE-pipeline residual. Until then
+    # the map is ``None`` and the un-clustered raw-importance fallback is used (no fake).
+    cluster_importance_by_story: dict[str, float] | None = None
     # Reason: a source slot can be filled by a source story produced THIS run or one
     # that already had a current digest (persisted, placeable). Restrict each user's
     # source pool to those placeable ids so a verification halt never leaves a
@@ -905,6 +930,7 @@ async def run_daily_pipeline(
         supabase_client=supabase_client,
         now_utc=now,
         source_stories_by_user=produced_source_by_user,
+        cluster_importance_by_story=cluster_importance_by_story,
     )
 
     logger.info(

@@ -1,7 +1,7 @@
 # Phase FSR-M6b: Priority feed mix (followed-source items get guaranteed slots first)
 
 **Milestone:** M6 — Source/cluster onboarding UI + priority feed mix (feed-source revamp, `plans/prd.md`)
-**Status:** Not started
+**Status:** SHIPPED (2026-06-30) — see `plans/phase-fsr-m6b-priority-feed-mix-progress.md`
 **Estimated effort:** M
 
 ## Goal

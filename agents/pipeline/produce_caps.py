@@ -33,12 +33,28 @@ from agents.shared.logger import get_logger
 logger = get_logger("pipeline.produce_caps")
 
 
+# Reason (FSR-M6b SP3): the produce-cap headroom for the SOURCE-LED feed mix. The
+# render pool is over-provisioned by this factor BEFORE the paid fan-out so that, after
+# the quality gates (verification halt, editorial-JSON failure, produce-dedup) reject a
+# fraction of produced reels, each TOPIC category still has enough survivors to fill its
+# real feed budget — even though the feed now LEADS with followed-source items and topic
+# fill takes whatever the feed has left. WHY 1.5: a representative gate pass-rate is ~60–70%
+# (a verification halt + an editorial rejection on a small pool), so a category whose
+# demand is D needs ceil(D × 1.5) rendered to keep ≥ D survivors at ~67% pass — e.g. demand
+# 4 → render 6 → ~4 survive. It is NOT higher (2.0) because the source-led mix REDUCES the
+# topic slots that actually need filling (followed-source items pre-empt part of the feed),
+# so 2× would over-produce topic reels the feed never shows. The feed itself is still
+# re-capped at the user's true ``allocation_slot_count`` by ``feed_assembly`` — this only
+# enlarges the render pool, never the feed. (PRD M6 Open item; phase-5d note 1.5 — adopted.)
+DEFAULT_HEADROOM_MULTIPLIER: float = 1.5
+
+
 def compute_category_produce_caps(
     allocation_by_user: dict[str, list],
     active_user_ids: list[str],
     default_allocation: dict[FeedCategory, int],
     *,
-    headroom_multiplier: float = 1.0,
+    headroom_multiplier: float = DEFAULT_HEADROOM_MULTIPLIER,
 ) -> dict[FeedCategory, int]:
     """Fold per-user allocations into per-category produce caps.
 
@@ -56,9 +72,10 @@ def compute_category_produce_caps(
     enough survivors to fill each category's real feed budget. The final feed is
     still capped at the user's true ``allocation_slot_count`` by
     :mod:`agents.pipeline.feed_assembly` — this only enlarges the *render pool*, not
-    the feed. Example: a category with demand 4 at ``headroom_multiplier=2.0``
-    renders ``ceil(4 * 2.0) = 8`` candidates so a ~60% gate pass-rate still yields
-    ≥ 4. Default ``1.0`` preserves the original 1×-demand behaviour.
+    the feed. The default is :data:`DEFAULT_HEADROOM_MULTIPLIER` (``1.5``, FSR-M6b
+    SP3 — sized for the source-led mix; see that constant's note): a category with
+    demand 4 renders ``ceil(4 * 1.5) = 6`` candidates so a ~67% gate pass-rate still
+    yields ≥ 4. Pass ``1.0`` to disable headroom (1×-demand render pool).
 
     Args:
         allocation_by_user: ``{user_id: [CategoryAllocation, ...]}`` — the shape
@@ -67,8 +84,8 @@ def compute_category_produce_caps(
         default_allocation: ``{category: slot_count}`` a no-row user inherits
             (``agents.pipeline.categories.DEFAULT_FEED_ALLOCATION``).
         headroom_multiplier: Over-provision factor applied to every folded cap
-            (``ceil``-rounded). ``1.0`` (default) = no headroom; ``2.0`` = double the
-            render pool to absorb downstream rejections.
+            (``ceil``-rounded). Defaults to :data:`DEFAULT_HEADROOM_MULTIPLIER`
+            (``1.5``); ``1.0`` = no headroom; ``2.0`` = double the render pool.
 
     Returns:
         ``caps`` — ``{category: ceil(max slot_count * headroom_multiplier)}`` over
@@ -77,17 +94,17 @@ def compute_category_produce_caps(
     Example:
         >>> from agents.pipeline.categories import CategoryAllocation
         >>> allocs = {
-        ...     "u1": [CategoryAllocation(allocation_category="markets",
+        ...     "u1": [CategoryAllocation(allocation_category="business",
         ...                               allocation_slot_count=7,
         ...                               allocation_sort_order=0)],
         ... }
-        >>> caps = compute_category_produce_caps(allocs, ["u1"], {"markets": 4})
-        >>> caps["markets"]  # u1's explicit 7 beats the default 4
+        >>> caps = compute_category_produce_caps(
+        ...     allocs, ["u1"], {"business": 4}, headroom_multiplier=1.0)
+        >>> caps["business"]  # u1's explicit 7 beats the default 4 (no headroom)
         7
-        >>> caps2 = compute_category_produce_caps(
-        ...     allocs, ["u1"], {"markets": 4}, headroom_multiplier=2.0)
-        >>> caps2["markets"]  # 7 demand → 14 rendered (2× headroom)
-        14
+        >>> caps2 = compute_category_produce_caps(allocs, ["u1"], {"business": 4})
+        >>> caps2["business"]  # 7 demand → ceil(7 * 1.5) = 11 rendered (default headroom)
+        11
     """
     caps: dict[FeedCategory, int] = {}
     users_using_default = 0

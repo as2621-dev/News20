@@ -306,17 +306,86 @@ def _source_candidate(
     )
 
 
+def _source_recency_importance_sort_key(
+    story: CanonicalStory,
+) -> tuple[float, int, str]:
+    """The documented over-budget source SPILL rule (SP2): recency, then importance.
+
+    When a user's fresh followed-source items exceed the slots available (the source
+    budget or — under the SP1 guarantee — the whole feed budget), they are ranked by
+    this single deterministic key and the overflow is dropped (this phase does not
+    carry overflow into a later day). Order (Open Q2, pinned):
+
+      1. **Recency PRIMARY** — newer ``canonical_published_utc`` first. A follow's
+         value is its freshness; the most recent uploads/posts lead.
+      2. **Importance SECONDARY** — higher ``story_outlet_count`` first (the same
+         coverage-breadth signal the produce gate uses). Breaks recency ties toward
+         the more-covered item.
+      3. **Story id TIEBREAK** — ascending ``canonical_story_id`` so the cap is fully
+         deterministic on exact ties (no insertion-order dependence — Rule 9).
+
+    Returned as a key for ``sorted(..., key=...)``; the two "first" signals are
+    NEGATED so a plain ascending sort yields newest-then-most-important-first while
+    the id tiebreak stays ascending.
+
+    Args:
+        story: A produced source-origin story.
+
+    Returns:
+        ``(-published_epoch, -outlet_count, story_id)`` — ascending sort = the rule.
+    """
+    published = story.canonical_published_utc
+    published_epoch = published.timestamp() if published is not None else 0.0
+    return (-published_epoch, -int(story.story_outlet_count or 0), story.canonical_story_id)
+
+
+def _rank_source_stories(
+    source_stories: list[CanonicalStory],
+) -> list[CanonicalStory]:
+    """Order a category's source stories by the SP2 recency+importance spill rule.
+
+    A stable, deterministic ordering applied BEFORE the budget cap so that when more
+    source items exist than slots, the kept items are the top-N by
+    :func:`_source_recency_importance_sort_key` (newest, then most-covered, then id) —
+    never insertion order.
+
+    Args:
+        source_stories: One category's produced source-origin stories.
+
+    Returns:
+        The same stories, ordered newest+most-important first (deterministic).
+    """
+    return sorted(source_stories, key=_source_recency_importance_sort_key)
+
+
 def _fill_source_slots(
     source_stories: list[CanonicalStory],
     source_budgets: dict[FeedCategory, int],
     used_story_ids: set[str],
     excluded_story_ids: set[str],
+    guaranteed_cap: int | None = None,
 ) -> dict[FeedCategory, list[ScoredCandidate]]:
-    """Fill each source category's budget from the user's produced source stories.
+    """Fill source slots from the user's produced source stories — guaranteed first.
 
     A source story fills the slot of the category its outlet domain maps to
-    (youtube.com → ``youtube``, x.com → ``x``). Each category takes up to its budget,
-    skipping stories already placed in this feed or shown in a prior feed (§3.8).
+    (youtube.com → ``youtube``, x.com → ``x``). Stories already placed in this feed or
+    shown in a prior feed (§3.8) are skipped.
+
+    **Guaranteed source priority (SP1).** Fresh followed-source items are the
+    personalization (PRD Decision #8), so they take guaranteed slots AHEAD of topic
+    fill — not merely their per-source-category budget. Each category fills up to
+    ``max(its budget, all its eligible stories)``, and the TOTAL source fill is bounded
+    only by ``guaranteed_cap`` (the feed budget, set by the caller). So a user who
+    budgeted youtube=2 but has 6 fresh follows gets all 6 as priority slots (capped at
+    the feed), with topic stories filling whatever the feed has left. When
+    ``guaranteed_cap`` is ``None`` (legacy callers), each category fills only up to its
+    own budget — the pre-SP1 behaviour.
+
+    **Over-budget spill (SP2).** Within each category the stories are first ranked by
+    the documented recency+importance rule (:func:`_rank_source_stories`); when the cap
+    binds, the overflow is dropped (not carried to a later day this phase) and the kept
+    items are the top-N by that rule — deterministic on ties.
+
     A category with no produced source story stays unfilled — its budget then rolls
     into the topic categories (the caller's existing soft-roll), so the feed still
     totals 30 when a source produced nothing this run.
@@ -326,6 +395,9 @@ def _fill_source_slots(
         source_budgets: ``{source_category: slot_count}`` from the user's allocation.
         used_story_ids: Mutated — a placed source story is added (within-feed dedup).
         excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
+        guaranteed_cap: The maximum TOTAL source slots to grant across all source
+            categories (the feed budget). ``None`` keeps the legacy per-category-budget
+            cap (no cross-category guarantee).
 
     Returns:
         ``{source_category: [ScoredCandidate]}`` for the categories actually filled.
@@ -339,19 +411,33 @@ def _fill_source_slots(
             continue
         by_category.setdefault(category, []).append(story)
 
+    # Reason: under the SP1 guarantee the per-category cap is lifted to "all this
+    # category's eligible stories" (still bounded by the feed-wide guaranteed_cap),
+    # so a user's fresh follows are not silently truncated to their source budget.
+    # Legacy callers (guaranteed_cap=None) keep the strict per-category budget.
+    granted_total = 0
     filled: dict[FeedCategory, list[ScoredCandidate]] = {}
-    for category, budget in source_budgets.items():
-        if budget <= 0:
+    for category in source_budgets:
+        budget = source_budgets.get(category, 0)
+        ranked = _rank_source_stories(by_category.get(category, []))
+        if guaranteed_cap is None:
+            category_cap = budget
+        else:
+            category_cap = max(budget, len(ranked))
+        if category_cap <= 0:
             continue
         taken: list[ScoredCandidate] = []
-        for story in by_category.get(category, []):
-            if len(taken) >= budget:
+        for story in ranked:
+            if len(taken) >= category_cap:
+                break
+            if guaranteed_cap is not None and granted_total >= guaranteed_cap:
                 break
             story_id = story.canonical_story_id
             if story_id in used_story_ids or story_id in excluded_story_ids:
                 continue
             taken.append(_source_candidate(story, category))
             used_story_ids.add(story_id)
+            granted_total += 1
         if taken:
             filled[category] = taken
     return filled
@@ -367,6 +453,7 @@ def assemble_user_feed(
     prior_feed_story_ids: set[str] | None = None,
     exploration_candidates_by_interest: Any = None,
     source_stories: list[CanonicalStory] | None = None,
+    cluster_importance_by_story: dict[str, float] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     now_utc: Any = None,
@@ -404,6 +491,12 @@ def assemble_user_feed(
             (phase-5d) instead of those budgets soft-rolling into topics. A source
             category with no produced story still soft-rolls (graceful). ``None``/empty
             → the legacy all-soft-roll behaviour (no source slots).
+        cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
+            within-category-normalized importance (FSR-M3 residual #2) for clustered
+            stories, threaded into the entity-aware scorer so a clustered story's
+            Importance term is its authority-weighted E1 score. Un-clustered stories
+            (absent from the map) fall back to the raw outlet-count importance, so the
+            seam is additive (``None``/empty → byte-identical to the pre-M3 feed).
         feed_slot_budget: ``N`` — total feed slots (30).
         score_threshold: ``T`` — the qualifying bar.
         now_utc: Current time for the freshness term (defaults to ``utcnow``).
@@ -436,6 +529,7 @@ def assemble_user_feed(
         interest_nodes=interest_nodes,
         now_utc=now_utc,
         score_threshold=score_threshold,
+        cluster_importance_by_story=cluster_importance_by_story,
     )
 
     # ── Layer 1: resolve the per-category budgets + manual sequence ──
@@ -466,9 +560,13 @@ def assemble_user_feed(
     slot_kinds: list[str] = []
 
     # ── Pass 1: fill SOURCE slots (youtube/x) from the user's produced source
-    # stories (phase-5d). Each source category takes up to its budget; whatever it
-    # cannot fill (no produced story this run) stays as roll-over that Pass 4
-    # redistributes into topics — so the feed still totals 30 either way. ──
+    # stories — GUARANTEED FIRST, ahead of topic fill (SP1). Fresh followed-source
+    # items are the personalization (PRD Decision #8), so they take priority slots up
+    # to the whole feed budget (``total_target``), NOT just their per-source-category
+    # budget. Whatever source slots remain unfilled (no produced story this run) stay
+    # as roll-over that Pass 4 redistributes into topics — so the feed still totals 30
+    # either way. Over-budget source items spill by the documented recency+importance
+    # rule inside ``_fill_source_slots`` (SP2). ──
     source_budgets: dict[FeedCategory, int] = {}
     for row in ordered_allocation:
         if row.allocation_category in SOURCE_CATEGORIES:
@@ -481,6 +579,7 @@ def assemble_user_feed(
         source_budgets,
         used_story_ids=used_story_ids,
         excluded_story_ids=excluded,
+        guaranteed_cap=total_target,
     )
     source_filled_total = sum(len(v) for v in source_filled_by_category.values())
 
@@ -491,7 +590,10 @@ def assemble_user_feed(
     # so the feed still totals 30 without overshooting N.
     topic_budgets: dict[FeedCategory, int] = {}
     topic_sequence: list[FeedCategory] = []
-    source_roll_slots = sum(source_budgets.values()) - source_filled_total
+    # Reason: clamp at 0 — under the SP1 guarantee the source fill can EXCEED the
+    # source budget (a user's fresh follows outnumber their youtube/x budget), in
+    # which case there is no unfilled source budget to roll into topics.
+    source_roll_slots = max(sum(source_budgets.values()) - source_filled_total, 0)
     for row in ordered_allocation:
         category = row.allocation_category
         if category in SOURCE_CATEGORIES:

@@ -11,6 +11,7 @@ Pure functions — no DB, no LLM, no clock. Inputs are mocked Pydantic models.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 
 import pytest
@@ -93,24 +94,30 @@ _DEFAULT = {"business": 4, "sport": 3, "arts": 2}
 
 
 def test_compute_caps_takes_cross_user_max_per_category():
-    """Happy path: cap = the highest slot_count any single user requested."""
+    """Happy path: cap = the highest slot_count any single user requested.
+
+    Pinned at ``headroom_multiplier=1.0`` so this isolates the cross-user-max fold
+    from the SP3 source-led headroom (which the dedicated headroom test below pins).
+    """
     allocation_by_user = {
         "u1": [_alloc("business", 5), _alloc("sport", 3)],
         "u2": [_alloc("business", 7), _alloc("sport", 6)],
     }
-    caps = compute_category_produce_caps(allocation_by_user, ["u1", "u2"], _DEFAULT)
+    caps = compute_category_produce_caps(
+        allocation_by_user, ["u1", "u2"], _DEFAULT, headroom_multiplier=1.0
+    )
     assert caps == {"business": 7, "sport": 6}
 
 
 def test_compute_caps_no_active_users_returns_empty():
     """Edge: no active users → no caps."""
-    caps = compute_category_produce_caps({}, [], _DEFAULT)
+    caps = compute_category_produce_caps({}, [], _DEFAULT, headroom_multiplier=1.0)
     assert caps == {}
 
 
 def test_compute_caps_no_row_user_inherits_default():
     """A user who never built their 30 counts as the universal default allocation."""
-    caps = compute_category_produce_caps({}, ["u1"], _DEFAULT)
+    caps = compute_category_produce_caps({}, ["u1"], _DEFAULT, headroom_multiplier=1.0)
     assert caps == {"business": 4, "sport": 3, "arts": 2}
 
 
@@ -121,7 +128,9 @@ def test_compute_caps_explicit_rows_override_default_per_user():
     has no rows → inherits the default (business 4). Cross-user max business = 4.
     """
     allocation_by_user = {"u1": [_alloc("sport", 6)]}
-    caps = compute_category_produce_caps(allocation_by_user, ["u1", "u2"], _DEFAULT)
+    caps = compute_category_produce_caps(
+        allocation_by_user, ["u1", "u2"], _DEFAULT, headroom_multiplier=1.0
+    )
     assert caps["sport"] == 6  # u1's explicit 6 beats the default 3
     assert caps["business"] == 4  # only u2 (default) wants business
 
@@ -132,8 +141,47 @@ def test_compute_caps_zero_slot_user_does_not_lower_the_max():
         "u1": [_alloc("sport", 0)],
         "u2": [_alloc("sport", 4)],
     }
-    caps = compute_category_produce_caps(allocation_by_user, ["u1", "u2"], _DEFAULT)
+    caps = compute_category_produce_caps(
+        allocation_by_user, ["u1", "u2"], _DEFAULT, headroom_multiplier=1.0
+    )
     assert caps["sport"] == 4
+
+
+# ── FSR-M6b SP3 — produce-cap headroom for the source-led mix ──────────────────
+
+
+def test_default_headroom_covers_budget_after_representative_gate_attrition():
+    """The DEFAULT headroom (1.5) renders enough that a category's real budget still
+    fills after a representative quality-gate pass-rate — and the feed is not inflated.
+
+    WHY (Rule 9 — pins the REASON, not just a number): the source-led mix leads the
+    feed with follows, so topic categories must still fill their real budget after the
+    quality gates reject a fraction of produced reels. With demand D=4 and the default
+    1.5 headroom, the render pool is ceil(4 × 1.5) = 6; at a representative ~67% gate
+    pass-rate, 6 rendered → floor(6 × 0.67) = 4 survivors == the real budget. So the
+    headroom is exactly enough to fill demand-4 under attrition. This FAILS if the
+    default headroom is dropped back to 1.0 (4 rendered → ~2 survive, under-fills) or
+    pushed to 2.0 (8 rendered → over-produces topic reels the source-led feed won't show).
+    """
+    allocation_by_user = {"u1": [_alloc("business", 4)]}
+    # Default headroom (no kwarg) — the SP3 value under test.
+    caps = compute_category_produce_caps(allocation_by_user, ["u1"], _DEFAULT)
+
+    demand = 4
+    render_pool = caps["business"]
+    assert render_pool == 6, "demand 4 at the default 1.5 headroom renders ceil(4*1.5)=6"
+
+    # The REASON: at a representative ~67% gate pass-rate the render pool still yields
+    # ≥ the real budget (demand), so the topic category fills under the source-led mix.
+    representative_pass_rate = 0.67
+    survivors = int(render_pool * representative_pass_rate)
+    assert survivors >= demand, (
+        f"{render_pool} rendered at {representative_pass_rate:.0%} → {survivors} survivors "
+        f"must still cover the real budget of {demand}"
+    )
+    # And the headroom does NOT over-produce: a 2.0 pool (8) would render 2 reels the
+    # source-led feed never shows; 1.5 is the tighter, sufficient choice.
+    assert render_pool < math.ceil(demand * 2.0), "1.5 is tighter than a 2.0 over-provision"
 
 
 # ── cap_stories_per_category ───────────────────────────────────────────────────

@@ -582,6 +582,7 @@ def score_stories_for_interest(
     tags_by_story: dict[str, dict[str, int]],
     now_utc: datetime,
     fallback_depth: int = 0,
+    cluster_importance_by_story: dict[str, float] | None = None,
 ) -> list[ScoredCandidate]:
     """Score every story tagged to one interest node, for one user.
 
@@ -598,10 +599,16 @@ def score_stories_for_interest(
         now_utc: Current time for freshness.
         fallback_depth: How far the fallback has climbed to reach this node
             (recorded on each produced candidate for SP4/audit).
+        cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
+            within-category-normalized importance (FSR-M3) for stories that were
+            clustered. A story absent from this map (un-clustered) falls back to the
+            raw outlet-count importance inside ``compute_story_score`` (Rule 3 —
+            purely additive, the un-clustered path is byte-for-byte unchanged).
 
     Returns:
         Scored candidates for this interest, descending by score.
     """
+    cluster_importance_by_story = cluster_importance_by_story or {}
     scored: list[ScoredCandidate] = []
     for story in stories:
         story_tags = tags_by_story.get(story.canonical_story_id)
@@ -613,6 +620,9 @@ def score_stories_for_interest(
             match_depth=match_depth,
             story=story,
             now_utc=now_utc,
+            cluster_importance=cluster_importance_by_story.get(
+                story.canonical_story_id
+            ),
         )
         scored.append(
             ScoredCandidate(
@@ -664,6 +674,7 @@ def generate_fallback_candidates(
     interest_nodes: dict[str, InterestNode],
     now_utc: datetime,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
+    cluster_importance_by_story: dict[str, float] | None = None,
 ) -> list[ScoredCandidate]:
     """Generate candidates for one followed leaf via the fallback tree (§2).
 
@@ -687,6 +698,10 @@ def generate_fallback_candidates(
             the ancestor climb).
         now_utc: Current time for freshness.
         score_threshold: ``T`` — the qualifying/stop threshold.
+        cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
+            within-category-normalized importance (FSR-M3), threaded to
+            :func:`compute_story_score` so a clustered story's Importance term is
+            its E1 score; un-clustered stories fall back to raw outlet count.
 
     Returns:
         The scored candidates from the FIRST level that produced a qualifying
@@ -709,6 +724,7 @@ def generate_fallback_candidates(
             tags_by_story=tags_by_story,
             now_utc=now_utc,
             fallback_depth=0,
+            cluster_importance_by_story=cluster_importance_by_story,
         )
         logger.info(
             "fallback_strict_leaf_only",
@@ -729,6 +745,7 @@ def generate_fallback_candidates(
             tags_by_story=tags_by_story,
             now_utc=now_utc,
             fallback_depth=fallback_depth,
+            cluster_importance_by_story=cluster_importance_by_story,
         )
         if fallback_depth == 0:
             leaf_level_scored = node_scored
@@ -765,6 +782,7 @@ def score_candidates_for_user(
     interest_nodes: dict[str, InterestNode],
     now_utc: datetime | None = None,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
+    cluster_importance_by_story: dict[str, float] | None = None,
 ) -> dict[str, list[ScoredCandidate]]:
     """Generate the full candidate set for one user across all followed leaves.
 
@@ -779,6 +797,9 @@ def score_candidates_for_user(
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
         now_utc: Current time for freshness (defaults to ``utcnow``).
         score_threshold: ``T`` — the qualifying/stop threshold.
+        cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
+            within-category-normalized importance (FSR-M3) threaded through to the
+            scorer; un-clustered stories fall back to raw outlet count.
 
     Returns:
         ``{followed_leaf_interest_id: [ScoredCandidate, ...]}`` — descending by
@@ -804,6 +825,7 @@ def score_candidates_for_user(
             interest_nodes=interest_nodes,
             now_utc=now,
             score_threshold=score_threshold,
+            cluster_importance_by_story=cluster_importance_by_story,
         )
 
     logger.info(
@@ -897,6 +919,7 @@ def score_and_classify_for_user(
     interest_nodes: dict[str, InterestNode],
     now_utc: datetime | None = None,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
+    cluster_importance_by_story: dict[str, float] | None = None,
 ) -> dict[FeedCategory, list[ScoredCandidate]]:
     """Score (entity-aware) + classify a user's candidates into the 8 categories.
 
@@ -928,6 +951,12 @@ def score_and_classify_for_user(
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
         now_utc: Current time for freshness (defaults to ``utcnow``).
         score_threshold: ``T`` — the qualifying/stop threshold for the scorer.
+        cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
+            within-category-normalized importance (FSR-M3 residual #2). Threaded
+            into the per-interest scorer so a clustered story's Importance term is
+            its authority-weighted E1 score instead of the raw outlet count; a story
+            absent from the map (un-clustered) is scored exactly as before (Rule 3 —
+            additive seam). Empty/None → byte-identical to the pre-M3 behaviour.
 
     Returns:
         ``{feed_category: [ScoredCandidate, ...]}`` — all 8 keys; topic buckets
@@ -945,6 +974,7 @@ def score_and_classify_for_user(
         interest_nodes=interest_nodes,
         now_utc=now,
         score_threshold=score_threshold,
+        cluster_importance_by_story=cluster_importance_by_story,
     )
     best_by_story = _best_candidate_per_story(candidates_by_interest)
     tags_by_story = _index_tags_by_story(story_interest_tags)

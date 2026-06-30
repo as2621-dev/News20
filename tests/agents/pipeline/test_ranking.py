@@ -911,3 +911,73 @@ class TestImportanceWeightFlip:
         story = _story("x", outlet_count=6, published=_NOW)
         _s, _dm, importance, _f = compute_story_score(1.0, 0, story, _NOW)
         assert importance == pytest.approx(0.5)  # 6/12, the preserved un-clustered path
+
+
+class TestClusterImportanceThreadsThroughScorer:
+    """FSR-M3 residual #2: ``cluster_importance`` reaches ``compute_story_score``
+    through the public ``score_and_classify_for_user`` seam — clustered stories use
+    their E1 score; un-clustered stories fall back gracefully (Rule 3/12).
+    """
+
+    _NODES = {
+        "int-biz": InterestNode(
+            interest_id="int-biz", interest_slug="business", interest_label="Business"
+        ),
+    }
+    _PROFILE = [UserProfileInterest(profile_interest_id="int-biz", profile_weight=3.0)]
+
+    def _tag(self, story_id: str) -> StoryInterestTag:
+        return StoryInterestTag(
+            story_interest_story_id=story_id,
+            story_interest_interest_id="int-biz",
+            story_interest_match_depth=0,
+        )
+
+    def test_clustered_story_uses_e1_importance_unclustered_falls_back(self) -> None:
+        """A clustered story's Score reflects its injected E1 ``cluster_importance``;
+        an un-clustered twin (absent from the map) reflects the raw outlet count.
+
+        WHY: proves the map threads end-to-end from ``score_and_classify_for_user`` down
+        to ``compute_story_score`` — and that the fallback is graceful for a story with
+        no cluster importance. The two stories share coverage + freshness, so ONLY the
+        importance source differs; a higher injected E1 must yield a higher Score, while
+        the un-clustered story's importance term equals its raw outlet count.
+        """
+        clustered = _story("biz-clustered", outlet_count=4, published=_NOW)
+        unclustered = _story("biz-unclustered", outlet_count=4, published=_NOW)
+        tags = [self._tag("biz-clustered"), self._tag("biz-unclustered")]
+
+        buckets = score_and_classify_for_user(
+            profile_interests=self._PROFILE,
+            followed_entities=[],
+            stories=[clustered, unclustered],
+            story_interest_tags=tags,
+            interest_nodes=self._NODES,
+            now_utc=_NOW,
+            # Only the clustered story carries an E1 importance (1.0); 4/12 ≈ 0.33 raw.
+            cluster_importance_by_story={"biz-clustered": 1.0},
+        )
+
+        by_id = {c.story_id: c for c in buckets["business"]}
+        assert by_id["biz-clustered"].importance == pytest.approx(1.0), (
+            "the clustered story's importance term is its injected E1 value"
+        )
+        assert by_id["biz-unclustered"].importance == pytest.approx(4 / 12), (
+            "the un-clustered story falls back to the raw outlet-count importance"
+        )
+        assert by_id["biz-clustered"].score > by_id["biz-unclustered"].score, (
+            "the higher E1 importance lifts the clustered story's Score"
+        )
+
+    def test_no_map_is_identical_to_all_unclustered(self) -> None:
+        """Passing no map scores every story by the raw outlet count (pre-M3 path)."""
+        story = _story("biz-1", outlet_count=6, published=_NOW)
+        buckets = score_and_classify_for_user(
+            profile_interests=self._PROFILE,
+            followed_entities=[],
+            stories=[story],
+            story_interest_tags=[self._tag("biz-1")],
+            interest_nodes=self._NODES,
+            now_utc=_NOW,
+        )
+        assert buckets["business"][0].importance == pytest.approx(0.5)  # 6/12, unchanged
