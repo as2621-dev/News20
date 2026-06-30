@@ -266,6 +266,10 @@ class CanonicalStory(BaseModel):
         covering_outlets: Distinct outlet domains covering this story (sorted).
         story_outlet_count: len(covering_outlets) — the coverage/trust number.
         canonical_matched_interest_ids: Distinct interests whose queries surfaced this story.
+        canonical_themes: Union of the cluster members' GDELT ``V2Themes`` codes
+            (offset-stripped, deduped, verbatim case). The category source for
+            theme-derived ingestion-time tagging (M2 SP3); empty when no member
+            carried themes (then categorization falls back to DEFAULT_CATEGORY).
         member_candidate_ids: external_ids of all candidates merged into this cluster.
 
     Example:
@@ -320,6 +324,11 @@ class CanonicalStory(BaseModel):
     canonical_matched_interest_ids: list[str] = Field(
         default_factory=list,
         description="Distinct interests whose queries surfaced this story",
+    )
+    canonical_themes: list[str] = Field(
+        default_factory=list,
+        description="Union of members' GDELT V2Themes codes (deduped, verbatim case); "
+        "the category source for theme-derived tagging (M2 SP3)",
     )
     member_candidate_ids: list[str] = Field(
         default_factory=list,

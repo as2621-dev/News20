@@ -1,8 +1,12 @@
 # Phase FSR-M2: News category from GDELT themes
 
+> **Shipped.** SP1+SP2 in `b25c568`; root-node foundation (M2R) in `b76feab` (migration 0023). SP3+SP4 wired theme-derived tagging in `ingest_active_interests`: each canonical story aggregates member `candidate_themes` → `category_for_themes` → a depth-0 `story_interests` tag on the category-ROOT interest (resolved via `root_interest_slug_for_category` → `root_id_by_slug`). Keyword ancestor tags are SHIFTED to depth ≥ 1 so the theme tag is the strict lowest-depth signal `assign_category` reads — fixing the keyword-inherited-category bug deterministically with `assign_category` and the schema unchanged. Open Question 1's escalation (only 3 of 8 roots existed) was resolved by M2R, not papered over. **Design note (Rule 7/12):** the +1 keyword-tag shift means a keyword-path followed-LEAF scores at DepthMatch 0.6 not 1.0 — a deliberate trade (category correctness > leaf-affinity nuance). The M4 trusted-outlet news path carries NO keyword tags, so its theme tag is the sole tag (no shift, no scoring impact); the shift only touches the residual `ingest_active_interests` keyword path. Flag for M3 (it tunes ranking/importance).
+
+
 **Milestone:** M2 — News category from GDELT themes (PRD `plans/prd.md`; brief `documents/feed-source-revamp-plan.md` WS4)
 **Status:** Not started
 **Estimated effort:** M
+**Status:** Shipped
 **Branch:** `claude/feed-source-revamp-plan-388edf` (do NOT switch)
 
 ## Goal

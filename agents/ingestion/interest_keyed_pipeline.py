@@ -35,8 +35,10 @@ from agents.ingestion.models import (
     CanonicalStory,
     IngestionResult,
     InterestNode,
+    StoryInterestTag,
 )
-from agents.pipeline.categories import TOPIC_CATEGORIES
+from agents.pipeline.categories import TOPIC_CATEGORIES, root_interest_slug_for_category
+from agents.pipeline.theme_category import category_for_themes
 from agents.shared.exceptions import AdapterFetchError, IngestionError
 from agents.shared.logger import get_logger
 
@@ -55,6 +57,69 @@ _DEFAULT_LOOKBACK_DAYS = 1
 # (one bounded widen + fail-loud log) is the contract, not the constants.
 _DEFAULT_MIN_STORIES_PER_CATEGORY = 5
 _DEFAULT_GAP_FILL_WIDEN = timedelta(days=1)
+
+# Reason: the schema caps story_interest_match_depth at 2 (0 leaf / 1 parent /
+# 2 grandparent). When the theme-derived category tag takes the authoritative
+# depth-0 slot (M2 SP3), keyword ancestor tags are shifted DOWN by one so the
+# theme tag is the strict lowest-depth signal assign_category resolves on — but
+# the shift is clamped here so a depth-2 keyword tag stays valid (never 3).
+_MAX_TAG_DEPTH = 2
+
+
+def _build_theme_root_tag(
+    story: CanonicalStory,
+    interest_nodes: dict[str, InterestNode],
+    root_id_by_slug: dict[str, str],
+) -> StoryInterestTag | None:
+    """Build the depth-0 theme-derived category tag for a canonical story.
+
+    M2 SP3 — the category a story carries must come from what the story is *about*
+    (its GDELT ``V2Themes``), NOT from which keyword query surfaced it. This:
+
+      1. resolves the story's aggregated ``canonical_themes`` to one
+         :data:`FeedCategory` via :func:`category_for_themes` (fail-loud: an
+         empty/unknown theme list falls back to ``DEFAULT_CATEGORY`` with a warning,
+         it never raises — one bad story does not abort the batch),
+      2. maps that category to its depth-0 ROOT interest slug via
+         :func:`root_interest_slug_for_category` (identity for the 8 topic roots;
+         ``None`` for the source axes youtube/x, which never apply to news), and
+      3. emits a depth-0 ``story_interests`` tag on that root interest node.
+
+    Emitting it at depth 0 makes it the **authoritative category signal**:
+    ``assign_category`` picks the lowest-``match_depth`` tag, and the caller shifts
+    keyword tags to depth >= 1 so the theme tag strictly wins (no keyword-inherited
+    category, even when the keyword query matched a different root — the M2 bug).
+
+    Returns ``None`` (no theme tag) only when the category's root interest node is
+    absent from the taxonomy map — a fail-loud signal that migration 0023's root
+    nodes were not loaded; the caller then leaves the keyword tags at their natural
+    depth so the story is still categorizable (degraded, not dropped).
+    """
+    category = category_for_themes(story.canonical_themes)
+    root_slug = root_interest_slug_for_category(category)
+    if root_slug is None:
+        # Reason: youtube/x have no interest node — but news categories never resolve
+        # to a source axis, so this is unreachable for the topic roots. Defensive.
+        return None
+    root_interest_id = root_id_by_slug.get(root_slug)
+    if root_interest_id is None or root_interest_id not in interest_nodes:
+        # Reason: the category-root interest node is missing from the taxonomy map —
+        # migration 0023 should have minted all 8. Fail loud so it is fixed, but do
+        # NOT drop the story: the caller keeps the keyword tags at natural depth.
+        logger.warning(
+            "theme_category_root_node_missing",
+            story_id=story.canonical_story_id,
+            category=category,
+            root_slug=root_slug,
+            fix_suggestion="Load the 8 depth-0 root interest nodes (migration 0023) "
+            "into interest_nodes so theme-derived category tags resolve",
+        )
+        return None
+    return StoryInterestTag(
+        story_interest_story_id=story.canonical_story_id,
+        story_interest_interest_id=root_interest_id,
+        story_interest_match_depth=0,
+    )
 
 
 @dataclass
@@ -308,16 +373,50 @@ async def ingest_active_interests(
             enriched = await adapter.extract_body(representative)
             story.canonical_body_text = enriched.candidate_body_text
 
-    # --- Ancestor-tag each canonical story into story_interests payloads ---
+    # --- Tag each canonical story into story_interests payloads ---
+    # The category-determining tag is THEME-derived (M2 SP3): each story's
+    # aggregated V2Themes resolve to a category whose depth-0 ROOT interest gets a
+    # depth-0 tag — the authoritative lowest-depth signal assign_category reads. The
+    # keyword-matched ancestor tags still ride along for scoring/affinity (DepthMatch
+    # + fallback climb) but are shifted to depth >= 1 so the theme tag strictly wins
+    # the category contest (so a retail story that matched a geopolitics keyword is
+    # categorized by its business themes, not the keyword — the M2 bug). When a story
+    # has no resolvable theme root the keyword tags keep their natural depth so it is
+    # still categorizable (degraded, never dropped).
+    root_id_by_slug = {
+        node.interest_slug: interest_id
+        for interest_id, node in interest_nodes.items()
+        if node.depth_level == 0
+    }
     story_interest_tags = []
     for story in canonical_stories:
-        story_interest_tags.extend(
-            merge_story_tags(
-                story.canonical_story_id,
-                story.canonical_matched_interest_ids,
-                interest_nodes,
-            )
+        theme_tag = _build_theme_root_tag(story, interest_nodes, root_id_by_slug)
+        keyword_tags = merge_story_tags(
+            story.canonical_story_id,
+            story.canonical_matched_interest_ids,
+            interest_nodes,
         )
+        if theme_tag is None:
+            # No resolvable theme root → keyword tags own categorization (natural depth).
+            story_interest_tags.extend(keyword_tags)
+            continue
+        # Theme tag owns depth 0; shift keyword tags down so they never out-rank it
+        # (clamped at the schema max so a grandparent stays depth 2, not 3). A keyword
+        # tag that collides with the theme-root interest is dropped in favour of the
+        # depth-0 theme tag (same interest, the more authoritative depth wins).
+        story_interest_tags.append(theme_tag)
+        for tag in keyword_tags:
+            if tag.story_interest_interest_id == theme_tag.story_interest_interest_id:
+                continue
+            story_interest_tags.append(
+                tag.model_copy(
+                    update={
+                        "story_interest_match_depth": min(
+                            tag.story_interest_match_depth + 1, _MAX_TAG_DEPTH
+                        )
+                    }
+                )
+            )
 
     logger.info(
         "interest_keyed_ingestion_completed",

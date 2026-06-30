@@ -295,6 +295,17 @@ class StoryClusterer:
                 if member.candidate_matched_interest_id
             }
         )
+        # Reason: the canonical story's themes are the UNION of its members' themes —
+        # one event's V2Themes can vary slightly per outlet, so pooling them gives the
+        # category resolver (M2 SP3 -> category_for_themes) the fullest signal. Deduped,
+        # first-seen order preserved (deterministic), verbatim case (codes are stable).
+        canonical_themes: list[str] = []
+        seen_themes: set[str] = set()
+        for member in cluster.members:
+            for theme in member.candidate_themes:
+                if theme not in seen_themes:
+                    seen_themes.add(theme)
+                    canonical_themes.append(theme)
         social_image = next(
             (
                 m.candidate_social_image_url
@@ -325,6 +336,7 @@ class StoryClusterer:
             covering_outlets=covering_outlets,
             story_outlet_count=len(covering_outlets),
             canonical_matched_interest_ids=matched_interest_ids,
+            canonical_themes=canonical_themes,
             member_candidate_ids=[m.candidate_external_id for m in cluster.members],
         )
 

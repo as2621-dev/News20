@@ -22,7 +22,8 @@ from agents.ingestion.interest_keyed_pipeline import (
     ingest_active_interests,
     ingest_trusted_outlets,
 )
-from agents.ingestion.models import CandidateStory
+from agents.ingestion.models import CandidateStory, InterestNode
+from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
 from agents.shared.exceptions import AdapterFetchError, IngestionError
 
 _NOW = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
@@ -566,3 +567,243 @@ class TestIngestTrustedOutlets:
         )
         # first fetch + exactly one widened re-fetch == 2; never more.
         assert adapter.calls_by_domainset[("biz-one.com",)] == 2
+
+
+# ── M2 SP3/SP4 — theme-derived category tagging (the M2 fix) ──────────────────
+#
+# WHY this matters (the M2 bug, brief WS4): a story's category came from which
+# keyword query surfaced it — a retail-takeover story matched a "geopolitics"
+# search term and was mis-labelled GEOPOLITICS. The fix: derive the category from
+# the story's GDELT V2Themes and make THAT the depth-0 tag assign_category reads,
+# so the keyword the query used no longer dictates the bucket.
+
+# A keyword-matched LEAF interest whose ROOT is geopolitics — this is the interest
+# whose query surfaced the (mis-)matched story in the bug scenario.
+_GEO_LEAF_ID = "leaf-russia-sanctions"
+
+_ROOT_IDS_M2: dict[str, str] = {
+    "ai": "root-ai",
+    "geopolitics": "root-geopolitics",
+    "business": "root-business",
+    "environment": "root-environment",
+    "politics": "root-politics",
+    "tech": "root-tech",
+    "sport": "root-sport",
+    "arts": "root-arts",
+}
+
+
+def _m2_interest_nodes() -> dict[str, InterestNode]:
+    """The 8 depth-0 roots (migration 0023) + one geopolitics-rooted keyword leaf.
+
+    The leaf models the interest whose query surfaced the mis-matched story; the
+    roots are what a theme-derived category tag points at. With both present,
+    assign_category can resolve EITHER signal — the test proves the theme one wins.
+    """
+    nodes: dict[str, InterestNode] = {
+        interest_id: InterestNode(
+            interest_id=interest_id,
+            parent_interest_id=None,
+            interest_slug=slug,
+            interest_label=slug.capitalize(),
+            depth_level=0,
+            interest_search_query=None,
+        )
+        for slug, interest_id in _ROOT_IDS_M2.items()
+    }
+    nodes[_GEO_LEAF_ID] = InterestNode(
+        interest_id=_GEO_LEAF_ID,
+        parent_interest_id=_ROOT_IDS_M2["geopolitics"],
+        interest_slug="geopolitics.russia-sanctions",
+        interest_label="Russia sanctions",
+        depth_level=1,
+        interest_search_query="Russia sanctions",
+    )
+    return nodes
+
+
+class _ThemedAdapter(BaseNewsAdapter):
+    """A fake whose one story carries the given V2Themes (set on the candidate).
+
+    The query is the geopolitics-leaf query (so the story is keyword-matched to a
+    geopolitics interest — the bug's mis-match) but the candidate's themes are
+    whatever the test injects, so the theme-vs-keyword contest is exercisable.
+    """
+
+    def __init__(self, themes: list[str]) -> None:
+        self.themes = themes
+
+    async def search(self, search_query, since_utc, **kwargs):
+        if search_query != "Russia sanctions":
+            return []
+        return [
+            CandidateStory(
+                candidate_external_id="https://reuters.com/retail-takeover",
+                candidate_title="Mega retail chain agrees to private-equity takeover",
+                candidate_url="https://reuters.com/retail-takeover",
+                candidate_outlet_domain="reuters.com",
+                candidate_published_utc=_NOW,
+                candidate_themes=list(self.themes),
+            )
+        ]
+
+    async def extract_body(self, candidate, **kwargs):
+        candidate.candidate_body_text = "body"
+        return candidate
+
+
+class TestThemeDerivedCategoryTagging:
+    """SP3 — the ingestion-time tag a story carries is THEME-derived, not keyword.
+
+    Each test asserts the DOWNSTREAM assign_category output (the surface the bug
+    actually manifested on), so a revert to keyword-inherited category fails it.
+    """
+
+    @pytest.mark.asyncio
+    async def test_business_theme_beats_geopolitics_keyword(self) -> None:
+        """The retail story matched a GEOPOLITICS keyword but carries BUSINESS themes
+        → it categorizes BUSINESS. Fails if category reverts to keyword-inherited."""
+        nodes = _m2_interest_nodes()
+        adapter = _ThemedAdapter(themes=["ECON_STOCKMARKET", "WB_2670_JOBS"])
+
+        result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
+
+        assert len(result.canonical_stories) == 1
+        story_id = result.canonical_stories[0].canonical_story_id
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        # The category-determining (downstream) signal is the business themes …
+        assert assign_category(story_id, tags_by_story, nodes) == "business"
+        # … NOT the geopolitics keyword the query matched (the M2 bug).
+        assert assign_category(story_id, tags_by_story, nodes) != "geopolitics"
+
+    @pytest.mark.asyncio
+    async def test_theme_tag_is_strict_lowest_depth(self) -> None:
+        """The theme root tag is emitted at depth 0 and the keyword tags are shifted
+        to depth >= 1 — so the theme tag is the unambiguous category winner (not a
+        fragile slug tiebreak between two depth-0 tags)."""
+        nodes = _m2_interest_nodes()
+        adapter = _ThemedAdapter(themes=["ECON_STOCKMARKET"])
+
+        result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
+        story_id = result.canonical_stories[0].canonical_story_id
+
+        depth_by_interest = {
+            t.story_interest_interest_id: t.story_interest_match_depth
+            for t in result.story_interest_tags
+            if t.story_interest_story_id == story_id
+        }
+        # The business root carries the sole depth-0 tag …
+        assert depth_by_interest[_ROOT_IDS_M2["business"]] == 0
+        # … and the keyword geopolitics leaf, naturally depth 0, was shifted to 1 so
+        # it still scores (DepthMatch ladder) but never wins categorization.
+        assert depth_by_interest[_GEO_LEAF_ID] == 1
+
+    @pytest.mark.asyncio
+    async def test_no_theme_falls_back_to_default_and_batch_completes(self) -> None:
+        """A story with NO themes falls back to DEFAULT_CATEGORY (arts) and the batch
+        still completes (fail-loud-per-cell, never a batch abort)."""
+        nodes = _m2_interest_nodes()
+        adapter = _ThemedAdapter(themes=[])  # no V2Themes on the candidate
+
+        result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
+
+        assert len(result.canonical_stories) == 1  # batch completed, not aborted
+        story_id = result.canonical_stories[0].canonical_story_id
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        # DEFAULT_CATEGORY == "arts" (categories.py) — the long-tail fallback.
+        assert assign_category(story_id, tags_by_story, nodes) == "arts"
+
+    @pytest.mark.asyncio
+    async def test_unknown_theme_falls_back_not_keyword(self) -> None:
+        """An UNRECOGNIZED theme (not in the whitelist) falls back to DEFAULT, it does
+        NOT silently revert to the keyword-inherited geopolitics category."""
+        nodes = _m2_interest_nodes()
+        adapter = _ThemedAdapter(themes=["WB_9999_NONSENSE_UNMAPPED"])
+
+        result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
+        story_id = result.canonical_stories[0].canonical_story_id
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        assert assign_category(story_id, tags_by_story, nodes) == "arts"
+
+
+class _MultiThemedGkgAdapter(BaseNewsAdapter):
+    """A batched (GKG-style) adapter: returns pre-stamped candidates carrying themes.
+
+    Mirrors GdeltBigQueryAdapter.search_active_interests (the trusted/batch path):
+    exposes ``search_active_interests`` so the pipeline ingests the whole active set
+    in one call with candidates already stamped + theme-bearing — the closest
+    offline proxy for a real GKG pull (which would carry live V2Themes)."""
+
+    def __init__(self, rows: list[tuple[str, str, list[str]]]) -> None:
+        # rows: (external_id/url, matched_interest_id, themes)
+        self._rows = rows
+
+    async def search(self, search_query, since_utc, **kwargs):
+        # Unused: the pipeline calls the batched search_active_interests path instead.
+        return []
+
+    async def search_active_interests(self, active_interests, since_utc):
+        # Distinct, dissimilar titles per row so the StoryClusterer (>=0.85 title
+        # similarity) keeps them as separate canonical stories, not one merged cluster.
+        _titles = [
+            "Mega retail chain agrees to private-equity buyout deal",
+            "Volcano erupts off the southern coast overnight, residents flee",
+            "Marathon record shattered at the autumn city championship",
+        ]
+        out: list[CandidateStory] = []
+        for n, (url, interest_id, themes) in enumerate(self._rows):
+            out.append(
+                CandidateStory(
+                    candidate_external_id=url,
+                    candidate_title=_titles[n % len(_titles)],
+                    candidate_url=url,
+                    candidate_outlet_domain="reuters.com",
+                    candidate_published_utc=_NOW,
+                    candidate_matched_interest_id=interest_id,
+                    candidate_matched_interest_slug="geopolitics.russia-sanctions",
+                    candidate_themes=list(themes),
+                )
+            )
+        return out
+
+    async def extract_body(self, candidate, **kwargs):
+        candidate.candidate_body_text = "body"
+        return candidate
+
+
+class TestThemeCategoryEndToEnd:
+    """SP4 — the closed loop: mocked GKG batch adapter (themes) → ingest → tags →
+    assign_category returns the theme-expected category. Proves SP2-parse →
+    SP1-map → SP3-tag → assign_category end-to-end, happy + no-theme paths."""
+
+    @pytest.mark.asyncio
+    async def test_gkg_batch_themes_drive_category_end_to_end(self) -> None:
+        """Two stories from the batched GKG path: a business-themed one categorizes
+        business; a no-theme one falls back to arts — in a SINGLE batch run."""
+        nodes = _m2_interest_nodes()
+        adapter = _MultiThemedGkgAdapter(
+            rows=[
+                # business themes despite the geopolitics keyword match (the bug case)
+                (
+                    "https://reuters.com/biz",
+                    _GEO_LEAF_ID,
+                    ["ECON_STOCKMARKET", "ECON_BANKRUPTCY"],
+                ),
+                # genuinely no themes → fallback
+                ("https://reuters.com/none", _GEO_LEAF_ID, []),
+            ]
+        )
+
+        result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
+
+        assert len(result.canonical_stories) == 2  # batch completed for both
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        cats = {
+            s.canonical_story_id: assign_category(
+                s.canonical_story_id, tags_by_story, nodes
+            )
+            for s in result.canonical_stories
+        }
+        by_url = {s.canonical_url: s.canonical_story_id for s in result.canonical_stories}
+        assert cats[by_url["https://reuters.com/biz"]] == "business"
+        assert cats[by_url["https://reuters.com/none"]] == "arts"
