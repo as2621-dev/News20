@@ -236,6 +236,112 @@ def root_interest_slug_for_category(category: FeedCategory) -> str | None:
     return category if category in TOPIC_CATEGORIES else None
 
 
+class ProfileInterestRow(BaseModel):
+    """The collapse-relevant fields of one ``user_interest_profile`` row.
+
+    The pure input/output shape of :func:`collapse_profile_rows_to_roots` — the
+    in-memory mirror of the SQL migration's per-row repoint (``0024``). Carries only
+    what the collapse needs: which user the row belongs to, the ``interest_slug`` of
+    the interest it currently points at (deep or root), the ranking weight, and the
+    source. The DB ``profile_interest_id`` UUID is intentionally NOT modeled here —
+    this transform decides the destination by SLUG (``category_for_slug``); the
+    UUID-FK repoint is the SQL twin's job (SP3). Frozen so a collapsed row is a fresh
+    value, never an in-place mutation of the input.
+
+    Attributes:
+        profile_user_id: The user the row belongs to (collapse dedups per user).
+        interest_slug: The dotted slug of the interest this row points at
+            (``'sport.soccer.epl'`` deep, or ``'sport'`` already-root).
+        profile_weight: The ranking weight (the dedup keeps the HIGHER on collision).
+        profile_source: Where the pick came from (carried through unchanged).
+    """
+
+    model_config = {"frozen": True}
+
+    profile_user_id: str = Field(..., description="The user the row belongs to")
+    interest_slug: str = Field(
+        ..., description="The slug of the interest this row points at"
+    )
+    profile_weight: float = Field(
+        ..., description="Ranking weight (max-wins on collapse-dedup)"
+    )
+    profile_source: str = Field(
+        ..., description="Pick source, carried through unchanged"
+    )
+
+
+def collapse_profile_rows_to_roots(
+    rows: list[ProfileInterestRow],
+) -> list[ProfileInterestRow]:
+    """Collapse deep ``user_interest_profile`` rows to their depth-0 root interest.
+
+    The pure, idempotent transform M5 defines once and the SQL migration ``0024``
+    mirrors (Rule 7 — author the rule here, twin it in SQL; SP4 asserts parity). For
+    each input row, the destination root is its slug's screen category via
+    :func:`category_for_slug` (so ``sport.soccer.epl`` → ``sport``,
+    ``business.equities.semis`` → ``business``); the collapsed row points at the
+    depth-0 root interest whose ``interest_slug`` equals that category key
+    (:func:`root_interest_slug_for_category`, always defined for the 8 topic roots
+    ``category_for_slug`` returns). Rows are then deduped per ``(profile_user_id,
+    root_slug)`` keeping the **higher** ``profile_weight`` (NOT summed/averaged), with
+    ``profile_source`` carried from the kept (max-weight) row.
+
+    Properties (encoded by ``tests/agents/pipeline/test_interest_collapse.py``):
+      * **deep → root** — every slug maps to its root segment's category.
+      * **dedup on conflict** — two deep rows of one user collapsing to the same root
+        yield ONE row with the max weight; the lower-weight row is dropped.
+      * **idempotent** — feeding the function its own output is a fixed point (a row
+        already at its root maps to itself; no new dupes).
+      * **root unchanged** — an already-root row (``sport``) stays ``sport``.
+      * **unknown root** — a slug whose root is unknown falls back per
+        ``category_for_slug`` (→ ``arts``) without crashing.
+
+    Pure: no DB, no clock, no network (mirrors the rest of this module). Output order
+    is deterministic — first-seen ``(user, root)`` order of the input.
+
+    Args:
+        rows: The collapse-relevant fields of a user's (or many users') profile rows.
+
+    Returns:
+        The collapsed rows: one per ``(profile_user_id, root_slug)``, each pointing at
+        a depth-0 root slug, max-weight on any collision.
+
+    Example:
+        >>> collapsed = collapse_profile_rows_to_roots([
+        ...     ProfileInterestRow(profile_user_id="u1", interest_slug="sport.soccer",
+        ...                        profile_weight=1.0, profile_source="typed"),
+        ...     ProfileInterestRow(profile_user_id="u1", interest_slug="sport.cricket",
+        ...                        profile_weight=3.0, profile_source="signal"),
+        ... ])
+        >>> [(row.interest_slug, row.profile_weight) for row in collapsed]
+        [('sport', 3.0)]
+    """
+    # Reason: keep first-seen (user, root) order deterministic — dict preserves
+    # insertion order, so the output mirrors the input's first appearance of each key.
+    collapsed: dict[tuple[str, str], ProfileInterestRow] = {}
+    for row in rows:
+        # The root slug == the category key for a topic root (always non-None: the 8
+        # topic roots are the entire codomain of category_for_slug). The `or` guard is
+        # defensive — category_for_slug never returns a source-axis category from a
+        # slug, so root_interest_slug_for_category never returns None here.
+        root_slug = (
+            root_interest_slug_for_category(category_for_slug(row.interest_slug))
+            or DEFAULT_CATEGORY
+        )
+        key = (row.profile_user_id, root_slug)
+        collapsed_row = ProfileInterestRow(
+            profile_user_id=row.profile_user_id,
+            interest_slug=root_slug,
+            profile_weight=row.profile_weight,
+            profile_source=row.profile_source,
+        )
+        existing = collapsed.get(key)
+        # Max-weight wins (NOT sum/avg): keep the higher-weight row, source and all.
+        if existing is None or collapsed_row.profile_weight > existing.profile_weight:
+            collapsed[key] = collapsed_row
+    return list(collapsed.values())
+
+
 def empty_category_buckets() -> dict[FeedCategory, list]:
     """Return all 10 ``FeedCategory`` keys mapped to fresh empty lists.
 

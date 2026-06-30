@@ -1,42 +1,32 @@
 "use client";
 
 /**
- * TopicTree — the Blip Flow Stage 1 "Topic tree" screen (the dark-editorial visual
- * replacement for {@link OnboardingPicker}). It renders the REAL recursive interest
- * tree (`PICKER_TREE`) as a branch/leaf outline with tri-state checkboxes ("ticking a
- * branch takes everything in it"), per-branch Add-custom inputs, and a live footer
- * count + Done CTA — pixel-sourced from the prototype's `blip-tree.js` + `blip-flow.css`.
+ * TopicTree — the Blip Flow Stage 1 "Topic tree" onboarding interest picker.
+ *
+ * M5 (FSR) makes this picker **roots-only**: it renders ONLY the 8 canonical depth-0
+ * topic categories (`PICKER_TREE` roots = AI · Geopolitics · Business · Environment ·
+ * Politics · Tech · Sport · Arts) as a single flat layer of toggle rows — no caret,
+ * no drill-down, no nested branches/leaves, no per-branch Add-custom. Tapping a root
+ * toggles a single `topic` follow for that root category; that follow canonicalizes to
+ * the depth-0 `interests` row (`interest_label`/`interest_slug` == the root) at persist
+ * time, so a fresh onboarding NEVER creates a deep `user_interest_profile` row (the M5
+ * collapse is a one-time historical fixup, not a recurring need).
  *
  * It drives the SAME shared {@link SelectionStore} and the SAME completion contract as
- * the picker it replaces: `onComplete(store.all())`, where Done is ALWAYS enabled and a
- * zero-selection completion is valid (skippable). All selection math lives in the pure,
- * tested `@/lib/treeSelection` helper; this file is rendering + open/closed UI state.
+ * before: `onComplete(store.all())`, where Done is ALWAYS enabled and a zero-selection
+ * completion is valid (skippable).
  *
  * Static-export safe: client-only (`"use client"`), no `window`/server APIs at module
  * scope. Styling comes from the verbatim `src/styles/blip-flow.css` (imported here)
  * scoped under `.tree-view`; the only inline style is the `--ac` accent CSS variable.
- *
- * Deferred (Stage 1, by design): the live registry Show-more/Add-your-own search is
- * NOT called — `moreSeeds` are folded inline as extra leaves (the offline fallback) and
- * customs are free-text only. See the execution report.
  */
 
 import "@/styles/blip-flow.css";
-import { type CSSProperties, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, useMemo, useRef, useSyncExternalStore } from "react";
 import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
-import { createSelectionStore, PICKER_TREE } from "@/lib/followSets";
+import { createSelectionStore, PICKER_TREE, selectionFromNode } from "@/lib/followSets";
 import { logger } from "@/lib/logger";
-import {
-  addCustomLeaf,
-  branchTriState,
-  buildOutlineTree,
-  selectedLeafCount,
-  type TreeNode,
-  toggleBranch,
-  toggleLeaf,
-  totalLeafCount,
-} from "@/lib/treeSelection";
-import type { FollowSelection, SelectionStore } from "@/types/picker";
+import type { FollowSelection, PickerCategory, SelectionStore } from "@/types/picker";
 
 /** The single accent used on this screen (Tech cyan) — set as the `--ac` CSS var. */
 const ACCENT_CYAN = "#22D3EE";
@@ -49,7 +39,24 @@ export interface TopicTreeProps {
   onComplete: (selections: FollowSelection[]) => void;
 }
 
-/** Subscribe to the store snapshot so counts + tri-states re-render on any change. */
+/**
+ * One root category as a selectable {@link FollowSelection}. The selection is a `topic`
+ * follow whose `followId`/`label` are the root's id (== root slug, e.g. `"ai"`) and
+ * label (e.g. `"AI"`), and whose `path` is just `[label]` (a depth-0 follow has no
+ * ancestry). Built via `selectionFromNode` (the same builder leaf follows use) so it
+ * carries the canonical `topic:<slug>` key and persists through the existing
+ * `persistPickerFollows` topic path — matching the depth-0 `interests` row by
+ * label/slug, never a deep node.
+ */
+function rootSelection(category: PickerCategory): FollowSelection {
+  return selectionFromNode({
+    node: { id: category.id, label: category.label, type: "topic" },
+    path: [category.label],
+    source: "seed",
+  });
+}
+
+/** Subscribe to the store snapshot so counts + selected styling re-render on any change. */
 function useStoreSnapshot(store: SelectionStore): readonly FollowSelection[] {
   return useSyncExternalStore(
     (listener) => store.subscribe(listener),
@@ -58,8 +65,8 @@ function useStoreSnapshot(store: SelectionStore): readonly FollowSelection[] {
   );
 }
 
-/** The tri-state checkbox button (`.cbox none|some|all`) — the check resolves `#i-check`. */
-function CheckBox({ state, onClick }: { state: "none" | "some" | "all"; onClick: () => void }) {
+/** The tri-state checkbox button (`.cbox none|all`) — the check resolves `#i-check`. */
+function CheckBox({ state, onClick }: { state: "none" | "all"; onClick: () => void }) {
   return (
     <button type="button" className={`cbox ${state}`} onClick={onClick} aria-label="Toggle selection">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -69,103 +76,26 @@ function CheckBox({ state, onClick }: { state: "none" | "some" | "all"; onClick:
   );
 }
 
-/** Props shared by every outline row so a node can render itself + recurse. */
-interface TreeRowProps {
-  node: TreeNode;
-  store: SelectionStore;
-  openIds: Set<string>;
-  onToggleOpen: (treeId: string) => void;
-  onAddCustom: (node: TreeNode, value: string) => void;
-}
-
-/** One outline row + (when open) its children + per-branch add-input. Recursive. */
-function TreeRow({ node, store, openIds, onToggleOpen, onAddCustom }: TreeRowProps) {
-  // Subscribe so this row's tri-state/badge/selected styling tracks the store.
+/** One roots-only row: a single depth-0 category toggle (no caret, no children). */
+function RootRow({ category, store }: { category: PickerCategory; store: SelectionStore }) {
+  // Subscribe so this row's box/selected styling tracks the store.
   useStoreSnapshot(store);
-  const [customValue, setCustomValue] = useState("");
-
-  const isBranch = !node.isLeaf;
-  const isOpen = openIds.has(node.treeId);
-  const state = isBranch ? branchTriState(node, store) : toLeafState(node, store);
-  const rowOn = state !== "none";
-
-  const rootClass = node.level === 0 ? " root" : "";
-  const caretClass = isBranch ? (isOpen ? "caret open" : "caret") : "caret leafpad";
-
-  const handleBox = () => {
-    if (isBranch) {
-      toggleBranch(node, store);
-    } else {
-      toggleLeaf(node, store);
-    }
-  };
-  const handleLabel = isBranch ? () => onToggleOpen(node.treeId) : handleBox;
+  const selection = useMemo(() => rootSelection(category), [category]);
+  const on = store.has(selection.followId);
+  const toggle = () => store.toggle(selection);
 
   return (
-    <div className={`tnode lvl${node.level}${rootClass}`}>
-      <div className={`trow${rowOn ? " on" : ""}`}>
-        <button
-          type="button"
-          className={caretClass}
-          onClick={isBranch ? () => onToggleOpen(node.treeId) : undefined}
-          aria-label={isBranch ? (isOpen ? "Collapse" : "Expand") : undefined}
-          tabIndex={isBranch ? 0 : -1}
-        >
-          ›
+    <div className="tnode lvl0 root">
+      <div className={`trow${on ? " on" : ""}`}>
+        {/* No caret on a roots-only row — a non-interactive spacer keeps the grid. */}
+        <span className="caret leafpad" aria-hidden="true" />
+        <CheckBox state={on ? "all" : "none"} onClick={toggle} />
+        <button type="button" className="tlabel" onClick={toggle} style={LABEL_BUTTON_RESET}>
+          {category.label}
         </button>
-        <CheckBox state={state} onClick={handleBox} />
-        {/* The label is a button so it is keyboard-reachable (the prototype binds click). */}
-        <button type="button" className="tlabel" onClick={handleLabel} style={LABEL_BUTTON_RESET}>
-          {node.label}
-        </button>
-        {isBranch ? <BranchBadge node={node} store={store} /> : null}
       </div>
-
-      {isBranch && isOpen ? (
-        <div className="tchildren">
-          {node.children.map((child) => (
-            <TreeRow
-              key={child.treeId}
-              node={child}
-              store={store}
-              openIds={openIds}
-              onToggleOpen={onToggleOpen}
-              onAddCustom={onAddCustom}
-            />
-          ))}
-          {/* Add-custom input only where a set context exists (matches Add-your-own). */}
-          {node.enclosingSetId !== undefined ? (
-            <div className="addchip">
-              <input
-                value={customValue}
-                placeholder={`+ Add to ${node.label}`}
-                maxLength={80}
-                onChange={(event) => setCustomValue(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && customValue.trim() !== "") {
-                    onAddCustom(node, customValue.trim());
-                    setCustomValue("");
-                  }
-                }}
-              />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
-}
-
-/** The `n/total` (lit) or bare `total` badge for a branch row. */
-function BranchBadge({ node, store }: { node: TreeNode; store: SelectionStore }) {
-  const total = totalLeafCount(node);
-  const on = selectedLeafCount(node, store);
-  return <span className={`tbadge${on ? " lit" : ""}`}>{on ? `${on}/${total}` : `${total}`}</span>;
-}
-
-/** A leaf's box is binary: `all` when selected, `none` otherwise (no `some`). */
-function toLeafState(node: TreeNode, store: SelectionStore): "none" | "all" {
-  return node.leafSelection && store.has(node.leafSelection.followId) ? "all" : "none";
 }
 
 /** Reset native button chrome so `.tlabel` matches the prototype's `<span>` look. */
@@ -191,18 +121,8 @@ const SCENE_SURFACE_STYLE: CSSProperties = {
   overflow: "hidden",
 };
 
-/** Collect every branch `treeId` (for Expand-all). */
-function collectBranchIds(nodes: TreeNode[], out: Set<string>): void {
-  for (const node of nodes) {
-    if (!node.isLeaf) {
-      out.add(node.treeId);
-      collectBranchIds(node.children, out);
-    }
-  }
-}
-
 /**
- * Render the Stage 1 topic tree.
+ * Render the roots-only Stage 1 topic picker.
  *
  * @param props - {@link TopicTreeProps}.
  *
@@ -217,45 +137,9 @@ export function TopicTree({ onComplete }: TopicTreeProps) {
   }
   const store = storeRef.current;
 
-  // The outline tree is derived once from the static PICKER_TREE.
-  const roots = useMemo(() => buildOutlineTree(PICKER_TREE), []);
-  const allBranchIds = useMemo(() => {
-    const set = new Set<string>();
-    collectBranchIds(roots, set);
-    return set;
-  }, [roots]);
-  // Total selectable leaves across the whole tree (the `tt` denominator).
-  const totalTopics = useMemo(() => roots.reduce((sum, root) => sum + totalLeafCount(root), 0), [roots]);
-
-  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set());
+  // The 8 canonical depth-0 roots — the picker renders these and ONLY these.
+  const roots = useMemo(() => PICKER_TREE, []);
   const selections = useStoreSnapshot(store);
-
-  // Expand-all is true only when EVERY root category is open (matches the prototype's
-  // `allOpen` over top-level kids; "Collapse all" then clears the whole open set).
-  const allRootsOpen = roots.every((root) => openIds.has(root.treeId));
-
-  const toggleOpen = (treeId: string) => {
-    setOpenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(treeId)) {
-        next.delete(treeId);
-      } else {
-        next.add(treeId);
-      }
-      return next;
-    });
-  };
-
-  const handleExpandAll = () => {
-    setOpenIds(allRootsOpen ? new Set() : new Set(allBranchIds));
-  };
-
-  const handleAddCustom = (node: TreeNode, value: string) => {
-    const created = addCustomLeaf(node, value, store);
-    if (created) {
-      logger.info("topic_tree_custom_added", { set_id: node.enclosingSetId, follow_id: created.followId });
-    }
-  };
 
   const handleDone = () => {
     const finalSelections = store.all();
@@ -270,7 +154,7 @@ export function TopicTree({ onComplete }: TopicTreeProps) {
     .reverse()
     .map((selection) => selection.label);
   const previewText =
-    total > 0 ? `${previewLabels.join(" · ")}${total > 3 ? ` +${total - 3}` : ""}` : "Tick topics across your tree";
+    total > 0 ? `${previewLabels.join(" · ")}${total > 3 ? ` +${total - 3}` : ""}` : "Tick the topics you want";
 
   return (
     // Full-bleed surface that gives `.tree-view` (position:absolute; inset:0) its
@@ -283,31 +167,19 @@ export function TopicTree({ onComplete }: TopicTreeProps) {
         <div className="tband">
           <div className="kick">
             <span className="kd" />
-            Your interests · Go deeper
+            Your interests · Pick your topics
           </div>
-          <h2>Your topic tree</h2>
-          <div className="sub">Expand a branch, tick what&apos;s inside. Ticking a branch takes everything in it.</div>
+          <h2>Your topics</h2>
+          <div className="sub">Tick the top-level topics you want in your feed. You can go deeper later.</div>
         </div>
 
         <div className="ttool">
-          <span className="tt">
-            {roots.length} branches · {totalTopics} topics
-          </span>
-          <button type="button" className="exp" onClick={handleExpandAll}>
-            {allRootsOpen ? "Collapse all" : "Expand all"}
-          </button>
+          <span className="tt">{roots.length} topics</span>
         </div>
 
         <div className="tree">
           {roots.map((root) => (
-            <TreeRow
-              key={root.treeId}
-              node={root}
-              store={store}
-              openIds={openIds}
-              onToggleOpen={toggleOpen}
-              onAddCustom={handleAddCustom}
-            />
+            <RootRow key={root.id} category={root} store={store} />
           ))}
         </div>
 

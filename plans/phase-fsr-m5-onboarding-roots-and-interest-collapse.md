@@ -1,7 +1,7 @@
 # Phase FSR-M5: Top-level-category onboarding + interest collapse
 
 **Milestone:** M5 — Top-level-category onboarding + interest collapse (PRD `plans/prd.md` `## Milestones`)
-**Status:** Not started
+**Status:** Shipped (2026-06-30) — migration number is **0024** (the "0022" below is a stale placeholder; 0022/0023 were consumed by later phases). See `plans/phase-fsr-m5-onboarding-roots-and-interest-collapse-progress.md`.
 **Estimated effort:** M
 
 ## Goal
