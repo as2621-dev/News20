@@ -100,3 +100,40 @@ within the daily free quota (≈11% of 10k). Even at 120/cell (~1,440 units) the
 full channels axis fits one day with headroom for re-runs. Podcasts (iTunes) and
 personalities (Wikipedia) and X (no resolver / unavatar) do **not** consume
 YouTube quota.
+
+---
+
+## Clusters — the onboarding bulk-select grouping (feed-source revamp, 2026-06-30)
+
+> Added by the **feed-source revamp** (`plans/prd.md` M1, Decision #6/#7). A **cluster**
+> is **net-new** — it is NOT an archetype and NOT a `persona`. Archetypes are a
+> recommendation-matching key (interest-vector → catalog); a cluster is a
+> **user-facing, named bulk-select grouping of catalog rows within ONE of the 8
+> categories** ("Leading AI-lab researchers", "AI founders", "AI journalists").
+
+**Why clusters exist.** Onboarding targets ~30–40 YouTube channels + ~40–50 X
+accounts + ~4 personalities per user. Hand-picking ~90 accounts is unacceptable
+friction. A cluster lets the user follow a whole named group in one tap, and lets
+onboarding **pre-select recommended clusters the user deselects (opt-out)** rather
+than opt-in.
+
+**One model for both axes.** A single cluster model serves **both** X and YouTube
+(YouTube clusters simply have fewer members per cluster). Net-new tables (names
+illustrative; pin in M1): `source_clusters` (one row per named grouping;
+`cluster_category` ∈ the 8 `ALLOWED_TOPIC_TAGS`; ordered) + `source_cluster_members`
+(cluster → catalog row / personality ref, ordered by `popularity_score`). Public-read
+RLS, service-role writes (same tier as `content_sources`).
+
+**The no-dup rule (load-bearing).** A person who is a followable **personality**
+(bundling their handles via `personalities.youtube_channel_ids` / `aliases`) is shown
+**once** as a personality card. Their individual `content_sources` YouTube/X rows are
+**excluded** from the grid and from any cluster's rendered members when that
+personality card is present. The cluster/no-dup resolver owns this; tests must cover:
+cluster membership, empty cluster (don't surface), personality-dedup (handles hidden),
+a row tagged to multiple categories (appears per category, deduped), and a member in
+two clusters of one category (allowed; dedup at selection).
+
+**Authoring is editorial at seed.** Clusters are hand-authored per category for
+launch trust ("no randoms"); auto-generation (co-follow graphs, bio-embedding
+similarity) is **out of scope** for the revamp (later enhancement). Onboarding quality
+== catalog + cluster quality — this is the #1 risk (`plans/prd.md` riskiest assumption).
