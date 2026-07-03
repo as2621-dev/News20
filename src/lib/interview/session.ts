@@ -28,7 +28,7 @@ interface StoredInterviewSession {
   version: 1;
   /** The ordered exchanges completed so far (the stateless-worker conversation state). */
   conversation_state: InterviewExchange[];
-  /** When it was last written (epoch ms) — surfaced for the resume prompt / debugging. */
+  /** When it was last written (epoch ms) — recorded for debugging (visible in the stored JSON). */
   saved_at_ms: number;
 }
 

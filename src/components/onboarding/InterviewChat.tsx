@@ -218,24 +218,24 @@ export function InterviewChat({ onComplete, fetchTurn = fetchInterviewTurn }: In
   }, [advance]);
 
   /**
-   * Confirm the terminal list → hand off for persistence. The transcript cache is
-   * NOT cleared here: the parent clears it only after a SUCCESSFUL mint, so a persist
-   * failure leaves a resumable transcript (no half-profile, retry lands back here).
+   * Confirm the terminal list → hand off for persistence. Guarded by `isBusyRef` so a
+   * fast double-tap on "Looks good" can't fire `onComplete` (and thus persistence) twice;
+   * the flag is never reset here because a confirm always unmounts this stage (the parent
+   * advances past `interview`), and a persist failure REMOUNTS it fresh (guard resets).
+   *
+   * The transcript cache is NOT cleared here: the parent clears it only after a SUCCESSFUL
+   * mint, so a persist failure leaves a resumable transcript (no half-profile, retry lands here).
    */
   const handleConfirm = useCallback(() => {
-    if (!terminal) {
+    if (isBusyRef.current || !terminal) {
       return;
     }
+    isBusyRef.current = true;
     onComplete({
       micro_interests: terminal.micro_interests,
       roots_only_fallback: terminal.roots_only_fallback,
     });
   }, [onComplete, terminal]);
-
-  /** From the confirm screen, go back to change an answer. */
-  const handleEditBack = useCallback(() => {
-    void advance(conversation.slice(0, Math.max(0, conversation.length - 1)));
-  }, [advance, conversation]);
 
   const progressFraction = Math.min(conversation.length / TAP_TARGET, 0.92);
 
@@ -373,7 +373,7 @@ export function InterviewChat({ onComplete, fetchTurn = fetchInterviewTurn }: In
           microInterests={terminal.micro_interests}
           rootsOnlyFallback={terminal.roots_only_fallback}
           onConfirm={handleConfirm}
-          onEditBack={handleEditBack}
+          onEditBack={handleBack}
         />
       ) : null}
     </div>

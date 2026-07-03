@@ -203,9 +203,17 @@ export function OnboardingFlow() {
       for (const interest of payload.micro_interests) {
         const rootSlug = interest.canonical_slug.split(".")[0];
         const bucketId = PICKER_ROOT_TO_CATEGORY_BUCKET[rootSlug];
-        if (bucketId !== undefined) {
-          buckets.add(bucketId);
+        if (bucketId === undefined) {
+          // An unmapped root should be impossible (the payload is root-anchored to the 8
+          // roots), but surface it rather than silently drop the block (Rule 12).
+          logger.warn("interview_bucket_root_unmapped", {
+            canonical_slug: interest.canonical_slug,
+            root_segment: rootSlug,
+            fix_suggestion: "Add the root to PICKER_ROOT_TO_CATEGORY_BUCKET if it should seed a 'Build your 30' block.",
+          });
+          continue;
         }
+        buckets.add(bucketId);
       }
       setSelectedCategoryBuckets([...buckets]);
 
@@ -240,8 +248,9 @@ export function OnboardingFlow() {
       setStep("loading");
       try {
         const result = await persistInterviewInterests(userId, payload);
-        // Rejected micro-interests (backstop-invalid) are surfaced, never silently dropped
-        // (Rule 12); the loading step shows them while the rest still persisted.
+        // Rejected micro-interests (backstop-invalid) are surfaced via structured logs, never
+        // silently minted (Rule 12) — the rest still persist. (persistInterviewInterests logs
+        // each rejection with its reason; we also stash the slugs for the transient loading note.)
         if (result.rejected_interests.length > 0) {
           setUnpersistedFollows(result.rejected_interests.map((rejected) => rejected.canonical_slug));
         }

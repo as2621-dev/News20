@@ -124,5 +124,11 @@ export interface InterviewRetryTurn {
   retry_hint: string | null;
 }
 
-/** One interview turn — discriminated by `response_kind`. */
+/**
+ * One interview turn — discriminated by `response_kind`.
+ *
+ * NOTE: the worker also returns `turn_cost` (per-turn LLM token/latency, PRD #24/#25)
+ * on every response. It is intentionally NOT modeled here yet — client-side cost
+ * accumulation is deferred to the cost-observability slice; the extra JSON is ignored.
+ */
 export type InterviewTurn = InterviewQuestionTurn | InterviewTerminalTurn | InterviewRetryTurn;

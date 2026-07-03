@@ -190,6 +190,22 @@ describe("InterviewChat — state machine (Rule 9)", () => {
     expect(calls[1][0].bubbles_tapped).toEqual(["Sport"]);
   });
 
+  it("ignores a double-tap on confirm so persistence fires once", async () => {
+    const { onComplete } = await renderChat(scriptedFetch([Q0, TERMINAL]).fn);
+    await clickText("Sport"); // → TERMINAL → confirm screen
+
+    // Two rapid taps on "Looks good" in one flush.
+    const confirm = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((b) =>
+      b.textContent?.includes("Looks good"),
+    );
+    await act(async () => {
+      confirm?.click();
+      confirm?.click();
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
   it("skip-everything reaches a roots-only confirm and completes (skipping not punished)", async () => {
     const { onComplete } = await renderChat(scriptedFetch([Q0, TERMINAL_EMPTY]).fn);
 

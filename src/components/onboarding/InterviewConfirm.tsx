@@ -35,7 +35,7 @@ export function InterviewConfirm({ microInterests, rootsOnlyFallback, onConfirm,
     <section className="flex min-h-full flex-1 flex-col px-8 pt-10 pb-8">
       <span className="font-mono text-[11px] tracking-wide text-text-secondary">HERE&apos;S WHAT WE HEARD</span>
       <h1 className="mt-2 font-sans text-[19px] font-semibold leading-snug text-text-primary">
-        {hasInterests ? "Your feed will focus on these." : "We&apos;ll start you with the big picture."}
+        {hasInterests ? "Your feed will focus on these." : "We'll start you with the big picture."}
       </h1>
 
       {hasInterests ? (
