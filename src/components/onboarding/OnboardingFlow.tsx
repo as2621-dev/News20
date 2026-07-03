@@ -1,27 +1,26 @@
 "use client";
 
 /**
- * OnboardingFlow — the client state machine wiring the recursive interest picker
- * into the onboarding flow (Phase 5 SP4; supersedes phase-1e's `InterestChips`).
+ * OnboardingFlow — the client state machine wiring the conversational interview
+ * (FSR slice #4) into the onboarding flow (supersedes the roots-only topic picker).
  *
- * Step order (phase DoD): `splash → email → picker → loading → reel`.
+ * Step order (spec §1): `splash → email → wait_session → interview → loading → sources → build`.
  *   1. `splash`   — {@link OnboardingSplash}; "get started" → `email` (or straight
- *      to `picker` when a session already exists — signed-in users never re-auth).
+ *      to `interview` when a session already exists — signed-in users never re-auth).
  *   2. `email`    — {@link EmailSignIn}; its `onSent` advances to waiting-for-session.
  *      The magic-link callback (a separate `/callback` page) establishes the
  *      session on this device; the flow watches `getCurrentSession` +
- *      `onAuthStateChange` and moves to `picker` once a session exists. If the user
+ *      `onAuthStateChange` and moves to `interview` once a session exists. If the user
  *      is ALREADY signed in when they reach `email` (re-onboarding), we skip
- *      straight to `picker`.
- *   3. `picker`   — {@link TopicTree}; the dark-editorial Blip topic-tree picker
- *      (replaces the archived `OnboardingPicker`). It is **skippable** (spec §10/§11)
- *      — NO "pick ≥1" gate; Done is always enabled and hands back `store.all()`
- *      (an empty array on a skip).
- *   4. `loading`  — calls {@link persistPickerFollows} (scoped to the session user).
- *      On success → the `sources` step (the source swipe deck). Any unpersisted
- *      follows (free-text customs / unmatched topics) are surfaced inline (Rule 12 —
- *      not silently dropped). A zero-follow completion persists nothing (no error)
- *      and still advances to the source swipe.
+ *      straight to `interview`.
+ *   3. `interview` — {@link InterviewChat}; the dark-editorial chat interview that
+ *      REPLACES the picker. Tap-through bubbles → a confirm screen; on confirm it hands
+ *      back an {@link InterviewTerminalPayload}. It is **skippable** (spec §5) — a
+ *      skip-everything roots-only payload is valid and not punished.
+ *   4. `loading`  — calls {@link persistInterviewInterests} (scoped to the session
+ *      user; mints niche nodes + a deep profile). On success → the `sources` step. Any
+ *      rejected micro-interests (backstop-invalid) are surfaced inline (Rule 12 — not
+ *      silently dropped). Persistence fires ONLY on terminal confirm (no half-profiles).
  *   5. `sources`  — {@link SourceClusterScreen}; the M6 source/cluster onboarding step
  *      (Phase FSR-M6a). It loads the chosen categories' resolved clusters (no-dup
  *      applied), renders the opt-out cluster/member grid, and on continue commits the
@@ -44,35 +43,36 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BuildYour30, type BuildYour30Segment } from "@/components/onboarding/BuildYour30";
 import { EmailSignIn } from "@/components/onboarding/EmailSignIn";
+import { InterviewChat } from "@/components/onboarding/InterviewChat";
 import { OnboardingSplash } from "@/components/onboarding/OnboardingSplash";
 import { OtpCodeEntry } from "@/components/onboarding/OtpCodeEntry";
-import { TopicTree } from "@/components/onboarding/TopicTree";
 import { SourceClusterScreen } from "@/components/sources/SourceClusterScreen";
 import { resolveRootGate } from "@/lib/auth/routeGuard";
-import { categoryBucketsFromFollows, type DesignBucketId, sourceBucketsFromFollows } from "@/lib/feedBuckets";
+import { type DesignBucketId, PICKER_ROOT_TO_CATEGORY_BUCKET, sourceBucketsFromFollows } from "@/lib/feedBuckets";
+import { clearInterviewSession } from "@/lib/interview/session";
+import { persistInterviewInterests } from "@/lib/interviewProfile";
 import { logger } from "@/lib/logger";
 import {
   isSourceOnboardingComplete,
   markOnboardingComplete,
   markSourceOnboardingComplete,
-  persistPickerFollows,
 } from "@/lib/onboardingProfile";
 import { getFollowedSources } from "@/lib/sources";
 import { getCurrentSession, TEST_AUTH_CODE, TEST_AUTH_MODE } from "@/lib/supabase/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { FollowSelection } from "@/types/picker";
+import type { InterviewTerminalPayload } from "@/types/interview";
 
-/** The ordered onboarding steps (phase DoD names this exact sequence). */
-type OnboardingStep = "splash" | "email" | "wait_session" | "picker" | "loading" | "sources" | "build";
+/** The ordered onboarding steps (spec §1: the interview replaces the old picker). */
+type OnboardingStep = "splash" | "email" | "wait_session" | "interview" | "loading" | "sources" | "build";
 
 /**
  * Dev-only bypass: skip the email/magic-link auth gate and drop straight into the
- * interest picker, with follow-persistence no-op'd (there is no session to scope the
+ * interview, with interest-persistence no-op'd (there is no session to scope the
  * RLS writes to, so we deliberately write nothing). Enabled ONLY when
  * `NEXT_PUBLIC_ONBOARDING_SKIP_AUTH=true` — leave UNSET in production. NEXT_PUBLIC_*
  * vars are inlined at build time, so a build is required to flip this.
  *
- * Reason: lets the onboarding UI (picker → sources → build) be walked locally before
+ * Reason: lets the onboarding UI (interview → sources → build) be walked locally before
  * email auth is configured, without ever persisting un-scoped data (Rule 12).
  */
 const SKIP_AUTH = process.env.NEXT_PUBLIC_ONBOARDING_SKIP_AUTH === "true";
@@ -82,16 +82,16 @@ const SKIP_AUTH = process.env.NEXT_PUBLIC_ONBOARDING_SKIP_AUTH === "true";
  */
 export function OnboardingFlow() {
   const router = useRouter();
-  // Dev bypass starts straight in the interest picker; normal flow starts at splash.
-  const [step, setStep] = useState<OnboardingStep>(SKIP_AUTH ? "picker" : "splash");
+  // Dev bypass starts straight in the interview; normal flow starts at splash.
+  const [step, setStep] = useState<OnboardingStep>(SKIP_AUTH ? "interview" : "splash");
   const [persistError, setPersistError] = useState<string | null>(null);
   const [unpersistedFollows, setUnpersistedFollows] = useState<string[]>([]);
   // The email the magic-link/code email was sent to — the wait_session step's
   // OtpCodeEntry needs it (verifyOtp takes email + code).
   const [sentEmail, setSentEmail] = useState("");
-  // The category buckets the user picked, derived from their picker selections. Captured in
-  // `handleComplete` so the later `build` step ("Build your 30") can seed ONLY those category
-  // blocks. Empty (picker skipped) → the build screen falls back to the full default seed.
+  // The category buckets the confirmed interests touch, derived from their canonical slugs.
+  // Captured in `handleInterviewComplete` so the later `build` step ("Build your 30") seeds ONLY
+  // those category blocks. Empty (interview skipped) → the build screen falls back to the full seed.
   const [selectedCategoryBuckets, setSelectedCategoryBuckets] = useState<DesignBucketId[]>([]);
   // The source buckets the user actually follows, derived from their source swipe in
   // `handleSourcesDone` so the `build` step seeds + offers ONLY backed source blocks. Empty
@@ -103,7 +103,7 @@ export function OnboardingFlow() {
   /**
    * Session just established (magic link or OTP code): an ALREADY-onboarded user
    * (`user_onboarded_at` set — e.g. signing in on a new device) goes straight to
-   * the reel; only a not-yet-onboarded user enters the picker. Without this gate
+   * the reel; only a not-yet-onboarded user enters the interview. Without this gate
    * a returning user would silently re-onboard and overwrite their follows.
    */
   const handleSessionEstablished = useCallback(
@@ -115,7 +115,7 @@ export function OnboardingFlow() {
         router.replace("/");
         return;
       }
-      setStep("picker");
+      setStep("interview");
     },
     [router],
   );
@@ -153,7 +153,7 @@ export function OnboardingFlow() {
   /**
    * Splash "get started": an already-signed-in user (re-onboarding, or a session
    * established outside the email step — e.g. a restored session) skips the email
-   * sign-in entirely and goes straight to the picker. A signed-in user must never
+   * sign-in entirely and goes straight to the interview. A signed-in user must never
    * be asked to sign in again.
    */
   const handleGetStarted = useCallback(async () => {
@@ -162,7 +162,7 @@ export function OnboardingFlow() {
       if (session) {
         sessionUserIdRef.current = session.user.id;
         logger.info("onboarding_splash_session_skip", { user_id: session.user.id });
-        setStep("picker");
+        setStep("interview");
         return;
       }
     }
@@ -177,27 +177,48 @@ export function OnboardingFlow() {
     const session = await getCurrentSession();
     if (session) {
       sessionUserIdRef.current = session.user.id;
-      setStep("picker");
+      setStep("interview");
       return;
     }
     setStep("wait_session");
   }, []);
 
-  /** Complete the picker: persist topic + entity follows, then advance to the source swipe. */
-  const handleComplete = useCallback(
-    async (selections: FollowSelection[]) => {
-      // Capture which CATEGORY blocks the user picked so the later `build` step seeds only
-      // those (not all 8). Set before any branch so every path that can reach `build` has it.
-      setSelectedCategoryBuckets(categoryBucketsFromFollows(selections));
+  /**
+   * Complete the interview: persist the confirmed micro-interests, then advance to
+   * the source step. Persistence fires ONLY here (on terminal confirm) — no
+   * half-profiles — and NEVER stamps `user_onboarded_at` (owned solely by
+   * {@link markOnboardingComplete} at the true flow end; onboarding-gate rule 2026-06-30).
+   *
+   * Unlike the retired picker, the interview is SKIPPABLE (spec §5): a skip-everything
+   * roots-only payload persists cleanly (feed falls back to broad categories) and STILL
+   * advances — skipping is not punished. A persist failure keeps the resumable transcript
+   * (InterviewChat did not clear it) and returns to the interview so the user can retry.
+   */
+  const handleInterviewComplete = useCallback(
+    async (payload: InterviewTerminalPayload) => {
+      // Capture which CATEGORY blocks the confirmed interests touch so the later `build`
+      // step seeds only those (an empty set — skip-everything — falls back to the full seed).
+      // Each micro-interest's canonical slug is root-anchored, so its first segment is the root.
+      const buckets = new Set<DesignBucketId>();
+      for (const interest of payload.micro_interests) {
+        const rootSlug = interest.canonical_slug.split(".")[0];
+        const bucketId = PICKER_ROOT_TO_CATEGORY_BUCKET[rootSlug];
+        if (bucketId !== undefined) {
+          buckets.add(bucketId);
+        }
+      }
+      setSelectedCategoryBuckets([...buckets]);
+
       const userId = sessionUserIdRef.current;
       if (!userId) {
         if (SKIP_AUTH) {
           // Dev bypass: no session to scope writes to — persist NOTHING (Rule 12),
           // just advance the UI so the rest of the flow can be walked locally.
           logger.info("onboarding_skip_auth_no_persist", {
-            selection_count: selections.length,
+            interest_count: payload.micro_interests.length,
             fix_suggestion: "Dev bypass only; unset NEXT_PUBLIC_ONBOARDING_SKIP_AUTH for real onboarding.",
           });
+          clearInterviewSession();
           setPersistError(null);
           if (isSourceOnboardingComplete()) {
             router.push("/");
@@ -206,10 +227,10 @@ export function OnboardingFlow() {
           }
           return;
         }
-        // Defensive: we should only reach `picker` with a session, but never write
-        // un-scoped follows (Rule 12). Send the user back to sign in.
+        // Defensive: we should only reach `interview` with a session, but never write
+        // un-scoped interests (Rule 12). Send the user back to sign in.
         logger.error("onboarding_complete_without_session", {
-          fix_suggestion: "A session must exist before persisting follows; returning to email step.",
+          fix_suggestion: "A session must exist before persisting interests; returning to email step.",
         });
         setPersistError("Your session expired — please sign in again.");
         setStep("email");
@@ -218,45 +239,35 @@ export function OnboardingFlow() {
       setPersistError(null);
       setStep("loading");
       try {
-        const result = await persistPickerFollows(userId, selections);
-        if (result.unpersisted.length > 0) {
-          setUnpersistedFollows(result.unpersisted);
+        const result = await persistInterviewInterests(userId, payload);
+        // Rejected micro-interests (backstop-invalid) are surfaced, never silently dropped
+        // (Rule 12); the loading step shows them while the rest still persisted.
+        if (result.rejected_interests.length > 0) {
+          setUnpersistedFollows(result.rejected_interests.map((rejected) => rejected.canonical_slug));
         }
         logger.info("onboarding_completed", {
-          profile_count: result.profile_count,
-          entity_follow_count: result.entity_follow_count,
-          unpersisted_count: result.unpersisted.length,
+          minted_interest_count: result.minted_interest_count,
+          rejected_count: result.rejected_interests.length,
+          roots_only_fallback: payload.roots_only_fallback ?? false,
         });
-        // Onboarding is NON-skippable (owner rule 2026-06-30): the user must persist at
-        // least one real interest/entity follow before advancing — otherwise there is
-        // nothing to personalize on and they would land on an empty feed. A zero-persist
-        // result (nothing selected, or selections that matched no taxonomy node) keeps
-        // them on the picker with a prompt instead of marking onboarding complete.
-        if (result.profile_count + result.entity_follow_count === 0) {
-          logger.warn("onboarding_blocked_zero_selections", {
-            selection_count: selections.length,
-            unpersisted_count: result.unpersisted.length,
-            fix_suggestion: "Require >=1 persisted follow before advancing; user stays on the picker.",
-          });
-          setPersistError("Pick at least one interest to continue.");
-          setStep("picker");
-          return;
-        }
-        // A returning user who already finished the source swipe skips straight to the
-        // reel; everyone else runs the source swipe before the reel.
+        // The confirmed profile is now minted — the resumable transcript is stale.
+        clearInterviewSession();
+        // A returning user who already finished the source step skips straight to the
+        // reel; everyone else runs the source step before the reel.
         if (isSourceOnboardingComplete()) {
           router.push("/");
         } else {
           setStep("sources");
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Couldn't save your follows.";
+        const message = error instanceof Error ? error.message : "Couldn't save your interests.";
         logger.error("onboarding_persist_failed", {
           error_message: message,
-          fix_suggestion: "Retry; if it persists confirm migrations 0003/0007 RLS permit the owner write.",
+          fix_suggestion: "Retry; if it persists confirm migration 0025 (mint RPC) + RLS permit the owner write.",
         });
+        // Keep the resumable transcript (not cleared) so the retry re-confirms cleanly.
         setPersistError(message);
-        setStep("picker");
+        setStep("interview");
       }
     },
     [router],
@@ -367,14 +378,14 @@ export function OnboardingFlow() {
         </section>
       ) : null}
 
-      {step === "picker" ? (
+      {step === "interview" ? (
         <div className="flex min-h-full flex-1 flex-col">
           {persistError ? (
             <p role="alert" className="px-6 pt-3 font-mono text-[11px] tracking-wide text-seg-wildcard">
               {persistError}
             </p>
           ) : null}
-          <TopicTree onComplete={(selections) => void handleComplete(selections)} />
+          <InterviewChat onComplete={(payload) => void handleInterviewComplete(payload)} />
         </div>
       ) : null}
 
@@ -398,7 +409,7 @@ export function OnboardingFlow() {
         <BuildYour30
           onDone={handleBuildDone}
           onSkip={handleBuildSkip}
-          onPickInterests={() => setStep("picker")}
+          onPickInterests={() => setStep("interview")}
           selectedCategoryBuckets={selectedCategoryBuckets}
           followedSourceBuckets={followedSourceBuckets}
         />

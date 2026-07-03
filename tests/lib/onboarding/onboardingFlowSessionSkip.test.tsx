@@ -8,14 +8,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * Rendering uses React 19's `react-dom/client` `createRoot` + `react`'s `act`
  * directly (no @testing-library — not a project dependency), mirroring
  * `tests/lib/onboarding/onboardingPicker.test.tsx`. The Supabase auth boundary and
- * the heavy child steps (TopicTree, EmailSignIn, SourceSwipe, BuildYour30) are
- * MOCKED (CLAUDE.md mocking rule) — this suite exercises ONLY the splash branch.
+ * the heavy child steps (InterviewChat, EmailSignIn, SourceClusterScreen, BuildYour30)
+ * are MOCKED (CLAUDE.md mocking rule) — this suite exercises ONLY the splash branch.
  *
  * Rule 9 — WHY this behavior matters, each test failing on a real regression:
  *   - A signed-in user (restored session, re-onboarding, or an injected test
  *     session) must NEVER be asked to sign in again: "Get started" must route
- *     straight to the picker. Regressing to the email step FAILS this — and would
- *     also force magic-link emails (rate-limited) for already-authed users.
+ *     straight to the interview (the first onboarding stage — spec §1). Regressing to
+ *     the email step FAILS this — and would force rate-limited magic-link emails for
+ *     already-authed users.
  *   - A signed-out user must still land on the email step — skipping auth for an
  *     anonymous user would let un-scoped follows reach the persist path (Rule 12).
  */
@@ -50,19 +51,26 @@ vi.mock("@/lib/onboardingProfile", () => ({
   isSourceOnboardingComplete: vi.fn(() => false),
   markOnboardingComplete: vi.fn(),
   markSourceOnboardingComplete: vi.fn(),
-  persistPickerFollows: vi.fn(),
+}));
+
+vi.mock("@/lib/interviewProfile", () => ({
+  persistInterviewInterests: vi.fn(),
+}));
+
+vi.mock("@/lib/interview/session", () => ({
+  clearInterviewSession: vi.fn(),
 }));
 
 // Stub the step components: this suite tests the state machine's splash branch,
 // not the steps themselves (each has its own suite).
-vi.mock("@/components/onboarding/TopicTree", () => ({
-  TopicTree: () => <div data-testid="topic-tree" />,
+vi.mock("@/components/onboarding/InterviewChat", () => ({
+  InterviewChat: () => <div data-testid="interview-chat" />,
 }));
 vi.mock("@/components/onboarding/EmailSignIn", () => ({
   EmailSignIn: () => <div data-testid="email-signin" />,
 }));
-vi.mock("@/components/sources/SourceSwipe", () => ({
-  SourceSwipe: () => <div data-testid="source-swipe" />,
+vi.mock("@/components/sources/SourceClusterScreen", () => ({
+  SourceClusterScreen: () => <div data-testid="source-cluster" />,
 }));
 vi.mock("@/components/onboarding/BuildYour30", () => ({
   BuildYour30: () => <div data-testid="build-your-30" />,
@@ -107,7 +115,7 @@ async function clickGetStarted(): Promise<void> {
 }
 
 describe("OnboardingFlow — splash session-skip (Rule 9)", () => {
-  it("routes a signed-in user straight to the picker, never the email step", async () => {
+  it("routes a signed-in user straight to the interview, never the email step", async () => {
     // WHY: a signed-in user must never re-auth; regressing to the email step would
     // demand a rate-limited magic-link email from an already-authed user.
     mockGetCurrentSession.mockResolvedValue({
@@ -117,12 +125,12 @@ describe("OnboardingFlow — splash session-skip (Rule 9)", () => {
     renderFlow();
     await clickGetStarted();
 
-    expect(container.querySelector("[data-testid='topic-tree']")).not.toBeNull();
+    expect(container.querySelector("[data-testid='interview-chat']")).not.toBeNull();
     expect(container.querySelector("[data-testid='email-signin']")).toBeNull();
   });
 
   it("routes a signed-out user to the email step (auth is not skippable)", async () => {
-    // WHY: skipping auth for an anonymous user would let un-scoped follows reach
+    // WHY: skipping auth for an anonymous user would let un-scoped interests reach
     // the persist path (Rule 12) — the email step is the only entry to a session.
     mockGetCurrentSession.mockResolvedValue(null);
 
@@ -130,6 +138,6 @@ describe("OnboardingFlow — splash session-skip (Rule 9)", () => {
     await clickGetStarted();
 
     expect(container.querySelector("[data-testid='email-signin']")).not.toBeNull();
-    expect(container.querySelector("[data-testid='topic-tree']")).toBeNull();
+    expect(container.querySelector("[data-testid='interview-chat']")).toBeNull();
   });
 });

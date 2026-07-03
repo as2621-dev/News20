@@ -9,8 +9,9 @@
  * ({@link import("@/lib/interviewProfile").persistInterviewInterests}) re-validates
  * as a backstop before any write (never trust a payload at a privileged boundary).
  *
- * Only the terminal shape lives here — the question / retry turn shapes are the
- * chat-UI slice's (#4) concern and are added when that slice lands.
+ * The terminal shape plus the question / retry turn shapes (the chat-UI slice's
+ * concern, added by slice #4) all live here — the client renders whichever the
+ * worker returns, keyed on `response_kind`.
  */
 
 /** One validated terminal micro-interest (spec §4). */
@@ -41,3 +42,87 @@ export interface InterviewTerminalPayload {
    */
   roots_only_fallback?: boolean;
 }
+
+// ─── Turn protocol (spec §2–§3) — the TS twin of the worker's turn models ─────
+//
+// The worker is stateless: the whole conversation so far travels with every
+// request (`agents/interview/models.py::InterviewTurnRequest`). The client is a
+// dumb renderer — it POSTs the accumulated exchanges and renders whichever of the
+// three response shapes comes back, discriminated by `response_kind`.
+
+/**
+ * A bubble's role. `option` is a real answer; `skip` ("not really / skip") and
+ * `type_your_own` ("something else — type it") are the two affordances the worker
+ * guardrails ALWAYS append (spec §3), rendered with distinct treatment.
+ */
+export type InterviewBubbleKind = "option" | "skip" | "type_your_own";
+
+/** One rendered bubble in a non-terminal turn (twin of `InterviewBubble`). */
+export interface InterviewBubble {
+  /** The user-vocabulary label to render on the bubble. */
+  bubble_label: string;
+  /** option / skip / type_your_own — drives the client affordance. */
+  bubble_kind: InterviewBubbleKind;
+}
+
+/**
+ * One completed prior turn, echoed back to the stateless worker on the next
+ * request (twin of `InterviewExchange`). `bubbles_tapped` is a subset of
+ * `bubbles_offered`; `free_text_entered` is set only on a "type it" turn.
+ */
+export interface InterviewExchange {
+  /** The question the client showed the user this turn. */
+  question_text: string;
+  /** The bubble labels shown (includes the skip / type-your-own affordances). */
+  bubbles_offered: string[];
+  /** The bubble labels the user tapped this turn (may be empty on a skip). */
+  bubbles_tapped: string[];
+  /** What the user typed via "something else", if anything. */
+  free_text_entered?: string | null;
+}
+
+/** The interview turn request body — the full conversation state so far (spec §2). */
+export interface InterviewTurnRequest {
+  /** Ordered prior exchanges; empty on the very first turn. */
+  conversation_state: InterviewExchange[];
+}
+
+/** A non-terminal turn: the next question plus its bubbles. */
+export interface InterviewQuestionTurn {
+  response_kind: "question";
+  /** 0-based index of the turn this response is for. */
+  turn_index: number;
+  /** The question text to render. */
+  question_text: string;
+  /** The bubbles to render (≤ 6 options + skip + type-your-own). */
+  bubbles: InterviewBubble[];
+}
+
+/** The terminal turn: the extracted micro-interest list for confirmation. */
+export interface InterviewTerminalTurn {
+  response_kind: "terminal";
+  turn_index: number;
+  /** The extracted interests (empty on the skip-everything path). */
+  micro_interests: TerminalMicroInterest[];
+  /** True when the interview terminated on the skip path (roots-only feed). */
+  roots_only_fallback: boolean;
+}
+
+/**
+ * The graceful-failure turn (spec §2): a typed body the worker returns with HTTP
+ * 200 (or the client synthesizes on transport/parse failure). The client renders
+ * an in-place retry — a failed turn is NEVER a dead-end screen.
+ */
+export interface InterviewRetryTurn {
+  response_kind: "retry";
+  turn_index: number;
+  /** Stable machine error code (e.g. `"llm_unavailable"`, `"transport_error"`). */
+  error_code: string | null;
+  /** Human-readable message to show above the retry affordance. */
+  error_message: string | null;
+  /** What the client should do next (advisory copy). */
+  retry_hint: string | null;
+}
+
+/** One interview turn — discriminated by `response_kind`. */
+export type InterviewTurn = InterviewQuestionTurn | InterviewTerminalTurn | InterviewRetryTurn;
