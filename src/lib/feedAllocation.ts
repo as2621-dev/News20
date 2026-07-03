@@ -159,8 +159,10 @@ export interface SaveAllocationResult {
  * (`allocation_category` = mapped enum, `allocation_slot_count` = count,
  * `allocation_sort_order` = the segment's index in the ordered list), then DELETES any
  * stale rows for buckets the user removed — so the table reflects EXACTLY the saved set.
- * Idempotent: re-saving the same allocation rides the `(follow_user_id, allocation_category)`
- * PK and the delete is a no-op when nothing was removed.
+ * Idempotent: re-saving the same allocation rides the
+ * `(follow_user_id, allocation_category, allocation_interest_id)` unique constraint
+ * (migration 0026; NULLS NOT DISTINCT so coarse rows still key on user+category) and the
+ * delete is a no-op when nothing was removed.
  *
  * The total SHOULD be {@link ALLOCATION_TOTAL} (the UI enforces it). We don't reject a
  * non-30 total here (that would crash the flow on a UI bug), but we LOG it loudly (Rule 12)
@@ -215,11 +217,16 @@ export async function saveUserFeedAllocation(
   // Track which design buckets are in this save so we can DELETE the rest (removed buckets).
   const savedEnumValues = new Set<FeedCategoryEnum>(upsertRows.map((row) => row.allocation_category));
 
-  // 1. Upsert the allocation rows (idempotent on the (follow_user_id, allocation_category) PK).
+  // 1. Upsert the allocation rows. Migration 0026 moved the PK to a surrogate
+  // `allocation_id` and made the upsert arbiter the 3-column unique
+  // (follow_user_id, allocation_category, allocation_interest_id) — declared NULLS NOT
+  // DISTINCT so these coarse rows (allocation_interest_id NULL) still conflict on
+  // (user, category) exactly as before. The niche allocator (backend) writes the
+  // non-null-interest rows; this "Build your 30" writer only ever writes coarse rows.
   if (upsertRows.length > 0) {
-    const { error: upsertError } = await client
-      .from(USER_FEED_ALLOCATION_TABLE)
-      .upsert(upsertRows, { onConflict: "follow_user_id,allocation_category" });
+    const { error: upsertError } = await client.from(USER_FEED_ALLOCATION_TABLE).upsert(upsertRows, {
+      onConflict: "follow_user_id,allocation_category,allocation_interest_id",
+    });
 
     if (upsertError) {
       logger.error("save_user_feed_allocation_upsert_failed", {

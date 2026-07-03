@@ -100,7 +100,7 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     const result = await saveUserFeedAllocation(HAPPY_SEGMENTS, client);
 
     expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsertCalls[0].onConflict).toBe("follow_user_id,allocation_category");
+    expect(upsertCalls[0].onConflict).toBe("follow_user_id,allocation_category,allocation_interest_id");
     expect(upsertCalls[0].rows).toEqual([
       {
         follow_user_id: AUTHED_USER_ID,
