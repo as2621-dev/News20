@@ -71,10 +71,10 @@ git pull --depth 1 origin main
 
 That gets you skills + design-systems (~5 MB) without the 1 GB of components/templates.
 
-## How `/cto` and `/run-phase` use this
+## How `/cto` and `/grab-issue` use this
 
 - **`/cto`** — when the product has a UI, fetches `design-systems/INDEX.md` from the remote repo, picks 2-3 candidates, reads their full content, and lifts tokens into `reference/design-language.md`.
-- **`/run-phase`** — when a sub-phase touches UI, fetches relevant `skills/` (animation, layout patterns) and `components/` (starter HTML) from the remote repo to adapt rather than write from scratch.
+- **`/grab-issue`** — when a slice touches UI, fetches relevant `skills/` (animation, layout patterns) and `components/` (starter HTML) from the remote repo to adapt rather than write from scratch.
 
 Both commands should `curl` index files first (cheap) and only fetch full content for items they decide to use (small per-item).
 

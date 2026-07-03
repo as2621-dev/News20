@@ -136,3 +136,60 @@ The console + network tools are the ones that turn "it's broken" into a `file:li
 - Playwright drives via scripts and an accessibility/screenshot model; `browser-use`'s CDP element-index + daemon makes *interactive* reproduction far cheaper and login-aware.
 - Playwright's trace viewer is good for *test* post-mortems; `chrome-devtools-mcp` gives you the *live* DevTools surface — source-mapped console, real performance insights, CDP network bodies, heap snapshots — which is what actually localizes a production bug to a line.
 - Splitting "hands" and "instruments" means each step uses the tool that's best at it, instead of one framework that's mediocre at both.
+
+---
+
+## 7. Building UI slices — puppeteer (scripted) vs browser-use (exploratory)
+
+§1–6 cover **debugging** (`/debug`). This section covers **building** — what `/grab-issue`
+runs when a slice touches UI. Two tools, two distinct jobs; don't blur them.
+
+| Tool | Role in the build loop | Where it runs | Lives where |
+|---|---|---|---|
+| **puppeteer** | **Deterministic, committed regression test.** The RED→GREEN test for a user-visible behavior a unit test can't honestly prove. Scripted, repeatable, runs in the suite + CI. | `/grab-issue` B3 (test-first) and B5 (validate) | committed to the repo (e.g. `tests/e2e/` or the project's convention) |
+| **browser-use** | **Exploratory acceptance walkthrough.** Drive the real journey *as a user* to catch what the script didn't encode. AI-driven, not committed. | `/grab-issue` B8.5 | ephemeral — evidence screenshot only |
+
+**Why both:** a puppeteer script proves *exactly the path you scripted* forever; browser-use
+proves *the path a user actually takes today*, including the bits you forgot to script. The
+script is the regression lock; the walkthrough is the honesty check. Neither replaces the
+other.
+
+### puppeteer setup (the deterministic lock)
+
+Install (dev dependency, not global — it's part of the test suite):
+
+```bash
+npm i -D puppeteer
+```
+
+Pattern for a build-loop regression test (assert the **user-visible outcome**, Rule 9):
+
+```js
+import puppeteer from "puppeteer";
+
+// Reason: e2e tests need the app served; start it in the suite's setup or assume the
+// project's existing dev-server harness. Match this repo's test runner + conventions.
+const browser = await puppeteer.launch({ headless: "new" });
+const page = await browser.newPage();
+await page.goto("http://localhost:3000/cart", { waitUntil: "networkidle0" });
+await page.click('[data-testid="checkout"]');
+await page.waitForSelector('[data-testid="order-confirmation"]');  // the promised outcome
+const confirmed = await page.$('[data-testid="order-confirmation"]');
+// assert `confirmed` is present with the project's assertion lib
+await browser.close();
+```
+
+Discipline:
+- Prefer stable `data-testid` hooks over brittle CSS/text selectors.
+- The test must **fail on the unbuilt UI for the right reason** before you build to green —
+  a puppeteer test that passes on a missing feature is mis-written (Rule 9).
+- One behavior per test; keep it in the suite so B5 + CI run it every slice thereafter.
+
+### browser-use walkthrough (the honesty check)
+
+Same CLI cheat-sheet as §3 — `observe → act → observe`, `--json` everywhere, `--profile`
+for logged-in flows, `screenshot --full` for evidence, `browser-use close` to tear down.
+The difference from §3's *debugging* use is intent: here you're **confirming an acceptance
+flow works**, not localizing a known bug. If the walkthrough surfaces a defect, extend the
+puppeteer regression to cover it (so it's locked), then fix — or hand to `/debug` if it's a
+deeper browser bug.
