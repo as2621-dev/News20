@@ -29,10 +29,12 @@ SAFETY (this run costs real paid Gemini calls):
     overall ceiling trims the pool back down and negates the headroom (the preflight
     warns when this happens). Set ``1.0`` for the old 1×-demand behaviour.
   * ``LOOKBACK_DAYS`` (default 1) bounds GDELT recency.
-  * ``INGEST_SOURCE`` (default ``doc``) — set ``bigquery`` to ingest AND run the
-    Phase-2c coverage census via the unthrottled GDELT BigQuery dataset instead of
-    the rate-limited DOC API (needs ``GOOGLE_APPLICATION_CREDENTIALS``; optional
-    ``GCP_BILLING_PROJECT``).
+  * ``INGEST_SOURCE`` (default ``bigquery``) — niche ingestion runs through the
+    unthrottled GDELT BigQuery dataset (one batched SQL for ALL active interests;
+    needs ``GOOGLE_APPLICATION_CREDENTIALS``, optional ``GCP_BILLING_PROJECT``). The
+    Phase-2c coverage census ALWAYS uses the rate-limited DOC API (its coverage-check
+    role + backbone emergency fallback). Set ``INGEST_SOURCE=doc`` to force the niche
+    pass back onto DOC too (then niche + census share one throttle governor).
 
 Run (dry preflight, free):
     .venv/bin/python scripts/run_live_batch.py
@@ -425,18 +427,23 @@ async def _run() -> int:
 
     # ── Phase-2c enrichment lookups (loaded once per batch) ───────────────────
     outlets_lookup = load_outlets_lookup(supabase)
-    # Ingest source: the SAME adapter instance feeds BOTH the interest ingest and
-    # the Phase-2c coverage census (passed as ingest_fn's adapter AND
-    # run_daily_pipeline(gdelt_adapter=…)), so this one flag migrates both off the
-    # rate-limited DOC API onto unthrottled BigQuery. Default DOC for safety.
-    ingest_source = os.environ.get("INGEST_SOURCE", "doc").strip().lower()
-    if ingest_source == "bigquery":
-        gdelt_adapter: Any = GdeltBigQueryAdapter(
+    # Ingest sources (reference/integrations.md — GDELT BigQuery revamp): NICHE
+    # ingestion runs through the batched BigQuery pass by default (one SQL for ALL
+    # active interests, unthrottled, no 250-row cap). The rate-limited DOC adapter is
+    # retired from the niche daily path and kept ONLY as the coverage-census source +
+    # backbone emergency fallback — so the census ALWAYS uses DOC (it honors the
+    # throttle and is the coverage-check path), independent of the niche source. Set
+    # INGEST_SOURCE=doc to force the whole niche pass back onto DOC (shares the census
+    # DOC instance so the 1-req/5s throttle governor stays single, as it was).
+    census_adapter: Any = GdeltDocAdapter()
+    ingest_source = os.environ.get("INGEST_SOURCE", "bigquery").strip().lower()
+    if ingest_source == "doc":
+        niche_adapter: Any = census_adapter
+    else:
+        ingest_source = "bigquery"
+        niche_adapter = GdeltBigQueryAdapter(
             billing_project=os.environ.get("GCP_BILLING_PROJECT") or None
         )
-    else:
-        ingest_source = "doc"
-        gdelt_adapter = GdeltDocAdapter()
 
     print("\n--- PREFLIGHT ---")
     print(
@@ -514,7 +521,7 @@ async def _run() -> int:
         result = await ingest_active_interests(
             followed_interest_ids=followed_ids,
             interest_nodes=interest_nodes,
-            adapter=gdelt_adapter,
+            adapter=niche_adapter,
             since_utc=since,
             resolve_existing_story_ids=resolver,
         )
@@ -558,7 +565,7 @@ async def _run() -> int:
         enable_editorial_rewrite=True,
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
-        gdelt_adapter=gdelt_adapter,
+        gdelt_adapter=census_adapter,
         source_stories_by_user=source_stories_by_user,
     )
 

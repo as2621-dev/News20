@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
+from agents.ingestion.adapters.gdelt_bigquery import GdeltBigQueryAdapter
 from agents.ingestion.dedup import normalize_url
 from agents.ingestion.interest_keyed_pipeline import (
     _DEFAULT_LOOKBACK_DAYS,
@@ -807,3 +808,185 @@ class TestThemeCategoryEndToEnd:
         by_url = {s.canonical_url: s.canonical_story_id for s in result.canonical_stories}
         assert cats[by_url["https://reuters.com/biz"]] == "business"
         assert cats[by_url["https://reuters.com/none"]] == "arts"
+
+
+def _param(job_config, name):
+    """Fetch a query parameter by name from a captured QueryJobConfig."""
+    return next(p for p in job_config.query_parameters if p.name == name)
+
+
+class TestBigQueryNicheSeamIntegration:
+    """Slice #3 — the REAL GdeltBigQueryAdapter wired through ingest_active_interests.
+
+    Unlike TestThemeCategoryEndToEnd (which uses a fake ``search_active_interests``),
+    these run the actual adapter — SQL build, struct-array params, row→candidate
+    mapping — with ONLY the BigQuery *client* mocked at the boundary. So they pin the
+    contract the daily batch depends on: ALL active micro-interests are served by ONE
+    batched pass (not per-interest fan-out), candidates land in the pool stamped with
+    their interest node + a match depth, the per-interest cap is bound in-SQL, a niche
+    with zero matches yields nothing (no error), and a BigQuery credential/billing
+    failure fails the niche pass LOUD-but-safe (empty pool, batch survives) so the
+    DOC-backed backbone/census is never taken down with it.
+    """
+
+    @staticmethod
+    def _two_query_bearing_nodes() -> dict[str, InterestNode]:
+        """Two followed micro-interests carrying CONCRETE anchor-term queries (so the
+        matcher keeps ≥1 term each — the conftest 'markets' query is all stopwords)."""
+        return {
+            "int-arsenal": InterestNode(
+                interest_id="int-arsenal",
+                parent_interest_id=None,
+                interest_slug="sport.soccer.arsenal",
+                interest_label="Arsenal",
+                depth_level=2,
+                interest_search_query="Arsenal Premier League",
+            ),
+            "int-chips": InterestNode(
+                interest_id="int-chips",
+                parent_interest_id=None,
+                interest_slug="tech.semiconductors",
+                interest_label="Semiconductors",
+                depth_level=1,
+                interest_search_query="TSMC semiconductor",
+            ),
+        }
+
+    @pytest.mark.asyncio
+    async def test_all_niches_served_by_one_batched_pass_and_tagged(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """Two followed micro-interests → ONE BigQuery query (not two), and the pool
+        carries StoryInterestTag rows stamped with the matched node + a depth."""
+        nodes = self._two_query_bearing_nodes()
+        client = make_fake_bq_client(
+            rows=[
+                make_bq_row(
+                    "https://cnn.com/arsenal",
+                    "Arsenal win at the Emirates",
+                    "cnn.com",
+                    interest_id="int-arsenal",
+                    interest_slug="sport.soccer.arsenal",
+                ),
+                make_bq_row(
+                    "https://reuters.com/tsmc",
+                    "TSMC ramps chip output",
+                    "reuters.com",
+                    interest_id="int-chips",
+                    interest_slug="tech.semiconductors",
+                ),
+            ]
+        )
+        adapter = GdeltBigQueryAdapter(client=client, per_interest_limit=75)
+
+        result = await ingest_active_interests(
+            followed_interest_ids=["int-arsenal", "int-chips"],
+            interest_nodes=nodes,
+            adapter=adapter,
+            extract_bodies=False,
+        )
+
+        # ONE batched pass covered BOTH active interests (fan-out would be 2 queries).
+        assert client.query.call_count == 1
+        # Both interests contributed their anchor terms into the single @interest_terms
+        # struct-array param (proves the batch, not two separate queries).
+        term_slugs = {
+            struct.struct_values["interest_slug"]
+            for struct in _param(
+                client.captured["job_config"], "interest_terms"
+            ).values
+        }
+        assert term_slugs == {"sport.soccer.arsenal", "tech.semiconductors"}
+        # The in-SQL per-interest cap is bound (one noisy niche cannot flood the pool).
+        assert _param(client.captured["job_config"], "per_interest_limit").value == 75
+
+        # Both stories reached the shared pool, each stamped to its interest node.
+        assert len(result.canonical_stories) == 2
+        tags_by_interest = {
+            (t.story_interest_interest_id, t.story_interest_match_depth)
+            for t in result.story_interest_tags
+        }
+        # Leaf-matched tags (depth 0) exist for both followed interests → node + depth.
+        assert ("int-arsenal", 0) in tags_by_interest
+        assert ("int-chips", 0) in tags_by_interest
+
+    @pytest.mark.asyncio
+    async def test_zero_match_niche_yields_no_candidates_no_error(
+        self, make_fake_bq_client, interest_nodes, interest_ids
+    ) -> None:
+        """A niche the batched pull returns nothing for produces an empty pool and no
+        error — empty is valid, downstream fallback handles it."""
+        client = make_fake_bq_client(rows=[])
+        adapter = GdeltBigQueryAdapter(client=client)
+
+        result = await ingest_active_interests(
+            followed_interest_ids=[interest_ids["arsenal"]],
+            interest_nodes=interest_nodes,
+            adapter=adapter,
+            extract_bodies=False,
+        )
+
+        assert client.query.call_count == 1  # the pass ran; it just matched nothing
+        assert result.canonical_stories == []
+        assert result.story_interest_tags == []
+
+    @pytest.mark.asyncio
+    async def test_bigquery_failure_fails_loud_but_leaves_pool_empty_not_aborted(
+        self, make_fake_bq_client, interest_nodes, interest_ids
+    ) -> None:
+        """A BigQuery credential/billing failure normalizes to AdapterFetchError, which
+        the pipeline catches → the niche pass is skipped (empty pool), the batch is NOT
+        aborted, and the DOC-backed backbone/census (a separate adapter) is untouched.
+        """
+        client = make_fake_bq_client(
+            raise_exc=RuntimeError("403 Access Denied: BigQuery billing not enabled")
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+
+        result = await ingest_active_interests(
+            followed_interest_ids=[interest_ids["arsenal"], interest_ids["markets"]],
+            interest_nodes=interest_nodes,
+            adapter=adapter,
+            extract_bodies=False,
+        )
+
+        # Fail-safe: no exception escapes, the pool is simply empty this run.
+        assert result.canonical_stories == []
+        assert result.story_interest_tags == []
+
+
+class TestBackboneRegressionGuard:
+    """Slice #3 — pin the trusted-outlet BACKBONE output so the niche-ingestion wiring
+    cannot silently perturb it.
+
+    The backbone (``ingest_trusted_outlets``) is deliberately UNTOUCHED by this slice:
+    the daily batch's niche door swaps to BigQuery while the backbone/coverage census
+    stays on the DOC adapter. This characterization test snapshots the backbone's exact
+    per-category output for a fixed adapter input; if a future edit to the shared
+    pipeline module perturbs the backbone, this fails loud (byte-identical guard)."""
+
+    @pytest.mark.asyncio
+    async def test_trusted_outlet_output_is_byte_identical_snapshot(self) -> None:
+        adapter = _CategoryKeyedAdapter(per_domain=1)
+        result = await ingest_trusted_outlets(
+            adapter,
+            categories=["ai", "sport", "business"],
+            domain_accessor=_accessor,
+            min_stories_per_category=1,  # yields clear the floor; no gap-fill
+        )
+
+        # Exact per-category outlet snapshot (the fetch is domain-scoped, deterministic).
+        outlets_by_category = {
+            category: sorted(
+                s.canonical_primary_outlet_domain for s in stories
+            )
+            for category, stories in result.canonical_stories_by_category.items()
+        }
+        assert outlets_by_category == {
+            "ai": ["ai-one.com", "ai-two.com"],
+            "sport": ["sport-one.com", "sport-two.com"],
+            "business": ["biz-one.com"],
+        }
+        assert result.failed_categories == []
+        assert result.under_filled_categories == []
+        assert result.total_candidates_fetched == 5  # 2 + 2 + 1 domain candidates

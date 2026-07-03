@@ -372,6 +372,7 @@ async def _run_daily(
         # Reason: lazy imports — keep the worker's cold-start import graph small.
         from google import genai
 
+        from agents.ingestion.adapters.gdelt_bigquery import GdeltBigQueryAdapter
         from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter
         from agents.ingestion.interest_keyed_pipeline import ingest_active_interests
         from agents.ingestion.models import InterestNode
@@ -415,7 +416,27 @@ async def _run_daily(
         followed_ids = sorted({str(r["profile_interest_id"]) for r in profile_rows})
 
         outlets_lookup = load_outlets_lookup(supabase)
-        gdelt_adapter = GdeltDocAdapter()
+        # Reason: niche ingestion runs through the batched BigQuery pass — ONE SQL for
+        # ALL active micro-interests, no per-IP throttle and no 250-row cap
+        # (reference/integrations.md, GDELT BigQuery). The rate-limited DOC adapter is
+        # retired from the niche daily path and kept ONLY as the coverage-census source
+        # and the backbone emergency fallback (it honors the 1-req/5s throttle). A
+        # BigQuery credential/billing failure fails the niche pass loud (the batch call
+        # normalizes to AdapterFetchError, which ingest_active_interests logs + skips)
+        # and leaves the DOC-backed census/backbone intact.
+        niche_adapter = GdeltBigQueryAdapter(
+            billing_project=os.environ.get("GCP_BILLING_PROJECT") or None
+        )
+        census_adapter = GdeltDocAdapter()
+        logger.info(
+            "pipeline_daily_ingest_sources",
+            run_id=run_id,
+            niche_source="gdelt_bigquery",
+            census_source="gdelt_doc",
+            fix_suggestion="Niche ingestion needs GOOGLE_APPLICATION_CREDENTIALS "
+            "(+ optional GCP_BILLING_PROJECT); if BigQuery auth/billing fails the "
+            "niche pass is skipped loud and the DOC census/backbone still runs.",
+        )
         resolver = build_story_id_resolver(supabase)
         since_utc = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
@@ -423,7 +444,7 @@ async def _run_daily(
             result = await ingest_active_interests(
                 followed_interest_ids=followed_ids,
                 interest_nodes=interest_nodes,
-                adapter=gdelt_adapter,
+                adapter=niche_adapter,
                 since_utc=since_utc,
                 resolve_existing_story_ids=resolver,
             )
@@ -451,7 +472,7 @@ async def _run_daily(
             enable_batch_review=True,
             interest_segment_lookup=interest_segment_lookup,
             outlets_lookup=outlets_lookup,
-            gdelt_adapter=gdelt_adapter,
+            gdelt_adapter=census_adapter,
         )
         logger.info(
             "pipeline_daily_run_completed",

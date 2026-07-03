@@ -20,6 +20,13 @@ Pillow>=10.0
 # article body text from the fetched HTML for downstream scripting (SP2).
 trafilatura>=1.6
 
+# ──── Niche ingestion: GDELT BigQuery batched pass (2026-07 revamp, slice #3) ────
+# The daily batch queries the public GKG dataset (gdelt-bq.gdeltv2.gkg_partitioned)
+# for ALL active micro-interests in ONE unthrottled SQL pass (no per-IP 429s, no
+# 250-row cap). Auth is a service-account key via GOOGLE_APPLICATION_CREDENTIALS
+# (env only, never committed); billing project GCP_BILLING_PROJECT (optional).
+google-cloud-bigquery>=3.0
+
 # ──── Followed-source ingestion: YouTube (Phase 5d SP1) ────
 # yt-dlp pulls a video's transcript (auto-subs / uploaded captions, vtt) + canonical
 # metadata + best thumbnail. Upload detection itself is keyless via the channel RSS
