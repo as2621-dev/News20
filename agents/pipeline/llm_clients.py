@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from agents.shared.exceptions import PipelineStageError
@@ -50,6 +51,44 @@ DEFAULT_TIMEOUT_SECONDS = 60
 # scripting/verification model. (The TTS pin `gemini-2.5-flash-preview-tts` in
 # reference/stack-notes.md is a different model used by SP3's reused M0 TTS.)
 DEFAULT_GEMINI_TEXT_MODEL = "gemini-2.5-flash"
+
+
+@dataclass(frozen=True)
+class GeminiJsonResult:
+    """The parsed result of a structured-JSON Gemini call plus its cost/latency.
+
+    Attributes:
+        parsed: The validated ``response_schema`` instance (a pydantic model).
+        prompt_tokens: Prompt token count reported by Gemini (0 when unreported).
+        output_tokens: Output/candidate token count reported by Gemini (0 when unreported).
+        total_tokens: Total token count reported by Gemini (0 when unreported).
+        elapsed_ms: Wall time of the call in milliseconds.
+        model: The model that served the call.
+    """
+
+    parsed: Any
+    prompt_tokens: int
+    output_tokens: int
+    total_tokens: int
+    elapsed_ms: int
+    model: str
+
+
+def _usage_int(usage_metadata: Any, attribute_name: str) -> int:
+    """Read one integer token count off a Gemini ``usage_metadata`` object, defaulting to 0.
+
+    The SDK leaves counts as ``None`` when the backend does not report them, so this
+    coerces missing/None values to ``0`` for safe arithmetic in cost tracking.
+
+    Args:
+        usage_metadata: The response ``usage_metadata`` object (may be ``None``).
+        attribute_name: The token-count attribute to read.
+
+    Returns:
+        The integer token count, or ``0`` when absent.
+    """
+    value = getattr(usage_metadata, attribute_name, None)
+    return int(value) if isinstance(value, int) else 0
 
 
 class LLMClient:
@@ -277,6 +316,96 @@ class LLMClient:
             web_source_count=len(web_sources),
         )
         return result_text, web_sources
+
+    async def call_gemini_json(
+        self,
+        prompt: str,
+        response_schema: Any,
+        system: str = "",
+        model: str = DEFAULT_GEMINI_TEXT_MODEL,
+        temperature: float = 0.1,
+    ) -> GeminiJsonResult:
+        """Call Gemini with structured-JSON output and return the parsed model + cost.
+
+        Sets ``response_mime_type='application/json'`` + ``response_schema`` so the SDK
+        validates the model output against the pydantic schema and hands back
+        ``response.parsed``. Also reports token usage + wall time so callers can track
+        LLM cost/latency. The API key stays server-side (resolved by the lazy client).
+
+        Args:
+            prompt: User prompt text.
+            response_schema: A pydantic ``BaseModel`` subclass to validate the output.
+            system: System instruction text (empty to omit).
+            model: Gemini text model name (defaults to ``gemini-2.5-flash``).
+            temperature: Sampling temperature (low by default for deterministic JSON).
+
+        Returns:
+            A :class:`GeminiJsonResult` with the parsed schema instance and cost/latency.
+
+        Raises:
+            PipelineStageError: When all retries are exhausted OR the response could not
+                be parsed into ``response_schema`` (a malformed-JSON failure surfaces to
+                the caller, which maps it to a graceful retry body — never a 5xx).
+
+        Example:
+            >>> result = await client.call_gemini_json("...", MySchema)  # doctest: +SKIP
+            >>> result.parsed.action  # doctest: +SKIP
+            'ask'
+        """
+        start_time = time.monotonic()
+        logger.info(
+            "llm_json_call_started",
+            provider="gemini",
+            model=model,
+            prompt_length=len(prompt),
+            system_length=len(system),
+        )
+
+        async def _call() -> Any:
+            from google.genai import types as genai_types
+
+            client = self._get_gemini_client()
+            config = genai_types.GenerateContentConfig(
+                system_instruction=system if system else None,
+                temperature=temperature,
+                response_mime_type="application/json",
+                response_schema=response_schema,
+            )
+            response = await client.aio.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=config,
+            )
+            parsed = getattr(response, "parsed", None)
+            if parsed is None:
+                # Reason: an empty/malformed body must fail loudly here so the worker maps
+                # it to a graceful retry body rather than surfacing a silent None.
+                raise ValueError("Gemini returned no parseable structured JSON")
+            usage_metadata = getattr(response, "usage_metadata", None)
+            return parsed, usage_metadata
+
+        parsed, usage_metadata = await self._retry_with_backoff("gemini", _call)
+        elapsed_ms = int((time.monotonic() - start_time) * 1000)
+        prompt_tokens = _usage_int(usage_metadata, "prompt_token_count")
+        output_tokens = _usage_int(usage_metadata, "candidates_token_count")
+        total_tokens = _usage_int(usage_metadata, "total_token_count")
+        logger.info(
+            "llm_json_call_completed",
+            provider="gemini",
+            model=model,
+            elapsed_ms=elapsed_ms,
+            prompt_tokens=prompt_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+        )
+        return GeminiJsonResult(
+            parsed=parsed,
+            prompt_tokens=prompt_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            elapsed_ms=elapsed_ms,
+            model=model,
+        )
 
 
 def _extract_web_sources(response: Any) -> list[dict[str, str]]:

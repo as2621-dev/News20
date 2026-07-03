@@ -47,6 +47,7 @@ from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
 from agents.voice.live_token import EphemeralTokenResponse, mint_ephemeral_token
 from agents.worker.corpus_cache import get_or_load_corpus
+from agents.worker.interview_routes import router as interview_router
 from agents.worker.pipeline_routes import router as pipeline_router
 
 logger = get_logger("worker.qa")
@@ -87,6 +88,7 @@ _RATE_LIMITED_PREFIXES = (
     "/api/story/",
     "/api/voice/live-token",
     "/api/sources/search",
+    "/api/interview/",
 )
 _request_times_by_ip: dict[str, list[float]] = {}
 
@@ -144,6 +146,11 @@ async def rate_limit_paid_endpoints(request: Request, call_next):
 # body), so mounting it does not drag the pipeline into the worker's cold-start
 # import graph; /healthz and boot stay cheap.
 app.include_router(pipeline_router)
+
+# ── Interview HTTP seam (FSR interview slice #1) — the onboarding chat engine ──
+# JWT-authed per request (its own verify_supabase_user dependency); NOT under the
+# pipeline shared-secret guard. Rate-limited via _RATE_LIMITED_PREFIXES above.
+app.include_router(interview_router)
 
 
 @app.get("/healthz")
