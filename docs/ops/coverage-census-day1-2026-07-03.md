@@ -108,6 +108,11 @@ Run `scripts/coverage_census.py --days 3` after the next 2 daily batches (target
 overall hit rate vs 60%. Tracked in the follow-up issue so it is not silently
 dropped.
 
-- [ ] 2026-07-03 batch persisted → census re-run
-- [ ] 2026-07-04 batch persisted → census re-run
-- [ ] 2026-07-05 batch persisted → census re-run → **go/no-go read-off recorded**
+- [ ] 2026-07-03 batch persisted → census re-run — **FAILED: batch ran (slice #10) but
+      produced 0 stories (Gemini prepay credits depleted mid-run, 429). No tags
+      persisted; this day does NOT count as a pull-day. See
+      `docs/ops/m4-persona-validation-2026-07-03.md`.**
+- [ ] 1st successful post-top-up batch persisted → census re-run
+- [ ] 2nd successful batch day persisted → census re-run
+- [ ] 3rd successful batch day persisted → census re-run → **go/no-go read-off recorded**
+      (earliest 2026-07-06 if batches run 07-04/05/06)
