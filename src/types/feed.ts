@@ -194,6 +194,16 @@ export interface Story {
    */
   feed_slot_kind?: "interest" | "source";
   /**
+   * The interest node this slot was actually FILLED from
+   * (`daily_feeds.feed_matched_interest_id`). On a climbed niche slot this is the
+   * ANCESTOR that matched (e.g. cricket) — NOT the section's own leaf
+   * ({@link feed_section_interest_id}, e.g. IPL). That difference is what lets slice #8
+   * name the fallback source in the honest header ("…here's cricket"). `null`/`undefined`
+   * on source/beyond-bubble slots (and on the global/fixture feed). Twin of
+   * `AllocatedSlot.feed_matched_interest_id` (`agents/pipeline/feed_assembly.py`).
+   */
+  feed_matched_interest_id?: string | null;
+  /**
    * The user-vocabulary section header this slot belongs to
    * (`daily_feeds.feed_section_label`; FSR slice #7). The user's own words for a niche
    * section (`"IPL"`), the reserved `"Beyond your bubble"` label, or `null`/`undefined`

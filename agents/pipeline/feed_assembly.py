@@ -772,8 +772,10 @@ def _fill_niche_section(
     Shares ``used_story_ids`` with every other section so a story tagged to two niches
     lands in exactly one slot (deduped across sections); ``excluded_story_ids`` is the
     §3.8 don't-repeat set. Reuses the ranking primitives (:func:`_walk_ancestors`,
-    :func:`score_stories_for_interest`, :func:`_take_top_qualifying`) so the climb
-    semantics are byte-identical to the scorer's fallback tree (Rule 7 — one ladder).
+    :func:`score_stories_for_interest`, :func:`_take_top_qualifying`) so the climb walks the
+    SAME ladder (same order + 3-level cap) as the scorer's fallback tree — one source of
+    truth (Rule 7). It differs deliberately in fill policy: the scorer stops at the first
+    level with any qualifier, whereas a section here TOPS UP across levels to reach ``want``.
 
     Args:
         section_interest_id: The followed leaf the section is named for.
@@ -1031,7 +1033,12 @@ def assemble_niche_feed(
             # Reason: a deliberately-allocated section that is somehow absent from the
             # profile defaults to full affinity — the user chose it, so score it strong.
             affinity=affinities.get(section_id, 1.0),
-            is_strict=strict_by_interest.get(section_id, False),
+            # Reason (honesty fail-safe): if a section's strict flag is unknown (its
+            # interest is missing from the profile — a stale/diverged row), default to
+            # STRICT. An unknown section may then only under-fill into beyond-bubble, never
+            # silently broaden up the ladder — the conservative direction for the owner's
+            # no-silent-substitution decision. Normal sections carry their real flag.
+            is_strict=strict_by_interest.get(section_id, True),
             want=want,
             stories=stories,
             tags_by_story=tags_by_story,

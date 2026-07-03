@@ -178,6 +178,8 @@ interface DailyFeedRow {
   /** The slot tier that placed this story: `source` (followed source) or `interest`
    *  (category slot). phase-SP1 removed the `breaking` tier. */
   feed_slot_kind: string | null;
+  /** The interest node the slot was filled from (the ancestor on a climbed niche slot). */
+  feed_matched_interest_id: string | null;
   /** FSR #7 section metadata (migration 0027). NULL/0 on coarse/roots-only + source rows. */
   feed_section_label: string | null;
   feed_section_interest_id: string | null;
@@ -212,8 +214,8 @@ export async function getDailyFeed(
   const { data, error } = await client
     .from("daily_feeds")
     .select(
-      `feed_position,feed_slot_kind,feed_section_label,feed_section_interest_id,` +
-        `feed_fallback_source_level,stories!inner(${FEED_SELECT})`,
+      `feed_position,feed_slot_kind,feed_matched_interest_id,feed_section_label,` +
+        `feed_section_interest_id,feed_fallback_source_level,stories!inner(${FEED_SELECT})`,
     )
     .eq("feed_user_id", userId)
     .eq("feed_date", feedDate)
@@ -236,8 +238,11 @@ export async function getDailyFeed(
     // "breaking" enum row) is a normal interest slot (phase-SP1 removed breaking).
     feed_slot_kind: row.feed_slot_kind === "source" ? "source" : "interest",
     // Reason (FSR #7): carry the section metadata so slice #8 renders honest section
-    // headers ("Nothing new in IPL today — here's cricket"). Additive + null-safe: a
-    // legacy row with no section columns reads as (null, null, 0) — a direct, unlabeled slot.
+    // headers ("Nothing new in IPL today — here's cricket"). feed_matched_interest_id is
+    // the node the slot was filled FROM (the ancestor on a climbed slot) — it names the
+    // fallback source. Additive + null-safe: a legacy row with no section columns reads as
+    // (null, null, null, 0) — a direct, unlabeled slot.
+    feed_matched_interest_id: row.feed_matched_interest_id ?? null,
     feed_section_label: row.feed_section_label ?? null,
     feed_section_interest_id: row.feed_section_interest_id ?? null,
     feed_fallback_source_level: row.feed_fallback_source_level ?? 0,

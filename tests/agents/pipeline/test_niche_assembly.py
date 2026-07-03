@@ -345,6 +345,40 @@ def test_story_in_two_niches_appears_in_exactly_one_slot() -> None:
     assert shared_slot.feed_section_interest_id == _IPL
 
 
+def test_section_missing_from_profile_never_silently_broadens() -> None:
+    """A section whose strict flag is unknown (absent from profile) must NOT climb.
+
+    WHY (honesty fail-safe): if a stale/diverged allocation row references an interest not
+    in the profile, we cannot know it is non-strict. Defaulting to a climb would be a
+    silent substitution — the rejected failure mode. It may only under-fill into
+    beyond-bubble instead.
+    """
+    # Profile is EMPTY of the section interest — strict-ness is unknown.
+    profile: list[UserProfileInterest] = []
+    alloc = [
+        _niche_row(_IPL, "IPL", slot_count=3, sort_order=0),
+        _beyond_row("ai", sort_order=1),
+    ]
+    stories, tags = [], []
+    stories.append(_story("ipl-0"))  # one direct IPL story it MAY keep
+    tags += _chain_tags("ipl-0", [_IPL, _CRICKET, _SPORT])
+    for index in range(4):  # cricket present — must NOT be substituted in
+        sid = f"cricket-{index}"
+        stories.append(_story(sid))
+        tags += _chain_tags(sid, [_CRICKET, _SPORT])
+    for index in range(3):
+        sid = f"ai-{index}"
+        stories.append(_story(sid, outlet_count=6))
+        tags += _chain_tags(sid, [_AI])
+
+    slots = _run(profile, alloc, stories, tags, feed_slot_budget=4)
+
+    # No cricket story leaked into the unknown section; leftover went to beyond-bubble.
+    assert all(not s.feed_story_id.startswith("cricket-") for s in slots)
+    ipl_slots = [s for s in slots if s.feed_section_interest_id == _IPL]
+    assert all(s.feed_fallback_source_level == 0 for s in ipl_slots)
+
+
 # ── Regression guards ────────────────────────────────────────────────────────────
 
 
