@@ -47,6 +47,9 @@ export const PROFILE_WEIGHT_BY_DEPTH: Readonly<Record<number, number>> = {
   0: 1.0,
   1: 1.5,
   2: 2.0,
+  // Depth 3 = the deepest interview micro-interest (e.g. sport.cricket.ipl.auctions);
+  // heavier still, keeping the "deeper is more specific ⇒ starts heavier" gradient.
+  3: 2.5,
 };
 
 /** Fallback weight for an unexpected depth outside {@link PROFILE_WEIGHT_BY_DEPTH}. */
@@ -76,8 +79,13 @@ export interface PersistProfileResult {
   unpersisted_customs: string[];
 }
 
-/** Resolve the default weight for a node depth (Open Q1 depth map). */
-function resolveProfileWeight(depthLevel: number): number {
+/**
+ * Resolve the default weight for a node depth (Open Q1 depth map). Exported so the
+ * interview persister ({@link import("@/lib/interviewProfile")}) shares the SAME
+ * depth→weight semantics rather than forking a second table (spec §5: "existing
+ * depth-weight semantics").
+ */
+export function resolveProfileWeight(depthLevel: number): number {
   return PROFILE_WEIGHT_BY_DEPTH[depthLevel] ?? DEFAULT_PROFILE_WEIGHT;
 }
 
