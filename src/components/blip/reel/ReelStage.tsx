@@ -32,7 +32,9 @@ import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { BlipLogo } from "@/components/BlipLogo";
 import { ic } from "@/components/blip/reel/icons";
+import { ReelSectionHeader } from "@/components/blip/reel/ReelSectionHeader";
 import { KaraokeCaption } from "@/components/reel/KaraokeCaption";
+import type { SectionChipModel } from "@/lib/reel/sectionChips";
 import { type NextReelState, useReelAudio } from "@/lib/reel/useReelAudio";
 import type { Story } from "@/types/feed";
 
@@ -66,6 +68,12 @@ export interface ReelStageProps {
   storyCount: number;
   /** Per-story category accent hexes (feed order) — paints each progress segment its own colour. */
   segmentAccents: string[];
+  /**
+   * This slot's derived section chip (FSR slice #8): the user-vocabulary header +
+   * slot count from `daily_feeds` row metadata, plus the honesty line on a climbed
+   * slot. Computed once per feed load by {@link BlipReel} via `computeSectionChips`.
+   */
+  sectionChip: SectionChipModel;
   /** Whether this is the currently-active (snapped) story. */
   isActive: boolean;
   /** Whether audio has been unlocked by the first user tap (gates auto-play). */
@@ -107,6 +115,7 @@ export function ReelStage({
   storyIndex,
   storyCount,
   segmentAccents,
+  sectionChip,
   isActive,
   isAudioUnlocked,
   shouldPreload,
@@ -294,12 +303,10 @@ export function ReelStage({
               {ic("following")}
             </button>
           </div>
-          {/* phase-SP1: the breaking tier was removed — the chip always shows the
-              story's own segment label/accent (no "Breaking" override). */}
-          <div className="seg-chip" style={{ color: story.segment_accent_hex }}>
-            <span className="seg-dot" />
-            {story.segment_label}
-          </div>
+          {/* FSR slice #8: the chip renders this slot's SECTION header from row
+              metadata (user vocabulary + slot count, honesty line on a climbed
+              slot); legacy/source rows keep the plain segment label unchanged. */}
+          <ReelSectionHeader chip={sectionChip} accentHex={story.segment_accent_hex} />
           {/* The headline IS the article tap target (the explicit tap-cue hint
               line was removed) — a button-wrapped heading keeps it reachable. */}
           <button

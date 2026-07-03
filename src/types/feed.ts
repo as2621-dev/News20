@@ -38,15 +38,7 @@ export type AnchorSpeaker = "ALEX" | "JORDAN";
  * Postgres enum for reversibility but are no longer emitted here (SP3 backfilled
  * existing stories off them: `markets→business`, `wildcard→arts`).
  */
-export type SegmentKey =
-  | "ai"
-  | "geopolitics"
-  | "business"
-  | "environment"
-  | "politics"
-  | "tech"
-  | "sport"
-  | "arts";
+export type SegmentKey = "ai" | "geopolitics" | "business" | "environment" | "politics" | "tech" | "sport" | "arts";
 
 /**
  * One karaoke word token — the atom the caption renderer lights word-by-word.
@@ -203,6 +195,16 @@ export interface Story {
    * `AllocatedSlot.feed_matched_interest_id` (`agents/pipeline/feed_assembly.py`).
    */
   feed_matched_interest_id?: string | null;
+  /**
+   * The display label of the interest node this slot was FILLED from — the
+   * `interests.interest_label` the {@link feed_matched_interest_id} FK resolves to,
+   * joined by the daily-feed read (`src/lib/feed/supabaseFeed.ts`). On a climbed slot
+   * this names the fallback source for the honest header ("…here's Cricket").
+   * `null`/`undefined` when the slot has no matched interest (source/beyond-bubble/
+   * legacy rows) or the node was pruned (`on delete set null`). NOT a `daily_feeds`
+   * column — a join product, so it has no Python `AllocatedSlot` twin.
+   */
+  feed_matched_interest_label?: string | null;
   /**
    * The user-vocabulary section header this slot belongs to
    * (`daily_feeds.feed_section_label`; FSR slice #7). The user's own words for a niche

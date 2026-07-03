@@ -25,7 +25,7 @@
  * Static-export safe: client-only, `window`-guarded async feed load.
  */
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // The Stage-4 reel + ask sheets + article layer render with the vendored Blip
 // class vocabulary (.reel/.top/.head/.sheet/.layer-article …). That styling lives
 // in the shared blip-flow.css, which until now was only side-loaded by the
@@ -52,6 +52,7 @@ import { logger } from "@/lib/logger";
 import { useActiveStoryObserver } from "@/lib/reel/gestures";
 import { computePreloadIndices } from "@/lib/reel/preload";
 import { nextReelStatus, type ReelStatus } from "@/lib/reel/reelStatus";
+import { computeSectionChips } from "@/lib/reel/sectionChips";
 import type { NextReelState } from "@/lib/reel/useReelAudio";
 import { shareStory } from "@/lib/share";
 import type { ReelFeedMeta, Story } from "@/types/feed";
@@ -338,6 +339,11 @@ export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: Bli
   // Per-story category accents (feed order) — each top progress segment paints its own colour.
   const segmentAccents = stories.map((story) => story.segment_accent_hex);
 
+  // Per-story section chips (FSR slice #8), derived ONCE per feed load from the
+  // daily_feeds row metadata (memoized so the malformed-metadata warning doesn't
+  // re-log on every audio-clock re-render).
+  const sectionChips = useMemo(() => computeSectionChips(stories), [stories]);
+
   // The day-one "past 24 hours" banner shows ONLY on a first-run AND partial feed
   // (and only until the user dismisses it — that state lives in FirstRunBanner).
   // The dismiss flag is keyed by the SAME feed date getReelFeed resolved (UTC, today
@@ -360,6 +366,7 @@ export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: Bli
             storyIndex={storyIndex}
             storyCount={stories.length}
             segmentAccents={segmentAccents}
+            sectionChip={sectionChips[storyIndex]}
             isActive={storyIndex === activeIndex}
             isAudioUnlocked={isAudioUnlocked}
             shouldPreload={preloadIndexSet.has(storyIndex)}

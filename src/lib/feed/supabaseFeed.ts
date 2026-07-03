@@ -184,6 +184,13 @@ interface DailyFeedRow {
   feed_section_label: string | null;
   feed_section_interest_id: string | null;
   feed_fallback_source_level: number | null;
+  /**
+   * The matched interest's display label, embedded via the
+   * `feed_matched_interest_id` FK (`interests` is public-read). Object in
+   * production (many-to-one embed), array in the offline test mock — both accepted.
+   * NULL when the slot has no matched interest or the node was pruned.
+   */
+  matched_interest: { interest_label: string } | { interest_label: string }[] | null;
   stories: StoryRow | StoryRow[];
 }
 
@@ -214,8 +221,14 @@ export async function getDailyFeed(
   const { data, error } = await client
     .from("daily_feeds")
     .select(
+      // Reason (FSR #8): matched_interest embeds interests.interest_label over the
+      // feed_matched_interest_id FK (disambiguated by constraint name — daily_feeds has
+      // TWO FKs into interests) so a climbed slot's honesty line can NAME the level it
+      // was filled from ("…here's Cricket") with zero client-side inference.
       `feed_position,feed_slot_kind,feed_matched_interest_id,feed_section_label,` +
-        `feed_section_interest_id,feed_fallback_source_level,stories!inner(${FEED_SELECT})`,
+        `feed_section_interest_id,feed_fallback_source_level,` +
+        `matched_interest:interests!daily_feeds_feed_matched_interest_id_fkey(interest_label),` +
+        `stories!inner(${FEED_SELECT})`,
     )
     .eq("feed_user_id", userId)
     .eq("feed_date", feedDate)
@@ -243,6 +256,8 @@ export async function getDailyFeed(
     // fallback source. Additive + null-safe: a legacy row with no section columns reads as
     // (null, null, null, 0) — a direct, unlabeled slot.
     feed_matched_interest_id: row.feed_matched_interest_id ?? null,
+    feed_matched_interest_label:
+      (Array.isArray(row.matched_interest) ? row.matched_interest[0] : row.matched_interest)?.interest_label ?? null,
     feed_section_label: row.feed_section_label ?? null,
     feed_section_interest_id: row.feed_section_interest_id ?? null,
     feed_fallback_source_level: row.feed_fallback_source_level ?? 0,

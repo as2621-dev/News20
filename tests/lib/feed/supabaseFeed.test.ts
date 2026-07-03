@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { getFeed } from "@/lib/feed/supabaseFeed";
+import { getDailyFeed, getFeed } from "@/lib/feed/supabaseFeed";
 import type { Story } from "@/types/feed";
 
 /**
@@ -168,5 +168,88 @@ describe("getFeed (supabase source)", () => {
     const { client } = makeFakeClient({ data: null, error: { message: "permission denied" } });
 
     await expect(getFeed(client)).rejects.toThrow(/Failed to load feed/i);
+  });
+});
+
+/**
+ * Fake Supabase client for the `getDailyFeed` chain
+ * (`.from().select().eq().eq().order().returns()`), mocked at the client boundary.
+ */
+function makeFakeDailyClient(result: { data: unknown; error: unknown }) {
+  const returns = vi.fn().mockResolvedValue(result);
+  const order = vi.fn().mockReturnValue({ returns });
+  const secondEq = vi.fn().mockReturnValue({ order });
+  const firstEq = vi.fn().mockReturnValue({ eq: secondEq });
+  const select = vi.fn().mockReturnValue({ eq: firstEq });
+  const from = vi.fn().mockReturnValue({ select });
+  // Reason: only the chain getDailyFeed() uses is implemented; `as never` satisfies
+  // the SupabaseClient type at this test boundary without a full stub.
+  return { client: { from } as never, select };
+}
+
+describe("getDailyFeed section metadata (FSR slice #8)", () => {
+  // WHY (Rule 9): the honest fallback header ("…here's Cricket") can only name the
+  // level actually filled from if the read JOINS the matched interest's label —
+  // dropping the embed (or mis-mapping a legacy row) silently degrades the honesty
+  // stamp the owner mandated. These tests fail on exactly that.
+  it("carries the matched-interest label from the embedded join on a climbed slot", async () => {
+    const row = {
+      feed_position: 1,
+      feed_slot_kind: "interest",
+      feed_matched_interest_id: "int-cricket",
+      feed_section_label: "IPL",
+      feed_section_interest_id: "int-ipl",
+      feed_fallback_source_level: 1,
+      matched_interest: { interest_label: "Cricket" },
+      stories: SAMPLE_ROW,
+    };
+    const { client, select } = makeFakeDailyClient({ data: [row], error: null });
+
+    const stories = await getDailyFeed("user-1", "2026-07-03", client);
+
+    expect(stories[0].feed_section_label).toBe("IPL");
+    expect(stories[0].feed_fallback_source_level).toBe(1);
+    expect(stories[0].feed_matched_interest_label).toBe("Cricket");
+    // The label must come from the interests embed on the matched-interest FK —
+    // the select itself must request it (no second round-trip, no slug inference).
+    expect(select.mock.calls[0][0]).toContain("interests!daily_feeds_feed_matched_interest_id_fkey");
+  });
+
+  it("maps a legacy row (no section columns) to null metadata / level 0 without crashing", async () => {
+    const legacyRow = {
+      feed_position: 1,
+      feed_slot_kind: null,
+      feed_matched_interest_id: null,
+      feed_section_label: null,
+      feed_section_interest_id: null,
+      feed_fallback_source_level: null,
+      matched_interest: null,
+      stories: SAMPLE_ROW,
+    };
+    const { client } = makeFakeDailyClient({ data: [legacyRow], error: null });
+
+    const stories = await getDailyFeed("user-1", "2026-07-03", client);
+
+    expect(stories[0].feed_section_label).toBeNull();
+    expect(stories[0].feed_matched_interest_label).toBeNull();
+    expect(stories[0].feed_fallback_source_level).toBe(0);
+  });
+
+  it("normalizes an array-shaped embed (test-mock / relationship-detection form) to its first row", async () => {
+    const row = {
+      feed_position: 1,
+      feed_slot_kind: "interest",
+      feed_matched_interest_id: "int-cricket",
+      feed_section_label: "IPL",
+      feed_section_interest_id: "int-ipl",
+      feed_fallback_source_level: 1,
+      matched_interest: [{ interest_label: "Cricket" }],
+      stories: SAMPLE_ROW,
+    };
+    const { client } = makeFakeDailyClient({ data: [row], error: null });
+
+    const stories = await getDailyFeed("user-1", "2026-07-03", client);
+
+    expect(stories[0].feed_matched_interest_label).toBe("Cricket");
   });
 });
