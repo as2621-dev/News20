@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { persistInterviewInterests } from "@/lib/interviewProfile";
+import { persistInterviewInterests, REPLACE_PARTIAL_ERROR_NAME } from "@/lib/interviewProfile";
 import { PROFILE_WEIGHT_BY_DEPTH } from "@/lib/onboardingProfile";
 import type { InterviewTerminalPayload, TerminalMicroInterest } from "@/types/interview";
 
@@ -32,6 +32,11 @@ interface CapturedRpc {
   name: string;
   args: Record<string, unknown>;
 }
+/** A captured `from(table).delete().eq(...)[.not(...)]` call (the replace-stale seam). */
+interface CapturedDelete {
+  table: string;
+  filters: Array<{ kind: "eq" | "not"; column: string; operator?: string; value: unknown }>;
+}
 
 /**
  * Build a fake Supabase client that:
@@ -46,11 +51,16 @@ function makeFakeClient(
     mintBySlug?: Record<string, string>;
     mintError?: { message: string } | null;
     upsertErrorTable?: string | null;
+    deleteError?: { message: string } | null;
   } = {},
 ) {
   const rpcCalls: CapturedRpc[] = [];
   const upserts: CapturedUpsert[] = [];
   const updates: CapturedUpdate[] = [];
+  const deletes: CapturedDelete[] = [];
+  // Ordered write log ("upsert:<table>" / "delete:<table>") — lets tests prove the
+  // no-zero-rows ordering guarantee (new rows land BEFORE stale rows are deleted).
+  const writeOrder: string[] = [];
 
   const client = {
     rpc: (name: string, args: Record<string, unknown>) => {
@@ -65,6 +75,7 @@ function makeFakeClient(
     from: (table: string) => ({
       upsert: (rows: unknown, options: unknown) => {
         upserts.push({ table, rows, options });
+        writeOrder.push(`upsert:${table}`);
         if (config.upsertErrorTable === table) {
           return Promise.resolve({ error: { message: `simulated ${table} write failure` } });
         }
@@ -76,10 +87,32 @@ function makeFakeClient(
           return Promise.resolve({ error: null });
         },
       }),
+      delete: () => {
+        // A thenable filter builder: `.eq(...)` / `.not(...)` chain, `await` resolves —
+        // the same shape supabase-js exposes (the query builder is a PromiseLike).
+        const captured: CapturedDelete = { table, filters: [] };
+        const builder = {
+          eq(column: string, value: unknown) {
+            captured.filters.push({ kind: "eq", column, value });
+            return builder;
+          },
+          not(column: string, operator: string, value: unknown) {
+            captured.filters.push({ kind: "not", column, operator, value });
+            return builder;
+          },
+          // biome-ignore lint/suspicious/noThenProperty: intentionally thenable — supabase-js's filter builder IS a PromiseLike, and the code under test awaits it
+          then(resolve: (outcome: { error: { message: string } | null }) => void) {
+            deletes.push(captured);
+            writeOrder.push(`delete:${table}`);
+            resolve({ error: config.deleteError ?? null });
+          },
+        };
+        return builder;
+      },
     }),
   };
 
-  return { client: client as never, rpcCalls, upserts, updates };
+  return { client: client as never, rpcCalls, upserts, updates, deletes, writeOrder };
 }
 
 const USER_ID = "00000000-0000-0000-0000-000000000abc";
@@ -359,5 +392,142 @@ describe("persistInterviewInterests", () => {
     await expect(
       persistInterviewInterests(USER_ID, payloadOf(microInterest({ canonical_slug: "sport.cricket" })), {}, client),
     ).rejects.toThrow(/interview interest profile/i);
+  });
+});
+
+describe("persistInterviewInterests — replace semantics (rebuild my feed, issue #9)", () => {
+  it("replace_existing deletes the user's stale rows (not-in the new set) AFTER upserting the new rows", async () => {
+    // WHY (issue #9 happy path + no-blend): a completed re-interview must leave the profile
+    // EQUAL to the confirmed set — old rows not in it are deleted, scoped to THIS user.
+    // Ordering is load-bearing: new rows land BEFORE the stale delete, so no failure window
+    // ever leaves the user with ZERO rows (they always have a working feed). FAILS if old
+    // and new rows blend, the delete hits other users, or the delete runs first.
+    const payload = payloadOf(
+      microInterest({ canonical_slug: "sport.cricket.ipl", display_label: "IPL" }),
+      microInterest({ canonical_slug: "ai.agents", display_label: "agents" }),
+    );
+    const { client, deletes, writeOrder } = makeFakeClient();
+
+    await persistInterviewInterests(USER_ID, payload, { replace_existing: true }, client);
+
+    const staleDelete = deletes.find((d) => d.table === "user_interest_profile");
+    expect(staleDelete).toBeDefined();
+    expect(staleDelete?.filters).toContainEqual({ kind: "eq", column: "profile_user_id", value: USER_ID });
+    const notFilter = staleDelete?.filters.find((f) => f.kind === "not");
+    expect(notFilter?.column).toBe("profile_interest_id");
+    expect(notFilter?.operator).toBe("in");
+    expect(String(notFilter?.value)).toContain("node:sport.cricket.ipl");
+    expect(String(notFilter?.value)).toContain("node:ai.agents");
+    // The destructive delete is the LAST write — new rows AND traits land first, so any
+    // failure up to it leaves the old rows live (no zero-row window, honest error states).
+    expect(writeOrder.at(-1)).toBe("delete:user_interest_profile");
+    expect(writeOrder.indexOf("upsert:user_interest_profile")).toBeLessThan(
+      writeOrder.indexOf("delete:user_interest_profile"),
+    );
+  });
+
+  it("replace_existing with an EMPTY payload REFUSES to run — a rebuild must never wipe a working profile", async () => {
+    // WHY (review-panel HIGH): a skip-through rebuild confirm carries an empty list; if the
+    // replace ran, the unfiltered delete would wipe EVERY profile row — destructive and
+    // almost certainly unintended. It must throw with NO write of any kind (the caller
+    // treats an empty rebuild confirm as keep-old instead).
+    const { client, deletes, upserts } = makeFakeClient();
+
+    await expect(
+      persistInterviewInterests(USER_ID, { micro_interests: [] }, { replace_existing: true }, client),
+    ).rejects.toThrow(/empty set/i);
+    expect(deletes).toHaveLength(0);
+    expect(upserts).toHaveLength(0);
+  });
+
+  it("replace_existing REFUSES to wipe when a non-empty payload is wholly rejected (worker-bug guard)", async () => {
+    // WHY (issue #9 error/boundary): the user confirmed real interests; if the backstop
+    // rejects them ALL, that is a worker/client bug — destroying the old profile over it
+    // would strand the user with an empty feed. It must throw (retryable) with NO delete.
+    const payload = payloadOf(microInterest({ canonical_slug: "wizardry.spells", display_label: "Spells" }));
+    const { client, deletes, upserts } = makeFakeClient();
+
+    await expect(persistInterviewInterests(USER_ID, payload, { replace_existing: true }, client)).rejects.toThrow(
+      /rejected/i,
+    );
+    expect(deletes).toHaveLength(0);
+    expect(upserts.find((u) => u.table === "user_interest_profile")).toBeUndefined();
+  });
+
+  it("a stale-delete failure surfaces as a tagged PARTIAL error (retryable) with the old rows still live", async () => {
+    // WHY (issue #9 error/boundary + review-panel HIGH): if the delete fails after the new
+    // rows landed, the call must throw with error.name = REPLACE_PARTIAL_ERROR_NAME so the
+    // UI tells the truth ("saved, cleanup pending — retry") instead of "untouched". The
+    // profile is temporarily a superset; the idempotent retry completes the replace.
+    const { client, upserts } = makeFakeClient({ deleteError: { message: "delete boom" } });
+
+    const attempt = persistInterviewInterests(
+      USER_ID,
+      payloadOf(microInterest({ canonical_slug: "sport.cricket" })),
+      { replace_existing: true },
+      client,
+    );
+    await expect(attempt).rejects.toThrow(/stale/i);
+    await expect(attempt).rejects.toMatchObject({ name: REPLACE_PARTIAL_ERROR_NAME });
+    // The new rows DID land first (retry has nothing destructive to redo).
+    expect(profileRows(upserts)).toHaveLength(1);
+  });
+
+  it("a traits failure in replace mode is ALSO tagged partial; in onboarding mode it stays generic", async () => {
+    // WHY: after the profile upsert, ANY replace-mode failure means new rows are live —
+    // the caller must never claim "untouched". Onboarding (no replace) keeps the plain error.
+    const replaceRun = makeFakeClient({ upsertErrorTable: "user_interest_traits" });
+    const replaceAttempt = persistInterviewInterests(
+      USER_ID,
+      payloadOf(microInterest({ canonical_slug: "sport.cricket" })),
+      { replace_existing: true },
+      replaceRun.client,
+    );
+    await expect(replaceAttempt).rejects.toMatchObject({ name: REPLACE_PARTIAL_ERROR_NAME });
+    // The delete never ran — the destructive step stays LAST (old rows still live).
+    expect(replaceRun.deletes).toHaveLength(0);
+
+    const onboardingRun = makeFakeClient({ upsertErrorTable: "user_interest_traits" });
+    const onboardingAttempt = persistInterviewInterests(
+      USER_ID,
+      payloadOf(microInterest({ canonical_slug: "sport.cricket" })),
+      {},
+      onboardingRun.client,
+    );
+    await expect(onboardingAttempt).rejects.toMatchObject({ name: "Error" });
+  });
+
+  it("a second re-run keeps ONLY the second run's set — repeated rebuilds never accumulate orphan rows", async () => {
+    // WHY (issue #9 edge): each re-run's stale delete keeps exactly ITS confirmed set, so a
+    // prior rebuild's rows (not re-confirmed) are swept — profiles never accumulate across runs.
+    const { client, deletes } = makeFakeClient();
+
+    await persistInterviewInterests(
+      USER_ID,
+      payloadOf(microInterest({ canonical_slug: "sport.cricket.ipl" })),
+      { replace_existing: true },
+      client,
+    );
+    await persistInterviewInterests(
+      USER_ID,
+      payloadOf(microInterest({ canonical_slug: "ai.agents" })),
+      { replace_existing: true },
+      client,
+    );
+
+    expect(deletes).toHaveLength(2);
+    const secondNotFilter = deletes[1].filters.find((f) => f.kind === "not");
+    // The second sweep keeps ONLY the second run's node — the first run's row is stale now.
+    expect(secondNotFilter?.value).toBe("(node:ai.agents)");
+  });
+
+  it("default persist (no replace_existing) performs NO delete (onboarding back-compat)", async () => {
+    // WHY: first-run onboarding keeps pure upsert semantics — a rebuild-only behavior must
+    // never leak into the onboarding path and delete rows it didn't create.
+    const { client, deletes } = makeFakeClient();
+
+    await persistInterviewInterests(USER_ID, payloadOf(microInterest({ canonical_slug: "sport.cricket" })), {}, client);
+
+    expect(deletes).toHaveLength(0);
   });
 });

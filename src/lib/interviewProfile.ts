@@ -76,6 +76,33 @@ export interface PersistInterviewOptions {
    * The chat interview is `"typed"` (the default); the M3 voice interview passes `"voice"`.
    */
   profile_source?: InterestProfileSource;
+  /**
+   * Rebuild-my-feed semantics (issue #9): after the new rows are upserted, DELETE this
+   * user's `user_interest_profile` rows that are NOT in the confirmed set, so the profile
+   * ends EQUAL to the re-interview's terminal list (old and new never blend). Ordering is
+   * deliberate — new rows land first, stale rows are deleted LAST — so no failure window
+   * ever leaves the user with zero rows, and a replace with an EMPTY accepted set is
+   * refused outright (never a wipe-all). A failure after the new rows landed throws with
+   * `error.name === REPLACE_PARTIAL_ERROR_NAME` so callers can tell "old profile intact"
+   * from "new rows saved, stale cleanup pending — retry". Default `false` (first-run
+   * onboarding keeps pure upsert semantics).
+   */
+  replace_existing?: boolean;
+}
+
+/**
+ * `Error.name` of a replace-mode failure that happened AFTER the new profile rows were
+ * written (the traits or stale-delete step): the profile is temporarily old∪new (the old
+ * rows are still live — the feed keeps working) and an idempotent retry finishes the
+ * replace. Failures WITHOUT this name left the old profile fully intact.
+ */
+export const REPLACE_PARTIAL_ERROR_NAME = "ReplacePartialError";
+
+/** Build an Error tagged as a post-upsert (partial) replace failure. */
+function replacePartialError(message: string): Error {
+  const error = new Error(message);
+  error.name = REPLACE_PARTIAL_ERROR_NAME;
+  return error;
 }
 
 /** One `user_interest_profile` row to upsert (with the interview's per-user display label). */
@@ -273,6 +300,29 @@ export async function persistInterviewInterests(
     });
   }
 
+  // Replace-mode guard (issue #9): an EMPTY accepted set must never wipe the profile.
+  // Either the payload was empty (a rebuild skip-through — the caller should treat that
+  // as "keep the old profile", not persist) or the user confirmed REAL interests and the
+  // backstop rejected every one (a worker/client bug). Throw (retryable) before ANY write.
+  if (opts.replace_existing && profileRowByInterestId.size === 0) {
+    logger.error("interview_replace_empty_set_refused", {
+      payload_count: microInterests.length,
+      rejected_count: rejected_interests.length,
+      fix_suggestion:
+        microInterests.length > 0
+          ? "Every confirmed micro-interest failed the persistence backstop; the old profile was kept. " +
+            "Check the worker's guards.validate_and_dedup output against spec §4."
+          : "Empty terminal payload with replace semantics; the caller should keep the old profile instead.",
+    });
+    throw new Error(
+      microInterests.length > 0
+        ? "Every confirmed interest was rejected by the persistence backstop — keeping your current profile. " +
+            "fix_suggestion: check the worker terminal payload against spec §4."
+        : "Refusing to replace the profile with an empty set — keeping your current profile. " +
+            "fix_suggestion: treat an empty rebuild confirm as keep-old, not replace.",
+    );
+  }
+
   // Write the deep profile rows in ONE batch upsert on the unique (user, interest) pair.
   const profileRows = [...profileRowByInterestId.values()];
   if (profileRows.length > 0) {
@@ -293,6 +343,9 @@ export async function persistInterviewInterests(
 
   // Default traits row (upsert on the unique traits_user_id) — keeps the degenerate
   // roots-only / skip-everything profile feed-eligible, mirroring the picker path.
+  // Runs BEFORE the replace delete below, so the destructive step is always LAST: any
+  // failure up to here leaves the old rows live (in replace mode: a retryable superset,
+  // tagged partial — never "replaced but told otherwise").
   const { error: traitsError } = await client
     .from("user_interest_traits")
     .upsert({ traits_user_id: userId }, { onConflict: "traits_user_id" });
@@ -301,10 +354,38 @@ export async function persistInterviewInterests(
       error_message: traitsError.message,
       fix_suggestion: "Confirm user_interest_traits owner-all RLS permits the write.",
     });
-    throw new Error(
+    const traitsMessage =
       `Failed to persist interview interest traits: ${traitsError.message}. ` +
-        "fix_suggestion: confirm RLS permits the owner write.",
-    );
+      "fix_suggestion: confirm RLS permits the owner write.";
+    // In replace mode the new profile rows already landed → a post-upsert (partial) failure.
+    throw opts.replace_existing ? replacePartialError(traitsMessage) : new Error(traitsMessage);
+  }
+
+  // Replace mode (issue #9): delete this user's stale profile rows — everything NOT in
+  // the confirmed set — so the profile ends EQUAL to the re-interview's terminal list.
+  // Deliberately the LAST write: if it fails, the profile is temporarily a superset
+  // (old rows still live → the feed still works), the error surfaces as PARTIAL for a
+  // retry, and the idempotent retry completes the replace.
+  if (opts.replace_existing) {
+    let staleDelete = client.from("user_interest_profile").delete().eq("profile_user_id", userId);
+    const keptInterestIds = [...profileRowByInterestId.keys()];
+    if (keptInterestIds.length > 0) {
+      // PostgREST `in` filter list: `(id1,id2,...)` — UUIDs need no quoting.
+      staleDelete = staleDelete.not("profile_interest_id", "in", `(${keptInterestIds.join(",")})`);
+    }
+    const { error: deleteError } = await staleDelete;
+    if (deleteError) {
+      logger.error("interview_replace_stale_delete_failed", {
+        error_message: deleteError.message,
+        kept_interest_count: keptInterestIds.length,
+        fix_suggestion:
+          "New rows are already persisted (old rows still live — feed keeps working); retry to finish the replace.",
+      });
+      throw replacePartialError(
+        `Failed to delete stale interest profile rows: ${deleteError.message}. ` +
+          "fix_suggestion: retry the confirm — the new rows are saved and the replace finishes idempotently.",
+      );
+    }
   }
 
   const result: PersistInterviewResult = {

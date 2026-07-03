@@ -57,12 +57,22 @@ export interface InterviewChatProps {
    * production defaults to the real JWT-scoped {@link fetchInterviewTurn}).
    */
   fetchTurn?: typeof fetchInterviewTurn;
+  /**
+   * Start fresh unconditionally: clear any cached transcript and never offer the
+   * resume prompt. The rebuild-my-feed entry (issue #9) passes this so a stale
+   * onboarding transcript can't surface "Pick up where you left off?". Default `false`.
+   */
+  forceRestart?: boolean;
 }
 
 /**
  * Render the conversational interview stage.
  */
-export function InterviewChat({ onComplete, fetchTurn = fetchInterviewTurn }: InterviewChatProps) {
+export function InterviewChat({
+  onComplete,
+  fetchTurn = fetchInterviewTurn,
+  forceRestart = false,
+}: InterviewChatProps) {
   // The exchanges that produced the CURRENTLY shown question (the stateless-worker
   // conversation state). Grows by one per answered turn; shrinks on back-navigation.
   const [conversation, setConversation] = useState<InterviewExchange[]>([]);
@@ -137,6 +147,12 @@ export function InterviewChat({ onComplete, fetchTurn = fetchInterviewTurn }: In
       return;
     }
     startedRef.current = true;
+    if (forceRestart) {
+      // Rebuild entry (issue #9): a stale transcript must neither resume nor linger.
+      clearInterviewSession();
+      void advance([]);
+      return;
+    }
     const candidate = loadInterviewSession();
     if (candidate && candidate.length > 0) {
       setResumeCandidate(candidate);
@@ -145,7 +161,7 @@ export function InterviewChat({ onComplete, fetchTurn = fetchInterviewTurn }: In
       return;
     }
     void advance([]);
-  }, [advance]);
+  }, [advance, forceRestart]);
 
   /** Answer the current question by tapping ONE bubble (option or skip). */
   const handleBubbleTap = useCallback(

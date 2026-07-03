@@ -26,6 +26,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { RebuildFeedFlow } from "@/components/blip/library/RebuildFeedFlow";
 import { ic } from "@/components/blip/reel/icons";
 import { logger } from "@/lib/logger";
 import { getProfileDisplayName, PROFILE_DISPLAY_NAME_MAX_LENGTH, saveProfileDisplayName } from "@/lib/profile";
@@ -94,6 +95,9 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [stubNote, setStubNote] = useState<StubNote>(null);
+  // "Rebuild my feed" (issue #9): re-runs the interview as a full-screen overlay;
+  // completing it clean-replaces the interest profile, abandoning changes nothing.
+  const [isRebuildOpen, setIsRebuildOpen] = useState<boolean>(false);
   // The saved profile name (migration 0012) — null until loaded / when unset,
   // in which case the email-derived fallback renders.
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -257,6 +261,17 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
           </div>
         </div>
 
+        <div className="set-seclabel">Your briefing</div>
+        <button type="button" className="set-row first" onClick={() => setIsRebuildOpen(true)}>
+          <div className="set-rmain">
+            <div className="set-rlabel">Rebuild my feed</div>
+            <div className="set-rsub">Re-run the interview — your sections rebuild from what you tell us</div>
+          </div>
+          <svg className="set-chev" viewBox="0 0 24 24" aria-hidden="true">
+            <use href="#i-chev" />
+          </svg>
+        </button>
+
         <div className="set-seclabel">Subscription</div>
         <p className="set-subnote">You're on the free plan.</p>
         <div className="set-plan-card">
@@ -310,6 +325,8 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
           <p className="set-stubnote">Account deletion isn't self-serve yet — email support and we'll handle it.</p>
         ) : null}
       </div>
+
+      {isRebuildOpen ? <RebuildFeedFlow onClose={() => setIsRebuildOpen(false)} /> : null}
     </>
   );
 }

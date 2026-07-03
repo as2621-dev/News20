@@ -323,4 +323,35 @@ describe("InterviewChat — state machine (Rule 9)", () => {
     expect(calls[0]).toHaveLength(1);
     expect(container.textContent).toContain("Which sport?");
   });
+
+  it("forceRestart skips the resume prompt, clears the cached transcript, and starts fresh (issue #9)", async () => {
+    // WHY (issue #9): the rebuild-my-feed entry must never surface a stale onboarding
+    // transcript's "Pick up where you left off?" — it clears the cache and fetches turn 0.
+    // FAILS if the resume prompt renders or the first fetch carries the cached exchanges.
+    window.localStorage.setItem(
+      "n20-interview-session",
+      JSON.stringify({
+        version: 1,
+        conversation_state: [
+          {
+            question_text: "What are you into?",
+            bubbles_offered: ["Sport"],
+            bubbles_tapped: ["Sport"],
+            free_text_entered: null,
+          },
+        ],
+        saved_at_ms: Date.now(),
+      }),
+    );
+    const { fn, calls } = scriptedFetch([Q0]);
+    await act(async () => {
+      root.render(<InterviewChat onComplete={vi.fn()} fetchTurn={fn as never} forceRestart />);
+    });
+
+    expect(container.textContent).not.toContain("Pick up where you left off?");
+    expect(container.textContent).toContain("What are you into?");
+    // The first turn was fetched for an EMPTY state, and the stale cache is gone.
+    expect(calls[0]).toHaveLength(0);
+    expect(window.localStorage.getItem("n20-interview-session")).toBeNull();
+  });
 });
