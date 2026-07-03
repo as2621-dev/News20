@@ -1,218 +1,152 @@
-# PRD — Feed Importance + Source-First Personalization Revamp
+# PRD — Conversational Micro-Interest Onboarding + Niche-First Feed
 
-**Date:** 2026-06-30
-**Source:** documents/feed-source-revamp-plan.md (approved by product owner ash@gmail.com, 2026-06-29)
-**Branch:** claude/feed-source-revamp-plan-388edf
-**Status:** Ready for /plan-phases
+**Date:** 2026-07-03
+**Source:** documents/product-brief.md (brainstormed + approved 2026-07-03)
+**Status:** Ready for /to-issues
 
-> **Master-plan role (read this first).** `/plan-phases` defaults to `plans/master-plan.md`, but that file is a **stale, unrelated** 2026-05-28 doc — do NOT read it for this work and do NOT modify it. **This PRD is the self-sufficient master plan for the revamp.** The milestones are enumerated as a flat list in the Technical Foundation (`## Milestones`). When invoking `/plan-phases`, point it at `plans/prd.md` and pass the M1..M7 list explicitly.
-
-> **Scope guard.** This PRD covers ONLY the feed-importance + source-first-personalization revamp. It does not re-spec the reel, audio, detail/trust, Q&A, voice, auth, or iOS shell — those shipped (M1–M5) and are unchanged here.
-
----
+> **Supersession notice (read first).** This PRD **supersedes the roots-only-onboarding decision** of the 2026-06-30 Feed-Source Revamp PRD (git `48a25b0`): deep interest extraction and niche keyword ingestion return as the core personalization mechanism. Everything else FSR shipped **stays and is load-bearing**: authority-weighted E1 importance, theme→category tagging, trusted-outlet top-stories backbone, source/cluster onboarding (M6a), source-led priority slots (M6b), long/short summary selector (M7). Owner approved the supersession explicitly.
 
 ## Problem Statement
 
-Ash opens his daily briefing and the feed surfaces minor, mis-categorized stories — a local construction-safety item labelled "TOP TECH", a retail takeover labelled "GEOPOLITICS" — while the day's genuinely big story is often missing entirely. His reaction ("don't you have anything better to report?") is correct on the facts:
-
-1. **No "top stories of the day" pull.** The news pool only ever contains what narrow interest-keyword queries dragged in. If a keyword query didn't fetch the big story, it was never in the pool to rank.
-2. **Category is inherited from the matched keyword, not from reading the story.** A story enters the pool and gets its category because *one* anchor term appeared in its title-or-entities haystack — there is no relevance/topic check, so a keyword coincidence yields a wrong category.
-3. **Importance is raw and gameable.** `Importance = min(1, story_outlet_count / 12)` is un-weighted by source authority, un-normalized across categories, has no time-decay, and is trivially inflated by syndication.
-4. **Importance is under-weighted in ranking.** `Score = (Affinity×DepthMatch)·0.5 + Importance·0.3 + Freshness·0.2` lets a well-matched minor story beat a genuinely big one.
-
-Underneath the bug is a product question the diagnosis forced: *what actually makes blip's feed yours?* Keyword-fetched "niche news" is a weak, noisy personalization signal. The answer the owner committed to: **news is a shared backbone; personalization comes from the creators and accounts you follow.**
+A fixed taxonomy can never contain a person's actual micro-interests. "IPL auction drama" is not a node in any pre-built tree, so users pick the nearest broad category, the profile comes out shallow, and the feed reads like a generic newspaper instead of *their* feed. The FSR answer (personalization = follows only, news = shared backbone) under-serves users whose niches live in *news* — the cricket obsessive and the chip-industry nerd get the same 30 stories as everyone else who ticked "Sport" and "Tech".
 
 ## Solution
 
 From the user's perspective:
 
-- **Onboarding asks for top-level interests only** (geopolitics / tech / markets / sport / …). No 2-layer drill-down. Any existing deep selections collapse to their root category.
-- **News = the day's biggest stories per chosen category**, pulled from a trusted set of outlets — not from keyword scrapes. Two users who pick the same categories see broadly the same news. That's intentional: news is the shared backbone.
-- **Your personalization is the people you follow.** After categories, onboarding presents **YouTube channels, X accounts, and Personalities**, filtered to your chosen categories, bulk-selectable via **clusters** ("Leading AI-lab researchers", "AI founders", "AI journalists"). You opt out of pre-selected clusters rather than hand-pick ~90 accounts. Niche depth (deep cricket, a specific founder's takes) now comes from these follows, not from news keywords.
-- **Your feed leads with what you follow.** Fresh items from followed sources get guaranteed slots first; the day's category top-stories fill the rest of the ~30-reel feed.
-- **The big story is correctly sized and correctly labelled.** Importance is authority-weighted, normalized within category, and time-decayed; category comes from what the story is *about*, not which keyword happened to match.
+- **Onboarding is a short chat.** The app asks; you tap bubbles. Each tap generates the next, more specific set of bubbles about what you just chose (Sport → Cricket → IPL → "auctions & transfers?"). Skip and "something else — type it" are always available. ≤ ~3 minutes, ~15 taps, out come 5–15 named micro-interests *in your own words*.
+- **Your 30 is organized by your niches.** Sections are named in your vocabulary ("IPL — 4", "Silicon — 3"), not generic categories. A small "beyond your bubble" section (3–5 slots) keeps serendipity; followed YouTube/X sources keep their existing lead slots.
+- **Dry days are honest.** No IPL story today → the slot fills from one level up the ladder, labeled: *"Nothing new in IPL today — here's cricket."* The ladder is the drill-down path you tapped during the interview.
+- **Source suggestions stay** (existing M6a screen) and later regenerate from the micro-profile (fast-follow, out of MVP).
 
 ## Technical Foundation
 
-*This section is the durable technical north star — there is no separate master plan for this revamp.*
+### Tech stack (existing, fixed — one-line rationale each)
 
-### Tech stack (fixed — already live; one-line rationale each)
+- **Frontend:** Next.js 15 static export + React 19 + Tailwind 4 + Capacitor 8 — the shipped app shell; the interview is one new onboarding stage inside `OnboardingFlow.tsx`'s existing state machine.
+- **Backend/data:** Supabase (Postgres + RLS + email-OTP auth) — all interview outputs land in existing/extended tables.
+- **Agent layer:** Python 3.12 worker (FastAPI on Railway) using `google-genai` — already serves runtime LLM calls (grounded Q&A), so interview bubble generation is a new worker endpoint, keeping the Gemini key server-side. Model: Gemini Flash-class for latency; structured JSON output.
+- **Ingestion:** GDELT **BigQuery** adapter (`agents/ingestion/adapters/gdelt_bigquery.py`, written, unwired) replaces the throttled keyless DOC adapter for niche queries — one batched SQL for all interests, no 250-row cap. Adds `google-cloud-bigquery` + service-account credentials (BigQuery project `blip-498623` validated 2026-06-06).
+- **Jobs:** Trigger.dev v4 daily batch — unchanged.
+- **Hosting:** Vercel (SPA) + Railway (worker) — unchanged.
+- **Languages:** TS (app) + Python (pipeline) — unchanged.
 
-- **Frontend:** Next.js 15 (static export, `output: "export"`) + React 19 + Tailwind 4, packaged in a **Capacitor** iOS shell — chosen so the binary stays thin and all dynamic data flows via the Supabase client. *Unchanged by this revamp; onboarding UI reuses existing design tokens.*
-- **Backend / data layer:** **Supabase** (Postgres + email-OTP auth + storage/CDN). Public-read content tables, per-`auth.uid()` user tables, service-role-only pipeline writes — the contract every table in this revamp follows.
-- **Agent / pipeline layer:** **Python** daily batch (`agents/pipeline/*`, `agents/ingestion/*`) — the ranking/allocation/clustering is a heavy multi-pass best unit-tested in Python; the static-export client has no server runtime, so there is **no live ranking RPC**. Feeds are precomputed into `daily_feeds`.
-- **Background jobs:** **Trigger.dev v4** crons (daily batch + source-ingestion cadence). *Unchanged.*
-- **Hosting:** Supabase (data/auth) + Vercel (any remote API) + Trigger.dev (jobs); iOS via Capacitor/TestFlight. *Unchanged.*
-- **Languages:** TypeScript (app) + Python 3.12 (pipeline). *Unchanged.*
-
-### Live-pipeline verification constraint (HARD — applies to every milestone DoD)
-
-This sandbox **cannot run the pipeline live.** GDELT egress is blocked (`api.gdeltproject.org` → policy 403) and there are **no DB/GDELT/BigQuery credentials** (`.env` absent). Therefore:
-
-- **Verifiable here (OFFLINE):** all pure functions and their unit tests — theme→category mapping, authority-weighted/normalized/decayed importance scoring, cluster filtering + no-dup rule, allocation/slot math, SQL migrations as static artifacts (parse/lint, not apply), and any component rendered against fixtures. Every milestone below names an **offline de-risking check** that must pass here.
-- **Deferred to a credentialed environment (LIVE-E2E):** anything that requires a real GDELT pull (BigQuery GKG or DOC 2.0) or a real Supabase write/read — trusted-outlet fetch returning real domains, end-to-end batch producing a real `daily_feeds`, live theme coverage, catalog seeding against the live DB. **No milestone may claim "works end-to-end" from this sandbox** (Rule 12). Each milestone marks its LIVE-E2E residual explicitly.
-
-### Architecture (data flow)
+### Architecture
 
 ```
- ONBOARDING (Capacitor/Next, reuses existing tokens)
-   top-level category picker ──► user_interest_profile (roots only; deep picks collapsed)
-   source/cluster picker ───────► user_content_sources / user_personalities
-        ▲ filtered by topic_tags ∩ chosen categories, ordered by popularity_score,
-        │ bulk-selected via source_clusters (no-dup: a personality hides its own YT/X rows)
-        │
- CATALOG (content-ops asset, Supabase)
-   content_sources (topic_tags, popularity_score) · personalities · NEW source_clusters/_members
-        │
- ===================  DAILY PYTHON BATCH (Trigger.dev v4)  ===================
-        │
-   (B) INGEST ─┬─ News: trusted-outlet top-stories per category
-        │      │     GDELT GKG (add V2Themes to SELECT) / DOC (domainis: filter)
-        │      │     → category from THEME whitelist, not matched keyword
-        │      └─ Followed sources: source_pipeline (YouTube/X) → same pool, gate-exempt
-        │
-   (C) CLUSTER once (existing agents/pipeline/clustering/*) → story_clusters
-        │
-   (E1) IMPORTANCE  story_importance = breadth + AUTHORITY + velocity + recency + entity,
-        │           normalized WITHIN category   [replaces min(1, outlet_count/12)]
-        │
-   (RANK) ranking.py Score = (Affinity×DepthMatch)·α + Importance·β + Freshness·γ + EntityBonus
-        │           (raise β so big stories lift; α/β/γ are config constants)
-        │
-   (ASSEMBLE) feed_assembly.py — followed-source items take guaranteed slots FIRST,
-        │           category top-stories fill the remaining ~30
-        ▼
-   daily_feeds  ──►  client reads its own rows (RLS) ──►  reel (unchanged Story[] contract)
+ Onboarding (Capacitor/Next SPA)                     Worker (FastAPI, Railway)
+ ┌──────────────────────────────┐   POST /api/interview/turn   ┌──────────────────────────┐
+ │ Interview chat stage          │ ───────────────────────────► │ Interview engine          │
+ │ (bubbles, skip, free-text)    │ ◄─────────────────────────── │ Gemini Flash, JSON schema │
+ └──────────────┬───────────────┘   next bubbles / final list   └──────────────────────────┘
+                │ persist micro-interests (nodes + profile + ladder)
+                ▼
+ ┌──────────────────────────────┐        ┌───────────────────────────────────────────┐
+ │ Supabase                      │        │ Daily pipeline (Python batch)             │
+ │ interests (tree, minted nodes)│◄───────│ GDELT BigQuery: backbone top-stories      │
+ │ user_interest_profile         │        │ (FSR, unchanged) + batched niche queries  │
+ │ user_feed_allocation (+label) │        │ → tag → cluster → importance → assemble   │
+ │ daily_feeds (+section,        │◄───────│ niche-first fill, ladder fallback + label │
+ │   +fallback metadata)         │        └───────────────────────────────────────────┘
+ └──────────────┬───────────────┘
+                ▼
+ Reel: section header in user's words; fallback slots labeled honestly
 ```
 
 ### Key design decisions
 
-1. **News is a shared backbone; personalization is source-follows.** *Why:* keyword-fetched niche news is a noisy, weak personalization signal and the root of the mis-categorization bug; followed creators/accounts are an explicit, high-signal preference. *Rules out:* per-user keyword-scraped "niche news" as the personalization layer (down-scoped, not deleted — a hybrid stays possible later).
-2. **Interests collapse to top-level categories (1 layer).** *Why:* the depth tree fed the keyword-fetch machinery that caused the bug, and source-follows now carry depth. *Rules out:* the 2-layer onboarding drill-down for *news fetching* (the hierarchical `interests` table and `DepthMatch` term **remain** for scoring source-tagged and followed-entity content; only the onboarding picker and news-fetch keying collapse to roots). Existing deep `user_interest_profile` rows migrate to their root via `category_for_slug`.
-3. **Category from GDELT themes, not matched keyword.** *Why:* the matched keyword is a coincidence, not a topic; `V2Themes`/`V2EnhancedThemes` is GDELT's own topic signal. *Rules out:* keyword-inherited category at ingestion. Note: `ranking.py::assign_category` already classifies from the lowest-`match_depth` `story_interests` tag — so the fix lands at **ingestion-time tagging** (which tag a story gets), via a theme→category whitelist, not in `assign_category` itself.
-4. **Trusted-outlet top-stories fetch replaces keyword-first fetch for news.** *Why:* guarantees the day's big story is *in the pool* and raises baseline trust ("no randoms"). *Rules out:* relying on interest-keyword queries to surface big stories. Prefer the existing `GdeltDocAdapter` (DOC 2.0 supports `domainis:` domain filtering — net-new query construction) or add a curated-domain filter + `V2Themes` to the `GdeltBigQueryAdapter` GKG SELECT (themes are **not** selected today). Curate ~10–15 authority domains per category.
-5. **Importance upgrade = implement the shared-pool E1 model, not a parallel one (Rule 7 — conflict surfaced).** The **shared-pool rework** (`reference/shared-pool-pipeline.md` §4, `plans/shared-pool-rework-master-plan.md`, **Active**; M3a shipped, migration `0018_story_clusters.sql` applied 2026-06-19) already defines `story_importance = W_breadth·breadth + W_authority·authority_and_diversity + W_velocity·velocity + W_recency·recency + W_entity·entity`, **normalized within category**. The revamp's WS4 "authority-weighted outlet count + normalization + decay + syndication dampening" **is** that E1 — so this revamp **implements/finishes E1's authority + within-category-normalization + syndication-dampening terms** and the source-tier table, rather than authoring a second importance formula. *Rules out:* a competing `produce_gate.compute_importance_score` design. The raw `min(1, outlet_count/12)` is the term E1 replaces.
-6. **Clusters are a NEW grouping layer in the catalog (net-new).** *Why:* onboarding must bulk-select ~90 accounts without ~90 taps; a cluster is a named grouping of catalog rows within a category. *Rules out:* reusing `archetypes`/`personas` for this — verified: no cluster abstraction exists today; archetypes are a single-level recommendation key, not a user-facing bulk-select grouping. One cluster model serves **both** X and YouTube (YouTube clusters just have fewer members).
-7. **No-dup rule: a followable personality is shown ONCE as a personality card.** *Why:* a person who is both a `personality` (bundling handles via `youtube_channel_ids`/aliases) and present as individual YouTube/X catalog rows must not appear twice. *Rules out:* surfacing a personality's individual source rows alongside their personality card.
-8. **Followed-source items get guaranteed slots first; category top-stories fill the rest.** *Why:* the product thesis is that follows are the personalization — they must be visible, not buried. *Rules out:* treating source items as ordinary importance-gated candidates. They already bypass the produce gate (`produce_gate.evaluate_story_for_production`, source-origin exemption) and flow through source slots (`feed_assembly._fill_source_slots`); this revamp gives them **priority** in assembly + ranking and revisits `produce_caps` headroom for the new mix.
-9. **Editorial-first hybrid catalog (content-ops asset).** *Why:* onboarding quality == catalog quality; a thin/mis-tagged catalog returns "random people." *Rules out:* a launch that depends on algorithmic discovery. Hand-curate a seed catalog (several hundred accounts + cluster labels) per category for launch; algorithmic expansion (co-follow graphs, bio-embedding similarity, ranked by `popularity_score`) is later (out of scope here).
-10. **Summaries differentiate long-form vs short-form.** *Why:* a 90-min podcast and a tweet need different summary shapes. *Rules out:* one prompt for all source content. Refine existing `agents/pipeline/stages/scripting.py`/`prompts.py`/`detail_enrichment.py` prompts only — no new ingestion.
+1. **Micro-interests are minted as real nodes in the existing `interests` tree** (children under the 8 roots, depth 1–3, `interest_search_query` generated at interview time), not a parallel table. Why: the entire tagging → ranking → assembly machinery already keys on `interests` + `user_interest_profile`; a parallel table would fork every downstream stage. Rules out: per-user private taxonomies (nodes are shared/global; two IPL fans converge on the same `sport.cricket.ipl` node via slug canonicalization, each keeping their own display label if their vocabulary differs).
+2. **The interview is server-driven, one turn per request.** Client sends conversation state (taps + typed text so far); worker returns the next question + generated bubbles, or the terminal micro-interest list (label, canonical slug, parent chain = ladder, search terms). Why: prompt + key stay server-side; client stays a dumb renderer. Rules out: on-device generation, pre-built question banks.
+3. **Bubble generation is grounded, not free.** Turn 1 bubbles = the 8 roots (fixed, free). Deeper turns are LLM-generated but constrained: ≤ 6 bubbles/turn, ≤ 3 drill-downs per lit-up root, always include "not really / skip" and "something else — type it". Terminal validation: every minted node must parse to a root-anchored slug and carry ≥ 2 concrete search anchor terms; otherwise it's re-asked or dropped, never silently invented. Why: bubble quality is a flagged soft spot; guardrails make bad generations recoverable.
+4. **Ingestion = FSR backbone + batched niche queries, one BigQuery pass.** The trusted-outlet top-stories pull (M4) is untouched. Niche candidates come from the existing batched anchor-term SQL in the BigQuery adapter, now fed by all users' micro-interest `interest_search_query` rows. DOC adapter is retired from the daily path (kept for ad-hoc/coverage checks). Why: the DOC door (1 req/5 s, 250-row cap) cannot serve hundreds of niche queries. Rules out: per-interest DOC fan-out.
+5. **Fallback happens at feed assembly, not ingestion, and is stamped on the row.** Assembly fills each niche section from direct-tagged stories; if short, it climbs the node's parent chain one level at a time. Each `daily_feeds` row gains section metadata: section label (user vocabulary), the interest node it was filled for, and — when climbed — the fallback source level for the honest UI label. Why: ingestion stays user-agnostic (shared pool, FSR principle); personalization stays a per-user assembly concern. Rules out: silent substitution (owner decision), per-user ingestion.
+6. **`user_feed_allocation` grows a user-facing label + interest reference; the category enum stays for backbone/source slots.** Niche sections allocate by interest node with a text label; `youtube`/`x` and "beyond your bubble" slots keep enum semantics. Why: minimal migration, no enum explosion, sections render from one table. Rules out: renaming the enum per user.
+7. **"Beyond your bubble" = 3–5 slots of backbone top-stories from roots the user did *not* light up on**, importance-ranked. Why: cheapest serendipity that reuses the backbone; no new ranking machinery.
+8. **Existing profiles migrate by re-interview, not transformation.** Current root-level profiles keep working (a root is just a depth-0 section); the interview is offered to existing users as "rebuild my feed". Why: nothing to lossily transform — migration 0024 already collapsed old deep picks.
 
-### Module contracts (one per deep module — prose, NOT tests)
+### Module contracts (plain prose — test intentions, not tests)
 
-**Source catalog + clusters (`content_sources` / `personalities` / NEW `source_clusters` + `source_cluster_members`; migrations under `supabase/migrations/`).**
-- *Responsibility:* be the single curated, category-tagged, popularity-ranked catalog of followable sources and the named clusters that group them within a category.
-- *Requirements:* every catalog row carries `topic_tags` (∩ the 8 categories) and `popularity_score`; a cluster belongs to exactly one category and lists ordered member rows; one cluster model covers both X and YouTube; public-read RLS, service-role writes.
-- *Edge cases:* a personality whose handles also exist as individual catalog rows (no-dup: hide the rows); a cluster whose member was deleted/un-curated (skip, don't error); an empty cluster (don't surface); a row tagged to multiple categories (appears under each, deduped per category); a member appearing in two clusters of the same category (allowed; dedup at selection).
+- **Interview engine (worker).** Responsibility: given conversation state, produce either the next question + bubbles or the terminal micro-interest list. Must always: include skip and free-text options; respect the 3-drill-down cap and ~15-tap budget; return root-anchored canonical slugs with ≥ 2 anchor terms per interest; never return an interest the user didn't tap or type toward. Edge cases: user skips everything (fall back to roots-only profile — the FSR baseline, feed still works); free-text gibberish or unmappable input (ask once more, then park it as root-level); duplicate niches across roots (dedupe by slug); LLM timeout/malformed JSON (client-visible retry, never a dead-end screen); the same niche typed by two users in different words (converge on one node, per-user labels).
+- **Niche ingestion (pipeline).** Responsibility: one daily BigQuery pass returning backbone + niche candidates tagged to interest nodes. Must always: batch all active micro-interests into one query; cap per-interest candidates; stamp `StoryInterestTag` with node + depth; leave backbone top-stories logic untouched. Edge cases: interest with zero matches (empty is valid — fallback handles it); anchor terms matching junk (per-interest cap + existing dedup/importance downstream); BigQuery credential/billing failure (fail loud, fall back to DOC adapter for backbone only, log with fix_suggestion); brand-new node mid-cycle (picked up next batch, not silently missed forever).
+- **Fallback-ladder assembly (pipeline).** Responsibility: fill each user's niche sections niche-first, climb the ladder when short, stamp section + fallback metadata. Must always: prefer direct-tagged stories; climb exactly one level at a time; label every climbed slot; respect followed-source priority slots and the beyond-bubble reserve; write ≤ 30 rows idempotently on `(feed_user_id, feed_date)`. Edge cases: whole ladder dry (leave slot for beyond-bubble backfill rather than empty feed); duplicate story matching two of the user's niches (one slot, dedupe across sections); `profile_is_strict` interests (never climb); user with only root-level profile (behaves exactly like today's FSR feed).
+- **Interview chat UI (app).** Responsibility: render the chat, bubbles, skip/free-text, and hand the terminal list to persistence. Must always: work offline-tolerant (retry a failed turn); show progress; persist only at terminal confirm (no half-profiles); then hand off to the existing sources → build stages. Edge cases: mid-interview abandon (resume or restart cleanly; `user_onboarded_at` stays unset — the onboarding-gate rule from 2026-06-30 holds); back-navigation editing an earlier answer (downstream taps invalidated, re-generated).
+- **Section rendering (app).** Responsibility: show section headers in the user's vocabulary and the honest fallback label on climbed slots. Must always: render from `daily_feeds` metadata only (no client-side inference). Edge cases: missing metadata on legacy rows (fall back to category label, never crash); long labels (truncate visually, never re-write the user's words).
 
-**Onboarding selection (top-level category picker + source/cluster picker; `src/components/...`, writes `user_interest_profile` / `user_content_sources` / `user_personalities`).**
-- *Responsibility:* capture root-category interests and pre-select recommended clusters the user opts out of, then persist follows.
-- *Requirements:* picker shows top-level categories only; source surfaces are filtered by `topic_tags ∩ chosen categories`, ordered by `popularity_score`, never "randoms"; selecting a cluster follows all its members; pre-select recommended clusters so the user *deselects*; honor the no-dup rule in the rendered grid.
-- *Edge cases:* user picks zero clusters (allowed — they still get shared-backbone news; feed must not be empty); a chosen category with an empty catalog cell (show graceful fallback, never randoms); deselecting a cluster after individually keeping one member (member stays followed); existing deep-interest user migrating (collapse to roots, no dupes); target volumes ~30–40 YT, ~40–50 X, ~4 personalities per user.
+### Milestones (coarse — slices come from /to-issues)
 
-**News ingestion — trusted-outlet top-stories + theme category (`agents/ingestion/adapters/gdelt_doc.py` / `gdelt_bigquery.py`, `agents/ingestion/interest_keyed_pipeline.py`).**
-- *Responsibility:* pull the day's biggest stories per selected category from a curated authority-domain set, and assign each story's category from its GDELT theme, not the matched keyword.
-- *Requirements:* fetch is keyed on category + trusted domains (DOC `domainis:` or GKG `SourceCommonName ∈ curated set`), not narrow interest keywords; category derives from a `V2Themes`/`V2EnhancedThemes` → category whitelist (GKG SELECT must add `V2Themes`; DOC has no themes param, so GKG is the theme source); ingestion stays per-interest-resilient (one source failing skips that cell, never the batch).
-- *Edge cases:* a story matching multiple category themes (pick the dominant/whitelisted-best, deterministic tiebreak); a story with no whitelisted theme (fallback heuristic, never dropped silently — fail loud per cell); GDELT rate-limit/plaintext-throttle on the DOC path (≤1 req/5s backoff, non-fatal); syndicated reprints inflating outlet count (deduped before importance, see clustering + E1 dampening); a trusted domain returning nothing for a category (gap-fill widens window, logs under-fill).
+- **M1 — Interview engine + chat onboarding.** True when: a new user completes the chat interview on the phone in ≤ 3 min/~15 taps, and 5–15 micro-interest nodes + ladder + profile rows exist in Supabase; picker stage replaced; skip-everything path still onboards.
+- **M2 — Niche ingestion + coverage census.** True when: BigQuery adapter is wired into the daily batch, niche candidates are tagged in the shared pool, and a per-niche coverage report exists over ≥ 3 days of real pulls for the 3 test personas' interests. **This is the de-risking milestone — it directly measures the riskiest assumption before any feed UI is built.**
+- **M3 — Niche-sectioned feed with honest fallback.** True when: allocation schema migrated, assembly fills niche-first with labeled ladder climbs, Build-My-30 and the reel show user-vocabulary sections, beyond-bubble reserve works, followed-source slots unchanged.
+- **M4 — Persona validation.** True when: founder + "cricket obsessive" + "chip-industry nerd" profiles run end-to-end (interview → batch → feed) and niche hit rate is measured against the ≥ 60% target; tuning pass done; go/no-go recorded.
+- **(Fast-follow, out of MVP) M5 — Generated source suggestions** from the micro-profile (LLM-proposed, code-verified, curated safety net).
 
-**Importance scoring — E1 (the `story_importance` computation; supersedes `produce_gate.compute_importance_score`, aligns to `reference/shared-pool-pipeline.md` §4).**
-- *Responsibility:* compute one intrinsic, category-normalized importance per clustered story from breadth + source authority + velocity + recency + entity prominence.
-- *Requirements:* authority-weight outlet count via a source-tier table (high-authority, ideologically varied > N content farms); normalize **within category** (a big sport story competes with sport); apply ~24h recency decay (reuse the Freshness half-life); dampen syndication/burst (cluster-deduped breadth, not raw reprint count); be a single config-driven function, no scattered constants.
-- *Edge cases:* single-outlet followed-source item (importance is irrelevant — it's gate-exempt, slotted by follow); a category with one story (normalization must not divide-by-zero / must not inflate it to 1.0 spuriously); a syndication burst from one wire (authority+dedup caps its lift); a future-dated `seendate` (clamp recency at 1.0); empty category (no candidates → no rows, not a crash).
+### Riskiest assumption + de-risk
 
-**Feed assembly reweighting (`agents/pipeline/feed_assembly.py`, `agents/pipeline/produce_caps.py`).**
-- *Responsibility:* assemble the ~30-slot feed so fresh followed-source items take guaranteed slots first, then category top-stories fill the remainder, totalling 30.
-- *Requirements:* all fresh followed-source items get priority slots before topic fill; remaining slots fill from category top-`Score` candidates in the user's sequence; preserve don't-repeat (prior `daily_feeds`) + within-feed dedup; feed still totals `FEED_SLOT_BUDGET = 30`; revisit per-category produce-cap headroom for the new mix.
-- *Edge cases:* more fresh source items than the feed budget (cap/spill by recency+importance, document the rule); zero followed sources (full feed is category news, never empty); source budget set but no source items today (existing soft-roll into topic categories by sequence — preserve); a story qualifying for both a source slot and a topic slot (place once, source wins); user with no allocation rows (balanced fallback, unchanged).
-
-### Milestones
-
-> These M1..M7 are the planner input. Each has a crisp "what's true when done" and an **OFFLINE de-risking check** verifiable in this sandbox plus the **LIVE-E2E residual** that must run in a credentialed env. (The plan's Phases A–E map here: A→M1, B→M2+M3, C→M4+M5, D→M6, E→M7.)
-
-- **M1 — Catalog clusters + no-dup (data + content-ops).** *Done when:* a `source_clusters` + `source_cluster_members` schema exists; a seed of named clusters per category over existing `content_sources`/`personalities` is authored; a query returns, for a category, its clusters with ordered members **honoring the no-dup rule** (a personality's own handles are excluded from individual rows). *Riskiest assumption lives here* (catalog quality = the #1 risk). *Offline check:* unit tests over the cluster/no-dup resolver against fixture catalog rows (cluster membership, empty cluster, personality-dedup, multi-category row); migration parses/lints. *Live-E2E residual:* seeding clusters into the live DB and confirming real catalog coverage per category.
-
-- **M2 — News category from GDELT themes.** *Done when:* a pure `theme → category` whitelist mapping exists for all 8 categories and ingestion assigns category from `V2Themes`/`V2EnhancedThemes` (GKG SELECT adds `V2Themes`) instead of the matched keyword, with a deterministic tiebreak and a fail-loud fallback for theme-less stories. *Offline check:* unit tests mapping representative theme codes → expected category, multi-theme tiebreak, and the no-theme fallback — all against fixtures (no GDELT call). *Live-E2E residual:* confirm real GKG rows expose the expected themes and categories look right on a live pull.
-
-- **M3 — Authority-weighted importance (E1).** *Done when:* `story_importance` implements breadth + **authority (source-tier table)** + velocity + recency + entity, **normalized within category**, with syndication dampening, replacing `min(1, outlet_count/12)`; and `ranking.py` β is raised so a genuinely big story outranks a well-matched minor one. *Offline check:* unit tests showing (a) an authority-varied 10-outlet story beats a 20-content-farm syndication burst, (b) within-category normalization, (c) the big-story-beats-minor reordering at the new β — all on synthetic clusters. *Live-E2E residual:* importance ordering sanity on a real day's clustered pool.
-
-- **M4 — Trusted-outlet top-stories fetch.** *Done when:* news fetch is keyed on category + a curated ~10–15-domain authority set per category (DOC `domainis:` query construction or GKG `SourceCommonName ∈ set`), replacing keyword-first fetch for news; per-cell resilience + bounded gap-fill preserved. *Offline check:* unit tests over the query-builder (correct `domainis:`/SQL domain filter emitted per category, throttle/backoff path, gap-fill widening) against mocked adapter responses. *Live-E2E residual:* a real GDELT pull returns the day's big stories from the curated domains for each category.
-
-- **M5 — Top-level-category onboarding + interest collapse.** *Done when:* the onboarding interest picker shows top-level categories only; a migration/transform collapses existing deep `user_interest_profile` rows to their root via `category_for_slug` (idempotent, no dupes). *Offline check:* unit tests on the collapse transform (deep→root, dedupe on conflict, idempotency) + the picker rendered against fixtures showing roots only. *Live-E2E residual:* run the collapse against live profiles; verify no orphaned/duplicate rows.
-
-- **M6 — Source/cluster onboarding UI + priority feed mix.** *Done when:* after categories, the user sees YouTube/X/Personalities filtered by `topic_tags ∩ chosen categories`, ordered by `popularity_score`, with pre-selected recommended **clusters** they deselect (opt-out), writing to `user_content_sources`/`user_personalities`; and `feed_assembly` gives fresh followed-source items guaranteed slots first with category top-stories filling the rest to 30 (produce-cap headroom revisited). *Offline check:* component tests (filter ∩, popularity order, cluster bulk-select, no-dup grid, zero-cluster path) against fixtures + allocator unit tests (source-first priority, totals-30, don't-repeat, soft-roll, over-budget spill). *Live-E2E residual:* end-to-end onboarding → batch → a real personalized `daily_feeds` leading with followed-source items.
-
-- **M7 — Summaries (long vs short) + docs.** *Done when:* `scripting.py`/`prompts.py`/`detail_enrichment.py` prompts produce a key-points summary for long-form video and a tight summary for short-form/tweets; and `reference/ranking-spec.md` + the source taxonomy/reuse docs are updated to the new model. *Offline check:* prompt-shaping unit tests / golden-summary fixtures distinguishing long vs short; reference docs updated and internally consistent. *Live-E2E residual:* summary quality spot-check on real fetched transcripts/tweets.
-
-### Riskiest assumption + how we de-risk it
-
-**Catalog quality is the #1 risk** — a thin or mis-tagged catalog returns "random people," collapsing the whole source-first thesis. De-risked in **M1**: the editorial-first seed + the cluster/no-dup resolver are built and unit-tested against fixtures here; the live residual (real per-category coverage) is the first thing to validate in a credentialed env. Secondary risk — **news commoditization** (same categories → same news) — is accepted by design; M6's source-first feed mix is what must carry uniqueness, so its allocator tests assert followed items actually lead the feed.
+**That micro-niche ingestion can fill the feed** — GDELT/BigQuery surfaces enough direct-niche stories that the fallback label is the exception. De-risked at **M2** by the coverage census on real personas *before* the feed UI exists (M3). If hit rate is structurally low, the cheap pivot is coarser niches (interview drills one level less) — the interview and ladder machinery survive unchanged.
 
 ## User Stories
 
-1. As a commuter onboarding for the first time, I want to pick only top-level interests (geopolitics, tech, markets, sport, …), so that setup is fast and I'm not forced into a drill-down.
-2. As an existing user with deep interest selections, I want those to collapse to their root category automatically, so that I don't lose my setup or get a broken profile after the change.
-3. As a user, I want the news in my feed to be the day's biggest stories in my chosen categories, so that I stop seeing minor, irrelevant items as "top" news.
-4. As a user, I want big stories pulled from trusted outlets, so that I trust the feed isn't surfacing randoms or fringe sources.
-5. As a user, I want each story labelled by what it's actually about, so that a retail takeover isn't filed under "geopolitics."
-6. As a user, I want the genuinely big story of the day to actually appear, so that I feel caught up rather than asking "is that really all?"
-7. As a user, I want a well-matched minor story not to outrank a major one, so that importance is respected in ordering.
-8. As a user, after picking categories I want to choose YouTube channels relevant to those categories, so that my feed reflects creators I value.
-9. As a user, I want to choose X accounts relevant to my categories, so that the accounts I follow shape my feed.
-10. As a user, I want to follow a small set of Personalities, so that named voices I care about appear consistently.
-11. As a user, I want to bulk-select a cluster of accounts ("AI founders") in one tap, so that I don't have to pick ~90 accounts individually.
-12. As a user, I want recommended clusters pre-selected so I just deselect what I don't want, so that onboarding is opt-out, not laborious opt-in.
-13. As a user, I want a personality I follow to appear once (not also as separate YouTube/X rows), so that the selection screen isn't cluttered with duplicates.
-14. As a user, I want only category-relevant sources shown (no randoms), so that every option feels curated and trustworthy.
-15. As a user, I want sources ordered by popularity, so that the most relevant/known options surface first.
-16. As a user, I want fresh items from the creators and accounts I follow to lead my feed, so that my follows are clearly the personalization.
-17. As a user, I want the rest of my ~30-reel feed filled with the day's category top-stories, so that I still get the shared-backbone news.
-18. As a user following niche creators (e.g. deep cricket), I want that depth to come from those follows, so that niche interest survives even though news is top-level only.
-19. As a user, I want a long-form video summarized as key points, so that I get the substance of a 90-minute podcast quickly.
-20. As a user, I want a tweet or short clip summarized tightly, so that short content isn't over-summarized into filler.
-21. As a user who follows nothing yet, I want a sensible category-only feed, so that I'm never shown an empty or broken feed.
-22. As a user, I want a syndicated wire story not to dominate importance just because many outlets reprinted it, so that real breadth (varied authoritative outlets) wins.
-23. As the product owner, I want the importance formula to be authority-weighted, normalized, and decayed, so that ordering is defensible and not gameable.
-24. As the product owner, I want the catalog to be an editorially-curated content-ops asset, so that launch quality doesn't depend on unproven discovery algorithms.
-25. As an engineer, I want every milestone to have an offline-verifiable check, so that progress is provable in the credential-less sandbox.
-26. As an engineer, I want the importance revamp to implement the existing shared-pool E1 model rather than a parallel one, so that we don't fork two contradictory importance designs.
+1. As a new user, I want onboarding to feel like a short chat, so that expressing my interests isn't form-filling.
+2. As a new user, I want to answer by tapping bubbles rather than typing, so that the interview is fast on a phone.
+3. As a new user, I want each question's options to react to my previous answer and get more specific, so that I can reach interests no menu would list.
+4. As a cricket-obsessed user, I want to land on "IPL — auctions and transfers" in ~3 taps, so that my profile captures my actual niche, not "Sport".
+5. As a new user, I want a "not really / skip" bubble on every question, so that I'm never forced into an interest.
+6. As a new user, I want a "something else — type it" option on every question, so that an interest the bubbles missed still gets captured.
+7. As a new user, I want the interview to end in about 3 minutes / ~15 taps, so that personalizing doesn't feel like a chore.
+8. As a new user, I want to see and confirm my extracted interest list (in my own words) before finishing, so that nothing wrong gets baked into my feed.
+9. As a user who skips the whole interview, I want a working broad-category feed anyway, so that skipping isn't punished.
+10. As a user, I want my typed free-text interest ("Formula 1 silly season") to become a real tracked niche, so that typing isn't a dead end.
+11. As a user, I want my micro-interests remembered with the path I took to them, so that the app knows what "one level broader" means for me.
+12. As a user, I want my 30 organized into sections named in my vocabulary ("Silicon — 3", "IPL — 4"), so that the feed visibly reflects what I said.
+13. As a user, I want fresh stories from my niches filling those sections first, so that the interview's promise is kept daily.
+14. As a user on a dry day for my niche, I want the slot filled from one level broader **with a label saying so**, so that I trust the app is really tracking my niche.
+15. As a user, I want a small "beyond your bubble" section, so that I don't live in an echo chamber.
+16. As a user who follows YouTube/X sources, I want those slots to keep leading my feed exactly as today, so that the revamp doesn't break my follows.
+17. As a user with a strict interest, I want no fallback substitution on it, so that "only this" means only this.
+18. As an existing (pre-revamp) user, I want a "rebuild my feed" entry point that runs the interview, so that I can upgrade to niche sections without losing my current setup.
+19. As a user, I want to re-run or edit the interview later, so that my profile can evolve.
+20. As the pipeline, I want all micro-interest queries batched into one BigQuery pass, so that niche ingestion scales past hundreds of niches without throttling.
+21. As the pipeline, I want every niche candidate tagged to its interest node in the shared pool, so that assembly can fill sections without re-querying.
+22. As the pipeline, I want the trusted-outlet backbone pull unchanged, so that the day's big stories still anchor every feed.
+23. As the operator, I want a per-niche coverage report (direct hits/day per interest), so that the ≥ 60% hit-rate bet is measured before the UI ships.
+24. As the operator, I want interview turns and ingestion logged as structured JSON with fix_suggestions, so that failures are debuggable.
+25. As the operator, I want the interview's LLM cost/latency per completed onboarding tracked, so that the chat stays affordable and snappy.
+26. As a user with a half-finished interview, I want resume-or-restart on next open (and no premature "onboarded" stamp), so that abandonment doesn't strand me on a broken feed.
+27. As a user whose niche section is entirely dry up the whole ladder, I want the slots given to beyond-bubble stories, so that my feed is never short.
+28. As two users who typed the same niche differently, we want to converge on the same underlying node (keeping our own words on screen), so that the shared pool stays deduplicated.
 
 ## Implementation Decisions
 
-- **Cluster schema is net-new**: add `source_clusters` (one row per named grouping, `cluster_category` ∈ the 8 categories, ordered) + `source_cluster_members` (cluster_id × source/personality ref, ordered). One model serves both X and YouTube. Do not overload `archetypes`/`personas` (they are a separate recommendation key).
-- **No-dup rule** lives in the catalog/selection resolver: a personality bundles its `youtube_channel_ids`/aliases; the resolver excludes those individual `content_sources` rows from the grid when the personality card is shown.
-- **Theme→category** is a static whitelist keyed to the 8 categories (`agents/pipeline/categories.py` is the category source of truth). `GdeltBigQueryAdapter` must add `V2Themes` to its GKG SELECT (it currently selects only `V2Persons/V2Organizations/V2Locations`). The DOC API has no theme parameter, so GKG is the theme source; DOC carries the `domainis:` trusted-domain fetch.
-- **Category fix is at ingestion-time tagging**, not `assign_category`: `ranking.py::assign_category` already picks the lowest-`match_depth` `story_interests` tag — correct behavior given correct tags. The bug is which tag a story gets at ingest; theme-based tagging fixes the input.
-- **Importance = E1** per `reference/shared-pool-pipeline.md` §4: `story_importance = W_breadth·breadth + W_authority·authority_and_diversity + W_velocity·velocity + W_recency·recency + W_entity·entity`, normalized within category. This revamp finishes the **authority** + **within-category normalization** + **syndication-dampening** terms and the source-tier authority table; weights are config constants. Retire `produce_gate.compute_importance_score`'s `min(1, outlet_count/12)` as E1 lands.
-- **Ranking weights** (`ranking.py`): `AFFINITY_WEIGHT/IMPORTANCE_WEIGHT/FRESHNESS_WEIGHT = 0.5/0.3/0.2`, `ENTITY_BONUS_WEIGHT = 0.3`, `DEFAULT_SCORE_THRESHOLD = 0.20` — raise `IMPORTANCE_WEIGHT` (β) for the big-story lift; keep them single config constants (no scattering).
-- **Feed mix** (`feed_assembly.py`, `FEED_SLOT_BUDGET = 30`): followed-source items fill `SLOT_KIND_SOURCE` slots **first/with priority**, topic categories fill the rest in user sequence; preserve don't-repeat + within-feed dedup + the existing source-budget soft-roll; revisit `produce_caps` `headroom_multiplier` (currently 1.0; phase-5d notes 1.5) for the new mix.
-- **Interest collapse**: a one-time idempotent transform mapping each deep `user_interest_profile.profile_interest_id` to its root via `category_for_slug`, deduping on conflict (keep the higher weight), writing `profile_source` unchanged.
-- **Source ingestion is reused, not rebuilt**: `source_pipeline.run_source_ingestion` (YouTube/X, cadence 6h, dedup, ≥80-char substance filter, cluster→promote) and the produce-gate source-origin exemption already exist; this revamp reweights assembly, it does not re-author ingestion. Podcast/personality *ingestion* remains out of scope (only personality *selection* is in scope).
-- **Summaries**: refine existing prompts only (`scripting.py`/`prompts.py`/`detail_enrichment.py`) — long-form → key-points, short-form/tweets → tight. No new ingestion or schema.
+- **New worker endpoint** for interview turns (mirrors the Q&A endpoint's auth + graceful-failure contract: HTTP 200 with a typed error/retry body, never 5xx to the client).
+- **Interests tree is the single interest store**: minted nodes are global, slug-canonicalized, root-anchored; per-user display labels live with the profile row, not the node. `interest_search_query` returns to being load-bearing (FSR M2 had demoted it) — for niche nodes only; backbone stays theme-keyed.
+- **`user_interest_profile` re-admits deep rows** (depth ≥ 1) with the existing weight semantics; roots-only remains a valid degenerate profile.
+- **Allocation schema**: `user_feed_allocation` gains a nullable interest-node reference + user-facing section label; enum categories remain for backbone/source/beyond-bubble slots. One migration.
+- **`daily_feeds` rows** gain section label + filled-for-interest + fallback-level metadata so the client renders sections and honesty labels with zero inference.
+- **Feed contract twin rule holds**: any shape change lands in `src/types/feed.ts` and the Python assembly models together.
+- **BigQuery wiring**: add `google-cloud-bigquery` to requirements, service-account key via env (never committed), swap the adapter at the single pipeline seam, keep DOC adapter importable for coverage checks and backbone emergency fallback.
+- **Onboarding gate rule (2026-06-30) is preserved**: `user_onboarded_at` stamps only at true flow end; interview abandonment never stamps.
 
 ## Testing Decisions
 
-Tests verify **external behavior**, not implementation (Rule 9), and every load-bearing test must be able to fail when the business rule changes:
+Test external behavior, not implementation (Rule 9). Mock at boundaries: Gemini client, BigQuery client, Supabase. Mirror existing prior art: `tests/lib/onboardingProfile.test.ts` (persistence), `tests/lib/onboarding/onboardingFlowSessionSkip.test.tsx` (flow state machine), Python pipeline sim harness (`agents.pipeline.sim`) for assembly.
 
-- **Pure functions get the strongest offline coverage** — theme→category mapping, E1 importance (authority beats syndication burst, within-category normalization, recency clamp), cluster/no-dup resolver, interest collapse, allocation/slot math. Mirror existing Python test structure (`test_<module>.py`), mock all external services (GDELT, BigQuery, DB, LLM) at the boundary — prior art: `agents/pipeline/sim/*` and the existing ranking/produce-gate/feed-assembly tests.
-- **Encode the WHY**: the importance test must assert the *reason* (an authority-varied 10-outlet story beats a 20-content-farm burst — not merely "returns a float"); the allocator test must assert followed items *lead* the feed (the product thesis), not just "30 rows."
-- **Migrations** are tested as static artifacts here (parse/lint, structural assertions), not applied — applying needs live DB creds.
-- **UI** tested against fixtures (roots-only picker, ∩-filtered + popularity-ordered grid, cluster bulk-select, no-dup, zero-follow path); browser/live verification is a LIVE-E2E residual.
-- **Fail loud (Rule 12):** a milestone is not "done" if its offline check was skipped; "works end-to-end" is never claimed from this sandbox — each milestone's LIVE-E2E residual is stated, not hidden.
+- **Interview engine**: contract tests on turn output shape (bubbles ≤ 6, skip/free-text always present, terminal list validates slug + anchor terms); adversarial fixtures for malformed LLM JSON → retry body, never crash. Happy/failure/edge per function (CLAUDE.md minimum).
+- **Assembly ladder**: table-driven cases — full niche pool (no climb), partial (one-level climb labeled), whole-ladder dry (beyond-bubble backfill), strict interest (no climb), duplicate story across two niches (one slot). These encode the *owner's honesty decision* — a test that passes with silent substitution is wrong.
+- **Ingestion**: query-builder unit tests (all niches batched, per-interest caps) with a mocked BigQuery client; coverage-census output shape test.
+- **UI**: component tests for section headers + fallback label rendering from row metadata, including legacy rows without metadata.
+- **Live E2E residual** per milestone (real Gemini turn, real BigQuery pull, real persona feed) — named explicitly in each milestone's DoD, not silently skipped (Rule 12).
 
 ## Out of Scope
 
-- The reel, audio/TTS, karaoke captions, Story Detail, trust/coverage layer, Q&A/RAG, in-news voice mode, auth, and the Capacitor/iOS shell (all shipped M1–M5; unchanged).
-- **Algorithmic catalog discovery/expansion** (co-follow graphs, bio-embedding similarity, research-agent crawl). Launch is editorial-seed only; expansion is later.
-- **Auto-generation of clusters** (co-follow/embeddings). Clusters are hand-authored at seed.
-- **Podcast and personality *ingestion*** (RSS+Whisper, personality hunt). Only personality *selection* in onboarding is in scope; their content ingestion stays deferred.
-- **New design system / tokens.** The onboarding source/cluster UI reuses existing tokens (`reference/design-language.md`); this revamp does not change the visual language, so that doc is untouched.
-- **The broader shared-pool rework beyond E1** (online-clusterer tuning M3b/M3c, reel formats, MMR diversity, τ-threshold tuning) — tracked in `plans/shared-pool-rework-master-plan.md`; this revamp consumes its clustering + E1 contract, it does not re-plan it.
-- **Live end-to-end execution** (real GDELT + real DB). Not runnable in this sandbox; it is the explicit LIVE-E2E residual per milestone.
+- Generated source suggestions from the micro-profile (M5 fast-follow) — existing M6a source/cluster screen bridges.
+- Cookie- or OAuth-based YouTube/X subscription import — killed (App Store 5.2.2 + platform ToS; owner decision).
+- X paid API, hand-maintained persona catalogs.
+- Reel/audio/Q&A/voice/article layers, auth, iOS shell — unchanged.
+- Engagement-signal profile updates (`profile_source='signal'`) — future.
 
 ## Further Notes
 
-- **Master-plan bridge:** the planner reads THIS file. `plans/master-plan.md` (2026-05-28) is unrelated and must not be touched. `plans/shared-pool-rework-master-plan.md` is a *related, active* plan — its E1/clustering contract is a dependency, not a conflict to resolve.
-- **Conflict surfaced (Rule 7):** WS4's importance + themes overlap the shared-pool rework. Resolution baked into Decision #5 and M3 — implement E1, don't fork. If a future planner finds E1 already fully implements authority+normalization by the time M3 starts, M3 collapses to "raise β + verify," and that's a win, not a gap.
-- **Verified code facts (so the planner doesn't re-derive):** `gdelt_bigquery.py` GKG SELECT lacks `V2Themes` (selects `V2Persons/V2Organizations/V2Locations` only); `gdelt_doc.py` is keyless, ≤1 req/5s, no theme param, no `domainis:` filter built today; `produce_gate` importance is `min(1, outlet_count/12)`; source items already gate-exempt + slotted via `feed_assembly._fill_source_slots`; clustering module + `0018_story_clusters.sql` already exist; **no cluster abstraction exists** (net-new); `content_sources`/`user_content_sources`/`personalities` exist (migration `0009_content_sources.sql`).
-- **Targets to honor in M6:** ~30–40 YouTube channels, ~40–50 X accounts, ~4 personalities per user; opt-out (deselect pre-selected clusters) not opt-in.
-- **Open items flagged (non-blocking):** exact source-tier authority weights, the curated ~10–15 trusted domains per category, exact β value, and the over-budget source-spill rule are tuning decisions to pin during `/plan-phases`/`/run-phase`, not gates on planning.
+- **Deviation from /cto step 0.4**: full `/improve-architecture` was skipped in favor of a targeted architecture recon (this is a scoped revamp over a live codebase; the recon covered every touched module). If a broad deepening pass is wanted, run `/improve-architecture` separately.
+- The brief's soft spots carry forward verbatim: 3–5-minute tolerance is founder conviction (watch completion rate from day one); 60% hit rate is a guess until M2; bubble quality unproven until M1.
+- Old FSR PRD is recoverable at git `48a25b0`; the 2026-05-28 whole-product brief at `3a1da08`.
+- Interview conversation transcripts: keep only the terminal extracted profile + tap path (the ladder); do not persist raw chat.

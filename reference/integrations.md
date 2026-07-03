@@ -49,3 +49,15 @@ All adapters implement the TLDW base adapter interface and feed `ingestion/dedup
 ## Key handling
 - All keys in `.env` (gitignored); maintain `.env.example` with placeholders (port from TLDW). Never log key values.
 - Worker reads via `pydantic-settings` (`agents/shared/settings.py`).
+
+## GDELT BigQuery (niche ingestion — 2026-07 revamp)
+| Item | Value |
+|---|---|
+| Dataset | `gdelt-bq.gdeltv2.gkg_partitioned` (public; querying billed to our project) |
+| Project | `blip-498623` (validated unthrottled 2026-06-06; SA key exists — see memory/go-live notes) |
+| Auth | `GOOGLE_APPLICATION_CREDENTIALS` → service-account JSON key path (env only, never committed) |
+| Dependency | `google-cloud-bigquery` (add to `requirements.txt`) |
+| Adapter | `agents/ingestion/adapters/gdelt_bigquery.py` — batched anchor-term SQL for ALL active interests in one pass; per-interest cap 75 |
+| Seam | swap `GdeltDocAdapter()` → `GdeltBigQueryAdapter()` in `agents/worker/pipeline_routes.py` |
+| DOC adapter | retained for coverage checks + backbone emergency fallback only (1 req/5 s, 250-row cap — never for niche fan-out) |
+| Failure mode | credential/billing error → fail loud with fix_suggestion, fall back to DOC for backbone only |
