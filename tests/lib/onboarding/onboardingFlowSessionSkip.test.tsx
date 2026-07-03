@@ -48,6 +48,7 @@ vi.mock("@/lib/supabase/client", () => ({
 
 vi.mock("@/lib/onboardingProfile", () => ({
   isSourceOnboardingComplete: vi.fn(() => false),
+  markOnboardingComplete: vi.fn(),
   markSourceOnboardingComplete: vi.fn(),
   persistPickerFollows: vi.fn(),
 }));

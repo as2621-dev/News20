@@ -246,21 +246,12 @@ export async function persistInterestProfile(
     );
   }
 
-  // 5. Stamp onboarding completion on the user's own row.
-  const { error: onboardedError } = await client
-    .from("users")
-    .update({ user_onboarded_at: new Date().toISOString() })
-    .eq("user_id", userId);
-  if (onboardedError) {
-    logger.error("persist_user_onboarded_at_failed", {
-      error_message: onboardedError.message,
-      fix_suggestion: "Confirm users update-self RLS permits the write and the users row exists (handle_new_user).",
-    });
-    throw new Error(
-      `Failed to stamp user_onboarded_at: ${onboardedError.message}. ` +
-        "fix_suggestion: confirm users update-self RLS permits the write.",
-    );
-  }
+  // NOTE: This function persists interest rows ONLY — it deliberately does NOT
+  // stamp `users.user_onboarded_at`. Onboarding completion is a SEPARATE terminal
+  // signal owned by {@link markOnboardingComplete}, called once the user reaches
+  // the end of the flow (after "Build your 30"). This path is reused outside
+  // onboarding too (e.g. adding an interest from the Sources tab), where stamping
+  // "onboarded" would be wrong. See OnboardingFlow's handleBuildDone/handleBuildSkip.
 
   const result: PersistProfileResult = {
     persisted_count: upsertRows.length,
@@ -464,22 +455,12 @@ export async function persistPickerFollows(
     }
   }
 
-  // 3. Stamp onboarding completion on the user's own row — ALWAYS (even on a skip), so
-  // the onboarded-skip gate works for a zero-follow user (spec §11 skippable).
-  const { error: onboardedError } = await client
-    .from("users")
-    .update({ user_onboarded_at: new Date().toISOString() })
-    .eq("user_id", userId);
-  if (onboardedError) {
-    logger.error("persist_picker_user_onboarded_at_failed", {
-      error_message: onboardedError.message,
-      fix_suggestion: "Confirm users update-self RLS permits the write and the users row exists (handle_new_user).",
-    });
-    throw new Error(
-      `Failed to stamp user_onboarded_at: ${onboardedError.message}. ` +
-        "fix_suggestion: confirm users update-self RLS permits the write.",
-    );
-  }
+  // NOTE: The picker persists follows ONLY — it no longer stamps
+  // `users.user_onboarded_at`. Stamping here (the OLD "always, even on a skip"
+  // behavior) marked users onboarded BEFORE they reached "Build your 30", so a
+  // zero-selection or abandoned-midway user was sent straight to the reel with no
+  // personalization. Completion is now stamped exactly once at the true end of the
+  // flow by {@link markOnboardingComplete} (OnboardingFlow.handleBuildDone/Skip).
 
   const result: PersistPickerResult = {
     profile_count: profileRows.length,
@@ -496,10 +477,10 @@ export async function persistPickerFollows(
 
 // ─── Phase 5c SP4 — source-onboarding-complete marker ────────────────────────
 //
-// The picker step already stamps `users.user_onboarded_at` (above). The SOURCE
-// step (the 3 recommendation screens) runs AFTER the picker, so it needs its OWN
-// completion marker — `user_onboarded_at` is taken by the prior step and adding a
-// `users.user_sources_onboarded_at` column would need a migration (out of scope
+// The SOURCE step (the 3 recommendation screens) runs MID-flow (after the picker,
+// before "Build your 30"), so it needs its OWN completion marker — `user_onboarded_at`
+// is now stamped only at the TRUE end of the flow (see {@link markOnboardingComplete}),
+// and adding a `users.user_sources_onboarded_at` column would need a migration (out of scope
 // for this client-side SP4a logic pass; no migration file is in scope).
 //
 // Mechanism choice (Rule 7 — pick one, name the other): the codebase has TWO
@@ -574,4 +555,49 @@ export function isSourceOnboardingComplete(): boolean {
     // complete" so the skippable source screens show (worst case: shown again).
     return false;
   }
+}
+
+// ─── Onboarding completion stamp (the TRUE terminal signal) ──────────────────
+//
+// `users.user_onboarded_at` is the ONE flag the root gate ({@link resolveRootGate})
+// reads to decide reel-vs-onboarding. It must be written exactly ONCE, at the end of
+// the flow (after "Build your 30"), and NEVER mid-flow — otherwise a user who abandons
+// onboarding partway is wrongly treated as onboarded and dropped onto an empty/
+// un-personalized feed. The interest/follow persisters deliberately no longer stamp it;
+// this function is the sole writer in the onboarding path.
+
+/**
+ * Stamp `users.user_onboarded_at = now()` — marking onboarding genuinely COMPLETE.
+ *
+ * Call this ONCE, at the true end of onboarding (after "Build your 30" has run), for
+ * the authed user. It is the single signal {@link resolveRootGate} reads to route a
+ * user to the reel instead of back into onboarding.
+ *
+ * @param userId - The authed user's id (`users.user_id` / `auth.uid()`).
+ * @param client - Optional Supabase client (injected in tests; defaults to the shared browser client).
+ * @throws If the `users` update fails (RLS / missing row) — the caller surfaces it so
+ *   the user is never silently left half-onboarded (Rule 12).
+ *
+ * @example
+ * await markOnboardingComplete(session.user.id); // on finishing "Build your 30"
+ */
+export async function markOnboardingComplete(
+  userId: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<void> {
+  const { error: onboardedError } = await client
+    .from("users")
+    .update({ user_onboarded_at: new Date().toISOString() })
+    .eq("user_id", userId);
+  if (onboardedError) {
+    logger.error("mark_onboarding_complete_failed", {
+      error_message: onboardedError.message,
+      fix_suggestion: "Confirm users update-self RLS permits the write and the users row exists (handle_new_user).",
+    });
+    throw new Error(
+      `Failed to stamp user_onboarded_at: ${onboardedError.message}. ` +
+        "fix_suggestion: confirm users update-self RLS permits the write.",
+    );
+  }
+  logger.info("onboarding_marked_complete", { user_id: userId });
 }

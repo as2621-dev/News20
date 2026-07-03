@@ -109,15 +109,21 @@ describe("getReelFeed meta derivation (Phase 7b SP3)", () => {
     expect(meta.is_first_run).toBe(false);
   });
 
-  it("falls back to the global feed (no daily rows) and still reports partial meta", async () => {
+  it("returns an EMPTY feed (no global fallback) when the user has no daily rows", async () => {
+    // WHY (owner rule 2026-06-30): an onboarded user with no assembled daily_feeds must
+    // NEVER be served the global seeded pool — they see the "being prepared" empty state.
+    // FAILS if getReelFeed falls back to the global feed (the old shared-feed bug).
     mockGetCurrentSession.mockResolvedValue({ user: { id: "u1" }, access_token: "t" } as never);
     mockGetDailyFeed.mockResolvedValue([]);
+    // Poison the global feed: if it is consulted at all, the length assertion catches it.
     mockGetGlobalFeed.mockResolvedValue(makeStories(5));
 
     const { stories, meta } = await getReelFeed(FEED_DATE);
 
-    expect(stories).toHaveLength(5);
+    expect(stories).toHaveLength(0);
+    expect(meta.allocated_count).toBe(0);
     expect(meta.is_partial).toBe(true);
+    expect(mockGetGlobalFeed).not.toHaveBeenCalled();
   });
 });
 

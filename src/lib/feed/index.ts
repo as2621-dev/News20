@@ -5,18 +5,20 @@
  * which provider it got:
  *  - `NEXT_PUBLIC_FEED_SOURCE="fixtures"` → the bundled M0 fixtures (dev only).
  *  - an authed user WITH a `daily_feeds` row → their per-user personalized feed.
- *  - otherwise → the global seeded Supabase feed (the live `stories` table).
+ *  - otherwise → an EMPTY feed (the reel shows its "briefing is being prepared" state).
  *
- * The per-user path falls back to the global feed when the user has no
- * `daily_feeds` yet (e.g. before the daily cron has allocated them), so a signed
- * in-but-unallocated user still sees a non-empty reel. The fixture provider is
+ * No global fallback (owner rule 2026-06-30): a user with no `daily_feeds` yet is
+ * NEVER served the global seeded `stories` pool. Showing every unallocated user the
+ * same un-personalized stories reads as "someone else's feed" — the exact confusion
+ * this removes. The reel must only ever show a user their OWN allocated briefing; until
+ * the daily assembly populates it, the empty state is correct. The fixture provider is
  * kept (behind the env flag) so a no-network dev loop still works (Rule 3 — don't
  * delete the fixture seam).
  */
 
 import { firstRunFlagKey } from "@/lib/feed/assembleFirstRunFeed";
 import { getFeed as getFixtureFeed } from "@/lib/feed/fixtureFeed";
-import { getDailyFeed, getFeed as getGlobalFeed } from "@/lib/feed/supabaseFeed";
+import { getDailyFeed } from "@/lib/feed/supabaseFeed";
 import { logger } from "@/lib/logger";
 import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 import { getCurrentSession } from "@/lib/supabase/auth";
@@ -95,20 +97,31 @@ export async function getReelFeed(feedDate?: string): Promise<ReelFeedResult> {
       if (personalized.length > 0) {
         return toReelFeedResult(personalized, requestedDate);
       }
-      logger.info("reel_feed_fallback_global", {
+      // Onboarding finished but the daily assembly has not populated this user/date yet.
+      // Return EMPTY — never the global seeded pool (owner rule 2026-06-30): the reel
+      // shows "your briefing is being prepared" rather than someone else's stories.
+      logger.info("reel_feed_empty_no_daily_feeds", {
         reason: "no_daily_feeds_for_user",
         feed_date: requestedDate,
-        fix_suggestion: "The daily cron has not allocated this user/date yet; serving the global seed.",
+        fix_suggestion:
+          "Assemble the user's daily_feeds (worker /feed/assemble-mine, or the offline batch); no global fallback.",
       });
+      return toReelFeedResult([], requestedDate);
     }
+    // No session — the root gate (resolveRootGate) should route signed-out users to
+    // onboarding before the reel ever mounts; if we somehow get here, serve EMPTY, not a feed.
+    logger.warn("reel_feed_no_session", {
+      feed_date: requestedDate,
+      fix_suggestion: "The root gate should route signed-out users to onboarding; returning an empty feed.",
+    });
   } catch (sessionError: unknown) {
-    // Reason: a session/daily-feed read failure must not blank the reel — fall
-    // back to the always-present global seeded feed (Rule 12: degrade, don't crash).
+    // Reason: a session/daily-feed read failure must not blank-crash the reel — return
+    // an empty feed (Rule 12: degrade, don't crash) WITHOUT exposing the global pool.
     logger.error("reel_feed_user_path_failed", {
       error_message: sessionError instanceof Error ? sessionError.message : "unknown",
-      fix_suggestion: "Falling back to the global seeded feed.",
+      fix_suggestion: "Returning an empty feed (no global fallback).",
     });
   }
 
-  return toReelFeedResult(await getGlobalFeed(), requestedDate);
+  return toReelFeedResult([], requestedDate);
 }

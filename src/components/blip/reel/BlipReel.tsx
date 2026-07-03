@@ -38,6 +38,7 @@ import { BlipIconDefs } from "@/components/blip/BlipIconDefs";
 import { ArticleLayer } from "@/components/blip/reel/ArticleLayer";
 import { AskSheet, type AskSheetMode } from "@/components/blip/reel/AskSheet";
 import { FirstRunBanner } from "@/components/blip/reel/FirstRunBanner";
+import { ReelEmpty } from "@/components/blip/reel/ReelEmpty";
 import { ReelStage } from "@/components/blip/reel/ReelStage";
 import { ReelToast } from "@/components/blip/reel/ReelToast";
 import { AllCaughtUp } from "@/components/reel/AllCaughtUp";
@@ -420,7 +421,10 @@ export function BlipReel({ feedDate, isLibraryOpen = false, onOpenLibrary }: Bli
 
       {/* ---- reel status overlays (reused from the legacy reel) ---- */}
       {reelStatus === "loading" ? <LoadingSkeleton /> : null}
-      {reelStatus === "tapstart" ? <TapToStart onStart={handleStart} /> : null}
+      {/* feed loaded but EMPTY (no daily_feeds yet, no global fallback) → "being prepared" state.
+          Guards tapstart so the user can never tap-to-start into an empty reel. */}
+      {reelStatus === "tapstart" && stories.length === 0 ? <ReelEmpty onRefresh={handleRetry} /> : null}
+      {reelStatus === "tapstart" && stories.length > 0 ? <TapToStart onStart={handleStart} /> : null}
       {reelStatus === "caughtup" ? <AllCaughtUp onReplay={handleReplay} storyCount={stories.length} /> : null}
       {reelStatus === "error" ? <ReelError onRetry={handleRetry} /> : null}
     </div>

@@ -53,6 +53,7 @@ import { categoryBucketsFromFollows, type DesignBucketId, sourceBucketsFromFollo
 import { logger } from "@/lib/logger";
 import {
   isSourceOnboardingComplete,
+  markOnboardingComplete,
   markSourceOnboardingComplete,
   persistPickerFollows,
 } from "@/lib/onboardingProfile";
@@ -226,6 +227,21 @@ export function OnboardingFlow() {
           entity_follow_count: result.entity_follow_count,
           unpersisted_count: result.unpersisted.length,
         });
+        // Onboarding is NON-skippable (owner rule 2026-06-30): the user must persist at
+        // least one real interest/entity follow before advancing — otherwise there is
+        // nothing to personalize on and they would land on an empty feed. A zero-persist
+        // result (nothing selected, or selections that matched no taxonomy node) keeps
+        // them on the picker with a prompt instead of marking onboarding complete.
+        if (result.profile_count + result.entity_follow_count === 0) {
+          logger.warn("onboarding_blocked_zero_selections", {
+            selection_count: selections.length,
+            unpersisted_count: result.unpersisted.length,
+            fix_suggestion: "Require >=1 persisted follow before advancing; user stays on the picker.",
+          });
+          setPersistError("Pick at least one interest to continue.");
+          setStep("picker");
+          return;
+        }
         // A returning user who already finished the source swipe skips straight to the
         // reel; everyone else runs the source swipe before the reel.
         if (isSourceOnboardingComplete()) {
@@ -265,23 +281,48 @@ export function OnboardingFlow() {
     setStep("build");
   }, []);
 
-  /** Complete "Build your 30": the allocation is already persisted in the component — route to the reel. */
+  /**
+   * Stamp onboarding genuinely COMPLETE, then route to the reel. This is the SINGLE
+   * place `users.user_onboarded_at` is written in the flow (the picker/source steps no
+   * longer stamp it) — so the root gate only routes to the reel once the user has
+   * actually reached the end. A stamp failure is surfaced (Rule 12) but still routes:
+   * the user finished onboarding, and the gate self-heals on the next read.
+   */
+  const finishOnboarding = useCallback(async () => {
+    const userId = sessionUserIdRef.current;
+    if (!userId) {
+      // Dev bypass (SKIP_AUTH) — no session to scope the stamp to; just route.
+      router.push("/");
+      return;
+    }
+    try {
+      await markOnboardingComplete(userId);
+    } catch (error) {
+      logger.error("onboarding_complete_stamp_failed", {
+        error_message: error instanceof Error ? error.message : "unknown",
+        fix_suggestion: "Routing to the reel anyway; confirm users update-self RLS permits the write.",
+      });
+    }
+    router.push("/");
+  }, [router]);
+
+  /** Complete "Build your 30": the allocation is already persisted in the component — stamp + route. */
   const handleBuildDone = useCallback(
     (segments: BuildYour30Segment[]) => {
       logger.info("build_your_30_completed", {
         segment_count: segments.length,
         total_slots: segments.reduce((runningTotal, segment) => runningTotal + segment.count, 0),
       });
-      router.push("/");
+      void finishOnboarding();
     },
-    [router],
+    [finishOnboarding],
   );
 
   /** Skip "Build your 30": route to the reel WITHOUT saving (the allocator has a balanced default). */
   const handleBuildSkip = useCallback(() => {
     logger.info("build_your_30_skipped", {});
-    router.push("/");
-  }, [router]);
+    void finishOnboarding();
+  }, [finishOnboarding]);
 
   return (
     <main

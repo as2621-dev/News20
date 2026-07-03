@@ -3,6 +3,7 @@ import type { InterestSelection } from "@/components/onboarding/InterestChips";
 import {
   ENTITY_FOLLOW_WEIGHT_BY_SOURCE,
   isSourceOnboardingComplete,
+  markOnboardingComplete,
   markSourceOnboardingComplete,
   PROFILE_WEIGHT_BY_DEPTH,
   persistInterestProfile,
@@ -205,9 +206,12 @@ describe("persistInterestProfile", () => {
     expect(upserts.find((u) => u.table === "user_interest_profile")).toBeUndefined();
   });
 
-  it("stamps user_onboarded_at on the user's own row", async () => {
-    // WHY: completion must mark the user onboarded (the gate the route + Phase 1c
-    // read). FAILS if the users update is dropped or scoped to the wrong column.
+  it("does NOT stamp user_onboarded_at (completion is owned by markOnboardingComplete)", async () => {
+    // WHY (owner rule 2026-06-30): persisting interests is NOT completing onboarding.
+    // This path is reused mid-flow and from the Sources tab, where stamping "onboarded"
+    // would wrongly route an un-finished user to the reel. Completion is stamped exactly
+    // once at the true end of the flow by markOnboardingComplete. FAILS if this path
+    // writes a `users.user_onboarded_at` update again (the old premature-stamp bug).
     const selection: InterestSelection = {
       taxonomy_selections: [
         {
@@ -224,11 +228,7 @@ describe("persistInterestProfile", () => {
 
     await persistInterestProfile(USER_ID, selection, {}, client);
 
-    const onboardedUpdate = updates.find((u) => u.table === "users");
-    expect(onboardedUpdate).toBeDefined();
-    expect(onboardedUpdate?.eqColumn).toBe("user_id");
-    expect(onboardedUpdate?.eqValue).toBe(USER_ID);
-    expect(typeof onboardedUpdate?.values.user_onboarded_at).toBe("string");
+    expect(updates.find((u) => u.table === "users")).toBeUndefined();
   });
 
   it("surfaces a canonicalization lookup error instead of swallowing it (Rule 12)", async () => {
@@ -329,15 +329,16 @@ describe("persistPickerFollows", () => {
     expect(seedWeight).toBe(ENTITY_FOLLOW_WEIGHT_BY_SOURCE.seed);
     expect(customWeight).toBe(ENTITY_FOLLOW_WEIGHT_BY_SOURCE.custom);
 
-    // Onboarded stamp written for the user's own row.
-    expect(updates.find((u) => u.table === "users")?.eqValue).toBe(USER_ID);
+    // The picker persists follows ONLY — it must NOT stamp onboarded (owner rule 2026-06-30).
+    expect(updates.find((u) => u.table === "users")).toBeUndefined();
     expect(result.unpersisted).toEqual([]);
   });
 
-  it("SKIP (empty selections) writes NO profile/follow rows but still stamps onboarded_at and does not throw", async () => {
-    // WHY: the picker is skippable (spec §11) — a zero-follow completion must persist
-    // nothing yet still mark the user onboarded (so the skip gate works) and never
-    // error. FAILS if any profile/follow upsert fires, the stamp is dropped, or it throws.
+  it("empty selections write NO profile/follow rows, do NOT stamp onboarded, and do not throw", async () => {
+    // WHY (owner rule 2026-06-30): the picker no longer stamps onboarded — a zero-follow
+    // call persists nothing and leaves the user NOT onboarded (OnboardingFlow blocks
+    // advancing on zero selections). FAILS if any profile/follow upsert fires, if it
+    // stamps user_onboarded_at (the old skippable-onboarding bug), or if it throws.
     const { client, upserts, updates } = makeFakeClient();
 
     const result = await persistPickerFollows(USER_ID, [], client);
@@ -348,10 +349,8 @@ describe("persistPickerFollows", () => {
     // No writes to EITHER follow table (the no-op guarantee).
     expect(upserts.find((u) => u.table === "user_interest_profile")).toBeUndefined();
     expect(upserts.find((u) => u.table === "user_entity_follows")).toBeUndefined();
-    // But onboarded_at IS stamped so the onboarded-skip gate works.
-    const onboardedUpdate = updates.find((u) => u.table === "users");
-    expect(onboardedUpdate?.eqValue).toBe(USER_ID);
-    expect(typeof onboardedUpdate?.values.user_onboarded_at).toBe("string");
+    // And NO onboarded stamp — completion is not implied by an empty picker pass.
+    expect(updates.find((u) => u.table === "users")).toBeUndefined();
   });
 
   it("surfaces a free-text custom as unpersisted and writes NO user_entity_follows row (no orphan FK)", async () => {
@@ -450,5 +449,42 @@ describe("source-onboarding-complete marker (Phase 5c SP4a)", () => {
     // skip a user who never finished the source step.
     window.localStorage.setItem("n20-source-onboarding-complete", "garbage");
     expect(isSourceOnboardingComplete()).toBe(false);
+  });
+});
+
+/**
+ * `markOnboardingComplete` tests (owner rule 2026-06-30). This is now the SOLE writer
+ * of `users.user_onboarded_at` in the onboarding path — the one signal the root gate
+ * reads to route a user to the reel. The tests encode that it stamps the authed user's
+ * own row, and surfaces (never swallows) a write failure (Rule 12), so a half-onboarded
+ * user is never silently treated as done.
+ */
+describe("markOnboardingComplete", () => {
+  it("stamps user_onboarded_at on the user's own row", async () => {
+    // WHY: completion must mark the user onboarded (the gate resolveRootGate reads).
+    // FAILS if the users update is dropped or scoped to the wrong column/user.
+    const { client, updates } = makeFakeClient();
+
+    await markOnboardingComplete(USER_ID, client);
+
+    const onboardedUpdate = updates.find((u) => u.table === "users");
+    expect(onboardedUpdate).toBeDefined();
+    expect(onboardedUpdate?.eqColumn).toBe("user_id");
+    expect(onboardedUpdate?.eqValue).toBe(USER_ID);
+    expect(typeof onboardedUpdate?.values.user_onboarded_at).toBe("string");
+  });
+
+  it("throws (does not swallow) when the users update fails", async () => {
+    // WHY (Rule 12): a failed stamp must surface so the caller can react — never leave
+    // the user half-onboarded with no signal. FAILS if the error is swallowed.
+    const failingClient = {
+      from: () => ({
+        update: () => ({
+          eq: () => Promise.resolve({ error: { message: "permission denied" } }),
+        }),
+      }),
+    } as never;
+
+    await expect(markOnboardingComplete(USER_ID, failingClient)).rejects.toThrow(/user_onboarded_at/i);
   });
 });
