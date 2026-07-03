@@ -405,22 +405,28 @@ async def _run() -> int:
         )
         active_user_ids = sorted({str(r["profile_user_id"]) for r in profile_rows})
 
-    # ── Optional: scope the whole batch to ONE user (single-user regen) ───────
-    # Set ONLY_USER_EMAIL to regenerate reels for a single profile. The
-    # per-category produce caps then equal THAT user's "Build your 30"
-    # allocation exactly (no cross-user max inflation), the ingest only touches
-    # that user's followed interests, and only their daily_feeds are written.
-    # The 2-user DoD checks at the end will report FAIL by design in this mode
-    # (only one feed) — that is expected; verify the single user's feed directly.
+    # ── Optional: scope the whole batch to specific user(s) ───────────────────
+    # Set ONLY_USER_EMAIL (comma-separated for more than one, e.g. the 3 M4
+    # validation personas) to regenerate reels for just those profiles. The
+    # per-category produce caps then equal the scoped users' cross-user max
+    # "Build your 30" allocation (no inflation from unscoped users), the ingest
+    # only touches their followed interests, and only their daily_feeds are
+    # written. The 2-user DoD checks at the end report FAIL by design when only
+    # one user is scoped — verify the scoped feeds directly.
     only_user_email = os.environ.get("ONLY_USER_EMAIL", "").strip()
     if only_user_email:
-        only_uid = _get_or_create_user(supabase, only_user_email)
-        profile_rows = [
-            r for r in profile_rows if str(r["profile_user_id"]) == only_uid
+        scoped_emails = [
+            email.strip() for email in only_user_email.split(",") if email.strip()
         ]
-        active_user_ids = [only_uid]
+        scoped_uids = {
+            _get_or_create_user(supabase, email) for email in scoped_emails
+        }
+        profile_rows = [
+            r for r in profile_rows if str(r["profile_user_id"]) in scoped_uids
+        ]
+        active_user_ids = sorted(scoped_uids)
         print(
-            f"\n--- SCOPED TO SINGLE USER: {only_user_email} ({only_uid}) ---"
+            f"\n--- SCOPED TO {len(scoped_uids)} USER(S): {', '.join(scoped_emails)} ---"
         )
 
     followed_ids = sorted({str(r["profile_interest_id"]) for r in profile_rows})

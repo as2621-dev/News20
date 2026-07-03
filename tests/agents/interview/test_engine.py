@@ -412,3 +412,25 @@ def test_validate_dedups_same_canonical_slug_reached_twice() -> None:
     drafts = [_valid_draft(), _valid_draft(display_label="cricket auctions")]
     result = validate_and_dedup(drafts, lit_roots=["sport"], had_free_text=False)
     assert len(result) == 1
+
+
+def test_validate_normalizes_model_underscore_slug_instead_of_dropping() -> None:
+    """M4 day-1 finding: Gemini proposes the RIGHT niche with underscore separators
+    (``ai.foundation_models``); dropping it parked real personas on roots-only.
+    Separator spelling is deterministic variance, so the guard folds it to the
+    canonical dash form rather than rejecting the user's actual interest."""
+    drafts = [_valid_draft(canonical_slug="ai.foundation_models")]
+    result = validate_and_dedup(drafts, lit_roots=["ai"], had_free_text=False)
+    assert [item.canonical_slug for item in result] == ["ai.foundation-models"]
+    assert result[0].ladder == ["ai"]
+
+
+def test_validate_still_drops_slug_malformed_after_normalization() -> None:
+    drafts = [_valid_draft(canonical_slug="notaroot.foundation_models")]
+    assert validate_and_dedup(drafts, lit_roots=["ai"], had_free_text=False) == []
+
+
+def test_validate_normalizes_mixed_separators_and_edge_dashes() -> None:
+    drafts = [_valid_draft(canonical_slug="Sport.Cricket .IPL__Auctions")]
+    result = validate_and_dedup(drafts, lit_roots=["sport"], had_free_text=False)
+    assert [item.canonical_slug for item in result] == ["sport.cricket.ipl-auctions"]

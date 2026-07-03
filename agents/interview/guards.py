@@ -155,6 +155,27 @@ def derive_ladder(canonical_slug: str) -> list[str]:
     return [".".join(segments[: i + 1]) for i in range(len(segments) - 1)]
 
 
+def _normalize_slug(canonical_slug: str) -> str:
+    """Normalize a model-proposed slug's separators before shape validation.
+
+    Gemini reliably names the RIGHT concept but is sloppy with separators — the M4
+    day-1 persona runs saw ``ai.foundation_models`` and ``geopolitics.tsmc.chip_foundry``
+    (underscores) dropped by the shape guard, parking real users on roots-only profiles.
+    Underscores / spaces are deterministic spelling variance, not semantic invention, so
+    code (Rule 5) folds them to the canonical dash form: lowercase, ``_``/whitespace runs
+    → ``-``, repeated dashes collapsed, edge dashes stripped per segment. Anything still
+    malformed after this (bad root, empty segment, symbols) is dropped as before.
+
+    Example:
+        >>> _normalize_slug("ai.Foundation_Models")
+        'ai.foundation-models'
+    """
+    slug = canonical_slug.strip().lower()
+    slug = re.sub(r"[_\s]+", "-", slug)
+    slug = re.sub(r"-{2,}", "-", slug)
+    return ".".join(segment.strip("-") for segment in slug.split("."))
+
+
 def _is_valid_slug(canonical_slug: str) -> bool:
     """Return whether a slug is a root-anchored dotted slug with well-formed segments."""
     if not canonical_slug:
@@ -193,7 +214,7 @@ def validate_and_dedup(
     validated: list[MicroInterest] = []
     seen_slugs: set[str] = set()
     for draft in drafts:
-        slug = draft.canonical_slug.strip().lower()
+        slug = _normalize_slug(draft.canonical_slug)
         label = draft.display_label.strip()
         anchor_terms = _distinct_nonempty(draft.search_anchor_terms)
         drop_reason = _draft_drop_reason(
