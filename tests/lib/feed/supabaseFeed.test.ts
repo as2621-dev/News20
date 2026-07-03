@@ -212,7 +212,9 @@ describe("getDailyFeed section metadata (FSR slice #8)", () => {
     expect(stories[0].feed_matched_interest_label).toBe("Cricket");
     // The label must come from the interests embed on the matched-interest FK —
     // the select itself must request it (no second round-trip, no slug inference).
-    expect(select.mock.calls[0][0]).toContain("interests!daily_feeds_feed_matched_interest_id_fkey");
+    // Column hint (not the auto-generated constraint name): disambiguates the two
+    // daily_feeds→interests FKs and survives a constraint rename (review panel).
+    expect(select.mock.calls[0][0]).toContain("interests!feed_matched_interest_id(interest_label)");
   });
 
   it("maps a legacy row (no section columns) to null metadata / level 0 without crashing", async () => {

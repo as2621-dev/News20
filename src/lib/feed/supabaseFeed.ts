@@ -79,6 +79,16 @@ interface StoryRow {
 }
 
 /**
+ * Normalize a PostgREST many-to-one embed to its single row: production returns
+ * an object, but the offline test mocks (and older PostgREST relationship
+ * detection) supply an array — accept either (the file-wide convention; see the
+ * {@link StoryRow.segments} note).
+ */
+function firstOf<T>(embed: T | T[] | null | undefined): T | null {
+  return (Array.isArray(embed) ? embed[0] : embed) ?? null;
+}
+
+/**
  * Derive the ordered anchor pair from the caption sentences.
  *
  * The reel alternates `anchors[sentence_index % 2]`, so sentence 0 gives
@@ -100,7 +110,7 @@ function deriveAnchors(captions: CaptionSentence[]): [AnchorSpeaker, AnchorSpeak
 function mapStoryRow(row: StoryRow): Story {
   // PostgREST returns a many-to-one embed as an object; the offline test mock
   // supplies an array. Normalize both to the single related segment row.
-  const segment = Array.isArray(row.segments) ? row.segments[0] : row.segments;
+  const segment = firstOf(row.segments);
   // digests!inner already filters to the current digest, but be explicit.
   const digest = row.digests.find((candidate) => candidate.digest_is_current) ?? row.digests[0];
   if (!segment) {
@@ -222,12 +232,13 @@ export async function getDailyFeed(
     .from("daily_feeds")
     .select(
       // Reason (FSR #8): matched_interest embeds interests.interest_label over the
-      // feed_matched_interest_id FK (disambiguated by constraint name — daily_feeds has
-      // TWO FKs into interests) so a climbed slot's honesty line can NAME the level it
-      // was filled from ("…here's Cricket") with zero client-side inference.
+      // feed_matched_interest_id FK (the COLUMN hint disambiguates — daily_feeds has
+      // TWO FKs into interests — and survives a constraint rename, unlike the
+      // auto-generated constraint name) so a climbed slot's honesty line can NAME the
+      // level it was filled from ("…here's Cricket") with zero client-side inference.
       `feed_position,feed_slot_kind,feed_matched_interest_id,feed_section_label,` +
         `feed_section_interest_id,feed_fallback_source_level,` +
-        `matched_interest:interests!daily_feeds_feed_matched_interest_id_fkey(interest_label),` +
+        `matched_interest:interests!feed_matched_interest_id(interest_label),` +
         `stories!inner(${FEED_SELECT})`,
     )
     .eq("feed_user_id", userId)
@@ -244,22 +255,27 @@ export async function getDailyFeed(
 
   // Reason: same finite-briefing cap as getFeed — the allocator writes ~30
   // slots, but the UI contract is AT MOST 30 stories.
-  return (data ?? []).slice(0, FEED_TOTAL).map((row) => ({
-    ...mapStoryRow(Array.isArray(row.stories) ? row.stories[0] : row.stories),
-    // Reason: carry the slot tier so the reel chip can mark a followed-source slot;
-    // a "source" row is a source slot, any other value (incl. null / a legacy
-    // "breaking" enum row) is a normal interest slot (phase-SP1 removed breaking).
-    feed_slot_kind: row.feed_slot_kind === "source" ? "source" : "interest",
-    // Reason (FSR #7): carry the section metadata so slice #8 renders honest section
-    // headers ("Nothing new in IPL today — here's cricket"). feed_matched_interest_id is
-    // the node the slot was filled FROM (the ancestor on a climbed slot) — it names the
-    // fallback source. Additive + null-safe: a legacy row with no section columns reads as
-    // (null, null, null, 0) — a direct, unlabeled slot.
-    feed_matched_interest_id: row.feed_matched_interest_id ?? null,
-    feed_matched_interest_label:
-      (Array.isArray(row.matched_interest) ? row.matched_interest[0] : row.matched_interest)?.interest_label ?? null,
-    feed_section_label: row.feed_section_label ?? null,
-    feed_section_interest_id: row.feed_section_interest_id ?? null,
-    feed_fallback_source_level: row.feed_fallback_source_level ?? 0,
-  }));
+  return (data ?? []).slice(0, FEED_TOTAL).map((row) => {
+    const storyRow = firstOf(row.stories);
+    if (!storyRow) {
+      throw new Error(`daily_feeds position ${row.feed_position} has no embedded story. fix_suggestion: re-assemble.`);
+    }
+    return {
+      ...mapStoryRow(storyRow),
+      // Reason: carry the slot tier so the reel chip can mark a followed-source slot;
+      // a "source" row is a source slot, any other value (incl. null / a legacy
+      // "breaking" enum row) is a normal interest slot (phase-SP1 removed breaking).
+      feed_slot_kind: row.feed_slot_kind === "source" ? "source" : "interest",
+      // Reason (FSR #7): carry the section metadata so slice #8 renders honest section
+      // headers ("Nothing new in IPL today — here's cricket"). feed_matched_interest_id is
+      // the node the slot was filled FROM (the ancestor on a climbed slot) — it names the
+      // fallback source. Additive + null-safe: a legacy row with no section columns reads as
+      // (null, null, null, 0) — a direct, unlabeled slot.
+      feed_matched_interest_id: row.feed_matched_interest_id ?? null,
+      feed_matched_interest_label: firstOf(row.matched_interest)?.interest_label ?? null,
+      feed_section_label: row.feed_section_label ?? null,
+      feed_section_interest_id: row.feed_section_interest_id ?? null,
+      feed_fallback_source_level: row.feed_fallback_source_level ?? 0,
+    };
+  });
 }

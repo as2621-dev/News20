@@ -104,10 +104,11 @@ describe("computeSectionChips (FSR slice #8 row-metadata section headers)", () =
     expect(chips[0].fallback_label).toBe("Nothing new in IPL today — here's Cricket");
   });
 
-  it("falls back to the category label when a climbed slot's matched-interest label is missing", () => {
+  it("falls back to the category label AND warns when a climbed slot's matched-interest label is missing", () => {
     // The matched interest node was pruned (FK on delete set null) or the embed
     // failed — the honesty line still renders, naming the broadest truthful level
-    // (the category), never silently dropping the substitution notice.
+    // (the category), never silently dropping the substitution notice; the
+    // degraded naming is surfaced as a structured warning (review-panel finding).
     const stories: Story[] = [
       makeStory({
         digest_id: "ipl-climbed-unnamed",
@@ -121,6 +122,29 @@ describe("computeSectionChips (FSR slice #8 row-metadata section headers)", () =
     const chips = computeSectionChips(stories);
 
     expect(chips[0].fallback_label).toBe("Nothing new in IPL today — here's Sport");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "reel_section_fallback_source_unnamed",
+      expect.objectContaining({
+        story_id: "ipl-climbed-unnamed",
+        fix_suggestion: expect.stringContaining("matched-interest"),
+      }),
+    );
+  });
+
+  it("counts two sections that share a display label separately (keyed by section interest id)", () => {
+    // interests.interest_label is NOT unique — two niches under different roots can
+    // both read "Playoffs". Their chips must each count their OWN slots, not merge.
+    const stories: Story[] = [
+      makeStory({ digest_id: "nba-1", feed_section_label: "Playoffs", feed_section_interest_id: "int-nba-po" }),
+      makeStory({ digest_id: "nba-2", feed_section_label: "Playoffs", feed_section_interest_id: "int-nba-po" }),
+      makeStory({ digest_id: "ipl-po-1", feed_section_label: "Playoffs", feed_section_interest_id: "int-ipl-po" }),
+    ];
+
+    const chips = computeSectionChips(stories);
+
+    expect(chips[0].chip_label).toBe("Playoffs — 2");
+    expect(chips[1].chip_label).toBe("Playoffs — 2");
+    expect(chips[2].chip_label).toBe("Playoffs — 1");
   });
 
   it("renders a legacy row (no section metadata) with the category label exactly as today", () => {

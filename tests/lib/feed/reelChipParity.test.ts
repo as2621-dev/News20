@@ -9,8 +9,10 @@ import type { SegmentKey, Story } from "@/types/feed";
  * WHY THIS MATTERS (not just WHAT it does): the whole point of SP3's taxonomy
  * unification is that a given picker root renders the **identical label + accent
  * color** in onboarding, "Build your 30", and the reel chip. The reel chip
- * (`ReelStage.tsx` / `ArticleLayer.tsx`) draws `story.segment_label` colored by
- * `story.segment_accent_hex`; the onboarding chip draws `DESIGN_BUCKETS[root]`'s
+ * draws `story.segment_label` colored by `story.segment_accent_hex` on every
+ * legacy/coarse/source slot (`ArticleLayer.tsx`, and `ReelStage.tsx` via
+ * `computeSectionChips` — FSR slice #8 overrides the label ONLY on rows carrying
+ * `feed_section_label` metadata); the onboarding chip draws `DESIGN_BUCKETS[root]`'s
  * `name` + `color`. If the segment label/accent maps ever drift from
  * `DESIGN_BUCKETS` (e.g. a future edit reverts "Tech" back to "Tech & Science",
  * or re-folds `business`→`markets`), the reel chip and the onboarding chip would
@@ -45,7 +47,16 @@ describe("reel chip == onboarding chip (SP3 taxonomy parity)", () => {
     // Locks the full 8-root surface (fixtures only cover 5 of 8). Every SegmentKey
     // must be a topic-category DESIGN_BUCKET, and the 8 accents must stay distinct
     // (a collision would make two reel chips indistinguishable).
-    const eightRoots: SegmentKey[] = ["ai", "geopolitics", "business", "environment", "politics", "tech", "sport", "arts"];
+    const eightRoots: SegmentKey[] = [
+      "ai",
+      "geopolitics",
+      "business",
+      "environment",
+      "politics",
+      "tech",
+      "sport",
+      "arts",
+    ];
     const hexes = new Set<string>();
     for (const root of eightRoots) {
       const chip = DESIGN_BUCKETS[root];
