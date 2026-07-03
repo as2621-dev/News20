@@ -54,15 +54,12 @@ logger = get_logger("pipeline.coverage_census")
 # so the target lives in exactly one place (Rule 7).
 HIT_RATE_TARGET: float = 0.60
 
-# Reason: the 3 seeded persona auth emails are the single source of truth in
-# scripts/seed_personas.py (PERSONA_SPECS). The census imports them from there at the
-# CLI boundary so the two never drift; this list is only the fallback default when the
-# import is unavailable in a bare test import context.
-_DEFAULT_PERSONA_EMAILS: tuple[str, ...] = (
-    "persona.founder@news20.seed",
-    "persona.cricket@news20.seed",
-    "persona.chip@news20.seed",
-)
+# Reason: PostgREST caps a single .select() at 1000 rows by default (a known project
+# gotcha). The census reads story_interests, which grows without bound as niche
+# ingestion ramps — an unpaginated read would silently truncate and corrupt BOTH the
+# present-day set (denominator) and the hit counts (numerator). Every DB read paginates
+# through _fetch_all in pages of this size.
+_PAGE_SIZE = 1000
 
 
 class SeededInterest(BaseModel):
@@ -469,6 +466,33 @@ def _utc_date_of(timestamp_str: str) -> str:
     return parsed.astimezone(timezone.utc).date().isoformat()
 
 
+def _fetch_all(query_factory: Any) -> list[dict[str, Any]]:
+    """Read every row of a PostgREST select, paginating past the 1000-row cap.
+
+    A single ``.select().execute()`` returns at most 1000 rows (the PostgREST
+    default), so an unpaginated read silently truncates on a busy day and corrupts
+    the census counts. This walks ``.range()`` pages until a short page ends the read.
+
+    Args:
+        query_factory: A zero-arg callable returning a FRESH, fully-filtered query
+            builder (pre-``.range()``) — a builder is single-use per ``execute()``, so
+            each page needs a new one.
+
+    Returns:
+        All rows across every page.
+    """
+    rows: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        response = query_factory().range(offset, offset + _PAGE_SIZE - 1).execute()
+        page = getattr(response, "data", None) or []
+        rows.extend(page)
+        if len(page) < _PAGE_SIZE:
+            break
+        offset += _PAGE_SIZE
+    return rows
+
+
 def fetch_census_inputs(
     supabase_client: Any,
     *,
@@ -510,15 +534,13 @@ def fetch_census_inputs(
     )
 
     # ── 1. Resolve persona user_ids by email ──
-    users_resp = (
-        supabase_client.table("users")
+    user_rows = _fetch_all(
+        lambda: supabase_client.table("users")
         .select("user_id, user_email")
         .in_("user_email", persona_emails)
-        .execute()
     )
     user_id_by_email = {
-        str(row["user_email"]).lower(): str(row["user_id"])
-        for row in (getattr(users_resp, "data", None) or [])
+        str(row["user_email"]).lower(): str(row["user_id"]) for row in user_rows
     }
 
     # ── 2. Followed interests per persona (with when they were followed) ──
@@ -529,23 +551,20 @@ def fetch_census_inputs(
     ]
     profile_rows: list[dict[str, Any]] = []
     if persona_user_ids:
-        profiles_resp = (
-            supabase_client.table("user_interest_profile")
+        profile_rows = _fetch_all(
+            lambda: supabase_client.table("user_interest_profile")
             .select("profile_user_id, profile_interest_id, profile_created_at")
             .in_("profile_user_id", persona_user_ids)
-            .execute()
         )
-        profile_rows = getattr(profiles_resp, "data", None) or []
 
     # ── 3. Taxonomy map (for ladder-ancestor resolution) ──
-    interests_resp = (
-        supabase_client.table("interests")
-        .select("interest_id, interest_slug, interest_label, depth_level, parent_interest_id")
-        .execute()
+    interest_rows = _fetch_all(
+        lambda: supabase_client.table("interests").select(
+            "interest_id, interest_slug, interest_label, depth_level, parent_interest_id"
+        )
     )
     node_by_id: dict[str, dict[str, Any]] = {
-        str(row["interest_id"]): row
-        for row in (getattr(interests_resp, "data", None) or [])
+        str(row["interest_id"]): row for row in interest_rows
     }
 
     def _ancestors(interest_id: str) -> list[dict[str, Any]]:
@@ -612,18 +631,18 @@ def fetch_census_inputs(
     # ── 4. Direct tag rows for the relevant interests, within the window ──
     tag_observations: list[TagObservation] = []
     if all_relevant_interest_ids:
-        tags_resp = (
-            supabase_client.table("story_interests")
+        relevant_ids = sorted(all_relevant_interest_ids)
+        tag_rows = _fetch_all(
+            lambda: supabase_client.table("story_interests")
             .select(
                 "story_interest_interest_id, story_interest_story_id, "
                 "story_interest_created_at"
             )
-            .in_("story_interest_interest_id", sorted(all_relevant_interest_ids))
+            .in_("story_interest_interest_id", relevant_ids)
             .gte("story_interest_created_at", start_ts)
             .lt("story_interest_created_at", end_exclusive_ts)
-            .execute()
         )
-        for row in getattr(tags_resp, "data", None) or []:
+        for row in tag_rows:
             tag_observations.append(
                 TagObservation(
                     interest_id=str(row["story_interest_interest_id"]),
@@ -635,16 +654,14 @@ def fetch_census_inputs(
     # ── 5. Present-day probe: dates any tag was created POOL-WIDE in the window ──
     # A day the batch ran has ≥1 tag pool-wide; a window day with none = batch never
     # ran (missing), distinct from a persona interest that drew zero (dry niche).
-    present_resp = (
-        supabase_client.table("story_interests")
+    present_rows = _fetch_all(
+        lambda: supabase_client.table("story_interests")
         .select("story_interest_created_at")
         .gte("story_interest_created_at", start_ts)
         .lt("story_interest_created_at", end_exclusive_ts)
-        .execute()
     )
     present_days = {
-        _utc_date_of(str(row["story_interest_created_at"]))
-        for row in (getattr(present_resp, "data", None) or [])
+        _utc_date_of(str(row["story_interest_created_at"])) for row in present_rows
     }
 
     logger.info(

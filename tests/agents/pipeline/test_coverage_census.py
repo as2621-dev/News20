@@ -21,12 +21,14 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from agents.pipeline import coverage_census
 from agents.pipeline.coverage_census import (
     HIT_RATE_TARGET,
     CoverageCensusReport,
     PersonaProfile,
     SeededInterest,
     TagObservation,
+    _fetch_all,
     build_coverage_census,
     fetch_census_inputs,
     render_report_text,
@@ -386,15 +388,19 @@ class TestReportShape:
 
 
 class _FakeQuery:
-    """A chainable fake of the Supabase query builder that records reads.
+    """A chainable fake of the Supabase query builder that paginates like PostgREST.
 
-    Every filter method returns ``self`` so ``.select().in_().gte().lt().execute()``
-    chains resolve; ``execute()`` returns the pre-seeded response for the table.
+    Every filter method returns ``self`` so
+    ``.select().in_().gte().lt().range().execute()`` chains resolve. ``.range()`` slices
+    the canned rows so :func:`_fetch_all`'s pagination loop is exercised for real
+    (a page shorter than the page size ends the loop).
     """
 
-    def __init__(self, table_name: str, response_data: object) -> None:
+    def __init__(self, table_name: str, rows: list[dict[str, object]]) -> None:
         self.table_name = table_name
-        self._response = MagicMock(data=response_data)
+        self._rows = rows
+        self._start = 0
+        self._end: int | None = None
 
     def select(self, *_a: object, **_k: object) -> "_FakeQuery":
         return self
@@ -408,8 +414,16 @@ class _FakeQuery:
     def lt(self, *_a: object, **_k: object) -> "_FakeQuery":
         return self
 
+    def range(self, start: int, end: int) -> "_FakeQuery":
+        self._start = start
+        self._end = end
+        return self
+
     def execute(self) -> object:
-        return self._response
+        if self._end is None:
+            return MagicMock(data=self._rows)
+        # PostgREST .range is inclusive on both ends.
+        return MagicMock(data=self._rows[self._start : self._end + 1])
 
 
 class _FakeSupabase:
@@ -419,13 +433,31 @@ class _FakeSupabase:
     call would raise AttributeError, which the read-only test relies on.
     """
 
-    def __init__(self, rows_by_table: dict[str, object]) -> None:
+    def __init__(self, rows_by_table: dict[str, list[dict[str, object]]]) -> None:
         self._rows_by_table = rows_by_table
         self.table_calls: list[str] = []
 
     def table(self, name: str) -> _FakeQuery:
         self.table_calls.append(name)
         return _FakeQuery(name, self._rows_by_table.get(name, []))
+
+
+class TestFetchAllPagination:
+    """The 1000-row PostgREST cap must not silently truncate a census read."""
+
+    def test_fetch_all_reads_every_page_past_the_cap(self, monkeypatch) -> None:
+        # Force a tiny page size so we cross the boundary without 1000+ fixture rows.
+        monkeypatch.setattr(coverage_census, "_PAGE_SIZE", 10)
+        rows = [{"n": i} for i in range(25)]  # 3 pages: 10 + 10 + 5
+        result = _fetch_all(lambda: _FakeQuery("t", rows))
+        # All 25 rows returned — not truncated at the first page.
+        assert [r["n"] for r in result] == list(range(25))
+
+    def test_fetch_all_exact_multiple_stops_on_empty_page(self, monkeypatch) -> None:
+        monkeypatch.setattr(coverage_census, "_PAGE_SIZE", 10)
+        rows = [{"n": i} for i in range(20)]  # 2 full pages then an empty page
+        result = _fetch_all(lambda: _FakeQuery("t", rows))
+        assert len(result) == 20
 
 
 class TestFetchCensusInputsSeam:
