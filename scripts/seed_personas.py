@@ -296,11 +296,22 @@ def _get_or_create_user(supabase: Any, email: str) -> str:
             ).user.id
         )
     except Exception:  # noqa: BLE001 — user likely already exists; find it.
-        page = supabase.auth.admin.list_users()
-        users = page if isinstance(page, list) else getattr(page, "users", []) or []
-        for user in users:
-            if str(getattr(user, "email", "")).lower() == email.lower():
-                return str(user.id)
+        # Reason: list_users() is paginated (default 50/page). A prod project has far
+        # more than one page of auth users, so scanning only page 1 would fail to find
+        # a persona created earlier and re-raise the "already exists" error, breaking
+        # the idempotency guarantee. Walk pages until the email is found or exhausted.
+        page_number = 1
+        while True:
+            page = supabase.auth.admin.list_users(page=page_number, per_page=200)
+            users = (
+                page if isinstance(page, list) else getattr(page, "users", []) or []
+            )
+            if not users:
+                break
+            for user in users:
+                if str(getattr(user, "email", "")).lower() == email.lower():
+                    return str(user.id)
+            page_number += 1
         raise
 
 
@@ -377,6 +388,14 @@ def seed_persona(supabase: Any, persona: Persona) -> dict[str, Any]:
         supabase.table("user_interest_profile").upsert(
             profile_rows, on_conflict="profile_user_id,profile_interest_id"
         ).execute()
+
+    # Reason: mirror the interview/picker persisters (interviewProfile.ts,
+    # onboardingProfile.ts) — a default user_interest_traits row keeps the profile
+    # feed-eligible, so a seeded persona is row-convergent with an interview-minted
+    # one (idempotent upsert on the unique traits_user_id).
+    supabase.table("user_interest_traits").upsert(
+        {"traits_user_id": user_id}, on_conflict="traits_user_id"
+    ).execute()
 
     logger.info(
         "persona_seeded",

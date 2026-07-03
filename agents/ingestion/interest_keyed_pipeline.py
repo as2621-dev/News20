@@ -294,14 +294,19 @@ async def ingest_active_interests(
         try:
             all_candidates = await batch_search(active, since)
         except AdapterFetchError as exc:
-            # Reason: the batched call is all-or-nothing — a failure skips the run,
-            # not one interest, so mark the whole set failed (fail loud, not silent).
+            # Reason: the batched call is all-or-nothing — a failure loses EVERY active
+            # interest for this run (zero new niche stories), not one interest, so log
+            # at error level (Rule 12: a total-ingestion outage must be loud, not a
+            # warning that reads as normal) and mark the whole set failed.
             failed_interests = len(active)
-            logger.warning(
+            logger.error(
                 "ingest_batch_search_failed",
                 active_interests=len(active),
                 error_message=str(exc)[:300],
-                fix_suggestion="Batched source query failed; the whole batch is skipped this run",
+                fix_suggestion="Batched niche source query failed — ALL niche ingestion "
+                "is lost this run (empty pool). Check GOOGLE_APPLICATION_CREDENTIALS / "
+                "GCP billing for the BigQuery adapter; the run still completes but with "
+                "zero new niche stories.",
             )
             all_candidates = []
     else:

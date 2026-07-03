@@ -24,6 +24,7 @@ from scripts.seed_personas import (
     PERSONA_SPECS,
     Persona,
     PersonaMicroInterest,
+    _get_or_create_user,
     build_search_query,
     distinct_non_empty,
     micro_interest_rejection_reason,
@@ -128,10 +129,12 @@ def _fake_supabase(mint_ids: list[str]) -> MagicMock:
     """A fake Supabase client: create_user → uid, rpc mint → next id, upsert captured.
 
     ``mint_ids`` is the sequence of leaf ids the mint RPC returns (one per call).
-    ``client.captured_upsert`` holds the rows passed to the profile upsert.
+    ``client.captured_upserts`` maps table name → the rows/on_conflict last upserted
+    to it; ``client.captured_upsert`` aliases the ``user_interest_profile`` capture.
     """
     client = MagicMock()
     client.auth.admin.create_user.return_value.user.id = "user-abc"
+    client.captured_upserts = {}
 
     ids = iter(mint_ids)
 
@@ -142,11 +145,14 @@ def _fake_supabase(mint_ids: list[str]) -> MagicMock:
 
     client.rpc.side_effect = _rpc
 
-    def _table(_name):
+    def _table(name):
         table = MagicMock()
 
         def _upsert(rows, on_conflict=None):
-            client.captured_upsert = {"rows": rows, "on_conflict": on_conflict}
+            capture = {"rows": rows, "on_conflict": on_conflict}
+            client.captured_upserts[name] = capture
+            if name == "user_interest_profile":
+                client.captured_upsert = capture
             return MagicMock()
 
         table.upsert.side_effect = _upsert
@@ -154,6 +160,39 @@ def _fake_supabase(mint_ids: list[str]) -> MagicMock:
 
     client.table.side_effect = _table
     return client
+
+
+class TestGetOrCreateUser:
+    """_get_or_create_user — idempotent get-or-create of the persona auth user."""
+
+    def test_existing_user_found_beyond_first_page(self) -> None:
+        """When create_user fails (user exists) the fallback must PAGINATE list_users,
+        not scan only page 1. WHY: prod has far more than one page (default 50) of auth
+        users, so a page-1-only scan would miss a persona created on an earlier run and
+        re-raise the 'already exists' error, breaking the seed's idempotency guarantee."""
+        client = MagicMock()
+        client.auth.admin.create_user.side_effect = Exception("user already exists")
+
+        page_one = [MagicMock(email="someone@else.com", id="other-1")]
+        page_two = [MagicMock(email="P@News20.Seed", id="persona-42")]  # case-insensitive
+
+        def _list_users(page=1, per_page=200):
+            return {1: page_one, 2: page_two}.get(page, [])
+
+        client.auth.admin.list_users.side_effect = _list_users
+
+        assert _get_or_create_user(client, "p@news20.seed") == "persona-42"
+        assert client.auth.admin.list_users.call_count == 2  # walked to page 2
+
+    def test_missing_user_reraises_after_pages_exhausted(self) -> None:
+        """If no page contains the email, the original create error surfaces (Rule 12 —
+        no silent swallow) rather than looping forever."""
+        client = MagicMock()
+        client.auth.admin.create_user.side_effect = Exception("boom")
+        client.auth.admin.list_users.side_effect = lambda page=1, per_page=200: []
+
+        with pytest.raises(Exception, match="boom"):
+            _get_or_create_user(client, "nobody@news20.seed")
 
 
 class TestSeedPersona:
@@ -197,6 +236,13 @@ class TestSeedPersona:
         assert rows["leaf-vc"]["profile_weight"] == 1.5
         assert rows["leaf-vc"]["profile_is_strict"] is False
         assert all(r["profile_source"] == "typed" for r in rows.values())
+        # A default user_interest_traits row is upserted too, so a seeded persona is
+        # feed-eligible and row-convergent with an interview-minted profile (matches
+        # interviewProfile.ts / onboardingProfile.ts). Without it the persona would be
+        # a silent divergence from the real onboarding paths.
+        traits = client.captured_upserts["user_interest_traits"]
+        assert traits["rows"] == {"traits_user_id": "user-abc"}
+        assert traits["on_conflict"] == "traits_user_id"
         assert all(r["profile_user_id"] == "user-abc" for r in rows.values())
 
     def test_rejected_item_is_surfaced_not_minted(self) -> None:

@@ -931,6 +931,31 @@ class TestBigQueryNicheSeamIntegration:
         assert result.story_interest_tags == []
 
     @pytest.mark.asyncio
+    async def test_batch_row_cap_scales_with_active_set_not_a_fixed_ceiling(
+        self, make_fake_bq_client
+    ) -> None:
+        """The batched pass sizes ``@max_rows`` to used_interests × per_interest_limit,
+        NOT a fixed default. WHY: the SQL applies the global ``LIMIT @max_rows`` AFTER
+        the per-interest window and ORDERs BY interest_id, so a fixed cap below the
+        batch's legitimate ceiling would silently STARVE whole late-ordered interests
+        as the active set grows. A deliberately tiny fixed max_rows must be overridden
+        by the batch-sized cap."""
+        nodes = self._two_query_bearing_nodes()
+        client = make_fake_bq_client(rows=[])
+        # Fixed ceiling of 1 would truncate to a single row for the whole batch.
+        adapter = GdeltBigQueryAdapter(client=client, per_interest_limit=75, max_rows=1)
+
+        await ingest_active_interests(
+            followed_interest_ids=["int-arsenal", "int-chips"],
+            interest_nodes=nodes,
+            adapter=adapter,
+            extract_bodies=False,
+        )
+
+        # 2 interests × 75 cap = 150, which overrides the fixed max_rows=1.
+        assert _param(client.captured["job_config"], "max_rows").value == 150
+
+    @pytest.mark.asyncio
     async def test_bigquery_failure_fails_loud_but_leaves_pool_empty_not_aborted(
         self, make_fake_bq_client, interest_nodes, interest_ids
     ) -> None:

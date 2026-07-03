@@ -419,11 +419,15 @@ async def _run_daily(
         # Reason: niche ingestion runs through the batched BigQuery pass — ONE SQL for
         # ALL active micro-interests, no per-IP throttle and no 250-row cap
         # (reference/integrations.md, GDELT BigQuery). The rate-limited DOC adapter is
-        # retired from the niche daily path and kept ONLY as the coverage-census source
-        # and the backbone emergency fallback (it honors the 1-req/5s throttle). A
-        # BigQuery credential/billing failure fails the niche pass loud (the batch call
-        # normalizes to AdapterFetchError, which ingest_active_interests logs + skips)
-        # and leaves the DOC-backed census/backbone intact.
+        # retired from the niche daily path and kept ONLY as the render-time coverage
+        # census source (the breaking-signal enrichment below; it honors the 1-req/5s
+        # throttle). A BigQuery credential/billing failure fails the niche pass loud
+        # (the batch call normalizes to AdapterFetchError, which ingest_active_interests
+        # logs at ERROR + skips) — the run still completes, but with zero new niche
+        # stories this cycle, and the DOC census layer is unaffected. NOTE: there is no
+        # independent DOC story-source backbone in this path today; if a BigQuery outage
+        # yielding an empty pool must be survived with a DOC story pull, that is a
+        # separate resilience wiring (see slice #7 assembly / residual findings).
         niche_adapter = GdeltBigQueryAdapter(
             billing_project=os.environ.get("GCP_BILLING_PROJECT") or None
         )

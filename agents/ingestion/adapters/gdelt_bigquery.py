@@ -440,12 +440,20 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
             used_interests=used_interests,
             term_predicates=len(terms),
         )
+        # Reason: the SQL's global ``LIMIT @max_rows`` is applied AFTER the per-interest
+        # ``rn <= @per_interest_limit`` window and ORDERs BY interest_id, so a fixed cap
+        # below the batch's legitimate ceiling would silently starve whole late-ordered
+        # interests once used_interests × per_interest_limit exceeds it. Size the cap to
+        # that exact ceiling (default self.max_rows as a floor) so every active interest
+        # gets its full per-interest quota no matter how large the active set grows.
+        batch_max_rows = max(self.max_rows, used_interests * self.per_interest_limit)
         rows = await self._run_query(
             terms,
             since_utc,
             self.per_interest_limit,
             f"{used_interests} interests",
             domains=domains,
+            max_rows=batch_max_rows,
         )
         candidates = self._rows_to_candidates(rows, stamp_interest=True)
         logger.info(
@@ -488,6 +496,7 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
         per_interest_limit: int,
         label: str,
         domains: list[str] | None = None,
+        max_rows: int | None = None,
     ) -> list[dict[str, Any]]:
         """Execute the batched GKG query off the event loop; return raw row dicts.
 
@@ -541,7 +550,9 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                 bigquery.ScalarQueryParameter(
                     "per_interest_limit", "INT64", per_interest_limit
                 ),
-                bigquery.ScalarQueryParameter("max_rows", "INT64", self.max_rows),
+                bigquery.ScalarQueryParameter(
+                    "max_rows", "INT64", max_rows if max_rows is not None else self.max_rows
+                ),
             ]
             # Reason: bind the @domains array only when the predicate is present, so
             # the no-domains job config is byte-identical to today's (additive path).
