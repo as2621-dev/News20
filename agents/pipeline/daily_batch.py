@@ -36,6 +36,7 @@ from agents.pipeline.categories import (
 )
 from agents.pipeline.demand import compute_pool_target
 from agents.pipeline.feed_assembly import ScoredCandidate
+from agents.pipeline.niche_allocation import NicheAllocationRow
 from agents.pipeline.models import WritePhaseResult
 from agents.pipeline.orchestrator import (
     DailyFeedsBatchResult,
@@ -352,6 +353,62 @@ def _load_category_allocation(
     return allocation_by_user
 
 
+def _load_niche_allocation(
+    supabase_client: Any, user_ids: list[str]
+) -> dict[str, list[NicheAllocationRow]]:
+    """Load every active user's ``user_feed_allocation`` rows WITH section metadata (FSR #7).
+
+    The niche-aware sibling of :func:`_load_category_allocation`: it additionally selects the
+    slice-#6 columns (``allocation_interest_id`` + ``allocation_section_label``, migration
+    0026) so :func:`agents.pipeline.feed_assembly.assemble_niche_feed` can fill each named
+    niche section leaf-first and stamp climbed slots. One ``.in_()`` over all active users,
+    grouped in memory. A user with only coarse rows (NULL interest ref) hydrates as coarse
+    :class:`NicheAllocationRow`s — the assembler then delegates to the unchanged coarse path.
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+        user_ids: The active user ids to load allocations for.
+
+    Returns:
+        ``{user_id: [NicheAllocationRow, ...]}`` (users with no allocation are absent —
+        the assembler applies a balanced default for them via the coarse delegate).
+    """
+    if not user_ids:
+        return {}
+    rows = (
+        getattr(
+            supabase_client.table("user_feed_allocation")
+            .select(
+                "follow_user_id,allocation_category,allocation_interest_id,"
+                "allocation_section_label,allocation_slot_count,allocation_sort_order"
+            )
+            .in_("follow_user_id", user_ids)
+            .execute(),
+            "data",
+            None,
+        )
+        or []
+    )
+    allocation_by_user: dict[str, list[NicheAllocationRow]] = {}
+    for row in rows:
+        interest_id = row.get("allocation_interest_id")
+        section_label = row.get("allocation_section_label")
+        allocation_by_user.setdefault(str(row["follow_user_id"]), []).append(
+            NicheAllocationRow(
+                allocation_category=str(row["allocation_category"]),
+                allocation_interest_id=(
+                    str(interest_id) if interest_id is not None else None
+                ),
+                allocation_section_label=(
+                    str(section_label) if section_label is not None else None
+                ),
+                allocation_slot_count=int(row["allocation_slot_count"]),
+                allocation_sort_order=int(row["allocation_sort_order"]),
+            )
+        )
+    return allocation_by_user
+
+
 def _load_interest_nodes_by_user(
     supabase_client: Any,
     user_ids: list[str],
@@ -518,6 +575,10 @@ def load_active_user_inputs(
     # each in ONE batched query keyed by the same active-user set.
     entities_by_user = _load_followed_entities(supabase_client, active_user_ids)
     allocation_by_user = _load_category_allocation(supabase_client, active_user_ids)
+    # FSR #7: the niche-aware section plan (with interest-node refs + user-vocab labels)
+    # the fallback-ladder assembler fills niche-first. A user with only coarse rows
+    # hydrates as coarse NicheAllocationRows → the assembler delegates to the coarse path.
+    niche_allocation_by_user = _load_niche_allocation(supabase_client, active_user_ids)
 
     inputs: list[ActiveUserFeedInputs] = []
     for user_id, profile_interests in interests_by_user.items():
@@ -527,6 +588,7 @@ def load_active_user_inputs(
                 profile_interests=profile_interests,
                 followed_entities=entities_by_user.get(user_id, []),
                 category_allocation=allocation_by_user.get(user_id, []),
+                niche_allocation=niche_allocation_by_user.get(user_id, []),
                 prior_feed_story_ids=prior_story_ids_by_user.get(user_id, []),
                 exploration_candidates_by_interest=exploration_by_user.get(user_id, {}),
             )

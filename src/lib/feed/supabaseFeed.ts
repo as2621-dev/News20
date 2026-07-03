@@ -178,6 +178,10 @@ interface DailyFeedRow {
   /** The slot tier that placed this story: `source` (followed source) or `interest`
    *  (category slot). phase-SP1 removed the `breaking` tier. */
   feed_slot_kind: string | null;
+  /** FSR #7 section metadata (migration 0027). NULL/0 on coarse/roots-only + source rows. */
+  feed_section_label: string | null;
+  feed_section_interest_id: string | null;
+  feed_fallback_source_level: number | null;
   stories: StoryRow | StoryRow[];
 }
 
@@ -207,7 +211,10 @@ export async function getDailyFeed(
 ): Promise<Story[]> {
   const { data, error } = await client
     .from("daily_feeds")
-    .select(`feed_position,feed_slot_kind,stories!inner(${FEED_SELECT})`)
+    .select(
+      `feed_position,feed_slot_kind,feed_section_label,feed_section_interest_id,` +
+        `feed_fallback_source_level,stories!inner(${FEED_SELECT})`,
+    )
     .eq("feed_user_id", userId)
     .eq("feed_date", feedDate)
     .order("feed_position", { ascending: true })
@@ -228,5 +235,11 @@ export async function getDailyFeed(
     // a "source" row is a source slot, any other value (incl. null / a legacy
     // "breaking" enum row) is a normal interest slot (phase-SP1 removed breaking).
     feed_slot_kind: row.feed_slot_kind === "source" ? "source" : "interest",
+    // Reason (FSR #7): carry the section metadata so slice #8 renders honest section
+    // headers ("Nothing new in IPL today — here's cricket"). Additive + null-safe: a
+    // legacy row with no section columns reads as (null, null, 0) — a direct, unlabeled slot.
+    feed_section_label: row.feed_section_label ?? null,
+    feed_section_interest_id: row.feed_section_interest_id ?? null,
+    feed_fallback_source_level: row.feed_fallback_source_level ?? 0,
   }));
 }

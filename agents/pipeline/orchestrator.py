@@ -38,9 +38,10 @@ from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestT
 from agents.pipeline.feed_assembly import (
     FeedWriteResult,
     ScoredCandidate,
-    assemble_user_feed,
+    assemble_niche_feed,
     write_daily_feed,
 )
+from agents.pipeline.niche_allocation import NicheAllocationRow
 from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import CoverageReport, DigestScript, WritePhaseResult
@@ -773,6 +774,11 @@ class ActiveUserFeedInputs(BaseModel):
         default_factory=list,
         description="Per-category slot budgets + manual sequence (user_feed_allocation)",
     )
+    niche_allocation: list[NicheAllocationRow] = Field(
+        default_factory=list,
+        description="FSR #7 niche section plan (interest-node refs + user-vocab labels); "
+        "empty → the coarse category path (roots-only / pre-screen)",
+    )
     prior_feed_story_ids: list[str] = Field(
         default_factory=list, description="Prior daily_feeds story ids (don't-repeat)"
     )
@@ -877,17 +883,28 @@ def assemble_daily_feeds(
     )
 
     for user_inputs in active_user_inputs:
-        slots = assemble_user_feed(
+        # FSR #7: the niche-first fallback-ladder assembler. When the user has niche
+        # sections it fills them niche-first (climbing one honest level at a time) +
+        # beyond-bubble backfill; when they have only coarse rows (roots-only / pre-screen)
+        # it delegates to the unchanged coarse allocator (byte-identical). If the loader
+        # has no niche-allocation rows for this user (legacy call path / older loader),
+        # fall back to the coarse rows so the projection still runs.
+        niche_allocation = user_inputs.niche_allocation or [
+            NicheAllocationRow(
+                allocation_category=row.allocation_category,
+                allocation_slot_count=row.allocation_slot_count,
+                allocation_sort_order=row.allocation_sort_order,
+            )
+            for row in user_inputs.category_allocation
+        ]
+        slots = assemble_niche_feed(
             profile_interests=user_inputs.profile_interests,
+            niche_allocation=niche_allocation,
             stories=stories,
             story_interest_tags=story_interest_tags,
             interest_nodes=interest_nodes,
             followed_entities=user_inputs.followed_entities,
-            category_allocation=user_inputs.category_allocation,
             prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
-            exploration_candidates_by_interest=(
-                user_inputs.exploration_candidates_by_interest or None
-            ),
             source_stories=(
                 (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
             ),

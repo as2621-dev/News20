@@ -193,4 +193,29 @@ export interface Story {
    * slot kind).
    */
   feed_slot_kind?: "interest" | "source";
+  /**
+   * The user-vocabulary section header this slot belongs to
+   * (`daily_feeds.feed_section_label`; FSR slice #7). The user's own words for a niche
+   * section (`"IPL"`), the reserved `"Beyond your bubble"` label, or `null`/`undefined`
+   * for a coarse/roots-only or followed-source slot. Twin of the Python
+   * `AllocatedSlot.feed_section_label` (`agents/pipeline/feed_assembly.py`). Consumed by
+   * slice #8 to render honest section headers.
+   */
+  feed_section_label?: string | null;
+  /**
+   * The interest node the SECTION is named for — the followed leaf
+   * (`daily_feeds.feed_section_interest_id`; FSR slice #7). Differs from the matched
+   * interest exactly when the fallback ladder climbed (section = IPL leaf, filled from
+   * cricket parent). `null`/`undefined` on coarse/beyond-bubble/source slots. Twin of
+   * `AllocatedSlot.feed_section_interest_id`.
+   */
+  feed_section_interest_id?: string | null;
+  /**
+   * How far the fill climbed the fallback ladder for this section
+   * (`daily_feeds.feed_fallback_source_level`; FSR slice #7): `0` direct/leaf fill,
+   * `1` one level up (parent), `2` grandparent. A value `> 0` is the honesty stamp —
+   * the reel must label the substitution ("Nothing new in IPL today — here's cricket").
+   * Twin of `AllocatedSlot.feed_fallback_source_level`.
+   */
+  feed_fallback_source_level?: number;
 }

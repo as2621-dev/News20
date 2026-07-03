@@ -54,7 +54,7 @@ pool + taxonomy + prior feed) — no DB, no network — fully unit-testable.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -66,12 +66,19 @@ from agents.pipeline.categories import (
     CategoryAllocation,
     FeedCategory,
 )
+from agents.pipeline.niche_allocation import BEYOND_BUBBLE_LABEL, NicheAllocationRow
+from agents.pipeline.produce_gate import compute_importance_score
 from agents.pipeline.stages.ranking import (
     DEFAULT_SCORE_THRESHOLD,
     FollowedEntity,
     ScoredCandidate,
     UserProfileInterest,
+    _index_tags_by_story,
+    _walk_ancestors,
+    assign_category,
+    normalize_affinities,
     score_and_classify_for_user,
+    score_stories_for_interest,
 )
 from agents.shared.logger import get_logger
 
@@ -115,11 +122,23 @@ class AllocatedSlot(BaseModel):
         feed_story_id: The story filling this slot (``daily_feeds.feed_story_id``).
         feed_position: 1-based position in the ordered feed (``feed_position``).
         feed_score: The per-(user, story) Score that placed it (``feed_score``).
-        feed_matched_interest_id: The followed interest this slot is attributed to
-            (``feed_matched_interest_id``); None for a source slot with no
-            specific attributed leaf.
+        feed_matched_interest_id: The interest node this slot was actually FILLED
+            from (``feed_matched_interest_id``); None for a source/beyond-bubble slot.
+            On a climbed niche slot this is the ANCESTOR node that matched (cricket),
+            not the section's own leaf — that distinction is the honesty signal.
         feed_slot_kind: ``interest`` / ``source`` (``exploration`` retired in the
             category-budget model).
+        feed_section_label: The user-vocabulary section header this slot belongs to
+            (``daily_feeds.feed_section_label``; slice #7) — the user's words for a
+            niche section, :data:`BEYOND_BUBBLE_LABEL` for a beyond-bubble slot, or
+            None for a coarse/roots-only or source slot.
+        feed_section_interest_id: The interest node the SECTION is named for (the
+            followed leaf; ``daily_feeds.feed_section_interest_id``). Differs from
+            ``feed_matched_interest_id`` exactly when the ladder climbed. None on
+            coarse/beyond-bubble/source slots.
+        feed_fallback_source_level: How far the fill climbed the ladder for this
+            section (``daily_feeds.feed_fallback_source_level``): 0 direct/leaf, 1
+            parent, 2 grandparent. > 0 is the honesty stamp — the UI must say so.
 
     Example:
         >>> slot = AllocatedSlot(
@@ -134,11 +153,25 @@ class AllocatedSlot(BaseModel):
     feed_position: int = Field(..., ge=1, description="1-based ordered feed position")
     feed_score: float = Field(..., ge=0.0, description="The Score that placed it")
     feed_matched_interest_id: str | None = Field(
-        default=None, description="The followed interest this slot is attributed to"
+        default=None, description="The interest node this slot was filled from"
     )
     feed_slot_kind: str = Field(
         default=SLOT_KIND_INTEREST,
         description="interest / source",
+    )
+    feed_section_label: str | None = Field(
+        default=None,
+        description="User-vocab section header / 'Beyond your bubble' / None (slice #7)",
+    )
+    feed_section_interest_id: str | None = Field(
+        default=None,
+        description="The interest node the section is named for (leaf); None if coarse",
+    )
+    feed_fallback_source_level: int = Field(
+        default=0,
+        ge=0,
+        le=2,
+        description="Ladder climb for this section: 0 direct / 1 parent / 2 grandparent",
     )
 
 
@@ -707,6 +740,416 @@ def assemble_user_feed(
     return slots
 
 
+def _fill_niche_section(
+    section_interest_id: str,
+    affinity: float,
+    is_strict: bool,
+    want: int,
+    stories: list[CanonicalStory],
+    tags_by_story: dict[str, dict[str, int]],
+    interest_nodes: dict[str, InterestNode],
+    now_utc: datetime,
+    used_story_ids: set[str],
+    excluded_story_ids: set[str],
+    score_threshold: float,
+    cluster_importance_by_story: dict[str, float] | None,
+) -> list[tuple[ScoredCandidate, int]]:
+    """Fill ONE niche section leaf-first, climbing the ladder one level at a time.
+
+    The honesty core (FSR slice #7, ``plans/prd.md`` Decisions #6/#7). Fills up to
+    ``want`` slots for the section's followed leaf:
+
+      1. **Direct fill** — take top-``Score ≥ T`` stories tagged at the leaf
+         (``fallback_depth == 0``) — no fallback metadata; the interview's promise kept.
+      2. **One-level climb** — if the section is still short AND not strict, climb to the
+         parent (``fallback_depth == 1``), then the grandparent (2), taking only enough to
+         top up. Each climbed slot is stamped with its climb level so the UI labels the
+         substitution honestly. Levels are never skipped (leaf → parent → grandparent).
+      3. **Strict** — a strict section climbs NOTHING (``climb_path == [leaf]``): a dry
+         strict section returns fewer than ``want`` slots and its remainder is handed to
+         the beyond-bubble backfill by the caller — never silently substituted.
+
+    Shares ``used_story_ids`` with every other section so a story tagged to two niches
+    lands in exactly one slot (deduped across sections); ``excluded_story_ids`` is the
+    §3.8 don't-repeat set. Reuses the ranking primitives (:func:`_walk_ancestors`,
+    :func:`score_stories_for_interest`, :func:`_take_top_qualifying`) so the climb
+    semantics are byte-identical to the scorer's fallback tree (Rule 7 — one ladder).
+
+    Args:
+        section_interest_id: The followed leaf the section is named for.
+        affinity: The user's normalized 0–1 affinity for this leaf.
+        is_strict: When True, cap the climb at the leaf (no upward broadening).
+        want: How many slots this section may fill.
+        stories: The shared candidate story pool.
+        tags_by_story: ``{story_id: {interest_id: match_depth}}`` index.
+        interest_nodes: ``{interest_id: InterestNode}`` taxonomy (drives the climb).
+        now_utc: Current time for the freshness term.
+        used_story_ids: Mutated — a placed story is added (dedup across sections).
+        excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
+        score_threshold: ``T`` — the qualifying bar (also the climb-stop bar).
+        cluster_importance_by_story: E1 importance map threaded to the scorer.
+
+    Returns:
+        ``[(candidate, fallback_depth), ...]`` in fill order (leaf slots first, then any
+        climbed slots). ``candidate.matched_interest_id`` is the node actually filled from
+        (the ancestor on a climbed slot); ``fallback_depth`` is the climb level (0/1/2).
+    """
+    climb_path = (
+        [section_interest_id]
+        if is_strict
+        else _walk_ancestors(section_interest_id, interest_nodes)
+    )
+    placed: list[tuple[ScoredCandidate, int]] = []
+    for fallback_depth, node_id in enumerate(climb_path):
+        remaining = want - len(placed)
+        if remaining <= 0:
+            break
+        node_scored = score_stories_for_interest(
+            interest_id=node_id,
+            affinity=affinity,
+            stories=stories,
+            tags_by_story=tags_by_story,
+            now_utc=now_utc,
+            fallback_depth=fallback_depth,
+            cluster_importance_by_story=cluster_importance_by_story,
+        )
+        taken = _take_top_qualifying(
+            candidates=node_scored,
+            count=remaining,
+            used_story_ids=used_story_ids,
+            excluded_story_ids=excluded_story_ids,
+            score_threshold=score_threshold,
+        )
+        placed.extend((candidate, fallback_depth) for candidate in taken)
+    return placed
+
+
+def _beyond_bubble_ranked(
+    stories: list[CanonicalStory],
+    tags_by_story: dict[str, dict[str, int]],
+    interest_nodes: dict[str, InterestNode],
+    reserve_roots: set[FeedCategory],
+    used_story_ids: set[str],
+    excluded_story_ids: set[str],
+    cluster_importance_by_story: dict[str, float],
+) -> list[tuple[str, float]]:
+    """Importance-rank the beyond-bubble backbone: un-lit-root stories, best first.
+
+    The serendipity pool (Decision #7). A candidate qualifies when it classifies
+    (:func:`assign_category`) into one of the beyond-bubble ``reserve_roots`` (roots the
+    user did NOT light up), is not already placed in this feed, and is not in the §3.8
+    exclusion. Ranked by the same importance signal the produce gate uses — the E1
+    ``cluster_importance`` when the story is clustered, else the raw outlet-count
+    importance — so the "outside your bubble" slots surface the day's biggest stories in
+    those roots, not noise. No affinity/threshold gate (the user follows none of these
+    roots — importance is the whole signal).
+
+    Args:
+        stories: The shared candidate pool.
+        tags_by_story: ``{story_id: {interest_id: match_depth}}`` index.
+        interest_nodes: Taxonomy lookup (classifies each story).
+        reserve_roots: The beyond-bubble roots to draw from.
+        used_story_ids: Story ids already placed (excluded here; NOT mutated).
+        excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
+        cluster_importance_by_story: E1 importance map (falls back to outlet count).
+
+    Returns:
+        ``[(story_id, importance), ...]`` descending by importance, then story id
+        (deterministic tiebreak).
+    """
+    ranked: list[tuple[str, float]] = []
+    for story in stories:
+        story_id = story.canonical_story_id
+        if story_id in used_story_ids or story_id in excluded_story_ids:
+            continue
+        if assign_category(story_id, tags_by_story, interest_nodes) not in reserve_roots:
+            continue
+        importance = cluster_importance_by_story.get(story_id)
+        if importance is None:
+            importance = compute_importance_score(story.story_outlet_count)
+        ranked.append((story_id, importance))
+    ranked.sort(key=lambda item: (-item[1], item[0]))
+    return ranked
+
+
+def assemble_niche_feed(
+    profile_interests: list[UserProfileInterest],
+    niche_allocation: list[NicheAllocationRow],
+    stories: list[CanonicalStory],
+    story_interest_tags: list[StoryInterestTag],
+    interest_nodes: dict[str, InterestNode],
+    followed_entities: list[FollowedEntity] | None = None,
+    prior_feed_story_ids: set[str] | None = None,
+    source_stories: list[CanonicalStory] | None = None,
+    cluster_importance_by_story: dict[str, float] | None = None,
+    feed_slot_budget: int = FEED_SLOT_BUDGET,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
+    now_utc: Any = None,
+) -> list[AllocatedSlot]:
+    """Assemble one user's feed niche-first, with the honest fallback ladder (slice #7).
+
+    The FSR feed assembler. Fills a user's named niche sections (:class:`NicheAllocationRow`
+    from slice #6) from directly-tagged stories, climbing each section's ladder ONE level
+    at a time when it is short, and stamping every climbed slot so the UI can be honest.
+    Whatever the niches (and a dry strict section) leave unfilled goes to the beyond-bubble
+    backfill so the feed is never short. Pure over its injected inputs (no DB/clock/network).
+
+    Routing (the roots-only regression guard):
+      * If NO row carries an ``allocation_interest_id`` (a roots-only / legacy profile, or
+        an empty allocation), this delegates to :func:`assemble_user_feed` with the rows
+        projected to :class:`CategoryAllocation` — so a roots-only user's feed is
+        byte-for-byte "the feed as today" (PRD Decision #8; acceptance: legacy path
+        unchanged). Section metadata stays absent (all defaults) on that path.
+      * Otherwise the niche path below runs.
+
+    Niche path passes:
+      1. **Source slots** — followed YouTube/X reels fill their slots GUARANTEED-first
+         (reusing :func:`_fill_source_slots`), exactly as :func:`assemble_user_feed` —
+         they lead the feed (PRD story #16), bounded by the feed budget.
+      2. **Niche sections** — each section fills leaf-first, climbing one level at a time
+         (:func:`_fill_niche_section`), in the user's ``allocation_sort_order``. Direct
+         slots carry no fallback stamp; climbed slots carry their climb level; a strict
+         section never climbs.
+      3. **Beyond-bubble backfill** — every slot the niches (and dry strict sections) did
+         not fill, up to the feed budget, is drawn from the importance-ranked backbone of
+         the reserve roots (:func:`_beyond_bubble_ranked`) so the feed reaches its target.
+      4. **Order + materialize** — emit each row's slots at its sequence position (source
+         lead, niches, beyond-bubble trailing), assign 1-based positions, cap at the budget.
+
+    Args:
+        profile_interests: The user's followed interests (Affinity + strict flags). The
+            section's affinity + strict flag are looked up here by interest id.
+        niche_allocation: The user's ``user_feed_allocation`` section plan (slice #6:
+            niche / beyond-bubble / source / coarse rows).
+        stories: The shared deduped/produced candidate pool.
+        story_interest_tags: All ``story_interests`` tag payloads for the pool.
+        interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
+        followed_entities: Forwarded to the coarse delegate only (the niche path does not
+            apply the EntityBonus — see the residual note; a follow-on can thread it).
+        prior_feed_story_ids: Story ids already shown to this user (§3.8 exclusion).
+        source_stories: This user's PRODUCED followed-source stories (youtube/x).
+        cluster_importance_by_story: E1 within-category-normalized importance map.
+        feed_slot_budget: ``N`` — total feed slots (30).
+        score_threshold: ``T`` — the qualifying/climb-stop bar.
+        now_utc: Current time for freshness (defaults to ``utcnow``).
+
+    Returns:
+        The ordered slots (``feed_position`` 1..len), each carrying its section metadata.
+        EMPTY when nothing is eligible — the caller skips the user (no empty-feed row).
+    """
+    excluded = set(prior_feed_story_ids or set())
+    rows = list(niche_allocation or [])
+
+    # ── Routing: roots-only / legacy / empty → the unchanged coarse allocator ──
+    # Reason: a profile with no niche section (NULL interest ref on every row) is "the
+    # feed as today" (Decision #8) — delegate to assemble_user_feed so its behaviour is
+    # byte-identical (the single strongest regression guard for this slice).
+    if not any(row.allocation_interest_id is not None for row in rows):
+        category_allocation = [
+            CategoryAllocation(
+                allocation_category=row.allocation_category,
+                allocation_slot_count=row.allocation_slot_count,
+                allocation_sort_order=row.allocation_sort_order,
+            )
+            for row in rows
+        ]
+        return assemble_user_feed(
+            profile_interests=profile_interests,
+            stories=stories,
+            story_interest_tags=story_interest_tags,
+            interest_nodes=interest_nodes,
+            followed_entities=followed_entities,
+            category_allocation=category_allocation or None,
+            prior_feed_story_ids=excluded,
+            source_stories=source_stories,
+            cluster_importance_by_story=cluster_importance_by_story,
+            feed_slot_budget=feed_slot_budget,
+            score_threshold=score_threshold,
+            now_utc=now_utc,
+        )
+
+    now = now_utc or datetime.now(timezone.utc)
+    cluster_importance = cluster_importance_by_story or {}
+    tags_by_story = _index_tags_by_story(story_interest_tags)
+    affinities = normalize_affinities(profile_interests)
+    strict_by_interest = {
+        interest.profile_interest_id: interest.profile_is_strict
+        for interest in profile_interests
+    }
+
+    # Reason: deterministic sequence — sort_order asc, then category, then the section's
+    # node so equal-sort rows always order the same (Rule 9 — no insertion dependence).
+    ordered_rows = sorted(
+        rows,
+        key=lambda row: (
+            row.allocation_sort_order,
+            row.allocation_category,
+            row.allocation_interest_id or "",
+        ),
+    )
+    # The feed target is the SUM of budgets, capped at N (the beyond-bubble backfill
+    # keeps the feed AT this target when niches come up short — it never overshoots).
+    total_target = min(
+        sum(row.allocation_slot_count for row in ordered_rows), feed_slot_budget
+    )
+
+    used_story_ids: set[str] = set()
+
+    # ── Pass 1: source slots (guaranteed-first, ahead of niches — PRD story #16) ──
+    source_budgets: dict[FeedCategory, int] = {}
+    for row in ordered_rows:
+        if row.allocation_category in SOURCE_CATEGORIES:
+            source_budgets[row.allocation_category] = (
+                source_budgets.get(row.allocation_category, 0)
+                + row.allocation_slot_count
+            )
+    source_filled_by_category = _fill_source_slots(
+        source_stories or [],
+        source_budgets,
+        used_story_ids=used_story_ids,
+        excluded_story_ids=excluded,
+        guaranteed_cap=total_target,
+    )
+    source_filled_total = sum(len(v) for v in source_filled_by_category.values())
+
+    # ── Pass 2: niche sections — leaf-first, honest one-level climb, in sequence ──
+    niche_capacity = max(total_target - source_filled_total, 0)
+    niche_fills: dict[int, list[tuple[ScoredCandidate, int]]] = {}
+    niche_placed_total = 0
+    for index, row in enumerate(ordered_rows):
+        if row.allocation_interest_id is None:
+            continue
+        want = min(
+            row.allocation_slot_count, max(niche_capacity - niche_placed_total, 0)
+        )
+        if want <= 0:
+            niche_fills[index] = []
+            continue
+        section_id = row.allocation_interest_id
+        placed = _fill_niche_section(
+            section_interest_id=section_id,
+            # Reason: a deliberately-allocated section that is somehow absent from the
+            # profile defaults to full affinity — the user chose it, so score it strong.
+            affinity=affinities.get(section_id, 1.0),
+            is_strict=strict_by_interest.get(section_id, False),
+            want=want,
+            stories=stories,
+            tags_by_story=tags_by_story,
+            interest_nodes=interest_nodes,
+            now_utc=now,
+            used_story_ids=used_story_ids,
+            excluded_story_ids=excluded,
+            score_threshold=score_threshold,
+            cluster_importance_by_story=cluster_importance,
+        )
+        niche_fills[index] = placed
+        niche_placed_total += len(placed)
+
+    # ── Pass 3: beyond-bubble backfill — every unfilled slot (incl. dry strict + niche
+    # shortfall), so the feed is never short (Decision #7 / PRD story #27). ──
+    beyond_reserve_roots = {
+        row.allocation_category
+        for row in ordered_rows
+        if row.allocation_interest_id is None
+        and row.allocation_section_label == BEYOND_BUBBLE_LABEL
+    }
+    beyond_capacity = max(
+        total_target - source_filled_total - niche_placed_total, 0
+    )
+    beyond_fills: list[tuple[str, float]] = []
+    if beyond_reserve_roots and beyond_capacity > 0:
+        ranked = _beyond_bubble_ranked(
+            stories=stories,
+            tags_by_story=tags_by_story,
+            interest_nodes=interest_nodes,
+            reserve_roots=beyond_reserve_roots,
+            used_story_ids=used_story_ids,
+            excluded_story_ids=excluded,
+            cluster_importance_by_story=cluster_importance,
+        )
+        for story_id, importance in ranked[:beyond_capacity]:
+            beyond_fills.append((story_id, importance))
+            used_story_ids.add(story_id)
+
+    # ── Pass 4: emit in sequence (source lead → niches → beyond-bubble trailing) ──
+    slots: list[AllocatedSlot] = []
+    emitted_source: set[FeedCategory] = set()
+    emitted_beyond = False
+    position = 0
+    for index, row in enumerate(ordered_rows):
+        if position >= feed_slot_budget:
+            break
+        if row.allocation_category in SOURCE_CATEGORIES:
+            if row.allocation_category in emitted_source:
+                continue
+            for candidate in source_filled_by_category.get(row.allocation_category, []):
+                position += 1
+                slots.append(
+                    AllocatedSlot(
+                        feed_story_id=candidate.story_id,
+                        feed_position=position,
+                        feed_score=candidate.score,
+                        feed_matched_interest_id=None,
+                        feed_slot_kind=SLOT_KIND_SOURCE,
+                    )
+                )
+            emitted_source.add(row.allocation_category)
+        elif row.allocation_interest_id is not None:
+            for candidate, fallback_depth in niche_fills.get(index, []):
+                position += 1
+                slots.append(
+                    AllocatedSlot(
+                        feed_story_id=candidate.story_id,
+                        feed_position=position,
+                        feed_score=candidate.score,
+                        # The node actually filled from (the ancestor on a climbed slot).
+                        feed_matched_interest_id=candidate.matched_interest_id,
+                        feed_slot_kind=SLOT_KIND_INTEREST,
+                        feed_section_label=row.allocation_section_label,
+                        feed_section_interest_id=row.allocation_interest_id,
+                        feed_fallback_source_level=fallback_depth,
+                    )
+                )
+        elif row.allocation_section_label == BEYOND_BUBBLE_LABEL:
+            # Beyond-bubble rows share one pool + one label — emit the whole block once,
+            # at the first beyond-bubble row's (trailing) sequence position.
+            if emitted_beyond:
+                continue
+            for story_id, importance in beyond_fills:
+                position += 1
+                slots.append(
+                    AllocatedSlot(
+                        feed_story_id=story_id,
+                        feed_position=position,
+                        feed_score=importance,
+                        feed_matched_interest_id=None,
+                        feed_slot_kind=SLOT_KIND_INTEREST,
+                        feed_section_label=BEYOND_BUBBLE_LABEL,
+                        feed_section_interest_id=None,
+                        feed_fallback_source_level=0,
+                    )
+                )
+            emitted_beyond = True
+
+    slots = slots[:feed_slot_budget]
+    logger.info(
+        "assemble_niche_feed_completed",
+        followed_interest_count=len(profile_interests),
+        niche_section_count=sum(
+            1 for row in ordered_rows if row.allocation_interest_id is not None
+        ),
+        source_slots=source_filled_total,
+        niche_slots=niche_placed_total,
+        beyond_bubble_slots=len(beyond_fills),
+        climbed_slots=sum(
+            1 for fills in niche_fills.values() for _, depth in fills if depth > 0
+        ),
+        total_slots=len(slots),
+        excluded_prior_count=len(excluded),
+    )
+    return slots
+
+
 def _existing_feed_count(
     supabase_client: Any,
     feed_user_id: str,
@@ -797,6 +1240,12 @@ def write_daily_feed(
             "feed_score": slot.feed_score,
             "feed_matched_interest_id": slot.feed_matched_interest_id,
             "feed_slot_kind": slot.feed_slot_kind,
+            # FSR slice #7 section metadata (migration 0027). All default to
+            # None/None/0 on a coarse (roots-only) or source slot, so the coarse
+            # allocator's rows persist their honest "direct fill, no section" values.
+            "feed_section_label": slot.feed_section_label,
+            "feed_section_interest_id": slot.feed_section_interest_id,
+            "feed_fallback_source_level": slot.feed_fallback_source_level,
         }
         for slot in slots
     ]
