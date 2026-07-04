@@ -1,84 +1,108 @@
-# Product Brief — Conversational Micro-Interest Onboarding + Niche-First Feed
+# Product Brief — Chat Onboarding + YouTube/X Source Reels
 
-**Date:** 2026-07-03
+**Date:** 2026-07-04
 **Status:** Draft — needs `/cto` to translate into a PRD
-**Scope:** Revamp of an existing product (blip / News20). Supersedes the tree-picker onboarding (categories → subcategories → sub-subcategories) and the root-keyed Build-My-30 allocation. The original 2026-05-28 whole-product brief is in git history (`3a1da08`).
+**Scope:** Revamp of an existing product (blip / News20). Supersedes the 2026-07-03 brief (single-select tap-through interview — built in slice #4, rejected by the founder on sight) and formally supersedes the FSR "roots-only, no drilling" thesis. Prior briefs in git history.
+**Design handoff (canonical):** Claude Design project `2bd1f0ab-87f5-4392-a699-8e3e6e5a1c68`, file `News20 Prototype/Onboarding Chat.html` (+ `onboarding-chat.js`). Local copies: `reference/design-handoff/onboarding-chat.{html,js}`. The prototype is a deterministic script; the build keeps its **interaction contract** and replaces canned copy/branching with the real engine.
 
 ## One-liner
 
-A chat interview learns your micro-interests, then your 30 daily stories are literally about *them*.
+Onboard in one ChatGPT-style conversation; every morning get 30 stories — news, your YouTube channels, and your X people.
 
 ## Target user
 
-A news-curious person with 2-3 genuine sub-niches (e.g. "IPL auction drama", "semiconductor breakthroughs", "AI lab politics") who today scrolls ~10 different sources to stay current on them. The moment: first app open — they'll invest a few minutes personalizing *if* the payoff is visibly their niches, not broad categories.
+The founder is user #1: a news-heavy professional who checks YouTube subscriptions and X every morning on top of news apps, and has specific sub-niches (IPL, frontier AI labs, Indian markets) no broad category captures. The moment: first app open — and every morning after.
 
 ## Problem
 
-A fixed taxonomy can never contain a person's actual micro-interests. "IPL auction drama" is not a node in any pre-built tree. So users pick the nearest broad category, the profile comes out shallow, and the feed reads like a generic newspaper instead of *their* feed.
+Two problems, one product. (1) The shipped interview is single-select tap-through — a workflow wearing chat clothes; users can't say "I follow AI *and* geopolitics *and* markets" or pick several sub-niches at once, and it silently forces one path. (2) The daily 30 is news-only; the user's actual morning sources — YouTube channels and X voices — aren't in the feed, so the app doesn't replace the morning ritual, it adds to it.
 
 ## Today's workaround
 
-Users scroll multiple apps/sites/X/YouTube to assemble their niche coverage manually. Inside our product: the tree picker + 8-root allocation, which captures breadth but not depth.
+The user manually checks YouTube subscriptions + X + a news app every morning. In-product: the slice-#4 interview and the M6a grid-based source screen exist but don't match how the founder wants selection to feel or work.
 
 ## Unique angle
 
-**The bubbles are generated live, not pre-written.** Each tap generates the next, more specific set of options about what the user just chose (Sport → Cricket → IPL → "auctions/transfers?") — a good waiter inventing suggestions vs. a printed menu. Two free wins fall out:
+1. **The whole onboarding is one chat scrollback** — multi-select bubble chips, an always-available composer for free typing, budget card and source pickers *inside the chat*. Answered steps collapse into user bubbles; the history stays visible.
+2. **X theme-of-the-day reels per category**: one reel that finds the story your followed cluster is all reacting to — with an honest ladder (theme → roundup-of-takes → news) on quiet days. Nobody else turns "what my corner of X is saying" into a daily reel.
+3. **YouTube reels from your own channels**: one reel per long-form video, script from the transcript, the video's own thumbnail as the reel image.
 
-1. **The drill-down path IS the fallback ladder** — captured at interview time, no extra modeling.
-2. **Feed sections are named in the user's own vocabulary** ("Silicon — 3", "IPL — 4") — the visible proof the app heard them.
+## The onboarding contract (locked in the design prototype)
 
-## Smallest provable version (MVP)
+1. **INTERESTS** — multi-select category chips → per selected category, multi-select sub-niche chips + live composer for typing custom interests → **one open-ended WHO drill per selected sub-niche** ("Cricket — a series, a player? Name it and I'll follow it"), skippable via "Nothing specific →". Real engine generates sub-niche bubbles and drill wording dynamically.
+2. **TUNE** — 3–4 quick single-tap follow-ons **conditional on picks** (dynamically generated). Fixed jobs per category: **ANGLE** (which lens grabs you) and **SKIP** (mute list — *missing from the prototype, must be added*); WHO is already covered by the drill step. Then the **story budget card** with ± steppers, total pinned, "Lock →".
+3. **YOUTUBE** — ~30 channel tiles sorted by profile relevance, multi-select, in-chat.
+4. **X CLUSTERS** — curated handle clusters grouped by the user's categories (+ "beyond your picks"), samples + expandable handle list, multi-select, in-chat.
+5. **YOUR 30** — summary card (news / YouTube / X split) → "Build my 30 →".
 
-Pieces ①②③ ship together as one chain (they can't be proven apart); ④ is a fast-follow.
+Skip semantics: every question skippable; consecutive skips fast-forward (skip first follow-up → offer to skip the category; two categories skipped → offer "just build my feed"). Skipped questions resurface later in-app, one at a time. Interview re-run = existing rebuild-my-feed entry, clean-replace semantics.
 
-1. **① Chat interview** — live-generated bubbles, 2-3 drill-downs per lit-up area, starts from the 8 existing roots, always offers "not really / skip" and "something else — type it". Output: 5-15 named micro-interests + their ladder paths. Cap ~3 min / ~15 taps.
-2. **② Niche ingestion** — switch to the GDELT BigQuery adapter (already written, not wired: `agents/ingestion/adapters/gdelt_bigquery.py`; production hard-codes the throttled DOC adapter in `agents/worker/pipeline_routes.py`). One batched query hunts all micro-interests; the slow keyless DOC door cannot serve hundreds of niche queries.
-3. **③ Feed reshaping** — Build-My-30 sections become the user's niches; dry days climb the ladder **with an honest label** ("Nothing new in IPL today — here's cricket"); 3-5 slots reserved as a "beyond your bubble" section; followed YouTube/X source slots keep their existing lead positions unchanged.
-4. **Validation before polish** — run the full chain on 3 personas: the founder's real profile, a "cricket obsessive", a "chip-industry nerd".
+## Feed rules (locked)
 
-**④ (fast-follow, explicitly deferred):** regenerate source suggestions (YouTube channels, X account clusters, podcasts) per-user from the micro-interest profile — LLM-proposed, code-verified to exist/be active before display, with a thin hand-curated safety-net list per root as filler. No persona-catalog middleman. Until then, the existing M6a cluster/source screen bridges (keyed to old broad categories — slightly mismatched but functional).
+- **Defaults are defaults only** — the user can re-mix the 30 all the way to all-news or all-X, in the budget card and later in Build-your-30.
+- **YouTube**: one reel per video, **long-form only** (exclude Shorts; no minimum beyond that). Reel = transcript → summary → script, video thumbnail as image, prominent channel credit + tap-through to the video.
+- **X**: original posts only, never retweets. Per selected category, first X slot = **theme-of-the-day** reel; extra X slots walk down the ladder (second theme → roundup → news). v1 reel image = screenshot of the top tweet (existing renderer); composite multi-element theme image is v2.
+- **News floor**: any unfillable source slot falls back to news. Never padded, never faked.
+- **Supply expectations shown at selection time**: "these 12 channels ≈ ~5 long-form videos/day" (guesstimate is fine) so slot counts stay grounded.
+- **Sub-niche guarantee**: at least one story for a followed niche on days news exists — via per-anchor entity queries + the already-shipped niche-first assembly (slice #7). Representation, not domination.
+
+## Ingestion (verified where marked)
+
+- **News wide sweep** — unchanged, in production (GDELT via BigQuery + trusted outlets).
+- **News per-anchor queries** — WHO answers carry ≥2 concrete search-anchor terms each; run through BigQuery entity tags (bulk, unthrottled) + GDELT DOC 2.0 as a paced nightly scalpel. **Live-verified 2026-07-04**: DOC 2.0 returned real Vaibhav Suryavanshi articles; hard limit ~1 request/5s/IP with multi-minute penalty box — single paced loop only, never parallel, never on-demand. Spec: `GDELT_API_specs` (repo root). GDELT-only in v1; vertical APIs (cricket etc.) only if validation shows persistent misses.
+- **X** — xAI Agent Tools `x_search` (adapter already in repo: `agents/ingestion/adapters/x_account.py`). **Live-verified 2026-07-04**: batches work; hard API cap **20 handles per call**; 20-handle sweep ≈ 36s, ~$0.12. Sweep each cluster **once daily, shared across all followers** — cost stays flat with user growth. Keep every cluster ≤18 handles.
+- **YouTube** — upload detection (RSS/Data API; June throttling incident known, fixable with pacing/API key) + thumbnail (trivial) + **transcripts: UNVERIFIED and the weakest link** — YouTube blocks cloud-IP transcript fetching unpredictably. **Test-first, before building the pipeline**; fallback = audio download + own transcription (pennies/video).
+
+## Seed catalog
+
+Report (2026-07-04): 8 roots, ~71 YouTube channels, 22 X clusters (~230 handles, all ≤18). ~60/71 channels already exist in the repo's raw catalog — the work is reorganizing, not sourcing. India-first variants for politics/cricket/markets/arts. Flagged-for-verification handles listed in the report's gaps table. Artifact: https://claude.ai/code/artifact/bd94cf30-abbb-4e2e-b665-bd3e99d7e67f
+
+## Smallest provable version
+
+Ships as one chain: chat onboarding (contract above) + profile persistence + YouTube pipeline + X theme reels with ladder + defaults re-mixable in the budget card. Deferred: composite theme images (v2), vertical sports API, in-app resurfacing of skipped questions (can follow fast).
+
+**Sequenced inside the chain: YouTube transcript live-test first** — it's the only unproven pipe.
 
 ## 90-day success metric
 
-Pre-launch, so self-measurable the week it ships:
-
-1. **Niche hit rate ≥ 60%** — per test persona, ≥ ~18 of 30 slots on a typical day are direct micro-niche stories (no fallback label). Below that, the feed reads "cricket app", not "IPL app" — bet #2 failed.
-2. **Interview ≤ 3 minutes / ~15 taps** to 5+ named micro-interests. Longer, and bet #1 (tolerance for the interview) is shaky.
+*(Inferred — founder approved by moving to build; sharpen at /office-hours.)* The feed replaces the founder's morning YouTube/X check: ≥25 of 30 slots filled without fallback on a typical day, and every followed niche with real news represented same-day. Interview completion without skip-out on the founder's own runs.
 
 ## Competition
 
-- **Direct:** Google News / Artifact-style personalized aggregators — personalize by broad topic + click behavior; none extract named micro-interests conversationally or name feed sections in the user's vocabulary.
-- **Indirect:** X/YouTube feeds themselves (the user's current 10-source scroll), per-niche newsletters.
-- **Do nothing:** keep the tree picker — onboarding stays fast but the feed stays generic; the personalization promise that differentiates blip goes unproven.
+Google News/Artifact-style aggregators (broad-topic, no conversational profile, no source reels); the user's own YouTube/X apps (the thing being replaced); do nothing = the shipped single-select interview the founder already rejected.
 
 ## What held up under pressure
 
-- Labeled fallback — turns dry days into proof the app tracks the niche; silent substitution trains users to think personalization is fake.
-- Generated + code-verified source suggestions — no stale hand-maintained persona catalog; handles blended users (60% AI + 40% Bollywood fits no bucket).
-- Niches-as-sections — the "wow, it heard me" payoff that justifies the interview cost.
-- Deferring piece ④ — existing source screen works; don't block the core chain on it.
-- BigQuery as the ingestion door — adapter ~90% done; wiring = credentials + one package + a one-line swap.
+- Theme-of-the-day over roundup for X — with the ladder making quiet days honest instead of empty.
+- One-sweep-per-cluster economics (flat cost with growth).
+- WHO/ANGLE/SKIP as fixed jobs with dynamic wording — complete profile per category, readable back in the user's own words.
+- Skip-spam as the early exit (with fast-forward).
+- Creator credit + tap-through as both the optics mitigation and good UX.
+- "You mostly already own the catalog" — 85% seeded.
 
 ## What's still soft
 
-1. **"Users will spend 3-5 minutes personalizing" — assumption, zero observation.** Founder conviction only. Watch interview completion/abandonment from day one.
-2. **60% niche hit rate is a guess** until BigQuery proves real niche coverage. Some niches may be genuinely dry most days.
-3. **Live bubble generation quality is unproven** — bad second-level bubbles (too generic, hallucinated, irrelevant) silently degrade the whole profile.
-4. No evidence yet that the tree picker produces a bad feed — the pain is inferred from taxonomy logic, not watched user behavior.
+1. **YouTube transcripts** — unverified; the plan's weakest link. Test before build.
+2. **xAI dependency** — proven today, but the provider shut off its predecessor mid-flight in June; keep the adapter swappable, news floor always on.
+3. **90-day metric** — never explicitly confirmed by the founder.
+4. **Catalog handle accuracy** — India + F1 handles flagged for live verification before seeding.
+5. **Onboarding length tolerance** — multi-category × drills is a lot of taps; skip design mitigates, zero observation yet.
 
 ## Riskiest assumption
 
-**That micro-niche ingestion can actually fill the feed** — i.e. GDELT/BigQuery surfaces enough direct-niche stories that the labeled fallback is the exception, not the rule. If most days most sections show "nothing new in your niche", the interview over-promised and the revamp reads as a downgrade. Test first, with the 3 personas, before any UI polish.
+**That the YouTube transcript pipe works reliably from our infrastructure.** Everything else is verified or already in production. If transcripts fail from cloud IPs, the audio-transcription fallback becomes the plan — slower and slightly costlier, but it must be proven before the YouTube half is promised.
 
 ## Contradictions surfaced
 
-1. **"Open-ended interview" vs. pre-written bubble examples** — the founder's sketch ("Do you follow sports?" → fixed bubbles) was the tree picker in chat clothing. Resolved: bubbles must be generated live from the previous answer; the fixed-bubble version is explicitly rejected as cosmetic.
-2. **Cookie-based YouTube/X subscription import vs. App Store reality** — technically possible, but violates YouTube/X ToS and Apple guideline 5.2.2 (rejection + takedown risk). Resolved: **killed entirely**, including the OAuth alternative (founder's call) — persona-based *suggestions* stay load-bearing instead.
+1. **Slot defaults: spoken "6 YouTube / 4 X" vs the design's "20 news / 7 YouTube / 3 X".** Unresolved by the founder in-session. Recommendation: **follow the design (20/7/3)** — it's the newer, founder-authored artifact and the budget card math is built around it. Flag at /cto if disagreement.
+2. **Design's 9 categories (incl. Health, Climate, Culture, Markets) vs the backend's 8 roots.** The prototype's list is illustrative. Needs a /cto decision: map design categories onto the 8 existing roots, or extend the taxonomy.
+3. **Prototype has no SKIP (mute-list) question.** The founder locked who/angle/skip; TUNE must gain the skip job even though the design doesn't show it.
+4. **FSR "roots-only" thesis vs deep drilling** — formally superseded: the product drills deep on purpose; update `documents/feed-source-revamp-plan.md` when the PRD lands.
 
 ## Open questions
 
-1. Exact "beyond your bubble" slot count (3-5) and how those stories are chosen.
-2. What powers live bubble generation and its latency/cost budget per interview (technical — for `/cto`).
-3. BigQuery wiring details: credentials, billing project, `google-cloud-bigquery` dependency (for `/cto`).
-4. How existing users / test profiles migrate from tree-picked interests to interview-derived micro-interests.
-5. Where the interview profile is stored and how re-runs work ("re-interview me").
+1. Slot-default contradiction above (20/7/3 vs 26/6/4-ish — pick one).
+2. Category taxonomy mapping (design 9 vs backend 8 roots).
+3. Where TUNE's dynamic questions come from (engine prompt design — /cto).
+4. Migration of existing profiles (founder's real account) to the new profile shape.
+5. Whether X cluster sweeps also feed the sub-niche news guarantee (a cluster mention of Suryavanshi counting toward his representation) or stay separate.
