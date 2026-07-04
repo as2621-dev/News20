@@ -1,42 +1,75 @@
-"""Resolve a YouTube channel handle (or channel id) to canonical metadata.
+"""Resolve a YouTube channel handle to canonical metadata — KEYLESS via yt-dlp.
 
-Ported from TL;DW (``scripts/seed_catalog/youtube_resolve.py``) per
-reference/sources-reuse-map.md §2. Converts a curator-provided handle like
-``AndrejKarpathy`` into the persistent shape the News20 ``content_sources`` row
-stores: ``external_id`` (the stable ``UC…`` channel id), ``thumbnail_url``,
-``subscriber_count``, plus title/description.
+Converts a curator-provided handle like ``AndrejKarpathy`` into the persistent
+shape the News20 ``content_sources`` row stores: ``external_id`` (the stable
+``UC…`` channel id), ``thumbnail_url``, ``subscriber_count``, plus title/handle/
+description.
 
-Quota cost: ``channels.list?forHandle`` is 1 unit per call. With a 10k unit
-daily quota the whole curated catalog resolves in a single day even with retries.
+Why yt-dlp and not the YouTube Data API
+---------------------------------------
+The repo standard for YouTube is **yt-dlp** (already used for transcript pulls;
+installed on the worker + locally). It needs **no API key** — it reads the public
+channel page. The prior implementation hit ``channels.list?forHandle`` on the Data
+API v3 and forced a ``YOUTUBE_API_KEY`` we do not have; this resolver drops that
+dependency entirely. Field mapping (verified keyless 2026-07-04 on
+``@AndrejKarpathy`` / ``@veritasium``):
 
-The HTTP client is INJECTED into ``resolve_channel`` so the test suite mocks at
-the httpx boundary (CLAUDE.md) — no network, no key needed offline.
+  - ``channel_id``       ← yt-dlp ``channel_id`` (the ``UC…`` external_id)
+  - ``title``            ← ``channel``
+  - ``handle``           ← ``uploader_id`` (leading ``@`` stripped)
+  - ``subscriber_count`` ← ``channel_follower_count``
+  - ``description``      ← ``description``
+  - ``thumbnail_url``    ← highest-resolution entry of ``thumbnails``
+
+A dead / renamed handle 404s → yt-dlp raises ``DownloadError`` → this resolver
+returns ``None`` (a clean MISS, never a guess). That IS the "excluded, not
+guessed" anti-hallucination contract: a handle that will not resolve is dropped,
+never fabricated.
+
+The blocking yt-dlp extractor is INJECTED into ``resolve_channel`` /
+``resolve_many`` (the ``extractor`` parameter) so the test suite mocks at that
+boundary (CLAUDE.md) — no network, no key needed offline. The live path uses the
+default real extractor, run in a thread pool with bounded concurrency so the
+blocking calls do not stall the event loop.
 
 Example:
-    >>> import asyncio, httpx
+    >>> import asyncio
     >>> async def demo() -> None:
-    ...     async with httpx.AsyncClient() as client:
-    ...         meta = await resolve_channel(  # doctest: +SKIP
-    ...             handle="AndrejKarpathy", api_key="KEY", client=client
-    ...         )
+    ...     meta = await resolve_channel(handle="AndrejKarpathy")  # doctest: +SKIP
     >>> asyncio.run(demo())  # doctest: +SKIP
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
 
-import httpx
 from pydantic import BaseModel, Field
 
 from agents.shared.logger import get_logger
 
 logger = get_logger("seed_catalog.youtube_resolve")
 
-YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
-REQUEST_TIMEOUT_SECONDS = 10.0
+# Public channel-page URL templates yt-dlp reads (metadata only — see _YTDLP_OPTS).
+YOUTUBE_HANDLE_URL = "https://www.youtube.com/@{handle}"
+YOUTUBE_CHANNEL_URL = "https://www.youtube.com/channel/{channel_id}"
 RESOLVE_CONCURRENCY = 4
+
+# yt-dlp options for a METADATA-ONLY channel probe: quiet (no console spam), no
+# download, flat extraction, and ``playlist_items="0"`` so yt-dlp fetches the
+# channel's own metadata WITHOUT enumerating any uploads (fast + polite).
+_YTDLP_OPTS: dict[str, Any] = {
+    "quiet": True,
+    "skip_download": True,
+    "extract_flat": True,
+    "playlist_items": "0",
+}
+
+# The injectable extraction seam: a callable that takes a channel-page URL and
+# returns yt-dlp's ``info`` dict, or None on a miss (dead handle / error). The
+# default is the real yt-dlp extractor; tests inject a deterministic fake.
+ChannelInfoExtractor = Callable[[str], dict[str, Any] | None]
 
 
 class ChannelMeta(BaseModel):
@@ -70,181 +103,172 @@ class ChannelMeta(BaseModel):
     )
 
 
-def _pick_thumbnail(snippet: dict[str, Any] | None) -> str | None:
-    """Pick the highest-resolution thumbnail URL from a channel snippet.
+def _pick_thumbnail(thumbnails: list[dict[str, Any]] | None) -> str | None:
+    """Pick the highest-resolution thumbnail URL from a yt-dlp thumbnails list.
+
+    yt-dlp channel thumbnails carry either explicit ``width``/``height`` or an
+    ordinal ``preference`` (higher = better). Prefer the largest pixel area; fall
+    back to ``preference`` when dimensions are absent; else keep the last usable
+    URL (yt-dlp lists ascending, so the last is typically the best).
 
     Args:
-        snippet: The ``snippet`` object from a ``channels.list`` item (may be None).
+        thumbnails: The ``thumbnails`` list from a yt-dlp info dict (may be None).
 
     Returns:
-        The best (high > medium > default) thumbnail URL, or None when absent.
+        The best thumbnail URL, or None when the list is empty / URL-less.
     """
-    if not snippet:
+    if not thumbnails:
         return None
-    thumbs = snippet.get("thumbnails") or {}
-    return (
-        (thumbs.get("high") or {}).get("url")
-        or (thumbs.get("medium") or {}).get("url")
-        or (thumbs.get("default") or {}).get("url")
-    )
+    best_url: str | None = None
+    best_score = float("-inf")
+    for thumbnail in thumbnails:
+        url = thumbnail.get("url")
+        if not url:
+            continue
+        width = thumbnail.get("width") or 0
+        height = thumbnail.get("height") or 0
+        area = width * height
+        # A real pixel area outranks any preference; preference breaks ties when
+        # dimensions are missing; a URL with neither still beats nothing seen yet.
+        score = float(area) if area > 0 else float(thumbnail.get("preference") or 0)
+        if score >= best_score:
+            best_score = score
+            best_url = url
+    return best_url
 
 
-def _parse_subscriber_count(stats: dict[str, Any] | None) -> int | None:
-    """Parse the subscriber count from a channel statistics object.
+def _channel_meta_from_info(info: dict[str, Any]) -> ChannelMeta | None:
+    """Map a yt-dlp channel ``info`` dict to a :class:`ChannelMeta`.
 
     Args:
-        stats: The ``statistics`` object from a ``channels.list`` item (may be None).
+        info: The dict yt-dlp returns from ``extract_info`` on a channel page.
 
     Returns:
-        The integer subscriber count, or None when hidden, missing, or unparseable.
+        The validated channel metadata, or None when the mandatory ``channel_id``
+        is absent (a page that resolved but is not a channel → treated as a miss).
     """
-    if not stats:
+    channel_id = info.get("channel_id")
+    if not channel_id:
         return None
-    if stats.get("hiddenSubscriberCount"):
-        return None
-    raw = stats.get("subscriberCount")
-    if raw is None:
-        return None
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return None
-
-
-def _channel_meta_from_item(item: dict[str, Any]) -> ChannelMeta:
-    """Map a single ``channels.list`` API item to a :class:`ChannelMeta`.
-
-    Args:
-        item: One element of the API ``items`` array.
-
-    Returns:
-        The validated channel metadata model.
-    """
-    snippet = item.get("snippet") or {}
-    stats = item.get("statistics") or {}
-    handle = snippet.get("customUrl")
+    handle = info.get("uploader_id")
     if isinstance(handle, str):
         handle = handle.lstrip("@") or None
+    subscriber_count = info.get("channel_follower_count")
     return ChannelMeta(
-        channel_id=item["id"],
+        channel_id=channel_id,
         handle=handle,
-        title=snippet.get("title") or "",
-        description=snippet.get("description") or None,
-        thumbnail_url=_pick_thumbnail(snippet),
-        subscriber_count=_parse_subscriber_count(stats),
+        title=info.get("channel") or info.get("title") or "",
+        description=info.get("description") or None,
+        thumbnail_url=_pick_thumbnail(info.get("thumbnails")),
+        subscriber_count=(
+            int(subscriber_count) if isinstance(subscriber_count, int) else None
+        ),
     )
 
 
-async def _channels_list(
-    params: dict[str, Any], *, client: httpx.AsyncClient
-) -> ChannelMeta | None:
-    """Call ``channels.list`` once and map the first item to :class:`ChannelMeta`.
+def _default_extractor(url: str) -> dict[str, Any] | None:
+    """Extract channel metadata for a URL via real yt-dlp (the live path).
 
-    Returns None on any HTTP error, non-200 status, or empty result (the caller
-    logs + skips). Never raises on transport/status — a miss is a None, not an
-    exception, so a single bad handle cannot abort a batch resolve.
+    A dead / renamed / private channel raises ``yt_dlp.utils.DownloadError``; this
+    is caught and returned as None (a clean miss, never a guess). Any other
+    unexpected error is likewise a None-miss (logged) so one bad handle can never
+    abort a batch resolve.
 
     Args:
-        params: Query params (without the URL) — ``forHandle``/``id`` + ``part`` + ``key``.
-        client: An injected ``httpx.AsyncClient``.
+        url: The channel-page URL (``…/@handle`` or ``…/channel/UC…``).
 
     Returns:
-        The resolved channel metadata, or None on miss/error.
+        yt-dlp's info dict, or None on a dead handle / extraction error.
     """
-    url = f"{YOUTUBE_API_BASE}/channels"
-    safe_params = {key: value for key, value in params.items() if key != "key"}
+    import yt_dlp  # noqa: PLC0415 — heavy import kept off the test path
+
     try:
-        response = await client.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
-    except httpx.HTTPError as exc:
+        with yt_dlp.YoutubeDL(dict(_YTDLP_OPTS)) as ydl:
+            return ydl.extract_info(url, download=False)
+    except yt_dlp.utils.DownloadError as exc:
+        # 404 (dead/renamed) OR a transient 429 (IP throttle) both surface here.
+        # Either way it is a miss for THIS attempt; the seeder decides whether a
+        # high overall miss-rate smells like throttle and should halt (fail loud).
         logger.warning(
-            "youtube_resolve_http_error",
-            params=safe_params,
+            "youtube_resolve_miss",
+            url=url,
             error_message=str(exc),
-            fix_suggestion="Inspect YouTube Data API v3 connectivity / DNS.",
+            fix_suggestion="Dead/renamed handle → excluded (never guessed); if MANY miss at once, suspect IP throttle and pause the seed.",
         )
         return None
-
-    if response.status_code != 200:
+    except Exception as exc:  # noqa: BLE001 — a resolver miss must not abort the batch
         logger.warning(
-            "youtube_resolve_non_ok",
-            status_code=response.status_code,
-            params=safe_params,
-            fix_suggestion="Verify YOUTUBE_API_KEY has Data API v3 enabled and quota remaining.",
+            "youtube_resolve_error",
+            url=url,
+            error_message=str(exc),
+            fix_suggestion="Inspect yt-dlp connectivity / version; a single miss is skipped.",
         )
         return None
-
-    payload: dict[str, Any] = response.json()
-    items = payload.get("items") or []
-    if not items:
-        return None
-    return _channel_meta_from_item(items[0])
 
 
 async def resolve_channel(
     *,
-    api_key: str,
-    client: httpx.AsyncClient,
     handle: str | None = None,
     channel_id: str | None = None,
+    extractor: ChannelInfoExtractor | None = None,
 ) -> ChannelMeta | None:
-    """Resolve a single channel by handle (preferred) or channel id.
+    """Resolve a single channel by handle (preferred) or channel id, keyless.
 
-    Tries ``forHandle`` first when a handle is supplied; falls back to ``id``
-    when a channel id is supplied. Returns None on any miss/error.
+    Tries the ``…/@handle`` page first when a handle is supplied; falls back to the
+    ``…/channel/UC…`` page when a channel id is supplied. Returns None on any miss.
+    The blocking extractor runs in a worker thread so it never stalls the loop.
 
     Args:
-        api_key: The YouTube Data API v3 key (resolved at the call boundary, never logged).
-        client: An injected ``httpx.AsyncClient``.
         handle: The channel handle (with or without a leading ``@``). Optional.
         channel_id: The ``UC…`` channel id. Optional (used when no handle resolves).
+        extractor: The extraction seam (defaults to real yt-dlp; tests inject a fake).
 
     Returns:
         The resolved channel metadata, or None when neither input resolves.
     """
+    extract = extractor or _default_extractor
+
+    targets: list[str] = []
     cleaned_handle = (handle or "").lstrip("@").strip()
     if cleaned_handle:
-        meta = await _channels_list(
-            {"forHandle": cleaned_handle, "part": "snippet,statistics", "key": api_key},
-            client=client,
-        )
-        if meta is not None:
-            return meta
-
+        targets.append(YOUTUBE_HANDLE_URL.format(handle=cleaned_handle))
     cleaned_id = (channel_id or "").strip()
     if cleaned_id:
-        return await _channels_list(
-            {"id": cleaned_id, "part": "snippet,statistics", "key": api_key},
-            client=client,
-        )
+        targets.append(YOUTUBE_CHANNEL_URL.format(channel_id=cleaned_id))
+
+    for url in targets:
+        info = await asyncio.to_thread(extract, url)
+        if not info:
+            continue
+        meta = _channel_meta_from_info(info)
+        if meta is not None:
+            return meta
     return None
 
 
 async def resolve_many(
     entries: list[dict[str, Any]],
     *,
-    api_key: str,
-    client: httpx.AsyncClient,
+    extractor: ChannelInfoExtractor | None = None,
     concurrency: int = RESOLVE_CONCURRENCY,
 ) -> dict[str, ChannelMeta]:
-    """Resolve a batch of channels concurrently.
+    """Resolve a batch of channels concurrently, keyless.
 
     Args:
         entries: Dicts each carrying ``youtube_handle`` and/or ``channel_id``.
-        api_key: The YouTube Data API v3 key.
-        client: An injected ``httpx.AsyncClient`` (tests mock its ``.get``).
-        concurrency: Max simultaneous API calls (default keeps us under quota).
+        extractor: The extraction seam (defaults to real yt-dlp; tests inject a fake).
+        concurrency: Max simultaneous channel-page probes (bounds throttle risk).
 
     Returns:
         ``{key: ChannelMeta}`` where ``key`` is the lowercased handle when present,
-        else the lowercased channel id. Misses are omitted.
+        else the lowercased channel id. Misses are omitted. The key formula matches
+        ``seed_catalog._dedup_key_fn('channels')`` so the caller can join by
+        ``entry.dedup_key``.
 
     Example:
-        >>> import asyncio, httpx
+        >>> import asyncio
         >>> async def demo() -> dict:
-        ...     async with httpx.AsyncClient() as client:
-        ...         return await resolve_many(  # doctest: +SKIP
-        ...             [{"youtube_handle": "AndrejKarpathy"}], api_key="K", client=client
-        ...         )
+        ...     return await resolve_many([{"youtube_handle": "AndrejKarpathy"}])  # doctest: +SKIP
         >>> asyncio.run(demo())  # doctest: +SKIP
     """
     semaphore = asyncio.Semaphore(concurrency)
@@ -252,10 +276,12 @@ async def resolve_many(
     async def _one(entry: dict[str, Any]) -> tuple[str, ChannelMeta | None]:
         handle = entry.get("youtube_handle")
         channel_id = entry.get("channel_id")
+        # Key formula MUST mirror _dedup_key_fn('channels'): the raw handle-or-id
+        # lowercased, WITHOUT stripping '@' (so the join key equals entry.dedup_key).
         key = (handle or channel_id or "").lower()
         async with semaphore:
             meta = await resolve_channel(
-                api_key=api_key, client=client, handle=handle, channel_id=channel_id
+                handle=handle, channel_id=channel_id, extractor=extractor
             )
         return key, meta
 

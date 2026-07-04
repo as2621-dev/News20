@@ -38,8 +38,8 @@ linking pass is dropped (5d owns appearance linking).
 
 Usage:
 
-    export $(grep -v '^#' .env | xargs)            # SUPABASE_URL/KEY, YOUTUBE_API_KEY
-    python -m scripts.seed_catalog.seed_catalog                 # full run
+    export $(grep -v '^#' .env | xargs)            # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
+    python -m scripts.seed_catalog.seed_catalog                 # full run (YouTube is keyless via yt-dlp)
     python -m scripts.seed_catalog.seed_catalog --dry-run       # resolve, no writes
     python -m scripts.seed_catalog.seed_catalog --type channels --archetype ai-frontier-tech
 """
@@ -58,7 +58,6 @@ import httpx
 from pydantic import BaseModel, Field
 
 from agents.shared.logger import get_logger
-from agents.shared.settings import Settings
 from scripts.seed_catalog import itunes_resolve, x_resolve, youtube_resolve
 
 logger = get_logger("seed_catalog.seed_catalog")
@@ -744,21 +743,21 @@ async def seed_channels(
     entries: list[CatalogEntry],
     *,
     supabase_client: Any,
-    http_client: httpx.AsyncClient,
-    api_key: str,
+    youtube_extractor: youtube_resolve.ChannelInfoExtractor | None,
     dry_run: bool,
     summary: SeedSummary,
 ) -> None:
-    """Resolve channel entries via YouTube and upsert the resolved rows.
+    """Resolve channel entries KEYLESS via yt-dlp and upsert the resolved rows.
 
     Unresolved handles are logged + skipped (counted on the summary), never
     fatal — one bad handle cannot abort the batch (Rule 12: fail loud per row,
-    not the whole run).
+    not the whole run). A dead / renamed handle 404s inside yt-dlp → a clean miss
+    (``channels_unresolved``), never a guessed row.
     """
     if not entries:
         return
     metas = await youtube_resolve.resolve_many(
-        [entry.payload for entry in entries], api_key=api_key, client=http_client
+        [entry.payload for entry in entries], extractor=youtube_extractor
     )
     rows: list[dict[str, Any]] = []
     for entry in entries:
@@ -907,7 +906,7 @@ async def run_seed(
     *,
     supabase_client: Any,
     http_client: httpx.AsyncClient,
-    youtube_api_key: str,
+    youtube_extractor: youtube_resolve.ChannelInfoExtractor | None = None,
     type_filter: str | None = None,
     archetype_filter: str | None = None,
     dry_run: bool = False,
@@ -916,13 +915,15 @@ async def run_seed(
     """Run the full catalog seed end-to-end against an INJECTED client pair.
 
     Both the Supabase client and the httpx client are injected so the test suite
-    mocks both at the boundary (CLAUDE.md) and the live entry point wires the real
-    ones. Resolves + upserts channels → podcasts → x → personalities.
+    mocks them at the boundary (CLAUDE.md) and the live entry point wires the real
+    ones. Resolves + upserts channels → podcasts → x → personalities. YouTube is
+    resolved KEYLESS via yt-dlp (no ``http_client``) through the injected
+    ``youtube_extractor`` seam; the other three axes still use ``http_client``.
 
     Args:
         supabase_client: A service-role Supabase client (None on dry-run).
-        http_client: An ``httpx.AsyncClient`` for all resolver calls.
-        youtube_api_key: The YouTube Data API v3 key.
+        http_client: An ``httpx.AsyncClient`` for the iTunes/Wikipedia/unavatar resolvers.
+        youtube_extractor: The yt-dlp extraction seam (None → real yt-dlp; tests inject a fake).
         type_filter: Optional single ``{type}`` to seed.
         archetype_filter: Optional single archetype to seed.
         dry_run: When True, resolve but write nothing.
@@ -940,8 +941,7 @@ async def run_seed(
         await seed_channels(
             entries_by_type["channels"],
             supabase_client=supabase_client,
-            http_client=http_client,
-            api_key=youtube_api_key,
+            youtube_extractor=youtube_extractor,
             dry_run=dry_run,
             summary=summary,
         )
@@ -985,23 +985,15 @@ async def run_seed(
 
 
 async def _main_async(args: argparse.Namespace) -> None:
-    """Wire the live clients/keys and run the seed (CLI path only).
+    """Wire the live clients and run the seed (CLI path only).
+
+    YouTube resolves KEYLESS via yt-dlp — there is no API-key gate. The default
+    (real) extractor is used; the iTunes/Wikipedia/unavatar axes still need the
+    httpx client.
 
     Args:
         args: Parsed CLI arguments (``--type`` / ``--archetype`` / ``--dry-run``).
-
-    Raises:
-        RuntimeError: When ``YOUTUBE_API_KEY`` is missing on a non-dry channel seed.
     """
-    settings = Settings()
-    youtube_api_key = (settings.youtube_api_key or "").strip()
-    needs_youtube = args.type in (None, "channels")
-    if needs_youtube and not args.dry_run and not youtube_api_key:
-        raise RuntimeError(
-            "YOUTUBE_API_KEY is required to resolve channels. "
-            "fix_suggestion: export YOUTUBE_API_KEY, or pass --dry-run / --type podcasts."
-        )
-
     # Pace iTunes requests under its per-IP rate limit for the live (non-test)
     # bulk seed. Unit tests call run_seed() directly and stay unpaced (interval 0).
     if not args.dry_run and args.type in (None, "podcasts"):
@@ -1014,7 +1006,6 @@ async def _main_async(args: argparse.Namespace) -> None:
         await run_seed(
             supabase_client=supabase_client,
             http_client=http_client,
-            youtube_api_key=youtube_api_key,
             type_filter=args.type,
             archetype_filter=args.archetype,
             dry_run=args.dry_run,
