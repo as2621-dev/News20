@@ -23,6 +23,37 @@ BubbleKind = Literal["option", "skip", "type_your_own"]
 # The one response discriminant. ``retry`` is the graceful-failure body (still HTTP 200).
 ResponseKind = Literal["question", "terminal", "retry"]
 
+# Which skippable question a deferred record came from (spec §5 skip semantics).
+DeferralKind = Literal["subniche_skip", "category_skip", "who_drill_skip", "roots_skip"]
+
+
+class DeferredQuestion(BaseModel):
+    """A question the user skipped, recorded at terminal for later in-app resurfacing (spec §5/§6).
+
+    The chat never blocks on a skip — it fast-forwards — but every skipped question is
+    persisted as *deferred* so a fast-follow surface can re-ask it. The record is engine-owned
+    and deterministic (never model judgment): the phase state machine emits one per skip.
+
+    Attributes:
+        deferral_kind: Which skippable turn produced this record.
+        question_text: The exact question the user skipped (as shown that turn).
+        root_slug: The category root the skip belongs to, when applicable.
+        subniche_label: The sub-niche label the WHO drill was about, when applicable.
+    """
+
+    deferral_kind: DeferralKind = Field(
+        ..., description="Which skippable turn produced this record."
+    )
+    question_text: str = Field(
+        default="", max_length=1000, description="The question the user skipped."
+    )
+    root_slug: str | None = Field(
+        default=None, description="The category root this skip belongs to, if any."
+    )
+    subniche_label: str | None = Field(
+        default=None, description="The sub-niche the WHO drill was about, if any."
+    )
+
 
 class InterviewExchange(BaseModel):
     """One completed prior turn, echoed back by the client (no server-side session).
@@ -155,6 +186,10 @@ class InterviewTurnResponse(BaseModel):
     roots_only_fallback: bool = Field(
         default=False,
         description="Terminal kind: user skipped through, feed falls back to roots-only.",
+    )
+    deferred_questions: list[DeferredQuestion] = Field(
+        default_factory=list,
+        description="Terminal kind: every skipped question, recorded for later resurfacing.",
     )
 
     error_code: str | None = Field(

@@ -98,7 +98,14 @@ export interface InterviewQuestionTurn {
   bubbles: InterviewBubble[];
 }
 
-/** The terminal turn: the extracted micro-interest list for confirmation. */
+/**
+ * The terminal turn: the extracted micro-interest list for confirmation.
+ *
+ * NOTE: the worker also returns `deferred_questions` on the terminal payload (every
+ * skipped question, for later in-app resurfacing — interview spec §5/§6, added by
+ * slice #14). Like `turn_cost`, it is intentionally NOT modeled here yet — the
+ * in-app resurfacing surface is a fast-follow; the extra JSON is ignored for now.
+ */
 export interface InterviewTerminalTurn {
   response_kind: "terminal";
   turn_index: number;

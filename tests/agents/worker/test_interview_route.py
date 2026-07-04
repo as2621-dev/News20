@@ -149,6 +149,13 @@ def test_deeper_turn_returns_terminal_with_gemini_mocked(
                 "bubbles_offered": [],
                 "bubbles_tapped": ["Cricket"],
             },
+            # The one open WHO drill for the selected sub-niche; answering it reaches terminal.
+            {
+                "question_text": "Cricket — name one, or skip.",
+                "bubbles_offered": [],
+                "bubbles_tapped": [],
+                "free_text_entered": "IPL auctions",
+            },
         ]
     }
     response = client.post(_PATH, json=body, headers=_bearer("good-jwt"))
