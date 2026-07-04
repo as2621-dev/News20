@@ -158,14 +158,89 @@ multi-day rate lands structurally below 60%, the recorded recommendation is the 
 cheap pivot: coarser niches (interview drills one level less) — interview + ladder
 machinery unchanged.
 
-## Acceptance-criteria scoreboard (day-1 honest state)
+## RESUME — day-1 batch SUCCEEDED (2026-07-03 evening, credits restored)
+
+Credits were topped up; the exact parked batch command re-ran 23:36–00:13 UTC and
+**completed**. Before → after (vs the depleted run above): produced 0 → **13 reels**,
+feeds_written 0 → **8 users** (all 3 personas included), `story_interests` tags
+persisted 0 → **45 rows** → **the 3-day census clock has STARTED** (day 1 of 3).
+
+### Batch numbers (from the structured log)
+
+- candidate=366 (BigQuery, 9 interests / 47 predicates), all 366 gate-passed;
+  203/366 dropped at `theme_category_no_whitelisted_theme` (same shape as the failed
+  run's 204 — still worth a fill-quality look).
+- 21 write-phase attempts → 13 produced. The gap is honest quality gating: 4
+  verification halts (digest unsupported/contradicted vs its single source — never
+  published) + 4 other pre-publish drops (scoring/selection).
+- Produce caps confirmed the recorded multi-niche defect in the wild: caps resolve to
+  the MAX single-section demand per category (`sport: 7` vs cricket's 21 joint sport
+  slots; `headroom_multiplier: 1.0`), so feeds landed at **13/13/12 slots** (founder/
+  cricket/chip), not 26+4. Under-fill, not breakage — every filled slot carries
+  correct section metadata. Cap tuning stays deferred to the multi-day read.
+- `ONLY_USER_EMAIL` scopes ingestion+produce but NOT feed assembly (known 2026-06-18
+  gotcha): 5 other allocated users also got (small) feeds from the shared pool.
+  Disclosed, not fought — no personas' data affected.
+
+### Same-day census (day 1 of 3)
+
+**One batch, two census "days":** the run straddled UTC midnight, so its tags split
+across pull-day keys 2026-07-03 (11 rows) and 2026-07-04 (34 rows). The census
+window read (`--days 3`, archived at `docs/ops/evidence/m4-day1/census-day1.json`)
+therefore shows 27.8% (5/18 cells) — it charges each interest a miss on BOTH
+half-days. Treating the single run as ONE pull-day (the honest day-1 number):
+
+| persona | direct-niche hits | day-1 rate |
+|---|---|---|
+| founder | ai.foundation-models: 2, tech.developer-tools: 3, business.venture-capital: 0 | 2/3 (66.7%) |
+| cricket | sport.cricket.india-team: 4, sport.cricket.world-cup: 3, sport.cricket.ipl: 0 | 2/3 (66.7%) |
+| chip | geopolitics.chip-export-controls: 1, tech.semiconductors.nvidia: 0, tech.semiconductors.tsmc: 0 | 1/3 (33.3%) |
+| **overall** | 5 of 9 niches drew ≥1 direct hit | **55.6% vs 60% — just below, day 1 only** |
+
+Instrument note for the multi-day read-off: schedule days 2–3 batches to FINISH
+before UTC midnight, or the census will keep splitting runs into half-days and
+deflating the windowed rate.
+
+### Browser walkthrough — niche sections seen in the wild (all 3 personas)
+
+Real chain, no PostgREST stubs, no DB surgery: `next dev` :3100 against prod
+Supabase, fresh persona sessions (magiclink → verify_otp recipe), puppeteer-core +
+system Chrome. **One disclosed harness shim:** the page clock was pinned back 100
+minutes because "today UTC" rolled to 07-04 minutes after the batch wrote
+`feed_date=2026-07-03` (the long-known UTC feed-date gotcha) — the client then
+requested 2026-07-03 exactly as a real user did before midnight. Verified
+(screenshots in `docs/ops/evidence/m4-day1/`):
+
+- **Direct-niche sections render in user vocabulary**: founder "Foundation models — 2"
+  / "Dev tools — 1"; cricket "Team India cricket — 7"; chip "Chip export controls — 5"
+  (`.seg-chip`).
+- **Honest fallback labels** (`[data-testid="section-fallback"]`): "Nothing new in
+  Venture capital today — here's Business & Markets" (founder), "Nothing new in Team
+  India cricket today — here's Cricket" (cricket, over an England-T20-final story
+  climbed from the Cricket parent), "Nothing new in TSMC today — here's Tech &
+  Science" (chip, a full 3-slot level-2 climb).
+- **Beyond your bubble** renders for all 3 (7/6/4 slots).
+
+**Two real defects observed (recorded, not glossed):**
+
+1. **ReelEmpty is a navigation dead end.** The library/tab bar only opens from the
+   wordmark inside a story stage; with an empty reel there is NO path to Archive /
+   Sources / Settings — the user is stuck on "Your briefing is being prepared" +
+   Refresh. Also blocks the Archive route to yesterday's briefing (which would have
+   made the clock shim unnecessary). Candidate follow-on slice.
+2. **UTC-midnight batch straddle** (pipeline+census+client coupling): an evening
+   local-time batch writes a `feed_date` that the Today reel stops requesting at
+   UTC midnight, and the census splits its tags across two pull-days. Operational
+   for now (run batches earlier); the UTC feed-date gotcha is long-recorded.
+
+## Acceptance-criteria scoreboard (after day-1 resume)
 
 | criterion | state |
 |---|---|
-| 3 personas interview → batch → feed rendering | PARTIAL — interview+allocation done for all 3 (no DB surgery for feeds; disclosed `user_onboarded_at` routing stamp); batch blocked by Gemini credits, no feeds yet |
-| Hit rate vs ≥60% over ≥3 real days | NOT STARTED — no pull-day has persisted tags yet; clock starts with first post-top-up batch |
+| 3 personas interview → batch → feed rendering | DONE for day 1 — all 3 personas: interview, allocation, paid batch, feed rendered in-browser (disclosed shims: `user_onboarded_at` routing stamp, walkthrough clock pin) |
+| Hit rate vs ≥60% over ≥3 real days | IN PROGRESS — day 1 of 3 complete: 55.6% overall (founder 66.7 / cricket 66.7 / chip 33.3); clock started |
 | Tuning pass documented w/ before/after | DONE — interview slug normalization; all 3 personas re-run (0/3 roots-only after, was 2/3) |
-| Honest-fallback + beyond-bubble seen in the wild | PENDING — needs first produced feed |
+| Honest-fallback + beyond-bubble seen in the wild | DONE — screenshots in `docs/ops/evidence/m4-day1/`; fallback labels + beyond-bubble verified for all 3 personas |
 | Watch-items baselined | DONE — taps 4–5, wall 5.2–13.4 s, <$0.01 LLM/onboarding |
-| Silently-skipped steps called out | DONE — see "Honest deviations" + this table |
-| Go/no-go recorded | PENDING (structural + billing) |
+| Silently-skipped steps called out | DONE — see "Honest deviations", the resume section's disclosed shims, + this table |
+| Go/no-go recorded | PENDING — needs days 2–3 (batches on 2026-07-04 and 2026-07-05, finishing before UTC midnight); earliest read-off 2026-07-05 after that day's census |

@@ -1,0 +1,365 @@
+{
+  "generated_at_utc": "2026-07-04T00:20:47.246629+00:00",
+  "window_start_date": "2026-07-02",
+  "window_end_date": "2026-07-04",
+  "hit_rate_target": 0.6,
+  "present_days": [
+    "2026-07-03",
+    "2026-07-04"
+  ],
+  "missing_days": [
+    "2026-07-02"
+  ],
+  "personas": [
+    {
+      "persona_key": "founder",
+      "persona_email": "persona.founder@news20.seed",
+      "persona_user_id": "5287026e-0b4b-4511-8a50-b6eea9d43da2",
+      "interests": [
+        {
+          "interest_id": "9bef60f0-3dc1-4e5f-aa71-f78a09aea5c3",
+          "interest_slug": "ai.foundation-models",
+          "interest_label": "Foundation Models",
+          "interest_depth": 1,
+          "eligible_day_count": 2,
+          "hit_day_count": 1,
+          "total_direct_hits": 2,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 0
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 2
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "ai.foundation-models",
+              "depth_from_interest": 0,
+              "total_direct_hits": 2
+            },
+            {
+              "ladder_slug": "ai",
+              "depth_from_interest": 1,
+              "total_direct_hits": 2
+            }
+          ]
+        },
+        {
+          "interest_id": "fc698060-8fa0-41f4-a42a-35b537afccd8",
+          "interest_slug": "business.venture-capital",
+          "interest_label": "Venture Capital",
+          "interest_depth": 1,
+          "eligible_day_count": 2,
+          "hit_day_count": 0,
+          "total_direct_hits": 0,
+          "is_dry": true,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 0
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 0
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "business.venture-capital",
+              "depth_from_interest": 0,
+              "total_direct_hits": 0
+            },
+            {
+              "ladder_slug": "business",
+              "depth_from_interest": 1,
+              "total_direct_hits": 5
+            }
+          ]
+        },
+        {
+          "interest_id": "3f69ab85-64ae-48a9-bf2c-af6789d4bec6",
+          "interest_slug": "tech.developer-tools",
+          "interest_label": "Developer Tools",
+          "interest_depth": 1,
+          "eligible_day_count": 2,
+          "hit_day_count": 1,
+          "total_direct_hits": 3,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 3
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 0
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "tech.developer-tools",
+              "depth_from_interest": 0,
+              "total_direct_hits": 3
+            },
+            {
+              "ladder_slug": "tech",
+              "depth_from_interest": 1,
+              "total_direct_hits": 3
+            }
+          ]
+        }
+      ],
+      "hit_cell_count": 2,
+      "total_cell_count": 6,
+      "hit_rate": 0.3333333333333333,
+      "meets_target": false
+    },
+    {
+      "persona_key": "cricket",
+      "persona_email": "persona.cricket@news20.seed",
+      "persona_user_id": "5044e496-adb2-411b-90a0-1669683ea4cc",
+      "interests": [
+        {
+          "interest_id": "f36a3ef8-ffee-4269-b4f4-c61718374da4",
+          "interest_slug": "sport.cricket.india-team",
+          "interest_label": "India Team",
+          "interest_depth": 2,
+          "eligible_day_count": 2,
+          "hit_day_count": 1,
+          "total_direct_hits": 4,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 0
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 4
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "sport.cricket.india-team",
+              "depth_from_interest": 0,
+              "total_direct_hits": 4
+            },
+            {
+              "ladder_slug": "sport.cricket",
+              "depth_from_interest": 1,
+              "total_direct_hits": 7
+            },
+            {
+              "ladder_slug": "sport",
+              "depth_from_interest": 2,
+              "total_direct_hits": 7
+            }
+          ]
+        },
+        {
+          "interest_id": "75b7757e-b5fb-4ad4-92fe-5c881c2ed2de",
+          "interest_slug": "sport.cricket.ipl",
+          "interest_label": "Ipl",
+          "interest_depth": 2,
+          "eligible_day_count": 2,
+          "hit_day_count": 0,
+          "total_direct_hits": 0,
+          "is_dry": true,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 0
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 0
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "sport.cricket.ipl",
+              "depth_from_interest": 0,
+              "total_direct_hits": 0
+            },
+            {
+              "ladder_slug": "sport.cricket",
+              "depth_from_interest": 1,
+              "total_direct_hits": 7
+            },
+            {
+              "ladder_slug": "sport",
+              "depth_from_interest": 2,
+              "total_direct_hits": 7
+            }
+          ]
+        },
+        {
+          "interest_id": "bd90b072-2733-4605-b6fc-eb91d07e5356",
+          "interest_slug": "sport.cricket.world-cup",
+          "interest_label": "World Cup",
+          "interest_depth": 2,
+          "eligible_day_count": 2,
+          "hit_day_count": 1,
+          "total_direct_hits": 3,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 0
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 3
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "sport.cricket.world-cup",
+              "depth_from_interest": 0,
+              "total_direct_hits": 3
+            },
+            {
+              "ladder_slug": "sport.cricket",
+              "depth_from_interest": 1,
+              "total_direct_hits": 7
+            },
+            {
+              "ladder_slug": "sport",
+              "depth_from_interest": 2,
+              "total_direct_hits": 7
+            }
+          ]
+        }
+      ],
+      "hit_cell_count": 2,
+      "total_cell_count": 6,
+      "hit_rate": 0.3333333333333333,
+      "meets_target": false
+    },
+    {
+      "persona_key": "chip",
+      "persona_email": "persona.chip@news20.seed",
+      "persona_user_id": "4856bcd0-5da3-48fe-b9d7-c133eb203d81",
+      "interests": [
+        {
+          "interest_id": "5d5bf2dd-0a99-47b9-a714-209cc77c30df",
+          "interest_slug": "geopolitics.chip-export-controls",
+          "interest_label": "Chip Export Controls",
+          "interest_depth": 1,
+          "eligible_day_count": 2,
+          "hit_day_count": 1,
+          "total_direct_hits": 1,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 1
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 0
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "geopolitics.chip-export-controls",
+              "depth_from_interest": 0,
+              "total_direct_hits": 1
+            },
+            {
+              "ladder_slug": "geopolitics",
+              "depth_from_interest": 1,
+              "total_direct_hits": 6
+            }
+          ]
+        },
+        {
+          "interest_id": "0f780952-bc7f-468c-a2af-f95f10182101",
+          "interest_slug": "tech.semiconductors.nvidia",
+          "interest_label": "Nvidia",
+          "interest_depth": 2,
+          "eligible_day_count": 2,
+          "hit_day_count": 0,
+          "total_direct_hits": 0,
+          "is_dry": true,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 0
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 0
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "tech.semiconductors.nvidia",
+              "depth_from_interest": 0,
+              "total_direct_hits": 0
+            },
+            {
+              "ladder_slug": "tech.semiconductors",
+              "depth_from_interest": 1,
+              "total_direct_hits": 0
+            },
+            {
+              "ladder_slug": "tech",
+              "depth_from_interest": 2,
+              "total_direct_hits": 3
+            }
+          ]
+        },
+        {
+          "interest_id": "0c51af79-4a99-41ba-bf84-f35c571c9a34",
+          "interest_slug": "tech.semiconductors.tsmc",
+          "interest_label": "Tsmc",
+          "interest_depth": 2,
+          "eligible_day_count": 2,
+          "hit_day_count": 0,
+          "total_direct_hits": 0,
+          "is_dry": true,
+          "per_day": [
+            {
+              "census_date": "2026-07-03",
+              "direct_hit_count": 0
+            },
+            {
+              "census_date": "2026-07-04",
+              "direct_hit_count": 0
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "tech.semiconductors.tsmc",
+              "depth_from_interest": 0,
+              "total_direct_hits": 0
+            },
+            {
+              "ladder_slug": "tech.semiconductors",
+              "depth_from_interest": 1,
+              "total_direct_hits": 0
+            },
+            {
+              "ladder_slug": "tech",
+              "depth_from_interest": 2,
+              "total_direct_hits": 3
+            }
+          ]
+        }
+      ],
+      "hit_cell_count": 1,
+      "total_cell_count": 6,
+      "hit_rate": 0.16666666666666666,
+      "meets_target": false
+    }
+  ],
+  "overall_hit_cell_count": 5,
+  "overall_total_cell_count": 18,
+  "overall_hit_rate": 0.2777777777777778,
+  "overall_meets_target": false
+}

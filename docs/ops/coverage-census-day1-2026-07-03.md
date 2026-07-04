@@ -112,7 +112,16 @@ dropped.
       produced 0 stories (Gemini prepay credits depleted mid-run, 429). No tags
       persisted; this day does NOT count as a pull-day. See
       `docs/ops/m4-persona-validation-2026-07-03.md`.**
-- [ ] 1st successful post-top-up batch persisted → census re-run
-- [ ] 2nd successful batch day persisted → census re-run
+- [x] 1st successful post-top-up batch persisted → census re-run — **DONE 2026-07-03
+      23:36–00:13 UTC (credits restored): 13 produced, 45 `story_interests` rows.
+      Day-1 hit rate treating the run as ONE pull-day: 5/9 niches = 55.6% overall
+      (founder 2/3, cricket 2/3, chip 1/3). NOTE: the run straddled UTC midnight, so
+      the census's windowed read splits it into two half-days (11 + 34 rows) and
+      reports 27.8% (5/18 cells) — run days 2–3 batches to FINISH before UTC
+      midnight. Full detail + archived JSON:
+      `docs/ops/m4-persona-validation-2026-07-03.md`,
+      `docs/ops/evidence/m4-day1/census-day1.json`. THE 3-DAY CLOCK HAS STARTED.**
+- [ ] 2nd successful batch day persisted → census re-run (target 2026-07-04, finish
+      before UTC midnight)
 - [ ] 3rd successful batch day persisted → census re-run → **go/no-go read-off recorded**
-      (earliest 2026-07-06 if batches run 07-04/05/06)
+      (target 2026-07-05; earliest read-off 2026-07-05 after that day's census)
