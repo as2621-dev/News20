@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.ancestor_tagging import merge_story_tags
+from agents.ingestion.anchor_scalpel import run_anchor_scalpel
 from agents.ingestion.authority_domains import domains_for_category
 from agents.ingestion.dedup import StoryClusterer, normalize_url
 from agents.ingestion.models import (
@@ -240,6 +241,7 @@ async def ingest_active_interests(
     since_utc: datetime | None = None,
     extract_bodies: bool = True,
     resolve_existing_story_ids: Callable[[list[str]], dict[str, str]] | None = None,
+    doc_scalpel_adapter: BaseNewsAdapter | None = None,
 ) -> IngestionResult:
     """Run one interest-keyed ingestion batch → a deduped, tagged story pool.
 
@@ -331,6 +333,29 @@ async def ingest_active_interests(
                     active_interest.interest_slug
                 )
             all_candidates.extend(candidates)
+
+    # --- Per-anchor GDELT DOC scalpel (issue #16): additive gap-fill ---
+    # The batched BigQuery workhorse above is the primary niche path, but its crawl
+    # skews to mainstream outlets, so long-tail WHO anchors can go uncovered. When a
+    # DOC scalpel adapter is injected, a SINGLE SEQUENTIAL (never parallel), throttled
+    # DOC loop fires one exact-phrase query per anchor term — but only for the active
+    # interests the batch returned NOTHING for — and tags each hit to its interest
+    # node. It never raises (a DOC outage is logged loudly and leaves this pool
+    # untouched), so the backbone stays intact. Skipped on the pure/fixture path (no
+    # scalpel adapter) and on the per-interest DOC fallback path (already DOC-driven).
+    if doc_scalpel_adapter is not None and callable(batch_search):
+        covered_interest_ids = {
+            candidate.candidate_matched_interest_id
+            for candidate in all_candidates
+            if candidate.candidate_matched_interest_id
+        }
+        scalpel_candidates = await run_anchor_scalpel(
+            active,
+            doc_scalpel_adapter,
+            since,
+            covered_interest_ids=covered_interest_ids,
+        )
+        all_candidates.extend(scalpel_candidates)
 
     total_candidates = len(all_candidates)
 
