@@ -213,6 +213,42 @@ def test_report_lists_totals_drops_and_deferrals() -> None:
     assert "per-root breakdown" in report
 
 
+def test_drop_gate_trips_when_most_handles_die() -> None:
+    """WHY: a mass resolution failure is probable IP-throttle — must halt, not seed."""
+    catalog = _catalog()  # 2 unique handles: Dwarkesh (resolves) + a dead one
+    # A resolution that dropped BOTH → 100% > 20% threshold → gate trips.
+    all_dead = seed_v2.ChannelResolution(
+        rows=[],
+        drops=[
+            seed_v2.ChannelDrop(youtube_handle="@a", root_slug="ai", reason="x"),
+            seed_v2.ChannelDrop(youtube_handle="@b", root_slug="tech", reason="x"),
+        ],
+    )
+    assert seed_v2.exceeds_drop_gate(catalog, all_dead) is True
+    # The real fake-extractor run drops only the 1 dead handle of 2 → 50% here, but
+    # the shipped catalog's genuine ratio (10.6%) is under the gate — assert the
+    # gate does NOT trip when a single genuine death is a minority.
+    healthy = seed_v2.ChannelResolution(
+        rows=[{"external_id": "UC_X"}] * 9,
+        drops=[seed_v2.ChannelDrop(youtube_handle="@dead", root_slug="ai", reason="x")],
+    )
+    catalog_many = _catalog()
+    catalog_many.roots[0].youtube_channels = [
+        seed_v2.V2Channel(channel_name=f"C{i}", youtube_handle=f"@h{i}")
+        for i in range(10)
+    ]
+    assert seed_v2.exceeds_drop_gate(catalog_many, healthy) is False
+
+
+def test_build_interest_rows_fails_loud_on_slug_collision() -> None:
+    """WHY: two sub-niches slugifying to one slug would silently lose the second's label."""
+    catalog = _catalog()
+    # "AI safety!" and "AI safety?" both slugify to ai.ai-safety → collision.
+    catalog.roots[0].subniches = ["AI safety!", "AI safety?"]
+    with pytest.raises(ValueError, match="duplicate interest_slug"):
+        seed_v2.build_interest_rows(catalog)
+
+
 # ── in-memory upsert-chain integration (no mock of the seeder; fake DB only) ──
 class FakeConn:
     """A tiny in-memory stand-in for an asyncpg connection.

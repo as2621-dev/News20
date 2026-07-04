@@ -57,7 +57,7 @@ from pydantic import BaseModel, Field
 
 from agents.shared.logger import get_logger
 from scripts.seed_catalog import youtube_resolve
-from scripts.seed_catalog.seed_via_pooler import _PoolerClient, _connect, _flush
+from scripts.seed_catalog.seed_via_pooler import _connect, _flush
 
 logger = get_logger("seed_catalog.seed_v2")
 
@@ -118,7 +118,6 @@ class V2Channel(BaseModel):
     youtube_handle: str
     subniche: str = ""
     why: str = ""
-    already_seeded: bool = False
 
 
 class V2Cluster(BaseModel):
@@ -128,7 +127,6 @@ class V2Cluster(BaseModel):
     subniche: str = ""
     description: str = ""
     handles: list[str] = Field(default_factory=list)
-    already_seeded: bool = False
 
 
 class V2Root(BaseModel):
@@ -193,6 +191,16 @@ def build_interest_rows(catalog: V2Catalog) -> list[InterestRow]:
                     root_slug=root.root_slug,
                 )
             )
+    # Fail loud on an intra-batch slug collision: two sub-niches under one root that
+    # slugify to the same interest_slug would otherwise have the second silently
+    # swallowed by `on conflict do nothing` (counted as a converge, its label lost).
+    slugs = [row.interest_slug for row in rows]
+    duplicates = sorted({slug for slug in slugs if slugs.count(slug) > 1})
+    if duplicates:
+        raise ValueError(
+            f"sub-niches collide to duplicate interest_slug(s) {duplicates}. "
+            "fix_suggestion: disambiguate the colliding sub-niche labels in the catalog."
+        )
     return rows
 
 
@@ -210,10 +218,9 @@ class ChannelResolution(BaseModel):
 
     rows: list[dict[str, Any]] = Field(default_factory=list)
     drops: list[ChannelDrop] = Field(default_factory=list)
-    resolved_count: int = 0
 
 
-def _unique_channel_entries(catalog: V2Catalog) -> list[dict[str, str]]:
+def _unique_channel_entries(catalog: V2Catalog) -> list[dict[str, Any]]:
     """Collapse the catalog's YouTube channels to one entry per handle (no-dup bundling).
 
     A handle that appears under several roots is resolved ONCE; its ``root_slugs``
@@ -304,11 +311,7 @@ async def resolve_channels(
                 set(row["topic_tags"]) | set(entry["root_slugs"])
             )
 
-    return ChannelResolution(
-        rows=list(rows_by_id.values()),
-        drops=drops,
-        resolved_count=len(resolved),
-    )
+    return ChannelResolution(rows=list(rows_by_id.values()), drops=drops)
 
 
 # ── cluster planning (verified-member gating) ────────────────────────────────
@@ -503,12 +506,10 @@ async def seed_channels(conn: Any, channel_rows: list[dict[str, Any]]) -> int:
     """
     if not channel_rows:
         return 0
-    client = _PoolerClient()
-    client.table("content_sources").upsert(
-        channel_rows, on_conflict="content_source_type,external_id"
-    ).execute()
+    # _flush takes the [(table, rows)] batch directly; the conflict target is fixed
+    # per table in _CONFLICT_TARGETS, so no supabase-client shim is needed here.
     async with conn.transaction():
-        counts = await _flush(conn, client.pending)
+        counts = await _flush(conn, [("content_sources", channel_rows)])
     return counts.get("content_sources", 0)
 
 
@@ -536,9 +537,12 @@ async def seed_clusters(conn: Any, feasible: list[ClusterPlanRow]) -> tuple[int,
         "cluster_description = excluded.cluster_description "
         "returning cluster_id"
     )
+    # ltrim('@') mirrors fetch_verified_handles' bare-handle normalization so the
+    # plan-time gate and this seed-time lookup share ONE membership predicate — an
+    # x_account row stored with a stray leading '@' still matches.
     find_source = (
         "select source_id from content_sources "
-        "where content_source_type='x_account' and lower(external_id)=lower($1)"
+        "where content_source_type='x_account' and lower(ltrim(external_id, '@'))=lower($1)"
     )
     insert_member = (
         "insert into source_cluster_members "
@@ -547,6 +551,21 @@ async def seed_clusters(conn: Any, feasible: list[ClusterPlanRow]) -> tuple[int,
         "on conflict (cluster_id, source_id) where source_id is not null do nothing"
     )
     for cluster in feasible:
+        # Resolve members BEFORE upserting the structure so a cluster whose members
+        # vanished between plan and seed is skipped, never committed empty (the
+        # "not seeded empty" contract, enforced at the write boundary too).
+        source_ids = [
+            source_id
+            for handle in cluster.members
+            if (source_id := await conn.fetchval(find_source, handle)) is not None
+        ]
+        if not source_ids:
+            logger.warning(
+                "cluster_skipped_no_live_members",
+                cluster_slug=cluster.cluster_slug,
+                fix_suggestion="members vanished between plan and seed — re-run after verifying x_account rows.",
+            )
+            continue
         async with conn.transaction():
             cluster_id = await conn.fetchval(
                 upsert_cluster,
@@ -558,11 +577,7 @@ async def seed_clusters(conn: Any, feasible: list[ClusterPlanRow]) -> tuple[int,
                 cluster.cluster_description or None,
             )
             clusters_upserted += 1
-            for order, handle in enumerate(cluster.members):
-                source_id = await conn.fetchval(find_source, handle)
-                if source_id is None:
-                    # Verified at plan time; a race that removed it must not orphan.
-                    continue
+            for order, source_id in enumerate(source_ids):
                 status = await conn.execute(insert_member, cluster_id, source_id, order)
                 if status.endswith(" 1"):
                     members_inserted += 1
@@ -586,6 +601,28 @@ async def _prod_counts(conn: Any, interest_slugs: list[str]) -> dict[str, int]:
     }
 
 
+DROP_GATE_THRESHOLD = 0.20
+
+
+def exceeds_drop_gate(
+    catalog: V2Catalog,
+    channels: ChannelResolution,
+    threshold: float = DROP_GATE_THRESHOLD,
+) -> bool:
+    """True when too many YouTube handles failed to resolve to trust the seed.
+
+    Denominator = UNIQUE handles attempted (deduped, matching the likewise-deduped
+    ``channels.drops`` numerator) so a cross-root duplicate can't inflate the
+    denominator and silently weaken the gate before a prod write. A ratio over the
+    threshold smells like IP-throttle (transient) rather than genuine per-handle
+    deaths — the caller aborts instead of seeding a throttle-starved catalog.
+    """
+    attempted = len(_unique_channel_entries(catalog))
+    if not attempted:
+        return False
+    return (len(channels.drops) / attempted) > threshold
+
+
 async def _run(args: argparse.Namespace) -> None:
     catalog = load_catalog()
     interest_rows = build_interest_rows(catalog)
@@ -600,15 +637,13 @@ async def _run(args: argparse.Namespace) -> None:
         report = build_report(catalog, interest_rows, channels, clusters)
         print(report)
 
-        # Sanity gate: mass resolution failure smells like IP-throttle, not death.
-        total_handles = sum(len(r.youtube_channels) for r in catalog.roots)
-        drop_ratio = len(channels.drops) / total_handles if total_handles else 0.0
-        if drop_ratio > 0.20:
+        if exceeds_drop_gate(catalog, channels):
+            attempted = len(_unique_channel_entries(catalog))
             logger.error(
                 "youtube_resolution_mass_failure",
                 dropped=len(channels.drops),
-                total=total_handles,
-                drop_ratio=round(drop_ratio, 3),
+                total=attempted,
+                drop_ratio=round(len(channels.drops) / attempted, 3),
                 fix_suggestion="Likely IP-throttle, not genuine deaths — retry later; do NOT seed.",
             )
             raise SystemExit(
