@@ -206,6 +206,8 @@ async def test_completed_who_drills_force_terminal_even_when_model_wants_to_ask(
         _exchange("What news?", tapped=["Sport"]),
         _exchange("Which sport?", tapped=["Cricket"]),  # sub-niche selected
         _exchange("Cricket — name one, or skip.", typed="IPL"),  # WHO drill answered
+        _exchange("How do you read Sport?", tapped=["Analysis & context"]),  # ANGLE TUNE
+        _exchange("Anything to mute?", tapped=[]),  # SKIP TUNE → terminal next
     ]
     response = await run_interview_turn(
         InterviewTurnRequest(conversation_state=state), fake
@@ -314,7 +316,9 @@ async def test_natural_terminal_returns_fully_formed_micro_interest() -> None:
     state = [
         _exchange("What news?", tapped=["Sport"]),
         _exchange("Which sport?", tapped=["Cricket"]),
-        _exchange("Which cricket?", tapped=["IPL"]),
+        _exchange("Which cricket?", tapped=["IPL"]),  # WHO drill answered
+        _exchange("How do you read Sport?", tapped=["Analysis & context"]),  # ANGLE TUNE
+        _exchange("Anything to mute?", tapped=[]),  # SKIP TUNE → terminal next
     ]
     response = await run_interview_turn(
         InterviewTurnRequest(conversation_state=state), fake

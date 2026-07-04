@@ -55,6 +55,42 @@ class DeferredQuestion(BaseModel):
     )
 
 
+class MuteTerm(BaseModel):
+    """One thing the user asked to mute, from a SKIP TUNE tap/typed term (spec §6).
+
+    Mutes are code-collected straight from the user's taps and typed text — never model
+    judgment — so every term is traceable to an actual answer (Rule 5). Persisted to
+    ``user_mute_terms`` and applied as a HARD FILTER at feed assembly (never at ingestion,
+    never as downranking — spec §8): a story matching the term never enters the user's feed.
+
+    Attributes:
+        mute_category: The root category (slug) the mute belongs to (e.g. ``sport``).
+        mute_term: The user-vocabulary term to mute (a tapped option or typed text).
+    """
+
+    mute_category: str = Field(..., description="Root category slug the mute belongs to.")
+    mute_term: str = Field(
+        ..., max_length=200, description="User-vocabulary term to mute (tap or typed text)."
+    )
+
+
+class AnglePreference(BaseModel):
+    """One ANGLE TUNE answer: which lens the user reads a category through (spec §6).
+
+    Code-collected from taps/typed text (traceable, never invented). Additive terminal
+    output persisted with the profile; it does not gate assembly in this slice.
+
+    Attributes:
+        angle_category: The root category (slug) the angle belongs to.
+        angle_label: The user-vocabulary lens label (a tapped option or typed text).
+    """
+
+    angle_category: str = Field(..., description="Root category slug the angle belongs to.")
+    angle_label: str = Field(
+        ..., max_length=200, description="User-vocabulary lens label (tap or typed text)."
+    )
+
+
 class InterviewExchange(BaseModel):
     """One completed prior turn, echoed back by the client (no server-side session).
 
@@ -190,6 +226,14 @@ class InterviewTurnResponse(BaseModel):
     deferred_questions: list[DeferredQuestion] = Field(
         default_factory=list,
         description="Terminal kind: every skipped question, recorded for later resurfacing.",
+    )
+    mute_terms: list[MuteTerm] = Field(
+        default_factory=list,
+        description="Terminal kind: SKIP TUNE answers, applied as hard filters at assembly.",
+    )
+    angle_preferences: list[AnglePreference] = Field(
+        default_factory=list,
+        description="Terminal kind: ANGLE TUNE answers (reading-lens per category).",
     )
 
     error_code: str | None = Field(

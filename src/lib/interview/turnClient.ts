@@ -23,7 +23,9 @@ import type {
   InterviewBubbleKind,
   InterviewExchange,
   InterviewTurn,
+  TerminalAnglePreference,
   TerminalMicroInterest,
+  TerminalMuteTerm,
 } from "@/types/interview";
 
 /**
@@ -97,6 +99,40 @@ function parseMicroInterest(raw: unknown): TerminalMicroInterest | null {
   };
 }
 
+/** Narrow one raw SKIP-TUNE mute term to a {@link TerminalMuteTerm} (both fields required, non-empty). */
+function parseMuteTerm(raw: unknown): TerminalMuteTerm | null {
+  if (typeof raw !== "object" || raw === null) {
+    return null;
+  }
+  const candidate = raw as Record<string, unknown>;
+  if (
+    typeof candidate.mute_category !== "string" ||
+    typeof candidate.mute_term !== "string" ||
+    candidate.mute_category.trim() === "" ||
+    candidate.mute_term.trim() === ""
+  ) {
+    return null;
+  }
+  return { mute_category: candidate.mute_category, mute_term: candidate.mute_term };
+}
+
+/** Narrow one raw ANGLE-TUNE preference to a {@link TerminalAnglePreference} (both fields required, non-empty). */
+function parseAnglePreference(raw: unknown): TerminalAnglePreference | null {
+  if (typeof raw !== "object" || raw === null) {
+    return null;
+  }
+  const candidate = raw as Record<string, unknown>;
+  if (
+    typeof candidate.angle_category !== "string" ||
+    typeof candidate.angle_label !== "string" ||
+    candidate.angle_category.trim() === "" ||
+    candidate.angle_label.trim() === ""
+  ) {
+    return null;
+  }
+  return { angle_category: candidate.angle_category, angle_label: candidate.angle_label };
+}
+
 /**
  * Narrow an unknown worker JSON body to a typed {@link InterviewTurn}, discriminated
  * on `response_kind`. A body that doesn't match any known shape yields `null` so the
@@ -127,6 +163,8 @@ function parseTurn(body: unknown): InterviewTurn | null {
     }
     case "terminal": {
       const rawInterests = Array.isArray(candidate.micro_interests) ? candidate.micro_interests : [];
+      const rawMutes = Array.isArray(candidate.mute_terms) ? candidate.mute_terms : [];
+      const rawAngles = Array.isArray(candidate.angle_preferences) ? candidate.angle_preferences : [];
       return {
         response_kind: "terminal",
         turn_index: turnIndex,
@@ -134,6 +172,10 @@ function parseTurn(body: unknown): InterviewTurn | null {
           .map(parseMicroInterest)
           .filter((interest): interest is TerminalMicroInterest => interest !== null),
         roots_only_fallback: candidate.roots_only_fallback === true,
+        mute_terms: rawMutes.map(parseMuteTerm).filter((mute): mute is TerminalMuteTerm => mute !== null),
+        angle_preferences: rawAngles
+          .map(parseAnglePreference)
+          .filter((angle): angle is TerminalAnglePreference => angle !== null),
       };
     }
     case "retry": {

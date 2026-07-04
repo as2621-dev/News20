@@ -26,20 +26,27 @@ from agents.interview.guards import (
     validate_and_dedup,
 )
 from agents.interview.models import (
+    AnglePreference,
     DeferredQuestion,
     InterviewDecision,
     InterviewExchange,
     InterviewTurnCost,
     InterviewTurnRequest,
     InterviewTurnResponse,
+    MuteTerm,
 )
 from agents.interview.phases import (
     InterestPlan,
     SubnicheSelection,
     plan_interest_turn,
 )
-from agents.interview.prompts import INTERVIEW_DECISION_INSTRUCTION
+from agents.interview.prompts import (
+    ANGLE_TUNE_INSTRUCTION,
+    INTERVIEW_DECISION_INSTRUCTION,
+    SKIP_TUNE_INSTRUCTION,
+)
 from agents.interview.responses import (
+    angle_tune_fallback_response,
     build_feed_offer_response,
     category_skip_offer_response,
     combined_who_drill_response,
@@ -47,6 +54,7 @@ from agents.interview.responses import (
     question_response,
     root_question_response,
     sanitize_option_bubbles,
+    skip_tune_fallback_response,
     terminal_response,
     who_drill_response,
 )
@@ -116,6 +124,8 @@ def _build_terminal_from_decision(
     taps: int,
     turn_index: int,
     cost: InterviewTurnCost,
+    mutes: list[MuteTerm] | None = None,
+    angles: list[AnglePreference] | None = None,
 ) -> InterviewTurnResponse:
     """Validate the model's terminal drafts, fall back to lit roots, and log completion."""
     interests = validate_and_dedup(decision.micro_interests, lit_roots, had_free_text)
@@ -140,8 +150,18 @@ def _build_terminal_from_decision(
         model=cost.model_name,
         total_tokens=cost.total_tokens,
         wall_time_ms=cost.wall_time_ms,
+        mute_count=len(mutes or []),
+        angle_count=len(angles or []),
     )
-    return terminal_response(interests, roots_only_fallback, deferred, turn_index, cost)
+    return terminal_response(
+        interests,
+        roots_only_fallback,
+        deferred,
+        turn_index,
+        cost,
+        mutes=mutes,
+        angles=angles,
+    )
 
 
 async def _call_decision(
@@ -271,6 +291,8 @@ async def _run_terminal_turn(
         total_taps(conversation_state),
         turn_index,
         cost,
+        mutes=plan.mutes,
+        angles=plan.angles,
     )
 
 
@@ -312,6 +334,72 @@ async def _run_typed_only_turn(
             cost=cost,
         )
     return _rendered_ask_or_retry(decision, conversation_state, turn_index, cost)
+
+
+async def _run_tune_turn(
+    conversation_state: list[InterviewExchange],
+    plan: InterestPlan,
+    llm_client: LLMClient,
+    model: str,
+    turn_index: int,
+    start_time: float,
+) -> InterviewTurnResponse:
+    """Serve one TUNE turn (ANGLE or SKIP) — LLM-worded, deterministic fallback (spec §2).
+
+    The JOB (ANGLE / SKIP) and WHICH taps become the answer are code-owned in the phase
+    machine; here the LLM only supplies wording + option labels. Unlike the sub-niche turn,
+    a TUNE turn NEVER dead-ends into a retry: any LLM timeout / malformed / unusable output
+    degrades to the deterministic fallback copy so both founder-locked jobs are always
+    served (SKIP can never be dropped).
+    """
+    is_angle = plan.next_phase == "angle_tune"
+    fallback = angle_tune_fallback_response if is_angle else skip_tune_fallback_response
+    system = ANGLE_TUNE_INSTRUCTION if is_angle else SKIP_TUNE_INSTRUCTION
+    prompt = _build_control_prompt(
+        conversation_state,
+        plan.lit_roots,
+        plan.active_root,
+        plan.selections,
+        must_terminate=False,
+    )
+    try:
+        result = await llm_client.call_gemini_json(
+            prompt=prompt,
+            response_schema=InterviewDecision,
+            system=system,
+            model=model,
+        )
+    except Exception as exc:  # noqa: BLE001 — boundary: any LLM/parse error -> fallback copy.
+        logger.warning(
+            "interview_tune_llm_failed",
+            turn_index=turn_index,
+            tune_job="angle" if is_angle else "skip",
+            error_type=type(exc).__name__,
+            fix_suggestion="TUNE degraded to deterministic wording; the job is still served.",
+        )
+        return fallback(plan.active_root, turn_index, no_llm_cost(start_time))
+    cost = InterviewTurnCost(
+        model_name=result.model,
+        prompt_tokens=result.prompt_tokens,
+        output_tokens=result.output_tokens,
+        total_tokens=result.total_tokens,
+        wall_time_ms=int((time.monotonic() - start_time) * 1000),
+    )
+    decision = result.parsed
+    bubbles = sanitize_option_bubbles(decision.bubbles, conversation_state)
+    has_option = any(bubble.bubble_kind == "option" for bubble in bubbles)
+    # SKIP legitimately has no preset options (mute terms are category-specific), so an
+    # option-less SKIP ask is only unusable when its wording is also empty — otherwise the
+    # affordance-only turn is exactly the fallback shape and we keep the model's wording.
+    if not decision.question_text.strip() or (is_angle and not has_option):
+        logger.warning(
+            "interview_tune_ask_unusable",
+            turn_index=turn_index,
+            tune_job="angle" if is_angle else "skip",
+            fix_suggestion="Model TUNE ask was unusable; served deterministic fallback wording.",
+        )
+        return fallback(plan.active_root, turn_index, cost)
+    return question_response(decision.question_text.strip(), bubbles, turn_index, cost)
 
 
 def _dispatch_deterministic_turn(
@@ -405,6 +493,10 @@ async def run_interview_turn(
 
     if plan.next_phase == "subniche":
         return await _run_subniche_turn(
+            conversation_state, plan, llm_client, model, turn_index, start_time
+        )
+    if plan.next_phase in ("angle_tune", "skip_tune"):
+        return await _run_tune_turn(
             conversation_state, plan, llm_client, model, turn_index, start_time
         )
     deterministic = _dispatch_deterministic_turn(plan, turn_index, start_time)

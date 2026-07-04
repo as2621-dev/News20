@@ -64,13 +64,17 @@ def _play(
     who: str = "something specific",
     category: str = "skip",
     build: str = "accept",
+    angle: str = "Analysis & context",
+    mute: str = "",
     max_steps: int = 80,
 ) -> tuple[list[str], object]:
     """Drive the PURE phase machine to terminal; return (phase_sequence, final_plan).
 
     ``subniche`` answers each sub-niche turn; ``who`` is the typed WHO-drill answer (``""``
     skips it); ``category`` is ``skip``/``show`` for a category offer; ``build`` is
-    ``accept``/``decline`` for a build-feed offer.
+    ``accept``/``decline`` for a build-feed offer; ``angle`` is the tapped ANGLE-TUNE lens
+    (``""`` skips it); ``mute`` is the typed SKIP-TUNE term (``""`` skips it — the default,
+    so pre-TUNE tests are unaffected by what a mute would record).
     """
     state = [_ex("What news?", tapped=root_taps)]
     phases: list[str] = []
@@ -82,6 +86,10 @@ def _play(
         if plan.next_phase == "subniche":
             taps, typed = subniche(plan.active_root)
             state.append(_ex(f"sub:{plan.active_root}", tapped=taps, typed=typed))
+        elif plan.next_phase == "angle_tune":
+            state.append(_ex("angle", tapped=([angle] if angle else [])))
+        elif plan.next_phase == "skip_tune":
+            state.append(_ex("skip", typed=(mute or None)))
         elif plan.next_phase in ("who_drill", "combined_who_drill"):
             state.append(_ex("who", typed=(who or None)))
         elif plan.next_phase == "category_skip_offer":
@@ -400,6 +408,8 @@ async def test_terminal_response_carries_deferred_questions() -> None:
         _ex("category offer", tapped=[CATEGORY_SKIP_ACCEPT_LABEL]),  # category skip
         _ex("Which business?", tapped=["Startups"]),  # engage Business
         _ex("Startups — name one?", typed="seed rounds"),  # WHO drill answered
+        _ex("How do you read Business?", tapped=["Analysis & context"]),  # ANGLE TUNE
+        _ex("Anything to mute?", tapped=[]),  # SKIP TUNE (skipped) → terminal next
     ]
     response = await run_interview_turn(
         InterviewTurnRequest(conversation_state=state), fake
@@ -422,7 +432,9 @@ async def test_terminal_phase_llm_failure_returns_typed_retry() -> None:
     state = [
         _ex("What news?", tapped=["Sport"]),
         _ex("Which sport?", tapped=["Cricket"]),
-        _ex("Cricket — name one?", typed="IPL"),  # → terminal phase, which calls Gemini
+        _ex("Cricket — name one?", typed="IPL"),  # WHO drill answered
+        _ex("How do you read Sport?", tapped=["Analysis & context"]),  # ANGLE TUNE
+        _ex("Anything to mute?", tapped=[]),  # SKIP TUNE → terminal phase, which calls Gemini
     ]
     response = await run_interview_turn(
         InterviewTurnRequest(conversation_state=state), _FailingLLM()

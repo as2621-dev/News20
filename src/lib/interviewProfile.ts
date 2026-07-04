@@ -32,7 +32,7 @@ import { DESIGN_BUCKET_IDS, DESIGN_BUCKETS } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
 import { type InterestProfileSource, resolveProfileWeight } from "@/lib/onboardingProfile";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { InterviewTerminalPayload, TerminalMicroInterest } from "@/types/interview";
+import type { InterviewTerminalPayload, TerminalMicroInterest, TerminalMuteTerm } from "@/types/interview";
 
 /**
  * The 8 canonical topic ROOT slugs a micro-interest slug must anchor to — the TS twin
@@ -103,6 +103,109 @@ function replacePartialError(message: string): Error {
   const error = new Error(message);
   error.name = REPLACE_PARTIAL_ERROR_NAME;
   return error;
+}
+
+/** One `user_mute_terms` row to upsert (a SKIP-TUNE mute, scoped to the owner). */
+interface MuteTermUpsertRow {
+  mute_user_id: string;
+  mute_category: string;
+  mute_term: string;
+}
+
+/** Typed outcome of a {@link persistMuteTerms} run. */
+export interface PersistMuteTermsResult {
+  /** How many `user_mute_terms` rows this user now has after the write (0 when cleared). */
+  persisted_mute_count: number;
+}
+
+/**
+ * Persist a completed interview's SKIP-TUNE mute terms for one user, scoped to their
+ * `auth.uid()` (= `userId`). Each term becomes a HARD FILTER at feed assembly (spec §8):
+ * a story matching it never enters the user's feed. Mutes are per-user private data, so
+ * this is a plain owner-scoped write (migration 0029) — no definer RPC (unlike interests).
+ *
+ * ── Clean-replace (issue #17 AC #5) ──────────────────────────────────────────────
+ * On a rebuild-my-feed re-run (`replace_existing: true`) the user's mute set must end
+ * EQUAL to the re-interview's list — no ORPHANED mutes from a prior run may linger (a
+ * stale mute would keep silently erasing stories the user no longer wants gone). Mutes
+ * are fully re-derived by each interview and are SUBTRACTIVE (a transient empty-mute
+ * window only ever lets MORE stories through, never fewer — it can never corrupt or lose
+ * user content), so the simplest correct clean-replace is delete-all-then-insert: it
+ * guarantees zero orphans. An EMPTY replace set is VALID (the user cleared their mutes) —
+ * unlike interests, clearing mutes is a legitimate, non-destructive outcome.
+ *
+ * First-run onboarding (`replace_existing` omitted) is a pure idempotent upsert.
+ *
+ * @param userId - The authed user's id (`auth.uid()`); every row is scoped to it.
+ * @param muteTerms - The terminal SKIP-TUNE mute terms (may be empty).
+ * @param opts - `{ replace_existing }` — clean-replace semantics for rebuild-my-feed.
+ * @param client - Optional Supabase client (injected in tests; defaults to the browser client).
+ * @returns A {@link PersistMuteTermsResult} — how many mute rows the user ends with.
+ * @throws If a delete or upsert fails (surfaced, never swallowed — Rule 12).
+ */
+export async function persistMuteTerms(
+  userId: string,
+  muteTerms: TerminalMuteTerm[],
+  opts: { replace_existing?: boolean } = {},
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<PersistMuteTermsResult> {
+  // Normalize + dedup by (category, term): the composite PK forbids a row appearing twice
+  // in one upsert batch, and a mute term is only meaningful as a trimmed, non-empty string.
+  const rowByKey = new Map<string, MuteTermUpsertRow>();
+  for (const mute of muteTerms ?? []) {
+    const category = String(mute?.mute_category ?? "").trim();
+    const term = String(mute?.mute_term ?? "").trim();
+    if (category === "" || term === "") {
+      continue;
+    }
+    // Reason: dedup case-insensitively so "Crypto" and "crypto" don't both persist (the
+    // assembly matcher is case-insensitive anyway); keep the FIRST casing the user gave.
+    const key = `${category.toLowerCase()} ${term.toLowerCase()}`;
+    if (!rowByKey.has(key)) {
+      rowByKey.set(key, { mute_user_id: userId, mute_category: category, mute_term: term });
+    }
+  }
+  const rows = [...rowByKey.values()];
+  logger.info("persist_mute_terms_started", {
+    mute_count: rows.length,
+    replace_existing: opts.replace_existing ?? false,
+  });
+
+  // Clean-replace: delete the user's whole mute set FIRST so the insert below leaves the
+  // set EQUAL to this interview's list — no orphaned mutes survive (AC #5). Safe to delete
+  // first because mutes are subtractive (an empty-mute window never loses user content).
+  if (opts.replace_existing) {
+    const { error: deleteError } = await client.from("user_mute_terms").delete().eq("mute_user_id", userId);
+    if (deleteError) {
+      logger.error("persist_mute_terms_replace_delete_failed", {
+        error_message: deleteError.message,
+        fix_suggestion: "Confirm the user is authed and user_mute_terms owner-all RLS permits the delete.",
+      });
+      throw new Error(
+        `Failed to clear stale mute terms: ${deleteError.message}. ` +
+          "fix_suggestion: confirm the user is authed and RLS permits the owner delete.",
+      );
+    }
+  }
+
+  if (rows.length > 0) {
+    const { error: upsertError } = await client
+      .from("user_mute_terms")
+      .upsert(rows, { onConflict: "mute_user_id,mute_category,mute_term" });
+    if (upsertError) {
+      logger.error("persist_mute_terms_upsert_failed", {
+        error_message: upsertError.message,
+        fix_suggestion: "Confirm the user is authed and user_mute_terms owner-all RLS permits the write.",
+      });
+      throw new Error(
+        `Failed to persist mute terms: ${upsertError.message}. ` +
+          "fix_suggestion: confirm the user is authed and RLS permits the owner write.",
+      );
+    }
+  }
+
+  logger.info("persist_mute_terms_completed", { persisted_mute_count: rows.length });
+  return { persisted_mute_count: rows.length };
 }
 
 /** One `user_interest_profile` row to upsert (with the interview's per-user display label). */

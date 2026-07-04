@@ -30,7 +30,7 @@
 import { useCallback, useRef, useState } from "react";
 import { InterviewChat } from "@/components/onboarding/InterviewChat";
 import { clearInterviewSession } from "@/lib/interview/session";
-import { persistInterviewInterests, REPLACE_PARTIAL_ERROR_NAME } from "@/lib/interviewProfile";
+import { persistInterviewInterests, persistMuteTerms, REPLACE_PARTIAL_ERROR_NAME } from "@/lib/interviewProfile";
 import { logger } from "@/lib/logger";
 import { getCurrentSession } from "@/lib/supabase/auth";
 import type { InterviewTerminalPayload } from "@/types/interview";
@@ -79,6 +79,9 @@ export function RebuildFeedFlow({ onClose }: RebuildFeedFlowProps) {
         throw new Error("Your session expired — sign in again to rebuild your feed.");
       }
       const result = await persistInterviewInterests(session.user.id, payload, { replace_existing: true });
+      // Clean-replace the SKIP-TUNE mutes too (issue #17 AC #5): the mute set ends EQUAL to
+      // this re-interview's list — no orphaned mutes linger from the prior run.
+      await persistMuteTerms(session.user.id, payload.mute_terms ?? [], { replace_existing: true });
       // The profile is replaced — the cached transcript is stale.
       clearInterviewSession();
       logger.info("rebuild_feed_completed", {

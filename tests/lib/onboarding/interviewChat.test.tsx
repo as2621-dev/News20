@@ -57,6 +57,8 @@ const TERMINAL: InterviewTurn = {
     },
   ],
   roots_only_fallback: false,
+  mute_terms: [],
+  angle_preferences: [],
 };
 
 const TERMINAL_EMPTY: InterviewTurn = {
@@ -64,6 +66,8 @@ const TERMINAL_EMPTY: InterviewTurn = {
   turn_index: 1,
   micro_interests: [],
   roots_only_fallback: true,
+  mute_terms: [],
+  angle_preferences: [],
 };
 
 const RETRY: InterviewTurn = {

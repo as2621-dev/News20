@@ -34,6 +34,26 @@ CATEGORY_SKIP_DECLINE_LABEL: str = "Show me some options"
 BUILD_FEED_ACCEPT_LABEL: str = "Just build my feed"
 BUILD_FEED_DECLINE_LABEL: str = "Keep exploring"
 
+# ── TUNE phase (spec §2 / PRD stories #8–#11) ─────────────────────────────────────
+# Per selected category the engine serves TWO code-enforced TUNE turns: ANGLE (which
+# lens grabs you) then SKIP (mute list). The JOBS are code-enforced (the state machine
+# always emits both — SKIP is founder-locked and can never be dropped); only the WORDING
+# and option labels are LLM-dynamic, with the deterministic fallbacks below on any LLM
+# failure so a TUNE turn is never a dead-end (it degrades, it does not retry).
+
+# Deterministic ANGLE fallback lenses — category-agnostic reading angles (never invented
+# facts; the user's TAP is what's recorded, so engine-provided options stay traceable).
+ANGLE_FALLBACK_OPTIONS: tuple[str, ...] = (
+    "Breaking developments",
+    "Analysis & context",
+    "Human stories",
+    "Numbers & data",
+)
+
+# The SKIP turn has no sensible category-agnostic preset options (a mute term is
+# category-specific), so its fallback offers only the always-present affordances — the
+# user types what to mute. The turn is still PRESENT (founder lock), which is the invariant.
+
 # The fixed turn-1 question — deterministic, no LLM.
 ROOT_QUESTION_TEXT: str = (
     "What kind of news do you want in your feed? Tap all that pull you in."

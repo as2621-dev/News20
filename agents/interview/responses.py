@@ -11,6 +11,7 @@ from __future__ import annotations
 import time
 
 from agents.interview.constants import (
+    ANGLE_FALLBACK_OPTIONS,
     BUILD_FEED_ACCEPT_LABEL,
     BUILD_FEED_DECLINE_LABEL,
     CATEGORY_SKIP_ACCEPT_LABEL,
@@ -25,12 +26,14 @@ from agents.interview.constants import (
 )
 from agents.interview.guards import META_LABELS
 from agents.interview.models import (
+    AnglePreference,
     DeferredQuestion,
     InterviewBubble,
     InterviewExchange,
     InterviewTurnCost,
     InterviewTurnResponse,
     MicroInterest,
+    MuteTerm,
 )
 
 # The most sub-niche labels a combined WHO drill names before eliding — keeps the drill
@@ -188,20 +191,74 @@ def combined_who_drill_response(
     )
 
 
+def _tune_affordance_only_bubbles() -> list[InterviewBubble]:
+    """Just the two always-present affordances (skip + type) — the SKIP-fallback base."""
+    return [
+        InterviewBubble(bubble_label=SKIP_BUBBLE_LABEL, bubble_kind="skip"),
+        InterviewBubble(
+            bubble_label=TYPE_YOUR_OWN_BUBBLE_LABEL, bubble_kind="type_your_own"
+        ),
+    ]
+
+
+def angle_tune_fallback_response(
+    active_root: str | None, turn_index: int, cost: InterviewTurnCost
+) -> InterviewTurnResponse:
+    """Deterministic ANGLE turn (spec §2) when the LLM wording fails — jobs still covered.
+
+    Serves the founder's ANGLE job with category-agnostic reading lenses so the turn is
+    never a dead-end. The tapped lens (not any invented text) is what the engine records.
+    """
+    label = ROOT_LABEL_BY_SLUG.get(active_root or "", active_root or "this topic")
+    bubbles = [
+        InterviewBubble(bubble_label=option, bubble_kind="option")
+        for option in ANGLE_FALLBACK_OPTIONS
+    ]
+    bubbles.extend(_tune_affordance_only_bubbles())
+    return question_response(
+        f"How do you like to read {label} — which angle pulls you in?",
+        bubbles,
+        turn_index,
+        cost,
+    )
+
+
+def skip_tune_fallback_response(
+    active_root: str | None, turn_index: int, cost: InterviewTurnCost
+) -> InterviewTurnResponse:
+    """Deterministic SKIP turn (spec §2) when the LLM wording fails — founder-locked job.
+
+    A mute term is category-specific, so there is no honest preset option to offer — the
+    fallback presents only the affordances (the user types what to mute). The turn is
+    ALWAYS served: SKIP can never be dropped (a passing flow without it is wrong).
+    """
+    label = ROOT_LABEL_BY_SLUG.get(active_root or "", active_root or "this topic")
+    return question_response(
+        f"Anything in {label} you're sick of and want kept out? Type it to mute, or skip.",
+        _tune_affordance_only_bubbles(),
+        turn_index,
+        cost,
+    )
+
+
 def terminal_response(
     interests: list[MicroInterest],
     roots_only_fallback: bool,
     deferred: list[DeferredQuestion],
     turn_index: int,
     cost: InterviewTurnCost,
+    mutes: list[MuteTerm] | None = None,
+    angles: list[AnglePreference] | None = None,
 ) -> InterviewTurnResponse:
-    """Build a terminal response carrying the validated interests + deferred-skip records."""
+    """Build a terminal response carrying the interests + deferred skips + mutes + angles."""
     return InterviewTurnResponse(
         response_kind="terminal",
         turn_index=turn_index,
         micro_interests=interests,
         roots_only_fallback=roots_only_fallback,
         deferred_questions=deferred,
+        mute_terms=mutes or [],
+        angle_preferences=angles or [],
         turn_cost=cost,
     )
 

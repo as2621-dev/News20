@@ -782,6 +782,11 @@ class ActiveUserFeedInputs(BaseModel):
     prior_feed_story_ids: list[str] = Field(
         default_factory=list, description="Prior daily_feeds story ids (don't-repeat)"
     )
+    mute_terms: list[str] = Field(
+        default_factory=list,
+        description="The user's SKIP-TUNE mute terms (user_mute_terms) — hard-filtered at "
+        "assembly so a matching story never appears in this user's feed (FSR #17).",
+    )
     exploration_candidates_by_interest: dict[str, list[ScoredCandidate]] = Field(
         default_factory=dict,
         description="Adjacent-interest scored candidates for exploration slots",
@@ -909,6 +914,7 @@ def assemble_daily_feeds(
                 (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
             ),
             cluster_importance_by_story=cluster_importance_by_story,
+            mute_terms=user_inputs.mute_terms,
             now_utc=now_utc,
         )
         # Reason: empty allocation → skip the user (no daily_feeds row) — SP4 DoD-c.

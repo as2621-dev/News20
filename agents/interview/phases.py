@@ -28,18 +28,25 @@ from agents.interview.constants import (
     MAX_WHO_DRILLS,
 )
 from agents.interview.guards import lit_roots_from_state, real_taps
-from agents.interview.models import DeferredQuestion, InterviewExchange
+from agents.interview.models import (
+    AnglePreference,
+    DeferredQuestion,
+    InterviewExchange,
+    MuteTerm,
+)
 from agents.shared.logger import get_logger
 
 logger = get_logger("interview.phases")
 
-# The turn kinds the INTERESTS state machine can be poised to serve next.
+# The turn kinds the INTERESTS/TUNE state machine can be poised to serve next.
 InterestPhase = Literal[
     "subniche",
     "category_skip_offer",
     "build_feed_offer",
     "who_drill",
     "combined_who_drill",
+    "angle_tune",
+    "skip_tune",
     "terminal",
 ]
 
@@ -69,6 +76,8 @@ class InterestPlan:
         combined_labels: The folded sub-niche labels for a ``combined_who_drill`` turn.
         selections: Every sub-niche selection replayed so far (order preserved).
         deferred: Every skipped question recorded so far (spec §5/§6).
+        angles: ANGLE-TUNE answers replayed so far (per selected category, from taps).
+        mutes: SKIP-TUNE answers replayed so far (per selected category, from taps).
     """
 
     next_phase: InterestPhase
@@ -78,6 +87,8 @@ class InterestPlan:
     combined_labels: list[str] = field(default_factory=list)
     selections: list[SubnicheSelection] = field(default_factory=list)
     deferred: list[DeferredQuestion] = field(default_factory=list)
+    angles: list[AnglePreference] = field(default_factory=list)
+    mutes: list[MuteTerm] = field(default_factory=list)
 
 
 def _engaged(exchange: InterviewExchange) -> bool:
@@ -140,6 +151,34 @@ def build_drill_specs(selections: list[SubnicheSelection]) -> list[DrillSpec]:
     specs: list[DrillSpec] = [WhoDrill(selection) for selection in individual]
     specs.append(CombinedWhoDrill(remainder))
     return specs
+
+
+def selected_roots_in_order(selections: list[SubnicheSelection]) -> list[str]:
+    """The distinct roots the user actually built out, in first-selection order.
+
+    A "selected category" (spec §2 TUNE) is a lit root that earned at least one sub-niche
+    selection — categories the user skipped never carry a selection, so they get no TUNE
+    turns. Order is deterministic (first selection wins) so the stateless replay always
+    pairs the same answered exchange with the same root.
+    """
+    ordered: list[str] = []
+    for selection in selections:
+        if selection.root_slug and selection.root_slug not in ordered:
+            ordered.append(selection.root_slug)
+    return ordered
+
+
+def _record_tune_answer(exchange: InterviewExchange) -> list[str]:
+    """The traceable answer for a TUNE turn: the real taps plus any typed term (order kept).
+
+    Every recorded term is an actual tap or typed string — never model judgment (Rule 5).
+    An empty list means the user skipped the turn (no mute / no angle recorded).
+    """
+    answers = list(real_taps(exchange))
+    typed = (exchange.free_text_entered or "").strip()
+    if typed:
+        answers.append(typed)
+    return answers
 
 
 def plan_interest_turn(conversation_state: list[InterviewExchange]) -> InterestPlan:
@@ -282,10 +321,50 @@ def plan_interest_turn(conversation_state: list[InterviewExchange]) -> InterestP
                 )
         idx += 1
 
-    # Every category and every WHO drill has been answered → terminal.
+    # ── TUNE stage: per selected category, an ANGLE turn then a SKIP turn (spec §2). ──
+    # The two jobs are code-enforced here — the machine ALWAYS emits both per category
+    # (SKIP is founder-locked). Only the wording/options are LLM-dynamic (engine layer);
+    # the answer recorded is always the user's real taps/typed text (traceable, never
+    # invented). A skipped TUNE turn simply records nothing for that category.
+    angles: list[AnglePreference] = []
+    mutes: list[MuteTerm] = []
+    for root in selected_roots_in_order(selections):
+        # ANGLE turn.
+        if idx >= total:
+            return InterestPlan(
+                next_phase="angle_tune",
+                lit_roots=lit_roots,
+                active_root=root,
+                selections=selections,
+                deferred=deferred,
+                angles=angles,
+                mutes=mutes,
+            )
+        for label in _record_tune_answer(exchanges[idx]):
+            angles.append(AnglePreference(angle_category=root, angle_label=label))
+        idx += 1
+
+        # SKIP turn (founder-locked — always present).
+        if idx >= total:
+            return InterestPlan(
+                next_phase="skip_tune",
+                lit_roots=lit_roots,
+                active_root=root,
+                selections=selections,
+                deferred=deferred,
+                angles=angles,
+                mutes=mutes,
+            )
+        for term in _record_tune_answer(exchanges[idx]):
+            mutes.append(MuteTerm(mute_category=root, mute_term=term))
+        idx += 1
+
+    # Every category, WHO drill and TUNE turn has been answered → terminal.
     return InterestPlan(
         next_phase="terminal",
         lit_roots=lit_roots,
         selections=selections,
         deferred=deferred,
+        angles=angles,
+        mutes=mutes,
     )
