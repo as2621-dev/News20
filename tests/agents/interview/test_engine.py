@@ -11,15 +11,12 @@ from __future__ import annotations
 import pytest
 
 from agents.interview.constants import (
-    MAX_DRILL_DEPTH_PER_ROOT,
     SKIP_BUBBLE_LABEL,
-    TAP_BUDGET_HARD,
     TYPE_YOUR_OWN_BUBBLE_LABEL,
 )
 from agents.interview.engine import (
     derive_ladder,
     lit_roots_from_state,
-    replay_drill_state,
     run_interview_turn,
     total_taps,
     validate_and_dedup,
@@ -165,14 +162,18 @@ async def test_ask_turn_caps_options_at_six_and_always_appends_skip_and_type() -
 
 @pytest.mark.asyncio
 async def test_ask_turn_never_reoffers_an_already_tapped_label() -> None:
-    """A previously tapped label is never re-offered (no dead options, no loops)."""
+    """A previously tapped label is never re-offered on a later sub-niche turn (no loops).
+
+    Two roots are lit, so after the Sport sub-niche turn is answered the NEXT LLM ask is
+    the Tech sub-niche turn — and a label the user already tapped must not resurface.
+    """
     decision = InterviewDecision(
-        action="ask", question_text="More cricket?", bubbles=["IPL", "Test cricket"]
+        action="ask", question_text="More?", bubbles=["IPL", "Test cricket"]
     )
     fake = _FakeLLMClient(decision=decision)
     state = [
-        _exchange("What news?", tapped=["Sport"]),
-        _exchange("Which cricket?", tapped=["IPL"]),
+        _exchange("What news?", tapped=["Sport", "Tech"]),
+        _exchange("Which cricket?", tapped=["IPL"]),  # Sport sub-niche answered
     ]
     response = await run_interview_turn(
         InterviewTurnRequest(conversation_state=state), fake
@@ -184,22 +185,30 @@ async def test_ask_turn_never_reoffers_an_already_tapped_label() -> None:
     assert "Test cricket" in option_labels
 
 
-# ── Server-enforced caps: drill depth per root + tap budget steer to terminal ──
+# ── Server-owned termination: the phase machine terminates, overriding a model 'ask' ──
 
 
 @pytest.mark.asyncio
-async def test_drill_depth_cap_forces_terminal_even_when_model_wants_to_ask() -> None:
-    """After 3 drills on the only lit root the server terminates, overriding a model 'ask'.
+async def test_completed_who_drills_force_terminal_even_when_model_wants_to_ask() -> (
+    None
+):
+    """Once every WHO drill is answered the server terminates, overriding a model 'ask'.
 
-    WHY: the depth cap is a server guarantee; a chatty model must not drill forever.
+    WHY: the engine — not a chatty model — owns the flow (Rule 5). After the sub-niche and
+    its one WHO drill are answered there is nothing left to ask, so a model that still wants
+    to ask is overridden into the terminal extraction.
     """
     model_wants_ask = InterviewDecision(
         action="ask", question_text="Even deeper?", bubbles=["More"]
     )
     fake = _FakeLLMClient(decision=model_wants_ask)
-    state = [_exchange("What news?", tapped=["Sport"])]
-    for depth in range(MAX_DRILL_DEPTH_PER_ROOT):
-        state.append(_exchange(f"Drill {depth}", tapped=[f"pick-{depth}"]))
+    state = [
+        _exchange("What news?", tapped=["Sport"]),
+        _exchange("Which sport?", tapped=["Cricket"]),  # sub-niche selected
+        _exchange("Cricket — name one, or skip.", typed="IPL"),  # WHO drill answered
+        _exchange("How do you read Sport?", tapped=["Analysis & context"]),  # ANGLE TUNE
+        _exchange("Anything to mute?", tapped=[]),  # SKIP TUNE → terminal next
+    ]
     response = await run_interview_turn(
         InterviewTurnRequest(conversation_state=state), fake
     )  # type: ignore[arg-type]
@@ -207,22 +216,6 @@ async def test_drill_depth_cap_forces_terminal_even_when_model_wants_to_ask() ->
     assert response.response_kind == "terminal"
     # Model returned no interests, so the engine falls back to the lit root itself.
     assert [i.canonical_slug for i in response.micro_interests] == ["sport"]
-
-
-@pytest.mark.asyncio
-async def test_tap_budget_hard_stop_forces_terminal() -> None:
-    """Once the hard tap budget is hit the engine terminates regardless of model action."""
-    fake = _FakeLLMClient(
-        decision=InterviewDecision(action="ask", question_text="?", bubbles=["x"])
-    )
-    state = [_exchange("What news?", tapped=["Sport", "Tech"])]
-    # Pile taps past the hard budget across drill turns.
-    while total_taps(state) < TAP_BUDGET_HARD:
-        state.append(_exchange("drill", tapped=["more"]))
-    response = await run_interview_turn(
-        InterviewTurnRequest(conversation_state=state), fake
-    )  # type: ignore[arg-type]
-    assert response.response_kind == "terminal"
 
 
 # ── Skip-everything degenerate path (acceptance: empty terminal + roots-only signal) ──
@@ -323,7 +316,9 @@ async def test_natural_terminal_returns_fully_formed_micro_interest() -> None:
     state = [
         _exchange("What news?", tapped=["Sport"]),
         _exchange("Which sport?", tapped=["Cricket"]),
-        _exchange("Which cricket?", tapped=["IPL"]),
+        _exchange("Which cricket?", tapped=["IPL"]),  # WHO drill answered
+        _exchange("How do you read Sport?", tapped=["Analysis & context"]),  # ANGLE TUNE
+        _exchange("Anything to mute?", tapped=[]),  # SKIP TUNE → terminal next
     ]
     response = await run_interview_turn(
         InterviewTurnRequest(conversation_state=state), fake
@@ -374,16 +369,6 @@ def test_total_taps_excludes_meta_affordances() -> None:
         _exchange("q", tapped=["Sport", SKIP_BUBBLE_LABEL, TYPE_YOUR_OWN_BUBBLE_LABEL])
     ]
     assert total_taps(state) == 1
-
-
-def test_replay_drill_state_advances_and_exhausts_active_root() -> None:
-    state = [_exchange("What news?", tapped=["Sport"])]
-    for depth in range(MAX_DRILL_DEPTH_PER_ROOT):
-        state.append(_exchange("drill", tapped=[f"p{depth}"]))
-    drill = replay_drill_state(state)
-    assert drill.lit_roots == ["sport"]
-    assert drill.drill_counts["sport"] == MAX_DRILL_DEPTH_PER_ROOT
-    assert drill.active_root is None  # exhausted → steer to terminal
 
 
 def test_derive_ladder_is_cumulative_prefixes() -> None:

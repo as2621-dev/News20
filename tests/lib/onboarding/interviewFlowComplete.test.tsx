@@ -51,6 +51,7 @@ vi.mock("@/lib/onboardingProfile", () => ({
 
 vi.mock("@/lib/interviewProfile", () => ({
   persistInterviewInterests: vi.fn(),
+  persistMuteTerms: vi.fn().mockResolvedValue({ persisted_mute_count: 0 }),
 }));
 
 vi.mock("@/lib/interview/session", () => ({

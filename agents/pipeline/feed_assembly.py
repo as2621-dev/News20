@@ -54,6 +54,7 @@ pool + taxonomy + prior feed) — no DB, no network — fully unit-testable.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -88,6 +89,67 @@ logger = get_logger("pipeline.feed_assembly")
 # user's per-category slot counts SUM to 30; the allocator's roll-over logic owns
 # totalling to 30 when source categories (youtube/x) are budgeted-but-empty.
 FEED_SLOT_BUDGET = 30  # N = 30 per-user feed budget ("Build your 30")
+
+# Reason: a mute must match whole words, not substrings — a raw substring "ai" would nuke
+# "Spain"/"rain", and "f1" inside "of10k"; word-boundary matching keeps a mute honest.
+# Terms shorter than this are ignored (too broad to hard-filter safely).
+_MIN_MUTE_TERM_LEN = 2
+
+
+def _compile_mute_matcher(mute_terms: list[str] | None) -> re.Pattern[str] | None:
+    """Compile the user's mute terms into ONE case-insensitive word-boundary matcher.
+
+    Mutes are per-user HARD FILTERS applied at assembly ONLY (spec §8 / PRD story #11) —
+    never at ingestion (the story pool is shared across users) and never as downranking.
+    Each term is escaped (no regex injection from a typed/tapped mute term) and matched on
+    whole-word boundaries so a short term can't collateral-match unrelated words.
+
+    Args:
+        mute_terms: The user's mute terms (from SKIP TUNE answers); ``None``/empty → no filter.
+
+    Returns:
+        A compiled pattern that matches any muted term, or ``None`` when nothing to filter.
+    """
+    cleaned = {
+        term.strip()
+        for term in (mute_terms or [])
+        if term and len(term.strip()) >= _MIN_MUTE_TERM_LEN
+    }
+    if not cleaned:
+        return None
+    alternation = "|".join(re.escape(term) for term in sorted(cleaned))
+    return re.compile(rf"(?<!\w)(?:{alternation})(?!\w)", re.IGNORECASE)
+
+
+def _filter_muted_stories(
+    stories: list[CanonicalStory], matcher: re.Pattern[str] | None
+) -> list[CanonicalStory]:
+    """Drop every story whose title or body matches a mute term (hard filter, not demotion).
+
+    A muted story is REMOVED from the candidate pool entirely before any scoring/placement,
+    so it can never appear in this user's feed at any position — "mute" means gone, not
+    demoted (PRD story #11). Pure: the shared input list is never mutated.
+
+    Args:
+        stories: The candidate story pool (shared, never mutated).
+        matcher: The compiled mute matcher, or ``None`` (returns the pool unchanged).
+
+    Returns:
+        The stories with no muted match, order preserved.
+    """
+    if matcher is None:
+        return stories
+    kept: list[CanonicalStory] = []
+    dropped = 0
+    for story in stories:
+        haystack = f"{story.canonical_title}\n{story.canonical_body_text or ''}"
+        if matcher.search(haystack):
+            dropped += 1
+            continue
+        kept.append(story)
+    if dropped:
+        logger.info("feed_mute_filter_applied", stories_muted=dropped, pool_after=len(kept))
+    return kept
 
 # Reason: feed_slot_kind enum-like values written to daily_feeds.feed_slot_kind.
 # The category-budget allocator uses ``interest`` for every topic-category-filled
@@ -487,6 +549,7 @@ def assemble_user_feed(
     exploration_candidates_by_interest: Any = None,
     source_stories: list[CanonicalStory] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    mute_terms: list[str] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     now_utc: Any = None,
@@ -544,6 +607,13 @@ def assemble_user_feed(
         >>> # don't-repeat) asserted here.
     """
     excluded = set(prior_feed_story_ids or set())
+
+    # Mutes: HARD FILTER the shared pool up front (spec §8) — assembly-only, never demotion.
+    # No-op when the niche path already filtered and delegated here (mute_terms defaults None).
+    mute_matcher = _compile_mute_matcher(mute_terms)
+    stories = _filter_muted_stories(stories, mute_matcher)
+    if source_stories is not None:
+        source_stories = _filter_muted_stories(source_stories, mute_matcher)
 
     if not profile_interests:
         logger.info(
@@ -884,6 +954,7 @@ def assemble_niche_feed(
     prior_feed_story_ids: set[str] | None = None,
     source_stories: list[CanonicalStory] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    mute_terms: list[str] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     now_utc: Any = None,
@@ -941,6 +1012,15 @@ def assemble_niche_feed(
     """
     excluded = set(prior_feed_story_ids or set())
     rows = list(niche_allocation or [])
+
+    # ── Mutes: HARD FILTER the shared candidate pool BEFORE any pass (spec §8) ──
+    # Applied here at assembly (never at ingestion — the pool is shared across users) and
+    # BEFORE routing, so both the niche path and the delegated coarse path see a pool with
+    # the muted stories already gone. "Mute" means gone, not demoted (PRD story #11).
+    mute_matcher = _compile_mute_matcher(mute_terms)
+    stories = _filter_muted_stories(stories, mute_matcher)
+    if source_stories is not None:
+        source_stories = _filter_muted_stories(source_stories, mute_matcher)
 
     # ── Routing: roots-only / legacy / empty → the unchanged coarse allocator ──
     # Reason: a profile with no niche section (NULL interest ref on every row) is "the

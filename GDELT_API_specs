@@ -1,0 +1,57 @@
+# GDELT Integration Spec — Fetching Stories on User-Requested Topics
+
+## Context
+Building a feature where a user requests news/stories on a specific topic (e.g. "get me news on [person/topic]"), and the system needs to pull matching articles from GDELT.
+
+## The Core Confusion, Resolved
+GDELT is not one thing — it's three separate products. Only one of them is actually built for "fetch me articles about X."
+
+| Component | What it is | Use it for on-demand story retrieval? |
+|---|---|---|
+| **GDELT Event Database** | Codes ~300 categories of macro *events* (protests, diplomacy, conflict) using the CAMEO taxonomy. Built for political-science/geopolitical event analysis. | **No.** Not built to return "articles about a person/topic," and it doesn't reliably capture things like sports news at all. |
+| **GDELT Global Knowledge Graph (GKG)** | Extracts entities, themes, locations, and tone *from* articles GDELT has already ingested. Used for aggregate analysis (theme trends, tone shifts, entity co-occurrence). | **No, not directly.** It's an analytics layer over the article stream, not a search-and-retrieve endpoint for "give me stories."|
+| **GDELT DOC 2.0 API** | A full-text search API over GDELT's global news article stream. You query keywords/phrases/filters and get back a list of matching articles. | **Yes — this is the one you want.** |
+
+**Bottom line for the coding agent: use the DOC 2.0 API, article-list mode. Ignore the Event DB and treat the GKG as optional future enrichment, not the retrieval mechanism.**
+
+## DOC 2.0 API — What to Implement
+
+**Base endpoint:**
+```
+https://api.gdeltproject.org/api/v2/doc/doc
+```
+
+**Key query parameters:**
+- `query` — keyword(s)/phrase(s). Wrap exact names in quotes: `"Vaibhav Suryavanshi"`
+- `mode=artlist` — returns a list of matching articles (this is the one to use)
+- `format=json` — machine-readable output
+- `maxrecords` — up to 250 per request
+- `timespan` — e.g. `1d`, `7d`, `3m` (default lookback is last 3 months; officially only the last 3 months are guaranteed available)
+- `sourcecountry` — 2-letter FIPS code, e.g. `IN` for India
+- `sourcelang` — restrict to a publication language
+- `domain:` / `domain_exact:` (in-query operators) — restrict to a specific outlet, e.g. `domain:espncricinfo.com`
+- `sort` — `datedesc` (newest first), `relevance`, `tonedesc`/`toneasc`
+
+**Example request the agent can start from:**
+```
+https://api.gdeltproject.org/api/v2/doc/doc?query="Vaibhav Suryavanshi"&mode=artlist&format=json&maxrecords=75&timespan=7d&sort=datedesc
+```
+
+**Response fields to parse per article:** `url`, `title`, `seendate`, `domain`, `language`, `sourcecountry`, `socialimage`
+
+**No API key required** — it's a free public endpoint, but it should be called at a reasonable rate (avoid hammering it in tight loops).
+
+## Known Limitations to Design Around
+1. **No fixed/published source list.** GDELT doesn't maintain a curated "these are our covered outlets for topic X" directory. Coverage of any given outlet has to be verified empirically (query `domain:` and see what comes back) — it can't be assumed.
+2. **Coverage skews toward high-volume mainstream outlets.** Major dailies with strong web presence are more reliably represented than niche/vertical sites (e.g. cricket-specific outlets).
+3. **3-month rolling window.** Older stories aren't reliably retrievable through this API.
+4. **This is a general news crawler, not a sports data source.** For niche topics like individual cricketers, expect inconsistent hit rates — GDELT will find stories *if* a monitored outlet covered them, but won't guarantee comprehensive sports coverage the way a dedicated sports/cricket API would.
+
+## Recommended Build Approach
+1. Implement DOC 2.0 `artlist` search as the primary retrieval path.
+2. Build in a **coverage check step**: for topics that return few/no results, don't assume GDELT has nothing — the agent should treat this as "not covered by GDELT's crawl" and (if needed) fall back to a secondary source.
+3. For sports-specific or other niche verticals, consider a **hybrid approach**: GDELT for broad narrative/tone tracking, plus a dedicated topic API (e.g. a cricket-specific API) for guaranteed coverage of that vertical.
+4. Cache/dedupe by `url` since the same story can surface across multiple queries.
+
+## Open Question for You to Resolve Before Build
+Do you want GDELT to be the **sole** source for this feature, or a **layer** alongside a topic-specific API for verticals (sports, etc.) where GDELT's crawl may be thin? This determines whether the fallback logic in step 2/3 above is required or optional.

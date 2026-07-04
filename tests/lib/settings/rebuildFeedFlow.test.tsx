@@ -44,6 +44,7 @@ vi.mock("@/lib/profile", () => ({
 
 vi.mock("@/lib/interviewProfile", () => ({
   persistInterviewInterests: vi.fn(),
+  persistMuteTerms: vi.fn().mockResolvedValue({ persisted_mute_count: 0 }),
   REPLACE_PARTIAL_ERROR_NAME: "ReplacePartialError",
 }));
 

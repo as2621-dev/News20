@@ -1,0 +1,3452 @@
+{
+  "source_artifact": "bd94cf30-abbb-4e2e-b665-bd3e99d7e67f",
+  "roots": [
+    {
+      "root_label": "AI",
+      "subniches": [
+        "Frontier labs & LLMs",
+        "Research & paper explainers",
+        "AI news & analysis",
+        "AI business & startups",
+        "AI safety & alignment",
+        "Open-source AI",
+        "AI coding & dev tools",
+        "AI agents & automation",
+        "Robotics & embodied AI",
+        "AI hardware & silicon",
+        "Generative media",
+        "AI policy & governance",
+        "ML education",
+        "AI for science & medicine",
+        "AI ethics & society"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "Dwarkesh Patel",
+          "youtube_handle": "@DwarkeshPatel",
+          "subniche": "Frontier labs",
+          "why": "Deep long-form researcher & founder interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Lex Fridman",
+          "youtube_handle": "@lexfridman",
+          "subniche": "Frontier labs",
+          "why": "Long AI, science and founder interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "OpenAI",
+          "youtube_handle": "@OpenAI",
+          "subniche": "Frontier labs",
+          "why": "First-party demos, launches and dev talks",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Google DeepMind",
+          "youtube_handle": "@GoogleDeepMind",
+          "subniche": "Frontier labs",
+          "why": "Lab podcast and research features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Machine Learning Street Talk",
+          "youtube_handle": "@MachineLearningStreetTalk",
+          "subniche": "Research",
+          "why": "Rigorous ML debate and researcher interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Two Minute Papers",
+          "youtube_handle": "@TwoMinutePapers",
+          "subniche": "Research",
+          "why": "Digestible new AI paper explainers",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Yannic Kilcher",
+          "youtube_handle": "@YannicKilcher",
+          "subniche": "Research",
+          "why": "Paper walkthroughs and model critique",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "bycloud",
+          "youtube_handle": "@bycloudAI",
+          "subniche": "Research",
+          "why": "Fast-moving research trend explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "AI Explained",
+          "youtube_handle": "@aiexplained-official",
+          "subniche": "News & analysis",
+          "why": "Sober frontier-model release analysis",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Wes Roth",
+          "youtube_handle": "@WesRoth",
+          "subniche": "News & analysis",
+          "why": "Daily AI news deep-dives",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "The AI Daily Brief",
+          "youtube_handle": "@AIDailyBrief",
+          "subniche": "News & analysis",
+          "why": "Daily AI news & business briefing",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "a16z",
+          "youtube_handle": "@a16z",
+          "subniche": "AI business",
+          "why": "VC analysis of AI markets and builders",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Y Combinator",
+          "youtube_handle": "@ycombinator",
+          "subniche": "AI business",
+          "why": "Founder talks and AI startup building",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "No Priors",
+          "youtube_handle": "@NoPriorsPodcast",
+          "subniche": "AI business",
+          "why": "Weekly AI founders and researchers pod",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Matthew Berman",
+          "youtube_handle": "@matthew_berman",
+          "subniche": "Agents & tools",
+          "why": "Hands-on agent & model testing",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Sam Witteveen",
+          "youtube_handle": "@samwitteveenai",
+          "subniche": "Agents & coding",
+          "why": "Practical agent-building walkthroughs",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Robert Miles AI Safety",
+          "youtube_handle": "@RobertMilesAI",
+          "subniche": "Safety",
+          "why": "Accessible alignment explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Boston Dynamics",
+          "youtube_handle": "@BostonDynamics",
+          "subniche": "Robotics",
+          "why": "Embodied robotics demos and updates",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "3Blue1Brown",
+          "youtube_handle": "@3blue1brown",
+          "subniche": "ML education",
+          "why": "Visual math-of-ML explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Andrej Karpathy",
+          "youtube_handle": "@AndrejKarpathy",
+          "subniche": "ML education",
+          "why": "From-scratch LLM lectures",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "StatQuest",
+          "youtube_handle": "@statquest",
+          "subniche": "ML education",
+          "why": "Step-by-step ML/statistics teaching",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "Frontier-lab researchers",
+          "subniche": "Frontier labs",
+          "description": "Researchers posting original results & takes",
+          "handles": [
+            "@karpathy",
+            "@demishassabis",
+            "@ylecun",
+            "@geoffreyhinton",
+            "@drfeifei",
+            "@ilyasut",
+            "@JeffDean",
+            "@OriolVinyalsML",
+            "@DrJimFan",
+            "@_jasonwei",
+            "@polynoamial",
+            "@giffmana"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Paper & research explainers",
+          "subniche": "Research",
+          "description": "Academics & educators unpacking new papers",
+          "handles": [
+            "@rasbt",
+            "@hardmaru",
+            "@jeremyphoward",
+            "@fchollet",
+            "@arankomatsuzaki",
+            "@srush_nlp",
+            "@sarahookr",
+            "@tri_dao",
+            "@colinraffel",
+            "@jxmnop"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI news & analysts",
+          "subniche": "News & analysis",
+          "description": "Independent voices tracking models & releases",
+          "handles": [
+            "@rowancheung",
+            "@_akhaliq",
+            "@emollick",
+            "@simonw",
+            "@natfriedman",
+            "@bindureddy",
+            "@deliprao",
+            "@nearcyan",
+            "@AndrewCurran_",
+            "@kimmonismus"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI founders & builders",
+          "subniche": "AI business",
+          "description": "Lab & startup leaders shipping frontier products",
+          "handles": [
+            "@sama",
+            "@satyanadella",
+            "@sundarpichai",
+            "@gdb",
+            "@DarioAmodei",
+            "@AravSrinivas",
+            "@alexandr_wang",
+            "@clementdelangue",
+            "@miramurati",
+            "@amasad",
+            "@levie",
+            "@garrytan"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "AI safety & alignment",
+          "subniche": "Safety",
+          "description": "Alignment researchers & safety institutions",
+          "handles": [
+            "@ESYudkowsky",
+            "@robertskmiles",
+            "@janleike",
+            "@NeelNanda5",
+            "@DanHendrycks",
+            "@ajeya_cotra",
+            "@paulfchristiano",
+            "@EvanHub",
+            "@RichardMCNgo",
+            "@AISafetyInst"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Open-source AI",
+          "subniche": "Open-source",
+          "description": "Open-weights trainers, quantisers & maintainers",
+          "handles": [
+            "@Teknium1",
+            "@maximelabonne",
+            "@osanseviero",
+            "@_philschmid",
+            "@danielhanchen",
+            "@winglian",
+            "@abacaj",
+            "@ggerganov",
+            "@awnihannun",
+            "@reach_vb"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI coding & dev tools",
+          "subniche": "Coding & dev tools",
+          "description": "Builders shipping AI-native dev workflows",
+          "handles": [
+            "@swyx",
+            "@svpino",
+            "@mckaywrigley",
+            "@mattshumer_",
+            "@nutlope",
+            "@skirano",
+            "@steipete",
+            "@amanrsanger",
+            "@cursor_ai",
+            "@code"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI agents & automation",
+          "subniche": "Agents",
+          "description": "Agent-framework authors & orchestration voices",
+          "handles": [
+            "@hwchase17",
+            "@jerryjliu0",
+            "@yoheinakajima",
+            "@OfficialLoganK",
+            "@omarsar0",
+            "@LangChainAI",
+            "@llama_index",
+            "@alexalbert__",
+            "@hellokillian",
+            "@crewAIInc"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Robotics & embodied AI",
+          "subniche": "Robotics",
+          "description": "Humanoid labs & embodied-AI researchers",
+          "handles": [
+            "@adcock_brett",
+            "@Figure_robot",
+            "@BostonDynamics",
+            "@UnitreeRobotics",
+            "@ericjang11",
+            "@svlevine",
+            "@chelseabfinn",
+            "@peteflorence",
+            "@hausman_k",
+            "@1x_tech"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI hardware & silicon",
+          "subniche": "Hardware",
+          "description": "Accelerator vendors & supply-chain analysts",
+          "handles": [
+            "@dylan522p",
+            "@SemiAnalysis_",
+            "@cerebras",
+            "@GroqInc",
+            "@nvidia",
+            "@AMD",
+            "@LisaSu",
+            "@tenstorrent"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Generative media",
+          "subniche": "Generative media",
+          "description": "Image/video/audio model builders & artists",
+          "handles": [
+            "@bilawalsidhu",
+            "@c_valenzuelab",
+            "@EMostaque",
+            "@suhail",
+            "@nickfloats",
+            "@GuyP",
+            "@midjourney",
+            "@pika_labs",
+            "@LumaLabsAI",
+            "@runwayml"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI policy & governance",
+          "subniche": "Policy",
+          "description": "Governance scholars & policy institutions",
+          "handles": [
+            "@GaryMarcus",
+            "@tegmark",
+            "@miles_brundage",
+            "@jackclarkSF",
+            "@hlntnr",
+            "@sethlazar",
+            "@AnthropicAI",
+            "@StanfordHAI",
+            "@CSETGeorgetown",
+            "@GovAI_"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "ML education",
+          "subniche": "ML education",
+          "description": "Teachers & platforms for learning ML",
+          "handles": [
+            "@AndrewYNg",
+            "@3blue1brown",
+            "@DeepLearningAI",
+            "@fastdotai",
+            "@weights_biases",
+            "@kaggle",
+            "@chipro",
+            "@honnibal",
+            "@seb_ruder",
+            "@mrdbourke"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI for science & medicine",
+          "subniche": "Science & medicine",
+          "description": "AI-driven biology, chemistry & health",
+          "handles": [
+            "@EricTopol",
+            "@pushmeet",
+            "@pdhsu",
+            "@arcinstitute",
+            "@isomorphiclabs",
+            "@Dereklowe",
+            "@recursionpharma",
+            "@FutureHouseSF"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "AI ethics & society",
+          "subniche": "Ethics",
+          "description": "Critical scholars on AI's societal impact",
+          "handles": [
+            "@timnitGebru",
+            "@mmitchell_ai",
+            "@emilymbender",
+            "@randomwalker",
+            "@sayashk",
+            "@ruchowdh",
+            "@Abebab",
+            "@merbroussard",
+            "@jovialjoy",
+            "@DAIRInstitute"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "ai"
+    },
+    {
+      "root_label": "Geopolitics",
+      "subniches": [
+        "World news desks",
+        "Foreign-policy analysts",
+        "India & Global South",
+        "China & East Asia",
+        "Russia–Ukraine",
+        "Middle East",
+        "Europe & NATO",
+        "Defense & military tech",
+        "Trade & geoeconomics",
+        "Intelligence & OSINT",
+        "Diplomacy & institutions",
+        "Africa & Latin America",
+        "Grand strategy & IR scholars",
+        "Nuclear & arms control",
+        "Energy & resource geopolitics"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "Al Jazeera English",
+          "youtube_handle": "@AlJazeeraEnglish",
+          "subniche": "World desk",
+          "why": "Global-South-forward world reporting and docs",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "DW News",
+          "youtube_handle": "@dwnews",
+          "subniche": "World desk",
+          "why": "European long-form world affairs analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "The Economist",
+          "youtube_handle": "@TheEconomist",
+          "subniche": "Analysis",
+          "why": "Explainer geopolitics and world briefings",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Council on Foreign Relations",
+          "youtube_handle": "@CouncilonForeignRelations",
+          "subniche": "Think tank",
+          "why": "Expert foreign-policy panels and briefings",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "CSIS",
+          "youtube_handle": "@CSIS",
+          "subniche": "Think tank",
+          "why": "Security and strategy analysis sessions",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Chatham House",
+          "youtube_handle": "@ChathamHouse",
+          "subniche": "Think tank",
+          "why": "International affairs expert panels",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Brookings",
+          "youtube_handle": "@BrookingsInstitution",
+          "subniche": "Think tank",
+          "why": "Policy panels across regions & economics",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "International Crisis Group",
+          "youtube_handle": "@CrisisGroup",
+          "subniche": "Conflict/security",
+          "why": "Field-informed conflict briefings",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Caspian Report",
+          "youtube_handle": "@CaspianReport",
+          "subniche": "Conflict/security",
+          "why": "Geopolitical explainer deep-dives",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Perun",
+          "youtube_handle": "@PerunAU",
+          "subniche": "Defense",
+          "why": "Hour-long defense-economics slide briefs",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "William Spaniel",
+          "youtube_handle": "@Gametheory101",
+          "subniche": "Conflict/security",
+          "why": "Game-theory lens on live conflicts",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "WION",
+          "youtube_handle": "@WIONews",
+          "subniche": "India / Global South",
+          "why": "India-lens global news coverage",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Firstpost (Vantage)",
+          "youtube_handle": "@Firstpost",
+          "subniche": "India / Global South",
+          "why": "India-view world affairs with Palki Sharma",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "CNA Insider",
+          "youtube_handle": "@CNAInsider",
+          "subniche": "Asia",
+          "why": "Singapore-lens Asia documentaries",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "TLDR News Global",
+          "youtube_handle": "@TLDRnewsGLOBAL",
+          "subniche": "Explainers",
+          "why": "Neutral explainer briefs on world stories",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Johnny Harris",
+          "youtube_handle": "@johnnyharris",
+          "subniche": "Explainers",
+          "why": "Cinematic geopolitics investigations",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "RealLifeLore",
+          "youtube_handle": "@RealLifeLore",
+          "subniche": "Explainers",
+          "why": "Map-driven geography of power",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "PolyMatter",
+          "youtube_handle": "@PolyMatter",
+          "subniche": "China / East Asia",
+          "why": "China-heavy economics explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Zeihan on Geopolitics",
+          "youtube_handle": "@ZeihanonGeopolitics",
+          "subniche": "Grand strategy",
+          "why": "Demography-and-geography forecasts",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "War on the Rocks",
+          "youtube_handle": "@WarOnTheRocks",
+          "subniche": "Defense",
+          "why": "Scholar-practitioner security debates",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Vox",
+          "youtube_handle": "@Vox",
+          "subniche": "Explainers",
+          "why": "Atlas-style visual world explainers",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "World news desks",
+          "subniche": "World desks",
+          "description": "Wire & global desks breaking original reporting",
+          "handles": [
+            "@Reuters",
+            "@AP",
+            "@BBCWorld",
+            "@nytimes",
+            "@AJEnglish",
+            "@dwnews",
+            "@FT",
+            "@guardian",
+            "@AFP",
+            "@TheEconomist"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Foreign-policy analysts",
+          "subniche": "FP analysts",
+          "description": "Scholars & columnists posting original analysis",
+          "handles": [
+            "@IanBremmer",
+            "@dandrezner",
+            "@anneapplebaum",
+            "@stevenacook",
+            "@KoriSchake",
+            "@RichardHaass",
+            "@FareedZakaria",
+            "@gideonrachman",
+            "@EmmaMAshford",
+            "@ForeignAffairs"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "India & Global South desks",
+          "subniche": "India / Global South",
+          "description": "India-centric foreign-affairs voices & outlets",
+          "handles": [
+            "@ShashiTharoor",
+            "@Sadanand_Dhume",
+            "@c_raja_mohan",
+            "@nitin_gokhale",
+            "@ORFonline",
+            "@IndianExpress",
+            "@the_hindu",
+            "@sidhant",
+            "@tanvi_madan",
+            "@dhruva_jaishankar"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "China & East Asia watchers",
+          "subniche": "China / East Asia",
+          "description": "Sinologists & correspondents on China's rise",
+          "handles": [
+            "@niubi",
+            "@jordanschnyc",
+            "@BonnieGlaser",
+            "@lingling_wei",
+            "@KaiserKuo",
+            "@M_Taylor_Fravel",
+            "@prchovanec",
+            "@ananthkrishnan",
+            "@isaacstonefish",
+            "@SCMPNews"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Russia–Ukraine watchers",
+          "subniche": "Russia–Ukraine",
+          "description": "Correspondents & analysts on the war",
+          "handles": [
+            "@maxseddon",
+            "@shashj",
+            "@KofmanMichael",
+            "@RALee85",
+            "@DAlperovitch",
+            "@Christogrozev",
+            "@wartranslated",
+            "@TheStudyofWar",
+            "@francis_scarr",
+            "@IAPonomarenko"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Middle East analysts",
+          "subniche": "Middle East",
+          "description": "Region specialists posting original reporting",
+          "handles": [
+            "@Charles_Lister",
+            "@hxhassan",
+            "@gregcarlstrom",
+            "@KimGhattas",
+            "@bbclysedoucet",
+            "@AaronDMiller2",
+            "@Dr_Ulrichsen",
+            "@barakravid",
+            "@NegarMortazavi"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Europe & NATO",
+          "subniche": "Europe & NATO",
+          "description": "EU/NATO politics reporters & analysts",
+          "handles": [
+            "@MacaesBruno",
+            "@ulrichspeck",
+            "@minnaalander",
+            "@rikardjozwiak",
+            "@DaveKeating",
+            "@NathalieTocci",
+            "@MujtabaRahman",
+            "@POLITICOEurope",
+            "@tonyconnellyRTE",
+            "@jonworth"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Defense & military tech",
+          "subniche": "Defense",
+          "description": "Defense outlets & military-tech analysts",
+          "handles": [
+            "@DefenseOne",
+            "@BreakingDefense",
+            "@tylerrogoway",
+            "@nktpnd",
+            "@AviationWeek",
+            "@JanesINTEL",
+            "@IISS_org",
+            "@RUSI_org",
+            "@stimsoncenter",
+            "@WarOnTheRocks"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Trade & geoeconomics",
+          "subniche": "Geoeconomics",
+          "description": "Sanctions, trade & capital-flow analysts",
+          "handles": [
+            "@adam_tooze",
+            "@Brad_Setser",
+            "@agathedemarais",
+            "@ChadBown",
+            "@alanbeattie",
+            "@RobinBrooksIIF",
+            "@michaelxpettis",
+            "@IMFNews",
+            "@wto",
+            "@PIIE"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "OSINT & conflict monitoring",
+          "subniche": "Intelligence & OSINT",
+          "description": "Open-source investigators & geolocators",
+          "handles": [
+            "@bellingcat",
+            "@EliotHiggins",
+            "@Nrg8000",
+            "@GeoConfirmed",
+            "@AuroraIntel",
+            "@Osinttechnical",
+            "@COUPSURE",
+            "@DFRLab",
+            "@ACLEDINFO"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Diplomacy & institutions",
+          "subniche": "Diplomacy",
+          "description": "Multilateral bodies posting primary statements",
+          "handles": [
+            "@UN",
+            "@NATO",
+            "@StateDept",
+            "@EU_Commission",
+            "@WFP",
+            "@ICRC",
+            "@UNHumanRights",
+            "@IAEAorg",
+            "@OSCE",
+            "@UNReliefChief"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Africa & Latin America",
+          "subniche": "Africa / LatAm",
+          "description": "Correspondents covering both regions originally",
+          "handles": [
+            "@declanwalsh",
+            "@LarryMadowo",
+            "@BrazilBrian",
+            "@AmericasQuart",
+            "@TheAfricaReport",
+            "@mailandguardian",
+            "@africanews",
+            "@JohnHolman100",
+            "@patrickgathara"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Grand strategy & IR scholars",
+          "subniche": "Grand strategy",
+          "description": "Big-picture strategists & IR professors",
+          "handles": [
+            "@PeterZeihan",
+            "@profmusgrave",
+            "@ProfPaulPoast",
+            "@stephenWertheim",
+            "@hofrench",
+            "@vtchakarova",
+            "@Doranimated",
+            "@ElbridgeColby",
+            "@HalBrands",
+            "@OrianaSkylar"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Nuclear & arms control",
+          "subniche": "Arms control",
+          "description": "Nonproliferation wonks & institutions",
+          "handles": [
+            "@ArmsControlWonk",
+            "@wellerstein",
+            "@james_acton32",
+            "@KingstonAReif",
+            "@NTI_WMD",
+            "@cheryl_rofer",
+            "@Armscontrolnow",
+            "@CNS_Updates"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Energy & resource geopolitics",
+          "subniche": "Energy geopolitics",
+          "description": "Oil, gas & commodity-power analysts",
+          "handles": [
+            "@JavierBlas",
+            "@SStapczynski",
+            "@Ed_Crooks",
+            "@amena_bakr",
+            "@HelimaCroft",
+            "@staunovo",
+            "@anasalhajji",
+            "@ColumbiaUEnergy"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "geopolitics"
+    },
+    {
+      "root_label": "Business",
+      "subniches": [
+        "Markets & macro desks",
+        "Investing & macro thinkers",
+        "India markets & business",
+        "Startups & VC",
+        "Central banks & economists",
+        "Crypto & digital assets",
+        "Real estate & housing",
+        "Personal finance",
+        "Corporate strategy & analysis",
+        "Fintech & payments",
+        "Commodities & energy markets",
+        "Deals, M&A & private equity",
+        "Labor & economic data",
+        "Retail & consumer",
+        "Supply chain & logistics"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "Bloomberg Television",
+          "youtube_handle": "@BloombergTelevision",
+          "subniche": "Markets desk",
+          "why": "Live markets and macro coverage",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "CNBC",
+          "youtube_handle": "@CNBC",
+          "subniche": "Markets desk",
+          "why": "Markets news and CEO interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Financial Times",
+          "youtube_handle": "@FinancialTimes",
+          "subniche": "Markets desk",
+          "why": "Explainer finance and macro analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Wall Street Journal",
+          "youtube_handle": "@wsj",
+          "subniche": "Markets desk",
+          "why": "Business explainers & company deep-dives",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Yahoo Finance",
+          "youtube_handle": "@YahooFinance",
+          "subniche": "Markets desk",
+          "why": "Daily markets shows & earnings interviews",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Real Vision",
+          "youtube_handle": "@RealVisionFinance",
+          "subniche": "Macro",
+          "why": "Long investor and macro interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "The Compound",
+          "youtube_handle": "@TheCompound",
+          "subniche": "Investing",
+          "why": "Markets discussion and advisor takes",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Patrick Boyle",
+          "youtube_handle": "@PatrickBoyleOnFinance",
+          "subniche": "Macro",
+          "why": "Wry finance and markets analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Ben Felix",
+          "youtube_handle": "@BenFelixCFI",
+          "subniche": "Investing",
+          "why": "Evidence-based investing explainers",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Aswath Damodaran",
+          "youtube_handle": "@AswathDamodaranonValuation",
+          "subniche": "Investing",
+          "why": "Valuation lectures on live companies",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "The Plain Bagel",
+          "youtube_handle": "@ThePlainBagel",
+          "subniche": "Personal finance",
+          "why": "Level-headed investing & finance explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "How Money Works",
+          "youtube_handle": "@HowMoneyWorks",
+          "subniche": "Personal finance",
+          "why": "Mechanics-of-money explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Economics Explained",
+          "youtube_handle": "@EconomicsExplained",
+          "subniche": "Economics",
+          "why": "Country-and-policy economics explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Money & Macro",
+          "youtube_handle": "@MoneyMacro",
+          "subniche": "Economics",
+          "why": "Economist-authored macro deep-dives",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "All-In Podcast",
+          "youtube_handle": "@allin",
+          "subniche": "Startups & VC",
+          "why": "VC roundtable on markets, tech, politics",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "My First Million",
+          "youtube_handle": "@MyFirstMillionPod",
+          "subniche": "Startups",
+          "why": "Business ideas and founder breakdowns",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Acquired",
+          "youtube_handle": "@AcquiredFM",
+          "subniche": "Corporate strategy",
+          "why": "Definitive multi-hour company histories",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Modern MBA",
+          "youtube_handle": "@ModernMBA",
+          "subniche": "Corporate strategy",
+          "why": "Business post-mortems and strategy docs",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "CA Rachana Ranade",
+          "youtube_handle": "@CARachanaRanade",
+          "subniche": "India markets",
+          "why": "India stock-market deep explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Pranjal Kamra (Finology)",
+          "youtube_handle": "@PranjalKamra",
+          "subniche": "India markets",
+          "why": "India investing and personal-finance analysis",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Think School",
+          "youtube_handle": "@ThinkSchool",
+          "subniche": "India business",
+          "why": "India business case studies",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "Markets & macro desks",
+          "subniche": "Markets desks",
+          "description": "Financial wires posting original market news",
+          "handles": [
+            "@Bloomberg",
+            "@WSJ",
+            "@CNBC",
+            "@FT",
+            "@markets",
+            "@ReutersBiz",
+            "@business",
+            "@TheEconomist",
+            "@YahooFinance",
+            "@axios"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Investors & macro thinkers",
+          "subniche": "Investing",
+          "description": "Fund managers & economists with original theses",
+          "handles": [
+            "@RayDalio",
+            "@elerianm",
+            "@Nouriel",
+            "@LynAldenContact",
+            "@michaelbatnick",
+            "@morganhousel",
+            "@HowardMarksBook",
+            "@cathiedwood",
+            "@biancoresearch",
+            "@profplum99"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "India markets & business",
+          "subniche": "India markets",
+          "description": "Indian markets, macro and business commentary",
+          "handles": [
+            "@dmuthuk",
+            "@deepakshenoy",
+            "@Nithin0dha",
+            "@livemint",
+            "@ETMarkets",
+            "@unseenvalue",
+            "@safiranand",
+            "@VijayKedia1",
+            "@moneycontrolcom",
+            "@NDTVProfitIndia"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Startups & VC",
+          "subniche": "Startups & VC",
+          "description": "Founders & investors on company building",
+          "handles": [
+            "@paulg",
+            "@garrytan",
+            "@jasonlk",
+            "@Jason",
+            "@eladgil",
+            "@lennysan",
+            "@andrewchen",
+            "@ttunguz",
+            "@semil",
+            "@hnshah"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Central banks & economists",
+          "subniche": "Economists",
+          "description": "Macro economists & Fed watchers",
+          "handles": [
+            "@paulkrugman",
+            "@LHSummers",
+            "@jasonfurman",
+            "@ojblanchard1",
+            "@ClaudiaSahm",
+            "@NickTimiraos",
+            "@GregDaco",
+            "@DianeSwonk",
+            "@R_Thaler",
+            "@tylercowen"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Crypto & digital assets",
+          "subniche": "Crypto",
+          "description": "Builders & analysts posting original crypto takes",
+          "handles": [
+            "@VitalikButerin",
+            "@brian_armstrong",
+            "@saylor",
+            "@novogratz",
+            "@cdixon",
+            "@laurashin",
+            "@MessariCrypto",
+            "@lopp",
+            "@balajis",
+            "@haydenzadams"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Real estate & housing",
+          "subniche": "Housing",
+          "description": "Housing economists & market trackers",
+          "handles": [
+            "@LoganMohtashami",
+            "@NewsLambert",
+            "@jayparsons",
+            "@RickPalaciosJr",
+            "@conorsen",
+            "@calculatedrisk",
+            "@AliWolfEcon",
+            "@JBREC"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Personal finance",
+          "subniche": "Personal finance",
+          "description": "Money writers with original frameworks",
+          "handles": [
+            "@ramit",
+            "@MrMoneyMustache",
+            "@jlcollinsnh",
+            "@HerFirst100K",
+            "@dollarsanddata",
+            "@BrianFeroldi",
+            "@awealthofcs",
+            "@budgetnista"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Corporate strategy & analysis",
+          "subniche": "Corporate strategy",
+          "description": "Strategy writers dissecting business models",
+          "handles": [
+            "@profgalloway",
+            "@adamgrant",
+            "@benthompson",
+            "@byrnehobart",
+            "@TrungTPhan",
+            "@packyM",
+            "@awilkinson",
+            "@patrick_oshag",
+            "@BrentBeshore"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Fintech & payments",
+          "subniche": "Fintech",
+          "description": "Fintech operators & newsletter analysts",
+          "handles": [
+            "@sytaylor",
+            "@LexSokolin",
+            "@ronshevlin",
+            "@arampell",
+            "@stripe",
+            "@plaid",
+            "@FinTechJunkie",
+            "@mikulaja"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Commodities & energy markets",
+          "subniche": "Commodities",
+          "description": "Commodity traders & energy-market analysts",
+          "handles": [
+            "@chigrl",
+            "@WarrenPies",
+            "@DoombergT",
+            "@EnergyCredit1",
+            "@JKempEnergy",
+            "@Ole_S_Hansen",
+            "@SPGlobal",
+            "@mining_com"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Deals, M&A & private equity",
+          "subniche": "Deals & PE",
+          "description": "Deal reporters & capital-markets voices",
+          "handles": [
+            "@DanPrimack",
+            "@LizHoffman",
+            "@matt_levine",
+            "@sindap",
+            "@PitchBook",
+            "@dealbook",
+            "@Breakingviews",
+            "@BillAckman",
+            "@SecretCFO"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Labor & economic data",
+          "subniche": "Labor & data",
+          "description": "Labor economists & jobs-data trackers",
+          "handles": [
+            "@heidishierholz",
+            "@arindube",
+            "@JedKolko",
+            "@nick_bunker",
+            "@AnnieLowrey",
+            "@EconomicPolicy",
+            "@byHeatherLong",
+            "@ernietedeschi"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Retail & consumer",
+          "subniche": "Retail",
+          "description": "Retail analysts & consumer-trend reporters",
+          "handles": [
+            "@NeilSaunders",
+            "@SucharitaK",
+            "@amandamull",
+            "@RetailDive",
+            "@modernretail",
+            "@BoF",
+            "@retailgeek"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Supply chain & logistics",
+          "subniche": "Supply chain",
+          "description": "Freight operators & maritime analysts",
+          "handles": [
+            "@typesfast",
+            "@FreightAlley",
+            "@FreightWaves",
+            "@loriannlarocco",
+            "@TheLoadstar",
+            "@Flexport",
+            "@mercoglianos",
+            "@gcaptain"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "business"
+    },
+    {
+      "root_label": "Environment",
+      "subniches": [
+        "Climate science",
+        "Clean energy & grid",
+        "Climate policy & institutions",
+        "EVs & transport",
+        "Climate finance & markets",
+        "Nuclear energy",
+        "Solar & storage",
+        "Biodiversity & conservation",
+        "Oceans & water",
+        "Food & agriculture",
+        "Extreme weather & attribution",
+        "Climate tech & startups",
+        "Carbon removal",
+        "Climate justice & adaptation",
+        "Built environment & cities"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "Just Have a Think",
+          "youtube_handle": "@JustHaveaThink",
+          "subniche": "Climate science",
+          "why": "Weekly climate and energy explainers",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Climate Town",
+          "youtube_handle": "@ClimateTown",
+          "subniche": "Climate explainer",
+          "why": "Sharp comedic climate breakdowns",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Kurzgesagt",
+          "youtube_handle": "@kurzgesagt",
+          "subniche": "Science explainer",
+          "why": "Animated climate and science explainers",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Dr. Simon Clark",
+          "youtube_handle": "@SimonOxfPhys",
+          "subniche": "Climate science",
+          "why": "Climate-physicist paper breakdowns",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "ClimateAdam",
+          "youtube_handle": "@ClimateAdam",
+          "subniche": "Climate science",
+          "why": "Climate-scientist explainers with humour",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "PBS Terra",
+          "youtube_handle": "@PBSTerra",
+          "subniche": "Climate science",
+          "why": "Weathered & climate-frontier series",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Our Changing Climate",
+          "youtube_handle": "@OurChangingClimate",
+          "subniche": "Climate explainer",
+          "why": "Video essays on climate & society",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "DW Planet A",
+          "youtube_handle": "@DWPlanetA",
+          "subniche": "Climate explainer",
+          "why": "Global climate-solutions reporting",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Fully Charged Show",
+          "youtube_handle": "@FullyChargedShow",
+          "subniche": "Clean energy",
+          "why": "EVs and clean-energy deep dives",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Undecided w/ Matt Ferrell",
+          "youtube_handle": "@UndecidedMF",
+          "subniche": "Clean tech",
+          "why": "Clean-tech product and system analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Engineering with Rosie",
+          "youtube_handle": "@EngineeringwithRosie",
+          "subniche": "Clean energy",
+          "why": "Wind/renewables engineering deep-dives",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "RethinkX",
+          "youtube_handle": "@RethinkX",
+          "subniche": "Clean energy",
+          "why": "Energy-transition disruption analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Carbon Brief",
+          "youtube_handle": "@CarbonBrief",
+          "subniche": "Policy",
+          "why": "Data-driven climate policy explainers",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Bloomberg Green",
+          "youtube_handle": "@BloombergGreen",
+          "subniche": "Policy / markets",
+          "why": "Climate business and finance coverage",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Electrek",
+          "youtube_handle": "@ElectrekCo",
+          "subniche": "EVs / transport",
+          "why": "EV and clean-transport news",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Out of Spec Reviews",
+          "youtube_handle": "@OutofSpecReviews",
+          "subniche": "EVs / transport",
+          "why": "Long-form EV testing & charging trips",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Transport Evolved",
+          "youtube_handle": "@TransportEvolved",
+          "subniche": "EVs / transport",
+          "why": "Independent EV & transport analysis",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Kyle Hill",
+          "youtube_handle": "@kylehill",
+          "subniche": "Nuclear",
+          "why": "Nuclear-literacy deep-dives",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Practical Engineering",
+          "youtube_handle": "@PracticalEngineeringChannel",
+          "subniche": "Infrastructure",
+          "why": "Grid & water infrastructure explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Real Engineering",
+          "youtube_handle": "@RealEngineering",
+          "subniche": "Infrastructure",
+          "why": "Energy-systems engineering essays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "BBC Earth",
+          "youtube_handle": "@bbcearth",
+          "subniche": "Biodiversity",
+          "why": "Natural-history films & conservation",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "Climate scientists",
+          "subniche": "Climate science",
+          "description": "Scientists posting original climate analysis",
+          "handles": [
+            "@KHayhoe",
+            "@MichaelEMann",
+            "@hausfath",
+            "@rahmstorf",
+            "@GlobalEcoGuy",
+            "@ClimateOfGavin",
+            "@DrKateMarvel",
+            "@dessler",
+            "@richardabetts",
+            "@piersforster"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Clean energy & grid",
+          "subniche": "Clean energy",
+          "description": "Energy-transition analysts & modellers",
+          "handles": [
+            "@JesseJenkins",
+            "@MLiebreich",
+            "@drvolts",
+            "@ramez",
+            "@Ember_Climate",
+            "@BloombergNEF",
+            "@WoodMackenzie",
+            "@gridstatus",
+            "@CanaryMediaInc"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Climate policy & institutions",
+          "subniche": "Policy",
+          "description": "Agencies & trackers on climate policy",
+          "handles": [
+            "@IEA",
+            "@UNFCCC",
+            "@IRENA",
+            "@DrSimEvans",
+            "@CarbonBrief",
+            "@WorldResources",
+            "@PIK_Climate",
+            "@IPCC_CH",
+            "@UNEP"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "EVs & transport",
+          "subniche": "EVs",
+          "description": "EV reporters & transport-decarbon voices",
+          "handles": [
+            "@electrekco",
+            "@InsideEVs",
+            "@SawyerMerritt",
+            "@fullychargedshw",
+            "@transenv",
+            "@CleanTechnica",
+            "@TheEVuniverse"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Climate finance & markets",
+          "subniche": "Climate finance",
+          "description": "Transition-finance analysts & trackers",
+          "handles": [
+            "@assaadrazzouk",
+            "@KingsmillBond",
+            "@CarbonBubble",
+            "@Sustainable2050",
+            "@tariqfancy",
+            "@CDP",
+            "@ClimateBonds"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Nuclear energy",
+          "subniche": "Nuclear",
+          "description": "Nuclear advocates, engineers & institutions",
+          "handles": [
+            "@isodope",
+            "@MadiHilly",
+            "@whatisnuclear",
+            "@Atomicrod",
+            "@NEI",
+            "@world_nuclear",
+            "@energybants",
+            "@kirstygogan"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Solar & storage",
+          "subniche": "Solar & storage",
+          "description": "Solar analysts & storage trackers",
+          "handles": [
+            "@solar_chase",
+            "@pv_magazine",
+            "@SEIA",
+            "@simonahac",
+            "@DavidOsmond8",
+            "@WattClarity"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Biodiversity & conservation",
+          "subniche": "Biodiversity",
+          "description": "Conservation newsrooms & NGOs",
+          "handles": [
+            "@Mongabay",
+            "@WWF",
+            "@IUCN",
+            "@ConservationOrg",
+            "@UNBiodiversity",
+            "@NatGeo"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Oceans & water",
+          "subniche": "Oceans & water",
+          "description": "Ocean scientists & water-policy voices",
+          "handles": [
+            "@PeterGleick",
+            "@ayanaeliza",
+            "@oceana",
+            "@NOAA",
+            "@WHOI",
+            "@Scripps_Ocean",
+            "@deepseadawn",
+            "@SylviaEarle"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Food & agriculture",
+          "subniche": "Food & ag",
+          "description": "Food-systems researchers & data voices",
+          "handles": [
+            "@_HannahRitchie",
+            "@tamarhaspel",
+            "@SarahTaber_bww",
+            "@foodtank",
+            "@FAO",
+            "@CGIAR",
+            "@civileats",
+            "@OurWorldInData"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Extreme weather & attribution",
+          "subniche": "Extreme weather",
+          "description": "Meteorologists & attribution scientists",
+          "handles": [
+            "@friederikeotto",
+            "@Weather_West",
+            "@EricHolthaus",
+            "@capitalweather",
+            "@philklotzbach",
+            "@DrJeffMasters",
+            "@BMcNoldy",
+            "@NWS",
+            "@NHC_Atlantic",
+            "@WWAttribution"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Climate tech & startups",
+          "subniche": "Climate tech",
+          "description": "Climate-tech investors & deployment voices",
+          "handles": [
+            "@shaylekann",
+            "@JigarShahDC",
+            "@Breakthrough",
+            "@ctvc_co",
+            "@vsiv",
+            "@KetanJ0",
+            "@ramez"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Carbon removal",
+          "subniche": "Carbon removal",
+          "description": "CDR researchers, buyers & builders",
+          "handles": [
+            "@Carbon180",
+            "@hollyjeanbuck",
+            "@Peters_Glen",
+            "@DKeithClimate",
+            "@Climeworks",
+            "@frontierclimate",
+            "@nanransohoff"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Climate justice & adaptation",
+          "subniche": "Climate justice",
+          "description": "Activists & writers on impacts & equity",
+          "handles": [
+            "@GretaThunberg",
+            "@vanessa_vash",
+            "@dwallacewells",
+            "@KateAronoff",
+            "@MaryHeglar",
+            "@AlexSteffen",
+            "@jrockstrom"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Built environment & cities",
+          "subniche": "Cities",
+          "description": "Urbanists on buildings, transit & land use",
+          "handles": [
+            "@DavidZipper",
+            "@BrentToderian",
+            "@CityLab",
+            "@StrongTowns",
+            "@lloydalter",
+            "@JeffSpeckAICP",
+            "@RMI"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "environment"
+    },
+    {
+      "root_label": "Politics",
+      "subniches": [
+        "US politics desks",
+        "Congress & White House",
+        "Polling & election data",
+        "Policy wonks & columnists",
+        "Progressive media",
+        "Conservative media",
+        "Law & courts",
+        "India politics",
+        "UK & Europe politics",
+        "Political science",
+        "Immigration & border",
+        "Healthcare & social policy",
+        "Tech policy & antitrust",
+        "State & local politics",
+        "Democracy & press freedom"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "PBS NewsHour",
+          "youtube_handle": "@PBSNewsHour",
+          "subniche": "US desk",
+          "why": "Sober long-form US political coverage",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "C-SPAN",
+          "youtube_handle": "@CSPAN",
+          "subniche": "US desk",
+          "why": "Unfiltered hearings and speeches",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "The Hill (Rising)",
+          "youtube_handle": "@TheHill",
+          "subniche": "US desk",
+          "why": "Daily politics debate and interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "MSNBC",
+          "youtube_handle": "@msnbc",
+          "subniche": "US desk (left)",
+          "why": "Left-leaning cable analysis & interviews",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Fox News",
+          "youtube_handle": "@FoxNews",
+          "subniche": "US desk (right)",
+          "why": "Right-leaning cable analysis & interviews",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Breaking Points",
+          "youtube_handle": "@BreakingPoints",
+          "subniche": "Independent",
+          "why": "Cross-partisan political analysis show",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "TLDR News US",
+          "youtube_handle": "@TLDRnewsUS",
+          "subniche": "Explainers",
+          "why": "Neutral US-politics explainer briefs",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "David Pakman Show",
+          "youtube_handle": "@davidpakmanshow",
+          "subniche": "Progressive",
+          "why": "Progressive daily news analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Pod Save America",
+          "youtube_handle": "@CrookedMedia",
+          "subniche": "Progressive",
+          "why": "Insider Democratic politics commentary",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "The Young Turks",
+          "youtube_handle": "@TheYoungTurks",
+          "subniche": "Progressive",
+          "why": "Long-running progressive news show",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "MeidasTouch",
+          "youtube_handle": "@MeidasTouch",
+          "subniche": "Progressive",
+          "why": "High-velocity anti-authoritarian commentary",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Ben Shapiro",
+          "youtube_handle": "@BenShapiro",
+          "subniche": "Conservative",
+          "why": "Flagship conservative daily commentary",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Daily Wire+",
+          "youtube_handle": "@DailyWirePlus",
+          "subniche": "Conservative",
+          "why": "Conservative shows & documentaries",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Megyn Kelly",
+          "youtube_handle": "@MegynKelly",
+          "subniche": "Conservative",
+          "why": "Long-form interviews from the right",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "LegalEagle",
+          "youtube_handle": "@LegalEagle",
+          "subniche": "Law & courts",
+          "why": "Lawyer explainers of live legal fights",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "ThePrint (Cut The Clutter)",
+          "youtube_handle": "@ThePrintIndia",
+          "subniche": "India politics",
+          "why": "Shekhar Gupta daily India analysis",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Faye D'Souza",
+          "youtube_handle": "@FayeDSouza",
+          "subniche": "India politics",
+          "why": "Fact-first India news explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Dhruv Rathee",
+          "youtube_handle": "@dhruvrathee",
+          "subniche": "India politics",
+          "why": "Mass-reach India politics explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Ravish Kumar",
+          "youtube_handle": "@RavishKumarOfficial",
+          "subniche": "India politics",
+          "why": "Independent Hindi political journalism",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "TLDR News UK",
+          "youtube_handle": "@TLDRnewsUK",
+          "subniche": "UK & Europe",
+          "why": "UK politics explainer briefs",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "The Rest Is Politics",
+          "youtube_handle": "@RestIsPolitics",
+          "subniche": "UK & Europe",
+          "why": "Campbell & Stewart insider UK/EU politics",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Novara Media",
+          "youtube_handle": "@novaramedia",
+          "subniche": "UK & Europe",
+          "why": "UK left independent analysis",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "US politics desks & reporters",
+          "subniche": "US desks",
+          "description": "Political journalists posting original reporting",
+          "handles": [
+            "@politico",
+            "@axios",
+            "@maggieNYT",
+            "@jaketapper",
+            "@kaitlancollins",
+            "@jmartNYT",
+            "@thehill",
+            "@Olivianuzzi",
+            "@yamiche",
+            "@jonkarl",
+            "@costareports"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Congress & White House",
+          "subniche": "Congress & WH",
+          "description": "Hill and White House beat reporters",
+          "handles": [
+            "@jakesherman",
+            "@PunchbowlNews",
+            "@mkraju",
+            "@LisaDNews",
+            "@LACaldwellDC",
+            "@seungminkim",
+            "@kwelkernbc",
+            "@burgessev",
+            "@PeterAlexander"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Polling & election data",
+          "subniche": "Polling & data",
+          "description": "Forecasters & election-data analysts",
+          "handles": [
+            "@Nate_Cohn",
+            "@NateSilver538",
+            "@gelliottmorris",
+            "@davidshor",
+            "@Redistrict",
+            "@CookPolitical",
+            "@ForecasterEnten",
+            "@lxeagle17",
+            "@Taniel"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Policy wonks & columnists",
+          "subniche": "Wonks",
+          "description": "Columnists with original policy analysis",
+          "handles": [
+            "@ezraklein",
+            "@jbarro",
+            "@davidfrum",
+            "@yascha_mounk",
+            "@perrybaconjr",
+            "@amyewalter",
+            "@jonathanchait",
+            "@DKThomp",
+            "@RadioFreeTom",
+            "@mattyglesias"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Progressive media",
+          "subniche": "Progressive",
+          "description": "Left independent media & commentators",
+          "handles": [
+            "@TheYoungTurks",
+            "@davidpakmanshow",
+            "@MeidasTouch",
+            "@briantylercohen",
+            "@mehdirhasan",
+            "@RBReich",
+            "@thenation",
+            "@MotherJones",
+            "@theintercept",
+            "@jacobin"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Conservative media",
+          "subniche": "Conservative",
+          "description": "Right media & heterodox commentators",
+          "handles": [
+            "@benshapiro",
+            "@megynkelly",
+            "@DailyWire",
+            "@NRO",
+            "@DouthatNYT",
+            "@DavidAFrench",
+            "@MZHemingway",
+            "@realchrisrufo",
+            "@bariweiss",
+            "@TheFP"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Law & courts",
+          "subniche": "Law & courts",
+          "description": "SCOTUS & legal analysts posting original takes",
+          "handles": [
+            "@SCOTUSblog",
+            "@steve_vladeck",
+            "@marceelias",
+            "@JoyceWhiteVance",
+            "@neal_katyal",
+            "@AWeissmann_",
+            "@emptywheel",
+            "@Popehat",
+            "@chrisgeidner",
+            "@lawfare"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "India politics voices",
+          "subniche": "India politics",
+          "description": "Indian political commentary & reporting",
+          "handles": [
+            "@ShekharGupta",
+            "@sardesairajdeep",
+            "@barkha",
+            "@svaradarajan",
+            "@RahulKanwal",
+            "@smitaprakash",
+            "@pbmehta",
+            "@faye_dsouza",
+            "@dhruvrathee",
+            "@ThePrintIndia"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "UK & Europe politics",
+          "subniche": "UK & Europe",
+          "description": "Westminster & EU politics reporters",
+          "handles": [
+            "@lewis_goodall",
+            "@Peston",
+            "@SamCoatesSky",
+            "@IsabelHardman",
+            "@paulwaugh",
+            "@campbellclaret",
+            "@RoryStewartUK",
+            "@NewStatesman",
+            "@spectator",
+            "@BBCPolitics"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Political science",
+          "subniche": "Political science",
+          "description": "Scholars on institutions & behaviour",
+          "handles": [
+            "@brendannyhan",
+            "@leedrutman",
+            "@LarrySabato",
+            "@kkondik",
+            "@rickhasen",
+            "@NormOrnstein",
+            "@ruthbenghiat",
+            "@vdeminstitute"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Immigration & border",
+          "subniche": "Immigration",
+          "description": "Immigration-policy reporters & analysts",
+          "handles": [
+            "@ReichlinMelnick",
+            "@DLind",
+            "@CamiloReports",
+            "@hamedaleaziz",
+            "@MigrationPolicy",
+            "@AlexNowrasteh",
+            "@jorgeramosnews",
+            "@BillMelugin_"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Healthcare & social policy",
+          "subniche": "Healthcare",
+          "description": "Health-policy researchers & reporters",
+          "handles": [
+            "@larry_levitt",
+            "@cynthiaccox",
+            "@ddiamond",
+            "@sarahkliff",
+            "@onceuponA",
+            "@KFF",
+            "@ashishkjha",
+            "@aaronecarroll"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Tech policy & antitrust",
+          "subniche": "Tech policy",
+          "description": "Platform-regulation & antimonopoly voices",
+          "handles": [
+            "@daphnehk",
+            "@klonick",
+            "@EFF",
+            "@matthewstoller",
+            "@superwuster",
+            "@HalSinger",
+            "@evan_greer",
+            "@publicknowledge",
+            "@ceciliakang",
+            "@linamkhan"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "State & local politics",
+          "subniche": "State & local",
+          "description": "Statehouse & city government coverage",
+          "handles": [
+            "@governing",
+            "@RouteFifty",
+            "@Stateline",
+            "@ReidWilson",
+            "@PluribusNews",
+            "@BoltsMag",
+            "@CityAndStateNY"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Democracy & press freedom",
+          "subniche": "Democracy",
+          "description": "Democracy trackers & press-freedom orgs",
+          "handles": [
+            "@FreedomHouse",
+            "@pressfreedom",
+            "@RSF_inter",
+            "@Int_IDEA",
+            "@TheEIU",
+            "@Kasparov63",
+            "@McFaul",
+            "@ProtctDemocracy"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "politics"
+    },
+    {
+      "root_label": "Tech",
+      "subniches": [
+        "Consumer tech & reviews",
+        "Smartphones & mobile",
+        "PC & gaming hardware",
+        "Semiconductors & silicon",
+        "Software & developers",
+        "Web & open source",
+        "Cybersecurity",
+        "Space & rockets",
+        "Gaming industry",
+        "Apple ecosystem",
+        "Enterprise & cloud",
+        "Autonomous vehicles",
+        "Tech business & media",
+        "Science & engineering",
+        "Creator economy"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "MKBHD",
+          "youtube_handle": "@mkbhd",
+          "subniche": "Consumer reviews",
+          "why": "Flagship gadget reviews and takes",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Mrwhosetheboss",
+          "youtube_handle": "@mrwhosetheboss",
+          "subniche": "Consumer reviews",
+          "why": "Smartphone and gadget deep reviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Dave2D",
+          "youtube_handle": "@Dave2D",
+          "subniche": "Consumer reviews",
+          "why": "Clean laptop and gadget reviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Waveform",
+          "youtube_handle": "@Waveform",
+          "subniche": "Consumer / media",
+          "why": "MKBHD-crew weekly tech-news pod",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Linus Tech Tips",
+          "youtube_handle": "@LinusTechTips",
+          "subniche": "PC hardware",
+          "why": "PC hardware reviews and builds",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Gamers Nexus",
+          "youtube_handle": "@GamersNexus",
+          "subniche": "PC hardware",
+          "why": "Rigorous hardware benchmarking and teardowns",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Hardware Unboxed",
+          "youtube_handle": "@Hardwareunboxed",
+          "subniche": "PC hardware",
+          "why": "GPU/CPU/monitor benchmark analysis",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "der8auer",
+          "youtube_handle": "@der8auer",
+          "subniche": "PC hardware",
+          "why": "Extreme overclocking & failure analysis",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Digital Foundry",
+          "youtube_handle": "@DigitalFoundry",
+          "subniche": "Hardware / games",
+          "why": "Deep graphics and console tech analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Asianometry",
+          "youtube_handle": "@Asianometry",
+          "subniche": "Semiconductors",
+          "why": "Semiconductor industry video essays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "TechTechPotato",
+          "youtube_handle": "@TechTechPotato",
+          "subniche": "Semiconductors",
+          "why": "Chip-industry analysis & interviews",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Fireship",
+          "youtube_handle": "@Fireship",
+          "subniche": "Developers",
+          "why": "Fast developer and tech-news explainers",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "ThePrimeagen",
+          "youtube_handle": "@ThePrimeagen",
+          "subniche": "Developers",
+          "why": "Opinionated software-engineering streams",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Theo (t3.gg)",
+          "youtube_handle": "@t3dotgg",
+          "subniche": "Developers / web",
+          "why": "Web-dev ecosystem takes & reviews",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Seytonic",
+          "youtube_handle": "@Seytonic",
+          "subniche": "Cybersecurity",
+          "why": "Weekly hacking & breach news",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Everyday Astronaut",
+          "youtube_handle": "@EverydayAstronaut",
+          "subniche": "Space",
+          "why": "Deep rocket-engineering explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Scott Manley",
+          "youtube_handle": "@scottmanley",
+          "subniche": "Space",
+          "why": "Spaceflight news with orbital mechanics",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Skill Up",
+          "youtube_handle": "@SkillUp",
+          "subniche": "Gaming",
+          "why": "Game reviews & industry commentary",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "People Make Games",
+          "youtube_handle": "@PeopleMakeGames",
+          "subniche": "Gaming",
+          "why": "Investigative games-industry journalism",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Snazzy Labs",
+          "youtube_handle": "@SnazzyLabs",
+          "subniche": "Apple",
+          "why": "Apple ecosystem analysis & tinkering",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "The Verge",
+          "youtube_handle": "@TheVerge",
+          "subniche": "Tech business / media",
+          "why": "Tech news, reviews and interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "ColdFusion",
+          "youtube_handle": "@ColdFusion",
+          "subniche": "Tech business",
+          "why": "Tech & business story documentaries",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "Big-tech leaders",
+          "subniche": "Tech business",
+          "description": "Executives posting original product & strategy",
+          "handles": [
+            "@tim_cook",
+            "@elonmusk",
+            "@satyanadella",
+            "@sundarpichai",
+            "@pmarca",
+            "@jack",
+            "@tobi",
+            "@dhh",
+            "@patrickc",
+            "@collision"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Tech reviewers & reporters",
+          "subniche": "Consumer reviews",
+          "description": "Reviewers & journalists with original takes",
+          "handles": [
+            "@MKBHD",
+            "@verge",
+            "@reckless",
+            "@backlon",
+            "@UrAvgConsumer",
+            "@Dave2D",
+            "@arstechnica",
+            "@panzer",
+            "@engadget",
+            "@dcseifert"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Smartphones & mobile leaks",
+          "subniche": "Smartphones",
+          "description": "Leakers & Android experts with original scoops",
+          "handles": [
+            "@evleaks",
+            "@OnLeaks",
+            "@UniverseIce",
+            "@MaxJmb",
+            "@heyitsyogesh",
+            "@MishaalRahman",
+            "@Za_Raczke",
+            "@ArtemR",
+            "@9to5Google"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "PC & gaming hardware",
+          "subniche": "PC hardware",
+          "description": "Benchmarkers & GPU/CPU leak trackers",
+          "handles": [
+            "@GamersNexus",
+            "@HardwareUnboxed",
+            "@der8auer",
+            "@VideoCardz",
+            "@kopite7kimi",
+            "@harukaze5719",
+            "@IanCutress",
+            "@pcworld"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Semiconductors & silicon",
+          "subniche": "Semiconductors",
+          "description": "Chip-industry analysts & vendors",
+          "handles": [
+            "@Asianometry",
+            "@chipsandcheese",
+            "@jonmasters",
+            "@david_schor",
+            "@intelnews",
+            "@Qualcomm",
+            "@Arm",
+            "@risc_v"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Software & developers",
+          "subniche": "Developers",
+          "description": "Engineers posting original technical takes",
+          "handles": [
+            "@ThePrimeagen",
+            "@t3dotgg",
+            "@levelsio",
+            "@dan_abramov",
+            "@addyosmani",
+            "@wesbos",
+            "@cassidoo",
+            "@mitchellh",
+            "@antirez",
+            "@kentcdodds"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Web & open source",
+          "subniche": "Web & OSS",
+          "description": "Framework authors & runtime teams",
+          "handles": [
+            "@yyx990803",
+            "@Rich_Harris",
+            "@rauchg",
+            "@vercel",
+            "@nodejs",
+            "@denoland",
+            "@bunjavascript",
+            "@github"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Cybersecurity",
+          "subniche": "Cybersecurity",
+          "description": "Security researchers & breach reporters",
+          "handles": [
+            "@briankrebs",
+            "@troyhunt",
+            "@SwiftOnSecurity",
+            "@GossiTheDog",
+            "@vxunderground",
+            "@kimzetter",
+            "@josephfcox",
+            "@lorenzofb",
+            "@thegrugq",
+            "@TheHackersNews"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Space & rockets",
+          "subniche": "Space",
+          "description": "Space reporters, trackers & launch providers",
+          "handles": [
+            "@SciGuySpace",
+            "@jeff_foust",
+            "@planet4589",
+            "@DJSnM",
+            "@Erdayastronaut",
+            "@NASASpaceflight",
+            "@SpaceX",
+            "@NASA",
+            "@torybruno",
+            "@RocketLab"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Gaming industry",
+          "subniche": "Gaming",
+          "description": "Games journalists breaking original industry news",
+          "handles": [
+            "@jasonschreier",
+            "@stephentotilo",
+            "@geoffkeighley",
+            "@Wario64",
+            "@simoncarless",
+            "@patrickklepek",
+            "@IGN",
+            "@Polygon"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Apple ecosystem",
+          "subniche": "Apple",
+          "description": "Apple reporters, leakers & developers",
+          "handles": [
+            "@markgurman",
+            "@gruber",
+            "@viticci",
+            "@stroughtonsmith",
+            "@mingchikuo",
+            "@jsnell",
+            "@_inside",
+            "@9to5mac",
+            "@MacRumors",
+            "@reneritchie"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Enterprise & cloud",
+          "subniche": "Enterprise & cloud",
+          "description": "Cloud platforms & enterprise analysts",
+          "handles": [
+            "@patrickmoorhead",
+            "@kelseyhightower",
+            "@QuinnyPig",
+            "@holgermu",
+            "@awscloud",
+            "@Azure",
+            "@GoogleCloud"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Autonomous vehicles",
+          "subniche": "Autonomous vehicles",
+          "description": "AV companies, researchers & safety critics",
+          "handles": [
+            "@Waymo",
+            "@kvogt",
+            "@PhilKoopman",
+            "@bradtempleton",
+            "@Tesla",
+            "@aurora_inno",
+            "@zoox"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Tech media & analysts",
+          "subniche": "Tech business",
+          "description": "Tech business journalists & newsletter analysts",
+          "handles": [
+            "@karaswisher",
+            "@CaseyNewton",
+            "@alexeheath",
+            "@KantrowitzAlex",
+            "@eringriffith",
+            "@theinformation",
+            "@emilychangtv",
+            "@om",
+            "@benedictevans"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Science & engineering",
+          "subniche": "Science & engineering",
+          "description": "Science communicators with original explainers",
+          "handles": [
+            "@veritasium",
+            "@smartereveryday",
+            "@stevemould",
+            "@hankgreen",
+            "@BadAstronomer",
+            "@TomScottGo"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Creator economy",
+          "subniche": "Creator economy",
+          "description": "Creators & analysts of the platform economy",
+          "handles": [
+            "@MrBeast",
+            "@ColinandSamir",
+            "@taylorlorenz",
+            "@paddyg96",
+            "@Tubefilter",
+            "@jonyoushaei"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "tech"
+    },
+    {
+      "root_label": "Sport",
+      "subniches": [
+        "Football insiders & transfers",
+        "Football tactics & analytics",
+        "Global football desks",
+        "Cricket",
+        "F1 & motorsport",
+        "NBA",
+        "NFL",
+        "Tennis",
+        "Combat sports",
+        "Golf",
+        "Athletics & Olympics",
+        "India multi-sport",
+        "Sports business",
+        "Sports analytics",
+        "Esports"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "Sky Sports Football",
+          "youtube_handle": "@SkySportsFootball",
+          "subniche": "Football",
+          "why": "Transfer news and match analysis",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "The Overlap",
+          "youtube_handle": "@TheOverlap",
+          "subniche": "Football",
+          "why": "Long-form footballer interviews with Neville",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Tifo Football",
+          "youtube_handle": "@TifoFootball",
+          "subniche": "Tactics",
+          "why": "Illustrated tactics & football-economics essays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Cricbuzz",
+          "youtube_handle": "@cricbuzz",
+          "subniche": "Cricket",
+          "why": "Expert cricket analysis with Harsha Bhogle",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "ESPNcricinfo",
+          "youtube_handle": "@ESPNcricinfo",
+          "subniche": "Cricket",
+          "why": "Match analysis and cricket features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Formula 1",
+          "youtube_handle": "@Formula1",
+          "subniche": "Motorsport",
+          "why": "Official F1 highlights and features",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "The Race",
+          "youtube_handle": "@TheRacemedia",
+          "subniche": "Motorsport",
+          "why": "In-depth F1 and motorsport analysis",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Sky Sports F1",
+          "youtube_handle": "@SkySportsF1",
+          "subniche": "Motorsport",
+          "why": "Race weekend analysis & paddock features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "ESPN",
+          "youtube_handle": "@ESPN",
+          "subniche": "US leagues",
+          "why": "US sports news and studio shows",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "NBA",
+          "youtube_handle": "@NBA",
+          "subniche": "NBA",
+          "why": "Official games, features & pressers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "JxmyHighroller",
+          "youtube_handle": "@JxmyHighroller",
+          "subniche": "NBA",
+          "why": "Data-driven NBA storytelling",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "House of Highlights",
+          "youtube_handle": "@houseofhighlights",
+          "subniche": "NBA / culture",
+          "why": "NBA culture and highlight breakdowns",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "NFL",
+          "youtube_handle": "@NFL",
+          "subniche": "NFL",
+          "why": "Official NFL games & film features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Brett Kollmann",
+          "youtube_handle": "@BrettKollmann",
+          "subniche": "NFL",
+          "why": "Film-room NFL scheme breakdowns",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Tennis TV",
+          "youtube_handle": "@TennisTV",
+          "subniche": "Tennis",
+          "why": "ATP highlights & extended features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "UFC",
+          "youtube_handle": "@UFC",
+          "subniche": "Combat",
+          "why": "Fight highlights and previews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "DAZN Boxing",
+          "youtube_handle": "@DAZNBoxing",
+          "subniche": "Combat",
+          "why": "Boxing fights, pressers & features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "PGA Tour",
+          "youtube_handle": "@PGATOUR",
+          "subniche": "Golf",
+          "why": "Tournament highlights & features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Olympics",
+          "youtube_handle": "@Olympics",
+          "subniche": "Olympics",
+          "why": "Olympic sports features & replays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Star Sports India",
+          "youtube_handle": "@StarSportsIndia",
+          "subniche": "India multi-sport",
+          "why": "India cricket & multi-sport coverage",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "Football insiders & journalists",
+          "subniche": "Football insiders",
+          "description": "Reporters breaking original transfer & match news",
+          "handles": [
+            "@FabrizioRomano",
+            "@David_Ornstein",
+            "@GuillemBalague",
+            "@honigstein",
+            "@JamesOlley",
+            "@MattLaw_DT",
+            "@sidlowe",
+            "@Carl_Anka",
+            "@lauriewhitwell",
+            "@JanAageFjortoft"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Football tactics & analytics",
+          "subniche": "Tactics",
+          "description": "Stats desks & tactics writers",
+          "handles": [
+            "@OptaJoe",
+            "@OptaAnalyst",
+            "@StatsBomb",
+            "@Jon_Mackenzie",
+            "@Orbinho",
+            "@xGPhilosophy",
+            "@CoachesVoice",
+            "@markrstats",
+            "@TifoFootball_"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Global football desks",
+          "subniche": "Football desks",
+          "description": "League & outlet desks with original coverage",
+          "handles": [
+            "@premierleague",
+            "@BBCSport",
+            "@SkySportsNews",
+            "@ESPNFC",
+            "@brfootball",
+            "@TheAthleticFC",
+            "@guardian_sport",
+            "@Squawka"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Cricket insiders (India)",
+          "subniche": "Cricket",
+          "description": "Analysts & writers posting original cricket takes",
+          "handles": [
+            "@bhogleharsha",
+            "@cricketaakash",
+            "@WvRaman",
+            "@jarrodkimber",
+            "@cricbuzz",
+            "@ESPNcricinfo",
+            "@prasannalara",
+            "@Vikrant_Gupta73",
+            "@gauravkalra75",
+            "@cricketwallah",
+            "@wisdenindia"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "F1 paddock",
+          "subniche": "F1",
+          "description": "Paddock journalists posting original F1 analysis",
+          "handles": [
+            "@ChrisMedlandF1",
+            "@adamcooperF1",
+            "@tedkravitz",
+            "@LukeSmithF1",
+            "@ScarbsTech",
+            "@KarunChandhok",
+            "@AndrewBensonF1",
+            "@jennie_gow",
+            "@F1",
+            "@wbuxton",
+            "@tgruener"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "NBA insiders",
+          "subniche": "NBA",
+          "description": "Beat reporters & analysts breaking NBA news",
+          "handles": [
+            "@ShamsCharania",
+            "@WindhorstESPN",
+            "@ZachLowe_NBA",
+            "@KevinOConnorNBA",
+            "@sam_amick",
+            "@TheSteinLine",
+            "@ChrisBHaynes",
+            "@NBA",
+            "@hoopshype"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "NFL insiders",
+          "subniche": "NFL",
+          "description": "Reporters breaking original NFL news",
+          "handles": [
+            "@AdamSchefter",
+            "@RapSheet",
+            "@TomPelissero",
+            "@AlbertBreer",
+            "@MikeGarafolo",
+            "@FieldYates",
+            "@NFL",
+            "@PFF"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Tennis writers",
+          "subniche": "Tennis",
+          "description": "Tennis journalists & tours posting originals",
+          "handles": [
+            "@christophclarey",
+            "@jon_wertheim",
+            "@BenRothenberg",
+            "@josemorgado",
+            "@BastienFachan",
+            "@TennisTV",
+            "@atptour",
+            "@WTA"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Combat sports insiders",
+          "subniche": "Combat",
+          "description": "MMA & boxing reporters with original scoops",
+          "handles": [
+            "@arielhelwani",
+            "@bokamotoESPN",
+            "@MikeCoppinger",
+            "@MMAFighting",
+            "@espnmma",
+            "@ufc",
+            "@MMAjunkie"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Golf writers",
+          "subniche": "Golf",
+          "description": "Golf media posting original analysis",
+          "handles": [
+            "@NoLayingUp",
+            "@GeoffShac",
+            "@DanRapaport",
+            "@GolfDigest",
+            "@PGATOUR",
+            "@EamonLynch",
+            "@DPWorldTour"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Athletics & Olympics",
+          "subniche": "Athletics",
+          "description": "Track & Olympic-sport journalists",
+          "handles": [
+            "@CitiusMag",
+            "@letsrundotcom",
+            "@WorldAthletics",
+            "@Olympics",
+            "@sean_ingle",
+            "@nbcolympics",
+            "@insidethegames"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "India multi-sport",
+          "subniche": "India multi-sport",
+          "description": "Indian hockey, kabaddi, badminton & Olympic sport",
+          "handles": [
+            "@shardaugra",
+            "@Media_SAI",
+            "@ProKabaddi",
+            "@HockeyIndia",
+            "@BAI_Media",
+            "@sportstarweb",
+            "@thefield_in",
+            "@OGQ_India"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Sports business",
+          "subniche": "Sports business",
+          "description": "Rights, valuations & league-economics reporters",
+          "handles": [
+            "@JoePompliano",
+            "@FOS",
+            "@SBJ",
+            "@JohnWallStreet",
+            "@darrenrovell",
+            "@Sportico",
+            "@boardroom"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Sports analytics",
+          "subniche": "Sports analytics",
+          "description": "Cross-sport quants & data storytellers",
+          "handles": [
+            "@SethPartnow",
+            "@Neil_Paine",
+            "@kirkgoldsberry",
+            "@thef5_",
+            "@StatsBomb",
+            "@OptaAnalyst"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Esports",
+          "subniche": "Esports",
+          "description": "Esports insiders & industry reporters",
+          "handles": [
+            "@Slasher",
+            "@JacobWolf",
+            "@DotEsports",
+            "@EsportsInsider",
+            "@lolesports",
+            "@HECZ",
+            "@Nadeshot"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "sport"
+    },
+    {
+      "root_label": "Arts",
+      "subniches": [
+        "Film & entertainment desks",
+        "Film critics & essayists",
+        "Music criticism",
+        "Indie & alternative music",
+        "Hip-hop & pop culture",
+        "Classical music & opera",
+        "India film & music",
+        "Visual art & museums",
+        "Art market & collecting",
+        "TV & streaming",
+        "Books & literature",
+        "Theater & performing arts",
+        "Architecture & design",
+        "Photography",
+        "Fashion & style"
+      ],
+      "youtube_channels": [
+        {
+          "channel_name": "A24",
+          "youtube_handle": "@A24",
+          "subniche": "Film",
+          "why": "Arthouse film trailers and featurettes",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Criterion Collection",
+          "youtube_handle": "@criterioncollection",
+          "subniche": "Film",
+          "why": "Curated cinema history and interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Thomas Flight",
+          "youtube_handle": "@ThomasFlight",
+          "subniche": "Film essays",
+          "why": "Craft-focused film video essays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Nerdwriter",
+          "youtube_handle": "@Nerdwriter1",
+          "subniche": "Film essays",
+          "why": "Close-read culture & film essays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Lessons from the Screenplay",
+          "youtube_handle": "@LessonsfromtheScreenplay",
+          "subniche": "Film essays",
+          "why": "Screenwriting-craft breakdowns",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Film Companion",
+          "youtube_handle": "@FilmCompanion",
+          "subniche": "India film",
+          "why": "Anupama Chopra India film interviews",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "YRF",
+          "youtube_handle": "@yrf",
+          "subniche": "India film",
+          "why": "Bollywood trailers and behind-the-scenes",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "The Needle Drop",
+          "youtube_handle": "@theneedledrop",
+          "subniche": "Music",
+          "why": "Album reviews and music criticism",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "KEXP",
+          "youtube_handle": "@kexp",
+          "subniche": "Music",
+          "why": "Live in-studio artist sessions",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Pitchfork",
+          "youtube_handle": "@pitchfork",
+          "subniche": "Music",
+          "why": "Music features and documentaries",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "NPR Music (Tiny Desk)",
+          "youtube_handle": "@nprmusic",
+          "subniche": "Music",
+          "why": "Tiny Desk sessions & music features",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "COLORS",
+          "youtube_handle": "@COLORSxSTUDIOS",
+          "subniche": "Music",
+          "why": "Minimal live performances, global artists",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Rick Beato",
+          "youtube_handle": "@RickBeato",
+          "subniche": "Music analysis",
+          "why": "What-makes-this-song-great breakdowns",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "TwoSetViolin",
+          "youtube_handle": "@twosetviolin",
+          "subniche": "Classical",
+          "why": "Classical-music culture & performance",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "The Met",
+          "youtube_handle": "@metmuseum",
+          "subniche": "Visual art",
+          "why": "Museum talks and artist features",
+          "already_seeded": true
+        },
+        {
+          "channel_name": "Great Art Explained",
+          "youtube_handle": "@GreatArtExplained",
+          "subniche": "Visual art",
+          "why": "Deep single-artwork explainers",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "The B1M",
+          "youtube_handle": "@TheB1M",
+          "subniche": "Architecture",
+          "why": "Big-architecture story documentaries",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Stewart Hicks",
+          "youtube_handle": "@stewarthicks",
+          "subniche": "Architecture",
+          "why": "Architecture-professor building essays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Architectural Digest",
+          "youtube_handle": "@Archdigest",
+          "subniche": "Architecture / design",
+          "why": "Design tours & walkthroughs",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Sean Tucker",
+          "youtube_handle": "@seantuck",
+          "subniche": "Photography",
+          "why": "Philosophy-of-photography essays",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "HauteLeMode",
+          "youtube_handle": "@HauteLeMode",
+          "subniche": "Fashion",
+          "why": "Fashion history & red-carpet criticism",
+          "already_seeded": false
+        },
+        {
+          "channel_name": "Bliss Foster",
+          "youtube_handle": "@BlissFoster",
+          "subniche": "Fashion",
+          "why": "Designer-collection deep reads",
+          "already_seeded": false
+        }
+      ],
+      "x_clusters": [
+        {
+          "cluster_name": "Film & entertainment desks",
+          "subniche": "Film desks",
+          "description": "Trades & critics posting original film coverage",
+          "handles": [
+            "@Variety",
+            "@TheAcademy",
+            "@THR",
+            "@DEADLINE",
+            "@IndieWire",
+            "@davidehrlich",
+            "@kylebuchanan",
+            "@MattBelloni",
+            "@ErikDavis",
+            "@kristapley"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Film critics & essayists",
+          "subniche": "Film critics",
+          "description": "Working critics with original reviews & essays",
+          "handles": [
+            "@mattzollerseitz",
+            "@BilgeEbiri",
+            "@kermodemovie",
+            "@PeterBradshaw1",
+            "@JustinCChang",
+            "@TheThomasFlight",
+            "@siddhantadlakha"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Music critics & industry",
+          "subniche": "Music criticism",
+          "description": "Critics & outlets with original music takes",
+          "handles": [
+            "@theneedledrop",
+            "@pitchfork",
+            "@billboard",
+            "@RollingStone",
+            "@questlove",
+            "@NPRMusic",
+            "@lindsayzoladz",
+            "@sheldonpearce",
+            "@tedgioia"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Indie & alternative music",
+          "subniche": "Indie music",
+          "description": "Indie outlets & labels posting originals",
+          "handles": [
+            "@stereogum",
+            "@brooklynvegan",
+            "@gorillavsbear",
+            "@TheFADER",
+            "@subpop",
+            "@matadorrecords",
+            "@mergerecords"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Hip-hop & pop culture",
+          "subniche": "Hip-hop",
+          "description": "Hip-hop media & culture desks",
+          "handles": [
+            "@Complex",
+            "@HipHopDX",
+            "@XXL",
+            "@oldmanebro",
+            "@RollingLoud",
+            "@genius"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Classical music & opera",
+          "subniche": "Classical",
+          "description": "Orchestras, houses & classical critics",
+          "handles": [
+            "@gramophonemag",
+            "@NYPhil",
+            "@MetOpera",
+            "@BBCProms",
+            "@ClassicFM",
+            "@NormanLebrecht",
+            "@zwoolfe",
+            "@carnegiehall"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Bollywood & Indian film",
+          "subniche": "India film",
+          "description": "India film journalists posting original takes",
+          "handles": [
+            "@anupamachopra",
+            "@taran_adarsh",
+            "@RajeevMasand",
+            "@komalnahta",
+            "@baradwajrangan",
+            "@filmfare",
+            "@FilmCompanion",
+            "@bollyhungama",
+            "@sucharitatyagi",
+            "@ReelReptile"
+          ],
+          "already_seeded": true
+        },
+        {
+          "cluster_name": "Visual art & museums",
+          "subniche": "Visual art",
+          "description": "Museums & critics posting original art coverage",
+          "handles": [
+            "@metmuseum",
+            "@Tate",
+            "@MuseumModernArt",
+            "@GettyMuseum",
+            "@artnews",
+            "@hyperallergic",
+            "@jerrysaltz",
+            "@britishmuseum",
+            "@rijksmuseum",
+            "@Guggenheim"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Art market & collecting",
+          "subniche": "Art market",
+          "description": "Auction houses, fairs & market reporters",
+          "handles": [
+            "@artnet",
+            "@ArtBasel",
+            "@ChristiesInc",
+            "@Sothebys",
+            "@PhillipsAuction",
+            "@TheArtNewspaper"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "TV & streaming critics",
+          "subniche": "TV & streaming",
+          "description": "TV critics with original reviews & analysis",
+          "handles": [
+            "@sepinwall",
+            "@poniewozik",
+            "@kvanaren",
+            "@emilyvdw",
+            "@TheFienPrint",
+            "@Vulture",
+            "@TVLine"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Books & literature",
+          "subniche": "Books",
+          "description": "Literary magazines & book critics",
+          "handles": [
+            "@parisreview",
+            "@nybooks",
+            "@lrb",
+            "@lithub",
+            "@GrantaMag",
+            "@mariskreizman",
+            "@KirkusReviews",
+            "@PublishersWkly"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Theater & performing arts",
+          "subniche": "Theater",
+          "description": "Stage desks, critics & institutions",
+          "handles": [
+            "@Playbill",
+            "@BroadwayWorld",
+            "@Helen_E_Shaw",
+            "@TheStage",
+            "@LincolnCenter",
+            "@nationaltheatre"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Architecture & design",
+          "subniche": "Architecture",
+          "description": "Design press & architecture critics",
+          "handles": [
+            "@ArchDaily",
+            "@dezeen",
+            "@designboom",
+            "@TheB1M",
+            "@archpaper",
+            "@wallpapermag",
+            "@dwell",
+            "@kimmelman"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Photography",
+          "subniche": "Photography",
+          "description": "Agencies, prizes & photo journals",
+          "handles": [
+            "@MagnumPhotos",
+            "@WorldPressPhoto",
+            "@lensculture",
+            "@petapixel",
+            "@aperturefnd",
+            "@ICPhotog",
+            "@NatGeoPhotos"
+          ],
+          "already_seeded": false
+        },
+        {
+          "cluster_name": "Fashion & style",
+          "subniche": "Fashion",
+          "description": "Fashion press & original fashion critics",
+          "handles": [
+            "@voguemagazine",
+            "@wwd",
+            "@VVFriedman",
+            "@highsnobiety",
+            "@diet_prada",
+            "@HauteLeMode",
+            "@TheFashionLaw"
+          ],
+          "already_seeded": false
+        }
+      ],
+      "root_slug": "arts"
+    }
+  ],
+  "gaps": [
+    {
+      "item": "Handle verification debt (expansion)",
+      "note": "This v2 roughly quintuples the handle count (~230 → ~1,100). All NEW handles are best-effort from memory and MUST pass a live existence/activity check before seeding — accounts go dormant, rename, or migrate to Bluesky (F1 press, some critics, several academics). Budget a scripted verification pass (batch profile lookups) as part of the seed job."
+    },
+    {
+      "item": "India coverage now embedded per root",
+      "note": "Instead of one India sub-niche per root, India voices appear in Geopolitics (India & Global South), Business (India markets), Politics (India politics), Sport (cricket + India multi-sport), Arts (India film). UK/EU politics now covered; other regional lenses (Africa, LatAm) live only in Geopolitics."
+    },
+    {
+      "item": "Thin clusters (6–8 handles)",
+      "note": "Sports analytics, esports, science-explainers, creator economy, solar & storage, biodiversity, art market, theater are 6–8 handles — X is genuinely thin there (YouTube/newsletters are the primary medium). Kept small rather than padded with link-spam accounts; room to grow post-launch from engagement data."
+    },
+    {
+      "item": "YouTube long-form rule vs official channels",
+      "note": "League/label/lab official channels (NBA, NFL, UFC, Formula 1, OpenAI, YRF) mix long-form with highlight clips and promos. Keep them (reliable volume + rights-safe) but have ingestion filter by duration ≥10min; House of Highlights is the weakest fit and is first to cut."
+    },
+    {
+      "item": "Cluster ↔ sub-niche mapping",
+      "note": "1:1 achieved everywhere; Tech carries a 16th bonus cluster (Big-tech leaders) alongside Tech media, both feeding the Tech-business sub-niche. Cross-root duplicates are rare but deliberate (e.g. @TheEconomist in world desks + markets desks); dedupe on (cluster_id, handle), not globally."
+    },
+    {
+      "item": "X original-post filter",
+      "note": "Institutional handles (leagues, wires, agencies, museums) post original content but also heavy links; keep them but weight person-accounts higher in digest assembly, as in v1."
+    },
+    {
+      "item": "Politics balance",
+      "note": "Progressive and conservative media are now separate sub-niches with parallel clusters (10 handles each); cable desks (MSNBC/Fox) are labelled left/right in the YT table so allocation can balance rather than blend."
+    },
+    {
+      "item": "Deliberately excluded",
+      "note": "Engagement-bait aggregators (@sentdefender-style), retweet-heavy fan accounts, and deceased/defunct accounts were filtered during curation; the verification pass should re-apply the same bar to anything it flags."
+    }
+  ]
+}

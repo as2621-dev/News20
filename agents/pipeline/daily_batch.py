@@ -353,6 +353,43 @@ def _load_category_allocation(
     return allocation_by_user
 
 
+def _load_mute_terms(
+    supabase_client: Any, user_ids: list[str]
+) -> dict[str, list[str]]:
+    """Load every active user's ``user_mute_terms`` in ONE query (FSR #17).
+
+    The SKIP-TUNE mute terms the assembler hard-filters on (migration 0029). One ``.in_()``
+    over all active users, grouped in memory (no N+1). Category is not needed downstream —
+    a mute is a global hard filter for that user — so only the terms are collected.
+
+    Args:
+        supabase_client: Service-role client (injected; mocked in tests).
+        user_ids: The active user ids to load mute terms for.
+
+    Returns:
+        ``{user_id: [mute_term, ...]}`` (users with no mutes are absent → no filter).
+    """
+    if not user_ids:
+        return {}
+    rows = (
+        getattr(
+            supabase_client.table("user_mute_terms")
+            .select("mute_user_id,mute_term")
+            .in_("mute_user_id", user_ids)
+            .execute(),
+            "data",
+            None,
+        )
+        or []
+    )
+    mutes_by_user: dict[str, list[str]] = {}
+    for row in rows:
+        term = str(row.get("mute_term") or "").strip()
+        if term:
+            mutes_by_user.setdefault(str(row["mute_user_id"]), []).append(term)
+    return mutes_by_user
+
+
 def _load_niche_allocation(
     supabase_client: Any, user_ids: list[str]
 ) -> dict[str, list[NicheAllocationRow]]:
@@ -579,6 +616,8 @@ def load_active_user_inputs(
     # the fallback-ladder assembler fills niche-first. A user with only coarse rows
     # hydrates as coarse NicheAllocationRows → the assembler delegates to the coarse path.
     niche_allocation_by_user = _load_niche_allocation(supabase_client, active_user_ids)
+    # FSR #17: per-user SKIP-TUNE mute terms — hard-filtered at assembly (never ingestion).
+    mute_terms_by_user = _load_mute_terms(supabase_client, active_user_ids)
 
     inputs: list[ActiveUserFeedInputs] = []
     for user_id, profile_interests in interests_by_user.items():
@@ -590,6 +629,7 @@ def load_active_user_inputs(
                 category_allocation=allocation_by_user.get(user_id, []),
                 niche_allocation=niche_allocation_by_user.get(user_id, []),
                 prior_feed_story_ids=prior_story_ids_by_user.get(user_id, []),
+                mute_terms=mute_terms_by_user.get(user_id, []),
                 exploration_candidates_by_interest=exploration_by_user.get(user_id, {}),
             )
         )

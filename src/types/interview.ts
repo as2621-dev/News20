@@ -32,6 +32,22 @@ export interface TerminalMicroInterest {
   strict: boolean;
 }
 
+/** One SKIP-TUNE mute term (spec §6). Persisted to `user_mute_terms`, hard-filtered at assembly. */
+export interface TerminalMuteTerm {
+  /** The root category slug the mute belongs to (e.g. `sport`). */
+  mute_category: string;
+  /** The user-vocabulary term to mute (a tapped option or typed text). */
+  mute_term: string;
+}
+
+/** One ANGLE-TUNE preference (spec §6) — which lens the user reads a category through. */
+export interface TerminalAnglePreference {
+  /** The root category slug the angle belongs to. */
+  angle_category: string;
+  /** The user-vocabulary lens label (a tapped option or typed text). */
+  angle_label: string;
+}
+
 /** The terminal interview payload the client confirms, then persists. */
 export interface InterviewTerminalPayload {
   /** The extracted micro-interests. Empty when the user skipped through with no roots lit. */
@@ -41,6 +57,10 @@ export interface InterviewTerminalPayload {
    * Informational for the client; persistence keys off the interests themselves, not this flag.
    */
   roots_only_fallback?: boolean;
+  /** SKIP-TUNE mute terms (spec §6). Persisted to `user_mute_terms` as hard assembly filters. */
+  mute_terms?: TerminalMuteTerm[];
+  /** ANGLE-TUNE preferences (spec §6). Additive; not yet consumed by assembly in this slice. */
+  angle_preferences?: TerminalAnglePreference[];
 }
 
 // ─── Turn protocol (spec §2–§3) — the TS twin of the worker's turn models ─────
@@ -98,7 +118,14 @@ export interface InterviewQuestionTurn {
   bubbles: InterviewBubble[];
 }
 
-/** The terminal turn: the extracted micro-interest list for confirmation. */
+/**
+ * The terminal turn: the extracted micro-interest list for confirmation.
+ *
+ * NOTE: the worker also returns `deferred_questions` on the terminal payload (every
+ * skipped question, for later in-app resurfacing — interview spec §5/§6, added by
+ * slice #14). Like `turn_cost`, it is intentionally NOT modeled here yet — the
+ * in-app resurfacing surface is a fast-follow; the extra JSON is ignored for now.
+ */
 export interface InterviewTerminalTurn {
   response_kind: "terminal";
   turn_index: number;
@@ -106,6 +133,10 @@ export interface InterviewTerminalTurn {
   micro_interests: TerminalMicroInterest[];
   /** True when the interview terminated on the skip path (roots-only feed). */
   roots_only_fallback: boolean;
+  /** SKIP-TUNE mute terms (spec §6) — persisted to `user_mute_terms`, hard-filtered at assembly. */
+  mute_terms: TerminalMuteTerm[];
+  /** ANGLE-TUNE preferences (spec §6) — additive terminal output carried with the profile. */
+  angle_preferences: TerminalAnglePreference[];
 }
 
 /**

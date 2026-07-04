@@ -19,6 +19,14 @@
 
 All adapters implement the TLDW base adapter interface and feed `ingestion/dedup.py` for cross-source clustering (powers outlet count + coverage breakdown).
 
+## Source ingestion (YouTube + X — 2026-07-04 chat-onboarding/source-reels revamp)
+| Service | Use | Auth | Notes |
+|---|---|---|---|
+| **xAI Agent Tools `x_search`** *(LIVE, verified 2026-07-04)* | Per-cluster X sweeps → theme-of-the-day reels | `XAI_API_KEY` (`/v1/responses`) | Hard cap **20 handles/call**; keep clusters ≤ 18. 20-handle sweep ≈ 36 s / ~$0.12. Sweep each cluster ONCE daily, shared across followers. Original posts only. Adapter: `agents/ingestion/adapters/x_account.py` — keep behind a swappable seam (provider killed predecessor API mid-flight, June 2026); total failure ⇒ news floor. |
+| **YouTube RSS** (upload detection) | New-video detection on followed channels | None (keyless) | `youtube.com/feeds/videos.xml?channel_id=…`. Pace fetches — June 2026 IP-throttling incident. Long-form only (exclude Shorts). |
+| **yt-dlp captions** (transcripts) | Reel scripts from video transcripts | None | **UNVERIFIED from cloud IPs** — YouTube blocks unpredictably; M1 live-test from deployed infra gates the pipeline. Fallback: audio download + own transcription (pennies/video). |
+| **GDELT DOC 2.0** (per-anchor scalpel) | Nightly per-anchor niche queries (WHO answers) | None (keyless) | **Live-verified 2026-07-04**: ~1 req/5 s/IP hard limit with multi-minute penalty box. Single paced sequential loop only — never parallel, never on-demand. Spec: `GDELT_API_specs` (repo root). BigQuery stays the batched workhorse. |
+
 ## Audio / voice (Gemini — reused from TLDW)
 | Service | Use | Auth | Notes |
 |---|---|---|---|

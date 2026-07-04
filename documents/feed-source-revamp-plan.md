@@ -4,6 +4,8 @@
 **Branch:** `claude/feed-importance-diagnosis-vnzoqq`
 **Status:** Plan approved by product owner (ash@gmail.com). Not yet implemented. Build to be sequenced via `/cto` → `/plan-phases` → `/run-phase`.
 
+> **⚠ PARTIALLY SUPERSEDED (2026-07-04).** The §2.1 thesis — "interests collapse to top-level categories only, no drill-down" — is **formally dead**: the product drills deep on purpose (chat onboarding with sub-niche multi-select + WHO drills; see `plans/prd.md`, 2026-07-04). Everything else this plan shipped stays load-bearing: authority-weighted importance, trusted-outlet backbone, theme→category tagging, source/cluster data model, source priority slots, summary selector.
+
 > Durable handoff doc. Safe to `/compact` after this is committed — a fresh session can resume from here.
 
 ---

@@ -50,7 +50,7 @@ import { SourceClusterScreen } from "@/components/sources/SourceClusterScreen";
 import { resolveRootGate } from "@/lib/auth/routeGuard";
 import { type DesignBucketId, PICKER_ROOT_TO_CATEGORY_BUCKET, sourceBucketsFromFollows } from "@/lib/feedBuckets";
 import { clearInterviewSession } from "@/lib/interview/session";
-import { persistInterviewInterests } from "@/lib/interviewProfile";
+import { persistInterviewInterests, persistMuteTerms } from "@/lib/interviewProfile";
 import { logger } from "@/lib/logger";
 import {
   isSourceOnboardingComplete,
@@ -248,6 +248,9 @@ export function OnboardingFlow() {
       setStep("loading");
       try {
         const result = await persistInterviewInterests(userId, payload);
+        // Persist the SKIP-TUNE mutes (issue #17) so the assembler hard-filters them. First-run
+        // onboarding is a pure upsert (no replace); an empty mute list is a valid no-op.
+        await persistMuteTerms(userId, payload.mute_terms ?? []);
         // Rejected micro-interests (backstop-invalid) are surfaced via structured logs, never
         // silently minted (Rule 12) — the rest still persist. (persistInterviewInterests logs
         // each rejection with its reason; we also stash the slugs for the transient loading note.)

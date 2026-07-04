@@ -1,59 +1,85 @@
-# Interview Onboarding Spec — Conversational Micro-Interest Extraction
+# Chat Onboarding Spec — One-Conversation Interview + Source Selection
 
-**Why this doc exists:** single source of truth for the chat-interview contract between the SPA onboarding stage and the worker's interview engine, and for how the terminal output maps onto existing tables. `/to-issues` slices against it; builders test against it.
-**When to update:** any change to the turn protocol, bubble guardrails, terminal schema, or persistence mapping. Update alongside `supabase-schema.md` and `api-contracts.md` when the migration lands.
+**Why this doc exists:** single source of truth for the chat-onboarding contract between the SPA onboarding stage and the worker's interview engine — phases, turn protocol, guardrails, skip semantics, terminal schema, persistence mapping. `/to-issues` slices against it; builders test against it.
+**When to update:** any change to the phase order, turn protocol, bubble/TUNE guardrails, skip rules, terminal schema, or persistence mapping. Update alongside `supabase-schema.md` and `api-contracts.md` when migrations land.
+
+> **Supersedes** the 2026-07-03 single-select tap-through spec (rejected by the founder; recoverable at git `7ff7c68`). The engine's stateless turn protocol, guardrails, terminal validation, and persistence mapping from that spec **carry forward**; the interaction layer and phase structure are new.
+> **Interaction reference (canonical):** `reference/design-handoff/onboarding-chat.{html,js}` — keep its interaction contract; replace its canned copy/branching with the engine. Where the handoff conflicts with `blip-design-guide.md`, the guide wins.
 
 ## 1. Flow position
 
-Replaces the `picker` stage in `OnboardingFlow.tsx`'s state machine:
-`splash → email → wait_session → **interview** → loading → sources → build`.
-The `sources` (M6a) and `build` stages are unchanged. `users.user_onboarded_at` stamps only at true flow end (`markOnboardingComplete()`) — never mid-interview (onboarding-gate rule, 2026-06-30).
+The chat absorbs the `interview`, `sources`, and `build` stages of `OnboardingFlow.tsx` into ONE stage:
+`splash → email → wait_session → **chat** → loading → done`.
+`users.user_onboarded_at` stamps only at true flow end (`markOnboardingComplete()`) — never mid-chat (onboarding-gate rule, 2026-06-30). The M6a sources screen and Build-your-30 remain as later in-app editing surfaces, no longer onboarding steps.
 
-## 2. Turn protocol (worker endpoint)
+## 2. Phases (one scrollback, five phases)
 
-One turn per request; server-driven; client is a dumb renderer.
+| Phase | What happens | Rendered as |
+|---|---|---|
+| **INTERESTS** | Multi-select category chips (the 8 backend roots — see §3) → per selected category: multi-select sub-niche chips + **live composer** for typed custom interests → **one open-ended WHO drill per selected sub-niche** ("Cricket — a series, a player? Name it"), skippable via "Nothing specific →" | chips + composer + open drills |
+| **TUNE** | 3–4 quick single-tap follow-ons per category, dynamically worded, covering two **code-enforced fixed jobs**: **ANGLE** (which lens grabs you) and **SKIP** (mute list — absent from the prototype, mandatory here). Then the **story budget card**: ± steppers across selected categories, news total pinned (default 20), "Lock →" | quick replies + in-chat card |
+| **YOUTUBE** | ~30 channel tiles sorted by profile relevance, multi-select, with **supply expectation** line ("these 12 channels ≈ ~5 long-form videos/day", from catalog cadence estimates — no live calls) | in-chat tile grid |
+| **X CLUSTERS** | Curated handle clusters grouped by the user's categories + a "beyond your picks" group; samples + expandable handle list; multi-select | in-chat checklist |
+| **YOUR 30** | Summary card: news / YouTube / X split (default **20/7/3**), re-mixable 0–30 per axis, total pinned at 30 → "Build my 30 →" | in-chat card |
 
-- **Request:** conversation state so far — ordered list of (question shown, bubbles offered, bubbles tapped, free-text entered). No server-side session; state travels with the request (worker stays stateless, Railway cold-start friendly).
-- **Response, non-terminal:** next question text + generated bubbles.
-- **Response, terminal:** the extracted micro-interest list (schema §4) for user confirmation.
-- **Failure contract:** HTTP 200 always, typed retry/error body (mirrors the Q&A endpoint's graceful-failure contract in `prototype-port-map.md` §7). The client renders a retry bubble; a failed turn is never a dead-end screen.
+Answered steps collapse into user bubbles; history stays visible; no screen swaps.
+
+## 3. Category chips = the 8 backend roots
+
+`ai, geopolitics, business, environment, politics, tech, sport, arts` (labels from `agents/interview/constants.py::ROOT_LABEL_BY_SLUG`). The prototype's 9-category list is illustrative only. Health has no root in v1 — health-type typed input parks under the nearest root or root-level.
+
+## 4. Turn protocol (worker endpoint — carried forward, extended)
+
+One turn per request; server-driven; client is a dumb renderer. `POST /api/interview/turn`.
+
+- **Request:** conversation state so far — ordered exchanges (question, bubbles offered, bubbles tapped **[multi]**, free text). No server session; worker stateless.
+- **Response, non-terminal:** next turn, typed by kind: `category_chips` | `subniche_chips` (composer live) | `who_drill` (open) | `tune_quick` (single-tap) | `budget_card` | `youtube_grid` | `cluster_list` | `summary_card`.
+- **Response, terminal:** the extracted profile (schema §6) for confirmation.
+- **Failure contract:** HTTP 200 always, typed retry/error body; TUNE turns have **deterministic fallback wording** if the LLM fails; a failed turn is never a dead-end screen.
 - **Auth:** user JWT (same seam as `/feed/assemble-mine`).
 
-## 3. Bubble guardrails
+## 5. Guardrails + skip semantics (code-enforced, never model-enforced)
 
 | Rule | Value |
 |---|---|
-| Turn 1 bubbles | the 8 fixed roots (no LLM call) |
-| Bubbles per turn | ≤ 6 generated + always `not really / skip` + always `something else — type it` |
-| Drill-down depth | ≤ 3 per lit-up root |
-| Tap budget | ~15 taps target; engine must steer to terminal by ~18 |
-| Time target | ≤ 3 min (success metric #2) |
-| Model | Gemini Flash-class, structured JSON output, temperature low |
+| Turn-1 bubbles | the 8 fixed roots (no LLM call) |
+| Generated bubbles per turn | ≤ 6, + always skip + always type-your-own |
+| WHO drills | exactly one per selected sub-niche; if total drills would exceed ~8, compress remaining sub-niches into one combined drill |
+| TUNE per category | 3–4 questions; ANGLE + SKIP jobs always covered |
+| Free-text gibberish | one clarifying turn, then park as root-level |
+| Model | Gemini Flash-class, structured JSON, low temperature |
 
-Free-text handling: attempt to map typed input to a root + slug; if unmappable, ask exactly one clarifying turn, then park as root-level interest (never silently dropped, never fabricated into a niche).
+**Skip fast-forward (engine state machine, deterministic):** every question skippable → skip the first follow-up of a category ⇒ offer to skip the category → two consecutive categories skipped ⇒ offer "just build my feed". Skipped questions are recorded as **deferred** at terminal persist (in-app resurfacing UI is a fast-follow; the record ships now). Skip-everything ⇒ roots-only profile (feed works as today).
 
-## 4. Terminal output schema (per micro-interest)
+**Re-run:** rebuild-my-feed entry runs the chat with **clean-replace** semantics — no orphaned mutes, follows, or allocation rows.
 
-- `display_label` — the user's vocabulary, verbatim (drives feed section headers).
-- `canonical_slug` — root-anchored dotted slug (e.g. `sport.cricket.ipl.auctions`), the convergence key across users.
-- `ladder` — ordered parent chain from the tap path (e.g. `["sport", "sport.cricket", "sport.cricket.ipl"]`); this IS the fallback ladder.
-- `search_anchor_terms` — ≥ 2 concrete anchor terms for the BigQuery batched query (feeds `interest_search_query`).
-- `strict` — bool, maps to `profile_is_strict` (no fallback climb when true).
+## 6. Terminal output schema
 
-Validation before persistence: root-anchored slug parses; ≥ 2 anchor terms; interest traceable to a tap or typed text (nothing invented). Invalid items are re-asked or dropped loudly, never silently minted. Raw chat transcript is NOT persisted — only the terminal list + ladder.
+Per micro-interest (unchanged from the shipped engine): `display_label` (user's vocabulary), `canonical_slug` (root-anchored dotted), `ladder` (tap-path parent chain = fallback ladder), `search_anchor_terms` (≥ 2 concrete terms), `strict`.
 
-## 5. Persistence mapping
+New alongside the interest list:
+- `mute_terms` — per category, from SKIP answers (hard filters at assembly, never at ingestion).
+- `angle_preferences` — per category, from ANGLE answers.
+- `deferred_questions` — skipped questions for later resurfacing.
+- `news_budget` — per-category counts from the budget card (sums to the news total).
+- `source_follows` — selected channel ids + cluster ids.
+- `top_split` — news/youtube/x counts summing to 30 (default 20/7/3).
 
-| Interview output | Lands in |
+Validation before persistence (carried forward): root-anchored slug parses; ≥ 2 anchor terms; every item traceable to a tap or typed text — nothing invented; invalid items re-asked or dropped loudly. Raw chat transcript is NOT persisted.
+
+## 7. Persistence mapping
+
+| Output | Lands in |
 |---|---|
-| minted niche node (slug, label, parent, depth, `interest_search_query`) | `interests` (global, shared; upsert by slug — two users converge on one node) |
-| user's pick + weight + strictness | `user_interest_profile` (deep rows re-admitted; existing depth-weight semantics) |
-| per-user display label | with the profile row, NOT the node |
-| section allocation (label + node ref + slot count) | `user_feed_allocation` (+ new nullable interest ref + text label; enum stays for backbone/`youtube`/`x`/beyond-bubble) |
-| per-slot section + fallback level (batch output) | `daily_feeds` row metadata (client renders labels with zero inference) |
+| minted niche nodes | `interests` (global, upsert by slug) |
+| picks + weight + strictness | `user_interest_profile` |
+| mute terms | `user_mute_terms` (new: user, category, term) |
+| news budget + top split | `user_feed_allocation` (news category rows + `youtube` + `x` rows, sum = 30) |
+| channel follows | `user_content_sources` |
+| cluster follows | `user_content_sources` rows for members **+** cluster ref (new `user` link to `source_clusters`) for sweep scheduling + theme attribution |
+| deferred questions | new deferred-skips store (shape decided at slice time) |
+| angle preferences | with the profile (shape decided at slice time) |
 
-Skip-everything degenerate case: roots-only profile (FSR baseline) — feed works exactly as today.
+## 8. Assembly consumption (summary)
 
-## 6. Assembly consumption (summary — details in `ranking-spec.md` when M3 lands)
-
-Niche sections fill direct-tagged first; climb the ladder one level at a time when short; every climbed slot is stamped with its fallback level so the UI can say *"Nothing new in IPL today — here's cricket."* Strict interests never climb. Whole-ladder-dry slots go to the beyond-bubble reserve (3–5 slots of importance-ranked backbone stories from un-picked roots). Followed-source priority slots (M6b) are untouched.
+Niche sections fill per the shipped niche-first + honest-ladder assembly (slice #7). Mutes filter hard at assembly. Source slots fill from YouTube/X reels per `reference/source-reels-spec.md`; any unfillable source slot rolls to news (existing soft-roll). All-news and all-X allocations are valid.

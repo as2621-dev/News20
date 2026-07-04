@@ -120,6 +120,10 @@ This project ships with **13 slash commands**. The core pipeline runs top-to-bot
 
 The PRD (with its Technical Foundation) lives in `plans/prd.md` — there is no separate master plan. Slice work lives on **GitHub Issues** — the kanban board is the `status:backlog` / `status:in-progress` / `status:review` / `status:done` labels, viewable as a drag-and-drop board in the repo's **GitHub Project**. Each slice is sized to one subagent within a 120k-token budget — `/grab-issue` spawns a **fresh sub-agent per slice**, so draining the backlog with `/loop /grab-issue` keeps the orchestrator's context flat. Reference docs live in `reference/`. Durable learnings (the compounding store, written by `/compound`) live in `docs/solutions/`. Codex transcripts in `.agents/codex/`. CSO follow-ups in `.agents/cso-findings/`. Debug reports in `.agents/debug/` (browser tooling playbook for both `/debug` and UI-slice verification: `reference/browser-debug-playbook.md`). Handoff docs go to the OS temp / scratchpad, never committed.
 
+## Design System (MANDATORY for all UI work)
+
+**Before building or modifying ANY UI, read `blip-design-guide.md` (repo root).** It is the single source of truth for the blip design system — color tokens, type (Inter/Playfair/JetBrains Mono), shape/motion constants, the code-rendered wordmark and voice mark, karaoke captions, component recipes, copy rules, and the "never do" list. Non-negotiables to know even before reading it: dark-only (`#020617` canvas), monochrome UI + exactly one accent at a time, `#FACC15` yellow is THE pop (one keyword per sentence), 1px-radius editorial cards, borders over shadows, no emoji ever, "blip" always lowercase. When this guide conflicts with the remote design-references library below, **this guide wins** for blip surfaces.
+
 **Design references (remote):** The full design library lives in a separate public repo to keep this template green:
 
 `https://github.com/ashesh2621/design-references` (~1 GB)

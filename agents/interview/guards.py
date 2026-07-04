@@ -11,7 +11,6 @@ from __future__ import annotations
 import re
 
 from agents.interview.constants import (
-    MAX_DRILL_DEPTH_PER_ROOT,
     ROOT_LABEL_BY_SLUG,
     ROOT_SLUG_BY_LABEL,
     SKIP_BUBBLE_LABEL,
@@ -28,27 +27,6 @@ META_LABELS: frozenset[str] = frozenset(
     {SKIP_BUBBLE_LABEL.casefold(), TYPE_YOUR_OWN_BUBBLE_LABEL.casefold()}
 )
 _SLUG_SEGMENT_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-
-
-class DrillState:
-    """Replayed deterministic drill state derived purely from the conversation.
-
-    Attributes:
-        lit_roots: Root slugs tapped on turn 1, in tap order.
-        drill_counts: root slug -> number of drill turns spent under it.
-        active_root: The root currently being drilled, or ``None`` when every lit root
-            has hit the depth cap (the signal to steer to terminal).
-    """
-
-    def __init__(
-        self,
-        lit_roots: list[str],
-        drill_counts: dict[str, int],
-        active_root: str | None,
-    ) -> None:
-        self.lit_roots = lit_roots
-        self.drill_counts = drill_counts
-        self.active_root = active_root
 
 
 def is_meta_label(label: str) -> bool:
@@ -98,41 +76,6 @@ def free_text_only_turn_count(conversation_state: list[InterviewExchange]) -> in
         1
         for exchange in conversation_state
         if exchange.free_text_entered and not real_taps(exchange)
-    )
-
-
-def replay_drill_state(conversation_state: list[InterviewExchange]) -> DrillState:
-    """Replay the conversation into deterministic drill state (lit roots, depths, active root).
-
-    Turn 1 lights the roots; every later exchange with a real tap is a drill turn under the
-    active root. When a root reaches :data:`MAX_DRILL_DEPTH_PER_ROOT` the active root advances
-    to the next lit root not yet at the cap; when none remain, ``active_root`` is ``None``.
-
-    Args:
-        conversation_state: The ordered prior exchanges.
-
-    Returns:
-        The computed :class:`DrillState`.
-    """
-    lit_roots = lit_roots_from_state(conversation_state)
-    drill_counts: dict[str, int] = {root: 0 for root in lit_roots}
-
-    def _next_active() -> str | None:
-        for root in lit_roots:
-            if drill_counts[root] < MAX_DRILL_DEPTH_PER_ROOT:
-                return root
-        return None
-
-    active_root = _next_active()
-    for exchange in conversation_state[1:]:
-        if active_root is None:
-            break
-        if real_taps(exchange):
-            drill_counts[active_root] += 1
-            if drill_counts[active_root] >= MAX_DRILL_DEPTH_PER_ROOT:
-                active_root = _next_active()
-    return DrillState(
-        lit_roots=lit_roots, drill_counts=drill_counts, active_root=active_root
     )
 
 

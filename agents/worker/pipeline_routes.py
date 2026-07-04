@@ -451,6 +451,14 @@ async def _run_daily(
                 adapter=niche_adapter,
                 since_utc=since_utc,
                 resolve_existing_story_ids=resolver,
+                # Reason: per-anchor GDELT DOC scalpel (issue #16) — a single
+                # SEQUENTIAL, throttled DOC loop that fills the long-tail WHO anchors
+                # the batched BigQuery workhorse missed, tagged to their interest node.
+                # It reuses the SAME GdeltDocAdapter instance as the render-time
+                # coverage census so BOTH share one ≤1-req/5s throttle + penalty-box
+                # backoff on this IP (never parallel). Additive: a DOC outage leaves
+                # the BigQuery niche pool untouched (BigQuery-only night).
+                doc_scalpel_adapter=census_adapter,
             )
             return result.canonical_stories, result.story_interest_tags
 
