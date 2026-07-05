@@ -35,3 +35,26 @@ backfills existing rows with distinct uuids (volatile default is evaluated per r
 
 See migration `0026_niche_allocation_sections.sql` + `src/lib/feedAllocation.ts`.
 Related: [[definer-rpc-anon-execute-leak]] (same table-write-surface class of care).
+
+## Extension (slice #12, 2026-07-05): the arbiter must include EVERY row-class discriminator
+
+Once a THIRD row class shares the `(a, b, NULL-interest)` tuple, the 3-col arbiter silently
+corrupts it. Here `user_feed_allocation` grew a `beyond-bubble` class: `interest_id NULL`,
+`section_label = "Beyond your bubble"` — its arbiter tuple `(user, category, NULL)` is IDENTICAL to
+a coarse row's, because `section_label` is NOT in the arbiter. A coarse upsert for a coinciding
+category then conflicts onto the beyond-bubble row and overwrites its slot_count/sort_order (PostgREST
+`ON CONFLICT DO UPDATE` writes only payload columns, so the label lingers → a corrupt hybrid).
+
+Two lessons:
+1. **The upsert arbiter must contain every column that distinguishes row CLASSES that share the
+   NULL tuple.** Two classes are safe to coexist under one `(a,b)` only if a column in the arbiter
+   tells them apart. Adding a discriminator column (`section_label`) without adding it to the
+   `unique nulls not distinct (...)` re-introduces the very collision the surrogate PK was meant to
+   allow. Fix: 4-col arbiter `(a, b, interest_id, section_label)`.
+2. **Two-writer safety needs BOTH sides.** The frontend coarse writer additionally scopes its DELETE
+   to true-coarse rows via `.is("interest_id", null).is("section_label", null)` so it never prunes a
+   section row — but the DELETE guard alone is not enough: the UPSERT arbiter is the other half, and
+   an arbiter that under-specifies still corrupts on write even when the delete is perfectly scoped.
+
+Deferred fix tracked in `docs/residual-review-findings/slice-12-coarse-only-build-my-30.md` (needs a
+schema migration + a product call on which row wins when classes coincide).
