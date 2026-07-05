@@ -23,8 +23,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsLayer } from "@/components/blip/reel/SettingsLayer";
 import type { InterviewChatProps } from "@/components/onboarding/InterviewChat";
 import { clearInterviewSession } from "@/lib/interview/session";
-import { persistInterviewInterests } from "@/lib/interviewProfile";
 import { markOnboardingComplete, markSourceOnboardingComplete } from "@/lib/onboardingProfile";
+import { persistOnboardingTerminal } from "@/lib/onboardingTerminal";
 import { getCurrentSession } from "@/lib/supabase/auth";
 
 vi.mock("next/navigation", () => ({
@@ -42,10 +42,14 @@ vi.mock("@/lib/profile", () => ({
   PROFILE_DISPLAY_NAME_MAX_LENGTH: 40,
 }));
 
+// RebuildFeedFlow imports only REPLACE_PARTIAL_ERROR_NAME from interviewProfile now (the persist
+// itself goes through the terminal orchestrator, which is mocked separately below).
 vi.mock("@/lib/interviewProfile", () => ({
-  persistInterviewInterests: vi.fn(),
-  persistMuteTerms: vi.fn().mockResolvedValue({ persisted_mute_count: 0 }),
   REPLACE_PARTIAL_ERROR_NAME: "ReplacePartialError",
+}));
+
+vi.mock("@/lib/onboardingTerminal", () => ({
+  persistOnboardingTerminal: vi.fn(),
 }));
 
 vi.mock("@/lib/interview/session", () => ({
@@ -69,6 +73,15 @@ const CONFIRM_PAYLOAD = {
     },
   ],
   roots_only_fallback: false,
+  top_split: { news: 20, youtube: 7, x: 3 },
+};
+
+/** A successful `persistOnboardingTerminal` result shape (the four sub-writes' outcomes). */
+const TERMINAL_OK = {
+  interests: { minted_interest_count: 1, rejected_interests: [] },
+  mutes: { persisted_mute_count: 0 },
+  allocation: { persisted_count: 10 },
+  deferred: { persisted_deferred_count: 0 },
 };
 const interviewChatProps: Partial<InterviewChatProps>[] = [];
 vi.mock("@/components/onboarding/InterviewChat", () => ({
@@ -92,7 +105,7 @@ vi.mock("@/components/onboarding/InterviewChat", () => ({
 }));
 
 const mockGetCurrentSession = vi.mocked(getCurrentSession);
-const mockPersist = vi.mocked(persistInterviewInterests);
+const mockPersist = vi.mocked(persistOnboardingTerminal);
 const mockClearSession = vi.mocked(clearInterviewSession);
 const mockMarkOnboardingComplete = vi.mocked(markOnboardingComplete);
 const mockMarkSourceOnboardingComplete = vi.mocked(markSourceOnboardingComplete);
@@ -153,7 +166,7 @@ describe("Rebuild my feed — Settings entry + replace flow (issue #9)", () => {
   });
 
   it("completing the re-interview persists ONCE with replace semantics and fires NO onboarding side effects", async () => {
-    mockPersist.mockResolvedValue({ minted_interest_count: 1, rejected_interests: [] });
+    mockPersist.mockResolvedValue(TERMINAL_OK as unknown as Awaited<ReturnType<typeof persistOnboardingTerminal>>);
 
     await openRebuildFromSettings();
     await clickText("confirm");
@@ -184,10 +197,9 @@ describe("Rebuild my feed — Settings entry + replace flow (issue #9)", () => {
   });
 
   it("a persist failure surfaces a retry that re-persists the SAME payload; bailing out keeps the old profile", async () => {
-    mockPersist.mockRejectedValueOnce(new Error("mint RPC down")).mockResolvedValueOnce({
-      minted_interest_count: 1,
-      rejected_interests: [],
-    });
+    mockPersist
+      .mockRejectedValueOnce(new Error("mint RPC down"))
+      .mockResolvedValueOnce(TERMINAL_OK as unknown as Awaited<ReturnType<typeof persistOnboardingTerminal>>);
 
     await openRebuildFromSettings();
     await clickText("confirm");
@@ -249,9 +261,12 @@ describe("Rebuild my feed — Settings entry + replace flow (issue #9)", () => {
     // WHY (review-panel MED): backstop-rejected picks silently shrink the replaced
     // profile; the done screen must say so (mirrors OnboardingFlow's unpersisted note).
     mockPersist.mockResolvedValue({
-      minted_interest_count: 1,
-      rejected_interests: [{ canonical_slug: "sport.bad", reason: "under_two_anchor_terms" }],
-    });
+      ...TERMINAL_OK,
+      interests: {
+        minted_interest_count: 1,
+        rejected_interests: [{ canonical_slug: "sport.bad", reason: "under_two_anchor_terms" }],
+      },
+    } as Awaited<ReturnType<typeof persistOnboardingTerminal>>);
 
     await openRebuildFromSettings();
     await clickText("confirm");

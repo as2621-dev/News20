@@ -184,6 +184,42 @@ async function typeComposer(text: string): Promise<void> {
   });
 }
 
+/** Click a button by its `data-testid` exactly once. Throws if absent. */
+async function clickTestId(id: string): Promise<void> {
+  const el = container.querySelector<HTMLButtonElement>(`[data-testid='${id}']`);
+  if (!el) {
+    throw new Error(`[data-testid='${id}'] not found. Buttons: ${bodyButtons()}`);
+  }
+  await act(async () => {
+    el.click();
+  });
+}
+
+/** Click a `data-testid` button `times` times (drives the ± budget steppers). */
+async function clickTestIdN(id: string, times: number): Promise<void> {
+  for (let i = 0; i < times; i += 1) {
+    await clickTestId(id);
+  }
+}
+
+/** Read the current numeric value shown for one budget axis (e.g. "news"). */
+function budgetValue(axis: "news" | "youtube" | "x"): string {
+  const label = axis === "news" ? "news" : axis === "youtube" ? "youtube" : "x";
+  return container.querySelector(`[data-testid='budget-value-${label}']`)?.textContent ?? "";
+}
+
+/** Drive a fresh chat to the budget card (one interest tapped, interests accepted). */
+async function reachBudgetCard(onComplete = vi.fn()): Promise<ReturnType<typeof vi.fn>> {
+  const { fn } = scriptedFetch([Q_ROOTS, TERMINAL]);
+  const res = await renderChat(fn, onComplete);
+  await toggleChip("Sport");
+  await clickText("Done →");
+  await clickText("Looks good");
+  return res.onComplete;
+}
+
+const TERMINAL_INTERESTS = (TERMINAL as Extract<InterviewTurn, { response_kind: "terminal" }>).micro_interests;
+
 describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
   it("renders the first turn as chips + skip + a live composer", async () => {
     await renderChat(scriptedFetch([Q_ROOTS]).fn);
@@ -290,46 +326,113 @@ describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
     expect(calls[2]).toEqual(calls[1]);
   });
 
-  it("persists ONLY on terminal confirm and forwards interests + TUNE outputs", async () => {
+  it("nothing persists until the WHOLE closing arc completes; forwards interests + TUNE + deferred + top_split", async () => {
+    // WHY (AC1/AC2): "Looks good" only ACCEPTS the interests → the budget card; the single persist
+    // trigger is "Build my 30" at the end of the closing arc. The payload carries the full profile
+    // plus the client-computed default 20/7/3 split (deferred skips included) in ONE handoff.
     const { fn } = scriptedFetch([Q_ROOTS, TERMINAL]);
     const { onComplete } = await renderChat(fn);
 
     await toggleChip("Sport");
     await clickText("Done →");
-    // Terminal card is inline in the scrollback; nothing persisted until confirm.
     expect(container.textContent).toContain("IPL auctions");
     expect(onComplete).not.toHaveBeenCalled();
 
+    // Accept interests → the budget card renders; STILL nothing persisted.
     await clickText("Looks good");
+    expect(container.querySelector("[data-testid='budget-card']")).not.toBeNull();
+    expect(onComplete).not.toHaveBeenCalled();
+
+    // Default split already sums to 30 → review → YOUR-30 summary → build.
+    await clickText("Review my 30");
+    expect(container.querySelector("[data-testid='your-30-summary']")).not.toBeNull();
+    expect(onComplete).not.toHaveBeenCalled();
+
+    await clickText("Build my 30");
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete.mock.calls[0][0]).toEqual({
-      micro_interests: (TERMINAL as Extract<InterviewTurn, { response_kind: "terminal" }>).micro_interests,
+      micro_interests: TERMINAL_INTERESTS,
       roots_only_fallback: false,
       mute_terms: [{ mute_category: "sport", mute_term: "transfers" }],
       angle_preferences: [{ angle_category: "sport", angle_label: "tactics" }],
+      deferred_questions: [],
+      top_split: { news: 20, youtube: 7, x: 3 },
     });
   });
 
-  it("skip-everything reaches a roots-only confirm and completes (skipping not punished)", async () => {
+  it("YOUR-30 summary shows the news/YouTube/X split before Build my 30 (AC2)", async () => {
+    await reachBudgetCard();
+    await clickText("Review my 30");
+    expect(container.querySelector("[data-testid='summary-news']")?.textContent).toContain("20");
+    expect(container.querySelector("[data-testid='summary-youtube']")?.textContent).toContain("7");
+    expect(container.querySelector("[data-testid='summary-x']")?.textContent).toContain("3");
+  });
+
+  it("the budget card pins the total at 30 — Review is gated until it sums to 30 (AC4)", async () => {
+    await reachBudgetCard();
+    const review = () => container.querySelector<HTMLButtonElement>("[data-testid='budget-review']");
+    // Default 20/7/3 = 30 → review enabled.
+    expect(review()?.disabled).toBe(false);
+    // Incrementing an axis while the pool is full is a no-op — the total can never exceed 30.
+    await clickTestId("budget-inc-news");
+    expect(budgetValue("news")).toBe("20");
+    // Drop below 30 → review gated until the user re-allocates the freed slot.
+    await clickTestId("budget-dec-news");
+    expect(budgetValue("news")).toBe("19");
+    expect(review()?.disabled).toBe(true);
+    await clickTestId("budget-inc-youtube");
+    expect(review()?.disabled).toBe(false);
+  });
+
+  it("remixes the budget to 30/0/0 and forwards it (news maxed, sources zeroed) (AC3)", async () => {
+    const onComplete = await reachBudgetCard();
+    await clickTestIdN("budget-dec-youtube", 7); // youtube 7 → 0
+    await clickTestIdN("budget-dec-x", 3); // x 3 → 0
+    await clickTestIdN("budget-inc-news", 10); // news 20 → 30
+    expect(budgetValue("news")).toBe("30");
+    await clickText("Review my 30");
+    await clickText("Build my 30");
+    expect(onComplete.mock.calls[0][0]).toMatchObject({ top_split: { news: 30, youtube: 0, x: 0 } });
+  });
+
+  it("remixes the budget to 0/0/30 and forwards it (all X) (AC3)", async () => {
+    const onComplete = await reachBudgetCard();
+    await clickTestIdN("budget-dec-news", 20); // news 20 → 0
+    await clickTestIdN("budget-dec-youtube", 7); // youtube 7 → 0
+    await clickTestIdN("budget-inc-x", 27); // x 3 → 30
+    expect(budgetValue("x")).toBe("30");
+    await clickText("Review my 30");
+    await clickText("Build my 30");
+    expect(onComplete.mock.calls[0][0]).toMatchObject({ top_split: { news: 0, youtube: 0, x: 30 } });
+  });
+
+  it("skip-everything reaches a roots-only confirm and completes through the budget (skipping not punished)", async () => {
     const { onComplete } = await renderChat(scriptedFetch([Q_ROOTS, TERMINAL_EMPTY]).fn);
 
     await clickText("not really / skip");
     expect(container.textContent).toContain("big picture");
 
+    // The budget card runs for the skip path too, so a roots-only allocation still persists.
     await clickText("Continue");
+    expect(container.querySelector("[data-testid='budget-card']")).not.toBeNull();
+    await clickText("Review my 30");
+    await clickText("Build my 30");
     expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(onComplete.mock.calls[0][0]).toMatchObject({ micro_interests: [], roots_only_fallback: true });
+    expect(onComplete.mock.calls[0][0]).toMatchObject({
+      micro_interests: [],
+      roots_only_fallback: true,
+      top_split: { news: 20, youtube: 7, x: 3 },
+    });
   });
 
-  it("ignores a double-tap on confirm so persistence fires once", async () => {
-    const { onComplete } = await renderChat(scriptedFetch([Q_ROOTS, TERMINAL]).fn);
-    await toggleChip("Sport");
-    await clickText("Done →"); // → TERMINAL card
+  it("ignores a double-tap on Build my 30 so persistence fires once", async () => {
+    const onComplete = await reachBudgetCard();
+    await clickText("Review my 30");
 
-    const confirm = container.querySelector<HTMLButtonElement>("[data-testid='confirm-terminal']");
+    const build = container.querySelector<HTMLButtonElement>("[data-testid='build-my-30']");
     await act(async () => {
-      confirm?.click();
-      confirm?.click();
+      build?.click();
+      build?.click();
     });
 
     expect(onComplete).toHaveBeenCalledTimes(1);

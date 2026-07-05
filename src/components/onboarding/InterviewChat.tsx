@@ -30,6 +30,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { TOP_SPLIT_TOTAL } from "@/lib/feedTopSplit";
 import { clearInterviewSession, loadInterviewSession, saveInterviewSession } from "@/lib/interview/session";
 import { fetchInterviewTurn } from "@/lib/interview/turnClient";
 import { logger } from "@/lib/logger";
@@ -48,8 +49,29 @@ import type {
  */
 const TAP_TARGET = 15;
 
-/** The chat's visible phases. */
-type ChatPhase = "resume_prompt" | "loading" | "question" | "retry" | "confirm";
+/** The three closing-arc feed axes the budget card splits the 30 daily slots across. */
+type TopSplitAxis = "news" | "youtube" | "x";
+
+/**
+ * The default closing-arc split (spec: 20 news / 7 YouTube / 3 X) the budget card opens on. It
+ * already sums to {@link TOP_SPLIT_TOTAL}, so a user who touches nothing ships a valid 30-split.
+ * This DEFAULT is the UI's product decision; the exactly-30 invariant is single-sourced from
+ * {@link TOP_SPLIT_TOTAL} (feedTopSplit) so the card and the persist gate can never disagree (Rule 7).
+ */
+const DEFAULT_TOP_SPLIT: Readonly<Record<TopSplitAxis, number>> = { news: 20, youtube: 7, x: 3 };
+
+/** Human-readable label + one-line gloss for each budget axis (design copy, no emoji). */
+const TOP_SPLIT_AXIS_META: ReadonlyArray<{ axis: TopSplitAxis; label: string; gloss: string }> = [
+  { axis: "news", label: "News", gloss: "Reported stories across your topics" },
+  { axis: "youtube", label: "YouTube", gloss: "Reels from the creators you follow" },
+  { axis: "x", label: "X", gloss: "Posts from the voices you follow" },
+];
+
+/**
+ * The chat's visible phases. The closing arc runs `confirm` (the extracted interests) → `budget`
+ * (the ± story-budget card) → `summary` (the YOUR-30 split recap) → the parent's `onComplete`.
+ */
+type ChatPhase = "resume_prompt" | "loading" | "question" | "retry" | "confirm" | "budget" | "summary";
 
 export interface InterviewChatProps {
   /**
@@ -104,6 +126,10 @@ export function InterviewChat({
   // alongside the chips.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [freeText, setFreeText] = useState("");
+  // The closing-arc story budget (news/youtube/x). Opens on the 20/7/3 default and is remixed with
+  // ± steppers that keep the running total ≤ 30 (never over), so the confirmed split always sums to
+  // exactly TOP_SPLIT_TOTAL — the persist gate (#30) never sees a ≠30 payload from this UI.
+  const [topSplit, setTopSplit] = useState<Record<TopSplitAxis, number>>({ ...DEFAULT_TOP_SPLIT });
 
   // The conversation state a failed turn was fetching — so `retry` re-sends EXACTLY it.
   const pendingStateRef = useRef<InterviewExchange[]>([]);
@@ -277,16 +303,59 @@ export function InterviewChat({
   }, [advance]);
 
   /**
-   * Confirm the terminal list → hand off for persistence. Guarded by `isBusyRef` so a fast
-   * double-tap can't fire `onComplete` (and thus persistence) twice; the flag is never reset
-   * here because a confirm always unmounts this stage (the parent advances past `interview`),
-   * and a persist failure REMOUNTS it fresh (guard resets). The transcript cache is NOT cleared
-   * here: the parent clears it only after a SUCCESSFUL mint, so a persist failure leaves a
-   * resumable transcript. All terminal outputs (interests + TUNE mutes + angle prefs) are
-   * forwarded so the parent can persist the full profile.
+   * Accept the extracted interests → open the story-budget card (does NOT persist). The closing
+   * arc is confirm → budget → summary; persistence fires only on "Build my 30" at the very end.
    */
-  const handleConfirm = useCallback(() => {
+  const handleAcceptInterests = useCallback(() => {
     if (isBusyRef.current || !terminal) {
+      return;
+    }
+    setPhase("budget");
+  }, [terminal]);
+
+  const splitTotal = topSplit.news + topSplit.youtube + topSplit.x;
+  const slotsRemaining = TOP_SPLIT_TOTAL - splitTotal;
+  const splitIsComplete = splitTotal === TOP_SPLIT_TOTAL;
+
+  /**
+   * Nudge one budget axis by ±1. Decrement stops at 0; increment is refused when it would push the
+   * running total past {@link TOP_SPLIT_TOTAL}, so the split is ALWAYS ≤ 30 and can only reach the
+   * "Review" gate at exactly 30 — the UI can never emit a ≠30 split (the persist gate is the
+   * authoritative backstop, not a duplicate check here).
+   */
+  const adjustBudget = useCallback((axis: TopSplitAxis, delta: 1 | -1) => {
+    setTopSplit((current) => {
+      const nextAxisValue = current[axis] + delta;
+      if (nextAxisValue < 0) {
+        return current;
+      }
+      const nextTotal = current.news + current.youtube + current.x + delta;
+      if (nextTotal > TOP_SPLIT_TOTAL) {
+        return current;
+      }
+      return { ...current, [axis]: nextAxisValue };
+    });
+  }, []);
+
+  /** Advance from the budget card to the YOUR-30 recap — only once the split lands on exactly 30. */
+  const handleReviewSplit = useCallback(() => {
+    if (splitTotal !== TOP_SPLIT_TOTAL) {
+      return;
+    }
+    setPhase("summary");
+  }, [splitTotal]);
+
+  /**
+   * Confirm the whole closing arc → hand off for the single terminal persist. Guarded by `isBusyRef`
+   * so a fast double-tap can't fire `onComplete` (and thus persistence) twice; the flag is never
+   * reset here because a confirm always unmounts this stage (the parent advances past `interview`),
+   * and a persist failure REMOUNTS it fresh (guard resets). The transcript cache is NOT cleared here:
+   * the parent clears it only after a SUCCESSFUL persist, so a failure leaves a resumable transcript.
+   * ALL terminal outputs (interests + TUNE mutes + angle prefs + deferred skips) plus the
+   * client-computed `top_split` are forwarded so the parent can persist the full profile in one call.
+   */
+  const handleBuildMy30 = useCallback(() => {
+    if (isBusyRef.current || !terminal || splitTotal !== TOP_SPLIT_TOTAL) {
       return;
     }
     isBusyRef.current = true;
@@ -295,9 +364,12 @@ export function InterviewChat({
       roots_only_fallback: terminal.roots_only_fallback,
       mute_terms: terminal.mute_terms,
       angle_preferences: terminal.angle_preferences,
+      deferred_questions: terminal.deferred_questions,
+      top_split: { news: topSplit.news, youtube: topSplit.youtube, x: topSplit.x },
     });
-  }, [onComplete, terminal]);
+  }, [onComplete, terminal, splitTotal, topSplit]);
 
+  const inClosingArc = phase === "confirm" || phase === "budget" || phase === "summary";
   const progressFraction = Math.min(conversation.length / TAP_TARGET, 0.92);
   const optionBubbles = questionTurn?.bubbles.filter((bubble) => bubble.bubble_kind === "option") ?? [];
   const skipBubble = questionTurn?.bubbles.find((bubble) => bubble.bubble_kind === "skip") ?? null;
@@ -342,7 +414,7 @@ export function InterviewChat({
         <div className="h-[3px] w-full overflow-hidden rounded-pill bg-white/10">
           <div
             className="h-full rounded-pill bg-primary transition-[width] duration-300"
-            style={{ width: `${(phase === "confirm" ? 1 : progressFraction) * 100}%` }}
+            style={{ width: `${(inClosingArc ? 1 : progressFraction) * 100}%` }}
           />
         </div>
       </div>
@@ -486,7 +558,7 @@ export function InterviewChat({
               <button
                 type="button"
                 data-testid="confirm-terminal"
-                onClick={handleConfirm}
+                onClick={handleAcceptInterests}
                 className="w-full rounded-pill bg-white px-4 py-3 font-sans text-[15px] font-semibold text-background transition-opacity active:opacity-70"
               >
                 {terminal.micro_interests.length > 0 ? "Looks good" : "Continue"}
@@ -503,41 +575,192 @@ export function InterviewChat({
             </div>
           </section>
         ) : null}
+
+        {phase === "budget" ? (
+          <section data-testid="budget-card" className="flex flex-col gap-4">
+            <span className="font-mono text-[11px] tracking-wide text-text-secondary">YOUR 30, YOUR WAY</span>
+            <h2 className="font-sans text-[17px] font-semibold leading-snug text-text-primary">
+              How should your daily 30 split?
+            </h2>
+            <p className="font-sans text-[13px] leading-relaxed text-text-secondary">
+              Every day we build you 30 stories. Dial each source up or down — the total always lands on 30.
+            </p>
+            <div className="flex flex-col gap-2.5">
+              {TOP_SPLIT_AXIS_META.map(({ axis, label, gloss }) => (
+                <BudgetStepperRow
+                  key={axis}
+                  label={label}
+                  gloss={gloss}
+                  value={topSplit[axis]}
+                  canIncrement={slotsRemaining > 0}
+                  canDecrement={topSplit[axis] > 0}
+                  onDecrement={() => adjustBudget(axis, -1)}
+                  onIncrement={() => adjustBudget(axis, 1)}
+                />
+              ))}
+            </div>
+            <div className="flex items-center justify-between font-mono text-[11px] tracking-wide">
+              <span className="text-text-secondary">
+                {splitIsComplete ? "ALL 30 ALLOCATED" : `${slotsRemaining} SLOT${slotsRemaining === 1 ? "" : "S"} LEFT`}
+              </span>
+              <span data-testid="budget-total" className="text-primary">
+                {splitTotal} / {TOP_SPLIT_TOTAL}
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="budget-review"
+              onClick={handleReviewSplit}
+              disabled={!splitIsComplete}
+              className="mt-1 w-full rounded-pill bg-white px-4 py-3 font-sans text-[15px] font-semibold text-background transition-opacity disabled:opacity-40"
+            >
+              Review my 30 →
+            </button>
+          </section>
+        ) : null}
+
+        {phase === "summary" ? (
+          <section data-testid="your-30-summary" className="flex flex-col gap-3">
+            <span className="font-mono text-[11px] tracking-wide text-text-secondary">YOUR 30</span>
+            <h2 className="font-sans text-[17px] font-semibold leading-snug text-text-primary">
+              Here&apos;s your daily 30.
+            </h2>
+            <ul className="flex flex-col gap-2" aria-label="Your daily 30 split">
+              {TOP_SPLIT_AXIS_META.map(({ axis, label }) => (
+                <li
+                  key={axis}
+                  data-testid={`summary-${axis}`}
+                  className="flex items-center justify-between rounded-control border border-white/12 bg-white/5 px-4 py-2.5 font-sans text-[14px] text-text-primary"
+                >
+                  <span>{label}</span>
+                  <span className="font-mono text-[13px] text-primary">{topSplit[axis]}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex flex-col gap-3">
+              <button
+                type="button"
+                data-testid="build-my-30"
+                onClick={handleBuildMy30}
+                className="w-full rounded-pill bg-white px-4 py-3 font-sans text-[15px] font-semibold text-background transition-opacity active:opacity-70"
+              >
+                Build my 30 →
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhase("budget")}
+                className="font-sans text-[13px] text-text-secondary underline underline-offset-4 transition-opacity active:opacity-60"
+              >
+                Adjust the split
+              </button>
+            </div>
+          </section>
+        ) : null}
       </div>
 
-      {/* Composer — live whenever the live turn offers "type it" (always-available typing). */}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          // Reason: gate on canSubmit so pressing Enter in an empty composer with no chips
-          // selected can't commit an empty exchange (a de-facto skip) — the explicit skip chip
-          // is the only path to skipping. Matches the disabled "Done →" / "Send" buttons.
-          if (composerLive && canSubmit) {
-            handleSubmit();
-          }
-        }}
-        className="flex items-center gap-2 border-t border-white/10 px-6 py-4"
-      >
-        <input
-          type="text"
-          data-testid="composer-input"
-          value={freeText}
-          onChange={(event) => setFreeText(event.target.value)}
-          disabled={!composerLive}
-          maxLength={200}
-          placeholder={composerLive ? (typeOwnBubble?.bubble_label ?? "Type your own…") : "Pick from the chips above"}
-          aria-label="Type your own interest"
-          className="flex-1 rounded-control border border-white/15 bg-white/5 px-4 py-2.5 font-sans text-[14px] text-text-primary placeholder:text-white/35 focus:border-white/40 focus:outline-none disabled:opacity-40"
-        />
-        <button
-          type="submit"
-          data-testid="composer-send"
-          disabled={!composerLive || freeText.trim() === ""}
-          className="rounded-control bg-white px-4 py-2.5 font-sans text-[14px] font-semibold text-background transition-opacity disabled:opacity-30"
+      {/* Composer — live whenever the live turn offers "type it" (always-available typing). Hidden
+          across the closing arc (confirm → budget → summary): there is nothing to type there, so a
+          dead disabled input would only clutter the story-budget card. */}
+      {inClosingArc ? null : (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            // Reason: gate on canSubmit so pressing Enter in an empty composer with no chips
+            // selected can't commit an empty exchange (a de-facto skip) — the explicit skip chip
+            // is the only path to skipping. Matches the disabled "Done →" / "Send" buttons.
+            if (composerLive && canSubmit) {
+              handleSubmit();
+            }
+          }}
+          className="flex items-center gap-2 border-t border-white/10 px-6 py-4"
         >
-          Send
+          <input
+            type="text"
+            data-testid="composer-input"
+            value={freeText}
+            onChange={(event) => setFreeText(event.target.value)}
+            disabled={!composerLive}
+            maxLength={200}
+            placeholder={composerLive ? (typeOwnBubble?.bubble_label ?? "Type your own…") : "Pick from the chips above"}
+            aria-label="Type your own interest"
+            className="flex-1 rounded-control border border-white/15 bg-white/5 px-4 py-2.5 font-sans text-[14px] text-text-primary placeholder:text-white/35 focus:border-white/40 focus:outline-none disabled:opacity-40"
+          />
+          <button
+            type="submit"
+            data-testid="composer-send"
+            disabled={!composerLive || freeText.trim() === ""}
+            className="rounded-control bg-white px-4 py-2.5 font-sans text-[14px] font-semibold text-background transition-opacity disabled:opacity-30"
+          >
+            Send
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/** Props for one story-budget stepper row in the closing-arc budget card. */
+interface BudgetStepperRowProps {
+  /** The axis label (e.g. "News"). */
+  label: string;
+  /** A one-line gloss under the label. */
+  gloss: string;
+  /** The current slot count for this axis. */
+  value: number;
+  /** Whether the + control is enabled (there are unallocated slots left). */
+  canIncrement: boolean;
+  /** Whether the − control is enabled (this axis is above 0). */
+  canDecrement: boolean;
+  /** Decrement this axis by one. */
+  onDecrement: () => void;
+  /** Increment this axis by one. */
+  onIncrement: () => void;
+}
+
+/** One ± stepper row (label + gloss + −/count/+) for a single budget axis. */
+function BudgetStepperRow({
+  label,
+  gloss,
+  value,
+  canIncrement,
+  canDecrement,
+  onDecrement,
+  onIncrement,
+}: BudgetStepperRowProps) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-control border border-white/12 bg-white/5 px-4 py-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-sans text-[14px] font-medium text-text-primary">{label}</span>
+        <span className="font-sans text-[11px] leading-snug text-text-secondary">{gloss}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          aria-label={`Fewer ${label}`}
+          data-testid={`budget-dec-${label.toLowerCase()}`}
+          onClick={onDecrement}
+          disabled={!canDecrement}
+          className="flex h-8 w-8 items-center justify-center rounded-pill border border-white/20 font-sans text-[18px] leading-none text-text-primary transition-opacity active:bg-white/10 disabled:opacity-30"
+        >
+          −
         </button>
-      </form>
+        <span
+          data-testid={`budget-value-${label.toLowerCase()}`}
+          className="w-6 text-center font-mono text-[15px] tabular-nums text-text-primary"
+        >
+          {value}
+        </span>
+        <button
+          type="button"
+          aria-label={`More ${label}`}
+          data-testid={`budget-inc-${label.toLowerCase()}`}
+          onClick={onIncrement}
+          disabled={!canIncrement}
+          className="flex h-8 w-8 items-center justify-center rounded-pill border border-white/20 font-sans text-[18px] leading-none text-text-primary transition-opacity active:bg-white/10 disabled:opacity-30"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }

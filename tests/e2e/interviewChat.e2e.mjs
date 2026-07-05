@@ -1,9 +1,11 @@
 /**
  * Deterministic puppeteer regression for the one-scrollback FSR interview chat
- * (slice #18) — the committed browser lock for the user-visible behaviors a jsdom
- * component test can't honestly prove: multi-select chips + a confirm, the whole
- * conversation staying on screen with ZERO screen swaps, and answered turns collapsing
- * into user bubbles, driven in a real browser.
+ * (slice #18) + its closing arc (slice #19) — the committed browser lock for the
+ * user-visible behaviors a jsdom component test can't honestly prove: multi-select
+ * chips + a confirm, the whole conversation staying on screen with ZERO screen swaps,
+ * answered turns collapsing into user bubbles, and the in-chat story-budget card
+ * (± steppers pinned to a 30 total) → YOUR-30 split summary → "Build my 30", driven in
+ * a real browser.
  *
  * Determinism: the worker turn endpoint (`/api/interview/turn`) is request-intercepted
  * and served scripted turns keyed on how many exchanges the client has accumulated, and
@@ -110,6 +112,18 @@ try {
   const bodyHas = (text) => page.evaluate((needle) => document.body.textContent.includes(needle), text);
   const userBubbles = () =>
     page.evaluate(() => [...document.querySelectorAll("[data-testid='user-bubble']")].map((n) => n.textContent));
+  const clickTestId = async (id) => {
+    const clicked = await page.evaluate((testId) => {
+      const el = document.querySelector(`[data-testid='${testId}']`);
+      if (el) {
+        el.click();
+      }
+      return Boolean(el);
+    }, id);
+    assert.ok(clicked, `expected a [data-testid='${id}'] element`);
+  };
+  const testIdText = (id) =>
+    page.evaluate((testId) => (document.querySelector(`[data-testid='${testId}']`)?.textContent ?? "").trim(), id);
 
   await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle2" });
   await wait(1200);
@@ -149,12 +163,32 @@ try {
   assert.ok(await bodyHas("IPL — auctions & transfers"), "confirm card should show the user-vocabulary label");
   assert.ok(await bodyHas("What do you follow most closely?"), "history must still be scrolled-back on the terminal");
 
-  // 5. Confirm advances OFF the interview (to the next stage).
+  // 5. Accept interests → the in-chat story-budget card (the closing arc), default 20/7/3.
   await clickByText("Looks good");
-  await wait(1500);
-  assert.ok(!(await bodyHas("IPL — auctions & transfers")), "confirming should advance past the interview");
+  await wait(500);
+  assert.ok(await bodyHas("How should your daily 30 split"), "budget card should render after accepting interests");
+  assert.equal(await testIdText("budget-value-news"), "20", "news defaults to 20");
+  assert.equal(await testIdText("budget-value-youtube"), "7", "youtube defaults to 7");
+  assert.equal(await testIdText("budget-value-x"), "3", "x defaults to 3");
 
-  console.log("interview chat e2e: PASS");
+  // The card pins the total at 30 — incrementing an axis while the pool is full is a no-op.
+  await clickTestId("budget-inc-news");
+  await wait(150);
+  assert.equal(await testIdText("budget-value-news"), "20", "increment while full must not push the total past 30");
+
+  // 6. Review → the YOUR-30 summary shows the split BEFORE "Build my 30".
+  await clickByText("Review my 30");
+  await wait(400);
+  assert.ok(await bodyHas("Here's your daily 30"), "YOUR-30 summary should render");
+  assert.ok((await testIdText("summary-news")).includes("20"), "summary should show the news split");
+  assert.ok((await testIdText("summary-youtube")).includes("7"), "summary should show the youtube split");
+
+  // 7. "Build my 30" completes the closing arc → advances OFF the interview (to the next stage).
+  await clickByText("Build my 30");
+  await wait(1500);
+  assert.ok(!(await bodyHas("IPL — auctions & transfers")), "Build my 30 should advance past the interview");
+
+  console.log("interview chat closing-arc e2e: PASS");
 } finally {
   await browser.close();
 }
