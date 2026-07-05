@@ -101,6 +101,39 @@ describe("fetchInterviewTurn", () => {
     }
   });
 
+  it("narrows deferred_questions off the terminal body, dropping unknown-kind records", async () => {
+    // WHY (#30): the engine already emits skipped-question records; the client dropped them.
+    // We keep only well-formed records (known deferral_kind + string question_text) so a
+    // malformed one never reaches the persister — and top_split is NEVER read off the worker.
+    signedIn();
+    const fetchStub = okFetch({
+      response_kind: "terminal",
+      turn_index: 4,
+      micro_interests: [],
+      roots_only_fallback: true,
+      deferred_questions: [
+        { deferral_kind: "category_skip", question_text: "Which sports?", root_slug: "sport", subniche_label: null },
+        { deferral_kind: "who_drill_skip", question_text: "Who in AI?", root_slug: "ai", subniche_label: "llms" },
+        { deferral_kind: "not_a_real_kind", question_text: "dropped", root_slug: null, subniche_label: null },
+        { question_text: "no kind → dropped" },
+      ],
+      // A worker that leaks a top_split must NOT taint the client-computed field.
+      top_split: { news: 99, youtube: 99, x: 99 },
+    });
+
+    const turn = await fetchInterviewTurn([], fetchStub);
+
+    expect(turn.response_kind).toBe("terminal");
+    if (turn.response_kind === "terminal") {
+      expect(turn.deferred_questions).toEqual([
+        { deferral_kind: "category_skip", question_text: "Which sports?", root_slug: "sport", subniche_label: null },
+        { deferral_kind: "who_drill_skip", question_text: "Who in AI?", root_slug: "ai", subniche_label: "llms" },
+      ]);
+      // top_split is client-computed — the terminal turn type never carries it.
+      expect((turn as unknown as Record<string, unknown>).top_split).toBeUndefined();
+    }
+  });
+
   it("passes a worker retry body through as a retry turn", async () => {
     signedIn();
     const fetchStub = okFetch({

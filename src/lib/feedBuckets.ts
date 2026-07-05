@@ -289,6 +289,51 @@ export function categoryBucketsFromFollows(follows: ReadonlyArray<{ followId: st
 }
 
 /**
+ * Derive the DISTINCT category buckets a user backs from their terminal MICRO-INTERESTS (the
+ * interview's confirmed picks). Each micro-interest's `canonical_slug` is root-anchored and
+ * DOT-delimited (`sport.cricket.ipl` → root `sport`), so its first segment is the picker root,
+ * mapped to a screen category bucket via {@link PICKER_ROOT_TO_CATEGORY_BUCKET}. Unknown roots are
+ * dropped + logged (never mis-bucketed — Rule 12).
+ *
+ * This is the MICRO-INTEREST sibling of {@link categoryBucketsFromFollows} (slash-delimited
+ * `followId`) and {@link categoryBucketsFromInterestVector} (pinned keys) — one root→bucket fold
+ * living in this single source of truth (Rule 7), consumed by the interview-terminal persistence
+ * paths. An EMPTY result (skip-everything) signals "no category signal" to the caller.
+ *
+ * @param microInterests - The confirmed terminal micro-interests (only `canonical_slug` is read).
+ * @returns The distinct category bucket ids the user's interests touch (first-seen order).
+ *
+ * @example
+ * categoryBucketsFromMicroInterests([{ canonical_slug: "sport.cricket.ipl" }, { canonical_slug: "ai.llms" }]);
+ * // ["sport", "ai"]
+ */
+export function categoryBucketsFromMicroInterests(
+  microInterests: ReadonlyArray<{ canonical_slug: string }>,
+): DesignBucketId[] {
+  const selectedBuckets = new Set<DesignBucketId>();
+  for (const microInterest of microInterests) {
+    const slug =
+      typeof microInterest?.canonical_slug === "string" ? microInterest.canonical_slug.trim().toLowerCase() : "";
+    if (slug === "") {
+      continue;
+    }
+    const rootSegment = slug.split(".")[0];
+    const categoryBucketId = PICKER_ROOT_TO_CATEGORY_BUCKET[rootSegment];
+    if (categoryBucketId === undefined) {
+      logger.warn("category_bucket_root_unmapped", {
+        canonical_slug: microInterest.canonical_slug,
+        root_segment: rootSegment,
+        fix_suggestion:
+          "Add the picker root to PICKER_ROOT_TO_CATEGORY_BUCKET if it should seed a 'Build your 30' category block.",
+      });
+      continue;
+    }
+    selectedBuckets.add(categoryBucketId);
+  }
+  return [...selectedBuckets];
+}
+
+/**
  * A followed CONTENT SOURCE's `content_source_type` → the SOURCE design bucket it stocks
  * in "Build your 30". The screen draws two source axes (`youtube`/`x`), but the catalog has
  * four source types: `personality` (a named creator addressed as a source) has no axis of

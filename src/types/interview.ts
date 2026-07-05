@@ -48,6 +48,34 @@ export interface TerminalAnglePreference {
   angle_label: string;
 }
 
+/**
+ * The four skippable-question kinds (spec §5 skip semantics) — the ONE declared seed the
+ * union type, the two runtime parse/persist allow-lists, and (implicitly) the migration-0030
+ * CHECK all derive from, so they can never drift (Rule 7). The TS twin of
+ * `agents/interview/models.py::DeferralKind`.
+ */
+export const INTERVIEW_DEFERRAL_KINDS = ["subniche_skip", "category_skip", "who_drill_skip", "roots_skip"] as const;
+
+/** Which skippable question a deferred record came from — derived from {@link INTERVIEW_DEFERRAL_KINDS}. */
+export type InterviewDeferralKind = (typeof INTERVIEW_DEFERRAL_KINDS)[number];
+
+/**
+ * One question the user SKIPPED during the interview, recorded at terminal for later in-app
+ * resurfacing (spec §5/§6). The TS twin of `agents/interview/models.py::DeferredQuestion`.
+ * Engine-emitted + deterministic (never model judgment). Persisted to `user_deferred_questions`
+ * (migration 0030); NOT consumed by feed assembly.
+ */
+export interface InterviewDeferredQuestion {
+  /** Which skippable turn produced this record. */
+  deferral_kind: InterviewDeferralKind;
+  /** The exact question the user skipped (as shown that turn). */
+  question_text: string;
+  /** The category root the skip belongs to, when applicable (`null` for a roots-level skip). */
+  root_slug: string | null;
+  /** The sub-niche label the WHO drill was about, when applicable (`null` otherwise). */
+  subniche_label: string | null;
+}
+
 /** The terminal interview payload the client confirms, then persists. */
 export interface InterviewTerminalPayload {
   /** The extracted micro-interests. Empty when the user skipped through with no roots lit. */
@@ -61,6 +89,19 @@ export interface InterviewTerminalPayload {
   mute_terms?: TerminalMuteTerm[];
   /** ANGLE-TUNE preferences (spec §6). Additive; not yet consumed by assembly in this slice. */
   angle_preferences?: TerminalAnglePreference[];
+  /**
+   * Every question the user SKIPPED (spec §5/§6). Persisted to `user_deferred_questions`
+   * (migration 0030) for later in-app resurfacing. Optional: absent = no skips recorded.
+   */
+  deferred_questions?: InterviewDeferredQuestion[];
+  /**
+   * The user's CLOSING-ARC feed split across the three axes `{ news, youtube, x }` summing to
+   * 30. CLIENT-COMPUTED (the worker never sends it — it is captured in the chat's closing arc),
+   * so it is optional here; the terminal-persist orchestrator
+   * ({@link import("@/lib/onboardingTerminal").persistOnboardingTerminal}) rejects a payload
+   * whose split does not sum to exactly 30 before any allocation write.
+   */
+  top_split?: { news: number; youtube: number; x: number };
 }
 
 // ─── Turn protocol (spec §2–§3) — the TS twin of the worker's turn models ─────
@@ -121,10 +162,9 @@ export interface InterviewQuestionTurn {
 /**
  * The terminal turn: the extracted micro-interest list for confirmation.
  *
- * NOTE: the worker also returns `deferred_questions` on the terminal payload (every
- * skipped question, for later in-app resurfacing — interview spec §5/§6, added by
- * slice #14). Like `turn_cost`, it is intentionally NOT modeled here yet — the
- * in-app resurfacing surface is a fast-follow; the extra JSON is ignored for now.
+ * NOTE: the worker also returns `turn_cost` (per-turn LLM token/latency) on the terminal
+ * body. It is intentionally NOT modeled here yet — client-side cost accumulation is deferred
+ * to the cost-observability slice; the extra JSON is ignored for now.
  */
 export interface InterviewTerminalTurn {
   response_kind: "terminal";
@@ -137,6 +177,12 @@ export interface InterviewTerminalTurn {
   mute_terms: TerminalMuteTerm[];
   /** ANGLE-TUNE preferences (spec §6) — additive terminal output carried with the profile. */
   angle_preferences: TerminalAnglePreference[];
+  /**
+   * Every question the user SKIPPED (spec §5/§6), narrowed off the worker terminal body — for
+   * later in-app resurfacing (persisted to `user_deferred_questions`, migration 0030). Empty
+   * when nothing was skipped.
+   */
+  deferred_questions: InterviewDeferredQuestion[];
 }
 
 /**

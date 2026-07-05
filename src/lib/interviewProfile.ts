@@ -32,7 +32,13 @@ import { DESIGN_BUCKET_IDS, DESIGN_BUCKETS } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
 import { type InterestProfileSource, resolveProfileWeight } from "@/lib/onboardingProfile";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { InterviewTerminalPayload, TerminalMicroInterest, TerminalMuteTerm } from "@/types/interview";
+import {
+  INTERVIEW_DEFERRAL_KINDS,
+  type InterviewDeferredQuestion,
+  type InterviewTerminalPayload,
+  type TerminalMicroInterest,
+  type TerminalMuteTerm,
+} from "@/types/interview";
 
 /**
  * The 8 canonical topic ROOT slugs a micro-interest slug must anchor to — the TS twin
@@ -206,6 +212,132 @@ export async function persistMuteTerms(
 
   logger.info("persist_mute_terms_completed", { persisted_mute_count: rows.length });
   return { persisted_mute_count: rows.length };
+}
+
+/** One `user_deferred_questions` row to insert (a skipped question, scoped to the owner). */
+interface DeferredQuestionInsertRow {
+  deferred_user_id: string;
+  deferred_kind: InterviewDeferredQuestion["deferral_kind"];
+  deferred_question_text: string;
+  deferred_root_slug: string | null;
+  deferred_subniche_label: string | null;
+}
+
+/** The deferral kinds a persisted record may carry — the write-side allow-list derived from the single seed (Rule 7). */
+const DEFERRAL_KINDS: ReadonlySet<string> = new Set(INTERVIEW_DEFERRAL_KINDS);
+
+/** Max length of the nullable slug/label columns (migration 0030 CHECK) — clamp locally, not an opaque DB throw. */
+const MAX_DEFERRED_SLUG_LEN = 200;
+
+/** Typed outcome of a {@link persistDeferredQuestions} run. */
+export interface PersistDeferredQuestionsResult {
+  /** How many `user_deferred_questions` rows this user now has after the write (0 when cleared). */
+  persisted_deferred_count: number;
+}
+
+/**
+ * Persist a completed interview's SKIPPED questions for one user, scoped to their `auth.uid()`
+ * (= `userId`). Each record (spec §5/§6) is engine-emitted + deterministic — recorded at
+ * terminal so a fast-follow in-app surface can re-ask a skipped question. Deferred records are
+ * per-user private data, so this is a plain owner-scoped write (migration 0030) — no definer RPC.
+ *
+ * ── Clean-replace + idempotency ──────────────────────────────────────────────────
+ * Deferred records are SUBTRACTIVE and fully re-derived by each interview, and carry NO natural
+ * conflict key (two category skips differ only by a nullable root) — so, unlike {@link persistMuteTerms}
+ * (which upserts on a composite PK and is idempotent without a delete), a plain insert here is NOT
+ * idempotent on its own. The clean-replace is therefore delete-all-then-insert WHENEVER there is
+ * anything to write: it guarantees the set ends EQUAL to this interview's list with zero orphans AND
+ * makes a retry converge (a lost-response retry re-deletes the committed rows before re-inserting,
+ * so the user never ends with 2× the skipped questions). An EMPTY first-run set is a true no-op (no
+ * delete, no insert); an EMPTY replace set clears the prior set (a legitimate outcome).
+ *
+ * @param userId - The authed user's id (`auth.uid()`); every row is scoped to it.
+ * @param deferred - The terminal deferred-question records (may be empty).
+ * @param opts - `{ replace_existing }` — clean-replace semantics for rebuild-my-feed.
+ * @param client - Optional Supabase client (injected in tests; defaults to the browser client).
+ * @returns A {@link PersistDeferredQuestionsResult} — how many deferred rows the user ends with.
+ * @throws If a delete or insert fails (surfaced, never swallowed — Rule 12).
+ */
+export async function persistDeferredQuestions(
+  userId: string,
+  deferred: InterviewDeferredQuestion[],
+  opts: { replace_existing?: boolean } = {},
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<PersistDeferredQuestionsResult> {
+  // Normalize: keep only records with a known deferral kind (migration 0030 CHECK would reject an
+  // unknown one with an opaque error — drop it loudly here instead). Nullable slug/label trim to
+  // null when blank so a NULL column never carries an empty string.
+  const rows: DeferredQuestionInsertRow[] = [];
+  for (const record of deferred ?? []) {
+    const kind = record?.deferral_kind;
+    if (typeof kind !== "string" || !DEFERRAL_KINDS.has(kind)) {
+      logger.warn("persist_deferred_question_unknown_kind_skipped", {
+        deferral_kind: String(kind),
+        fix_suggestion: "Deferred record had an unknown deferral_kind; confirm the worker matches spec §5.",
+      });
+      continue;
+    }
+    // Clamp the nullable slug/label to the migration-0030 CHECK bound (≤ 200) so an oversized
+    // value is a loud LOCAL drop-to-length, not an opaque DB insert failure (same philosophy as
+    // the unknown-kind skip above and the question_text ≤ 1000 clamp).
+    const rootSlug = String(record.root_slug ?? "")
+      .trim()
+      .slice(0, MAX_DEFERRED_SLUG_LEN);
+    const subnicheLabel = String(record.subniche_label ?? "")
+      .trim()
+      .slice(0, MAX_DEFERRED_SLUG_LEN);
+    rows.push({
+      deferred_user_id: userId,
+      deferred_kind: kind,
+      deferred_question_text: String(record.question_text ?? "")
+        .trim()
+        .slice(0, 1000),
+      deferred_root_slug: rootSlug === "" ? null : rootSlug,
+      deferred_subniche_label: subnicheLabel === "" ? null : subnicheLabel,
+    });
+  }
+  logger.info("persist_deferred_questions_started", {
+    deferred_count: rows.length,
+    replace_existing: opts.replace_existing ?? false,
+  });
+
+  // Delete the user's whole deferred set FIRST whenever we're about to write (or on an explicit
+  // replace), so the insert below leaves it EQUAL to this interview's list — no orphans — AND a
+  // lost-response retry converges (re-delete the committed rows, re-insert → no 2× duplication;
+  // deferred has a surrogate PK and no natural conflict key, so a bare insert alone is NOT
+  // idempotent). An EMPTY first-run set skips the delete entirely (a true no-op). Safe to delete
+  // first: the set is subtractive (a transient empty-deferred window only affects a fast-follow
+  // resurfacing prompt, never the feed) and the insert is a single atomic statement.
+  if (opts.replace_existing || rows.length > 0) {
+    const { error: deleteError } = await client.from("user_deferred_questions").delete().eq("deferred_user_id", userId);
+    if (deleteError) {
+      logger.error("persist_deferred_questions_delete_failed", {
+        error_message: deleteError.message,
+        fix_suggestion: "Confirm the user is authed and user_deferred_questions owner-all RLS permits the delete.",
+      });
+      throw new Error(
+        `Failed to clear stale deferred questions: ${deleteError.message}. ` +
+          "fix_suggestion: confirm the user is authed and RLS permits the owner delete.",
+      );
+    }
+  }
+
+  if (rows.length > 0) {
+    const { error: insertError } = await client.from("user_deferred_questions").insert(rows);
+    if (insertError) {
+      logger.error("persist_deferred_questions_insert_failed", {
+        error_message: insertError.message,
+        fix_suggestion: "Confirm the user is authed and user_deferred_questions owner-all RLS permits the write.",
+      });
+      throw new Error(
+        `Failed to persist deferred questions: ${insertError.message}. ` +
+          "fix_suggestion: confirm the user is authed and RLS permits the owner write.",
+      );
+    }
+  }
+
+  logger.info("persist_deferred_questions_completed", { persisted_deferred_count: rows.length });
+  return { persisted_deferred_count: rows.length };
 }
 
 /** One `user_interest_profile` row to upsert (with the interview's per-user display label). */
