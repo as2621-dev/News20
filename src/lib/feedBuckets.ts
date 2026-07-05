@@ -171,6 +171,39 @@ export interface AllocationSegment {
   bucketId: DesignBucketId;
   /** How many of the 30 slots this bucket claims (>= 1 in the UI; 0 only on a muted read). */
   count: number;
+  /**
+   * The niche interest node (migration 0026 `allocation_interest_id`) this section is named
+   * for, when the row is a NICHE section written by the backend allocator
+   * (`agents/pipeline/niche_allocation.py`). `null`/absent on a coarse "Build your 30" block.
+   * Read-only in the UI (edited only via re-interview — founder decision 2026-07-05).
+   */
+  interestId?: string | null;
+  /**
+   * The user-vocabulary section label (migration 0026 `allocation_section_label`, e.g. "IPL",
+   * or the reserved "Beyond your bubble" on a beyond-bubble reserve row). `null`/absent on a
+   * coarse block. Drives the read-only named-block header the screen renders.
+   */
+  sectionLabel?: string | null;
+}
+
+/**
+ * Whether a segment is a COARSE, editable "Build your 30" block — both niche columns null —
+ * as opposed to a read-only SECTION row (niche or "Beyond your bubble" reserve) written by the
+ * backend niche allocator (migration 0026).
+ *
+ * This is the discriminator the coarse-only editing model (founder decision 2026-07-05) turns
+ * on: `saveUserFeedAllocation` persists and prunes ONLY coarse blocks, so section rows are
+ * preserved untouched across a save round-trip; the screen renders section rows read-only.
+ *
+ * @param segment - Any object carrying the two optional niche columns.
+ * @returns `true` when the segment is a coarse editable block (both niche columns null/absent).
+ *
+ * @example
+ * isCoarseAllocationSegment({ bucketId: "sport", count: 4 }); // true (coarse)
+ * isCoarseAllocationSegment({ bucketId: "sport", count: 4, interestId: "int-ipl", sectionLabel: "IPL" }); // false (niche)
+ */
+export function isCoarseAllocationSegment(segment: Pick<AllocationSegment, "interestId" | "sectionLabel">): boolean {
+  return (segment.interestId ?? null) === null && (segment.sectionLabel ?? null) === null;
 }
 
 /** Sum the slot counts across an ordered segment list (the budget invariant helper). */

@@ -33,6 +33,7 @@ import {
   DESIGN_BUCKETS,
   type DesignBucket,
   type DesignBucketId,
+  isCoarseAllocationSegment,
   sumSegmentCounts,
 } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
@@ -193,6 +194,13 @@ export function BuildYour30({
     hasSelectionSignal ? buildSegmentsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? []) : [],
   );
 
+  // Read-only NICHE / "Beyond your bubble" SECTION rows built by the interview allocator
+  // (migration 0026). Coarse-only editing (founder decision 2026-07-05): these are shown as
+  // named blocks in the user's own vocabulary ("IPL — 4") but are NOT editable here — they are
+  // changed only by re-interviewing, and are preserved untouched across a coarse save. Seeded
+  // from the saved allocation in the mount effect below (empty for a coarse-only user).
+  const [nicheSections, setNicheSections] = useState<AllocationSegment[]>([]);
+
   // The buckets the Add-block sheet may offer: ALWAYS gated to the user's real backing (so a
   // phantom block can't be re-added by hand). With no signal `allowedBucketsForSelections([], [])`
   // is empty → the Add sheet offers nothing (phase-SP4: the `DESIGN_BUCKET_IDS` fallback is gone).
@@ -225,25 +233,42 @@ export function BuildYour30({
         if (!isMounted) {
           return;
         }
-        // Only consider a saved allocation that actually totals 30 — a partial/legacy row set
-        // (e.g. a pre-0010 save that dropped podcasts) is ignored so we never seed a non-30
-        // budget the user couldn't have saved. This guard is on the RAW saved set (BEFORE the
-        // backing filter below, whose under-30 result is the INTENDED "Fill N more" state).
-        if (saved.length > 0 && sumSegmentCounts(saved) !== ALLOCATION_TOTAL) {
+        // Split the saved allocation into COARSE editable blocks and read-only SECTION rows
+        // (niche + "Beyond your bubble", either migration-0026 niche column set). Coarse-only
+        // editing (founder 2026-07-05): sections render read-only in the user's vocabulary and
+        // are NOT subject to the coarse backing gate below (an interview-built section is always
+        // backed by its interest node); only the coarse blocks feed the editable 30-budget.
+        const coarseSaved = saved.filter(isCoarseAllocationSegment);
+        const sectionSaved = saved.filter((segment) => !isCoarseAllocationSegment(segment));
+        if (sectionSaved.length > 0) {
+          setNicheSections(sectionSaved);
+          logger.info("build_your_30_seeded_niche_sections", {
+            section_count: sectionSaved.length,
+            section_slots: sumSegmentCounts(sectionSaved),
+          });
+        }
+        // Only consider a saved COARSE allocation that fills the EDITABLE budget — the 30 minus
+        // whatever the read-only sections already consume (== 30 for a coarse-only user). A
+        // partial/legacy row set (e.g. a pre-0010 save that dropped podcasts) is ignored so we
+        // never seed a short budget the user couldn't have saved. This guard is on the coarse
+        // subset (BEFORE the backing filter below, whose under-budget result is the intended
+        // "Fill N more" state).
+        const coarseEditableBudget = ALLOCATION_TOTAL - sumSegmentCounts(sectionSaved);
+        if (coarseSaved.length > 0 && sumSegmentCounts(coarseSaved) !== coarseEditableBudget) {
           logger.info("build_your_30_saved_ignored_non_30", {
-            segment_count: saved.length,
-            total_slots: sumSegmentCounts(saved),
+            segment_count: coarseSaved.length,
+            total_slots: sumSegmentCounts(coarseSaved),
           });
           return;
         }
-        // Gate the SAVED allocation against the user's CURRENT backing (phase-SP4 SP2): a saved
-        // category with no live interest/source backing (e.g. a stale `sport` the user has since
-        // dropped) is DROPPED before seeding, so it cannot resurrect the phantom block SP1 closed.
-        // The dropped slots are NOT redistributed — the remaining blocks total under 30 and the
-        // budget CTA surfaces "Fill N more" (owner decision 2026-06-18: no auto-rescale).
+        // Gate the SAVED coarse allocation against the user's CURRENT backing (phase-SP4 SP2): a
+        // saved category with no live interest/source backing (e.g. a stale `sport` the user has
+        // since dropped) is DROPPED before seeding, so it cannot resurrect the phantom block SP1
+        // closed. The dropped slots are NOT redistributed — the remaining blocks total under 30
+        // and the budget CTA surfaces "Fill N more" (owner decision 2026-06-18: no auto-rescale).
         const allowed = allowedBucketsForSelections(selectedCategoryBuckets ?? [], followedSourceBuckets ?? []);
-        const filteredSaved = saved.filter((segment) => allowed.has(segment.bucketId));
-        const droppedBucketIds = saved
+        const filteredSaved = coarseSaved.filter((segment) => allowed.has(segment.bucketId));
+        const droppedBucketIds = coarseSaved
           .filter((segment) => !allowed.has(segment.bucketId))
           .map((segment) => segment.bucketId);
         if (droppedBucketIds.length > 0) {
@@ -264,9 +289,9 @@ export function BuildYour30({
             dropped_count: droppedBucketIds.length,
             total_slots: sumSegmentCounts(filteredSaved),
           });
-        } else if (saved.length > 0) {
+        } else if (coarseSaved.length > 0) {
           logger.info("build_your_30_saved_dropped_to_empty", {
-            saved_count: saved.length,
+            saved_count: coarseSaved.length,
             dropped_count: droppedBucketIds.length,
             fix_suggestion:
               "Every saved category lost its backing; leaving the screen empty so the pick-interests state shows.",
@@ -285,9 +310,16 @@ export function BuildYour30({
     };
   }, []);
 
+  // The read-only interview SECTIONS (niche + "Beyond your bubble") consume slots of the same
+  // 30-story budget, so fold them in: the editable coarse blocks + the fixed section slots must
+  // together total EXACTLY 30. This is what prevents a coarse Save from over-allocating past 30
+  // for a deep-profile user. For the common coarse-only user `nicheSlots` is 0, so `filledTotal`
+  // collapses to `allocatedTotal` and the budget behaves exactly as before (no regression).
+  const nicheSlots = sumSegmentCounts(nicheSections);
   const allocatedTotal = sumSegmentCounts(segments);
-  const slotsLeft = ALLOCATION_TOTAL - allocatedTotal;
-  const isBudgetFull = allocatedTotal === ALLOCATION_TOTAL;
+  const filledTotal = nicheSlots + allocatedTotal;
+  const slotsLeft = ALLOCATION_TOTAL - filledTotal;
+  const isBudgetFull = filledTotal === ALLOCATION_TOTAL;
 
   // ── Mutators (port of the prototype's stepper / reorder / add / remove handlers) ──────
 
@@ -304,17 +336,20 @@ export function BuildYour30({
     });
   }, []);
 
-  /** Increment a segment's count, but never past the 30-slot budget (prototype `sum() < TOTAL`). */
-  const incrementSegment = useCallback((segmentIndex: number) => {
-    setSegments((previous) => {
-      if (sumSegmentCounts(previous) >= ALLOCATION_TOTAL) {
-        return previous;
-      }
-      const next = previous.map((segment) => ({ ...segment }));
-      next[segmentIndex].count += 1;
-      return next;
-    });
-  }, []);
+  /** Increment a segment's count, but never past the 30-slot budget (coarse + fixed section slots). */
+  const incrementSegment = useCallback(
+    (segmentIndex: number) => {
+      setSegments((previous) => {
+        if (sumSegmentCounts(previous) + nicheSlots >= ALLOCATION_TOTAL) {
+          return previous;
+        }
+        const next = previous.map((segment) => ({ ...segment }));
+        next[segmentIndex].count += 1;
+        return next;
+      });
+    },
+    [nicheSlots],
+  );
 
   /** Swap a segment with its neighbor one step up (▲) — no-op at the top. */
   const moveSegmentUp = useCallback((segmentIndex: number) => {
@@ -346,24 +381,27 @@ export function BuildYour30({
   }, []);
 
   /** Add a bucket from the sheet: append it with min(2, remaining) slots (prototype), then close. */
-  const addBucket = useCallback((bucketId: DesignBucketId) => {
-    setSegments((previous) => {
-      if (previous.some((segment) => segment.bucketId === bucketId)) {
-        return previous; // Already in the list (the sheet chip is `used`).
-      }
-      const remaining = ALLOCATION_TOTAL - sumSegmentCounts(previous);
-      const initialCount = Math.min(2, remaining) || 1;
-      logger.info("build_your_30_block_added", { bucket_id: bucketId, initial_count: initialCount });
-      return [...previous, { bucketId, count: initialCount }];
-    });
-    setIsSheetOpen(false);
-  }, []);
+  const addBucket = useCallback(
+    (bucketId: DesignBucketId) => {
+      setSegments((previous) => {
+        if (previous.some((segment) => segment.bucketId === bucketId)) {
+          return previous; // Already in the list (the sheet chip is `used`).
+        }
+        const remaining = ALLOCATION_TOTAL - nicheSlots - sumSegmentCounts(previous);
+        const initialCount = Math.min(2, remaining) || 1;
+        logger.info("build_your_30_block_added", { bucket_id: bucketId, initial_count: initialCount });
+        return [...previous, { bucketId, count: initialCount }];
+      });
+      setIsSheetOpen(false);
+    },
+    [nicheSlots],
+  );
 
   // Add-block is disabled when the budget is full OR every ADDABLE bucket is already in the list
   // (addable = the user's real backing when there is a selection signal, else every bucket).
   const usedBucketIds = new Set<DesignBucketId>(segments.map((segment) => segment.bucketId));
   const hasAddableRemaining = [...addableBuckets].some((bucketId) => !usedBucketIds.has(bucketId));
-  const isAddDisabled = allocatedTotal >= ALLOCATION_TOTAL || !hasAddableRemaining;
+  const isAddDisabled = filledTotal >= ALLOCATION_TOTAL || !hasAddableRemaining;
 
   /** Save: persist the allocation (RLS-scoped) then hand the ordered segments to onDone. */
   const handleSave = useCallback(async () => {
@@ -421,7 +459,7 @@ export function BuildYour30({
   // allocate. We render a "pick interests first" CTA instead of the allocation chrome (phase-SP4
   // — the old full default seed here is what leaked phantom Sport/Culture blocks). The saved
   // effect can still seed `segments` for a returning user (SP2's path), which flips this off.
-  const showNoSignalEmptyState = !hasSelectionSignal && segments.length === 0;
+  const showNoSignalEmptyState = !hasSelectionSignal && segments.length === 0 && nicheSections.length === 0;
 
   // Log once when the no-signal empty state is shown (so the gate is observable in prod logs).
   useEffect(() => {
@@ -478,7 +516,9 @@ export function BuildYour30({
             <p>Stack what fills your briefing top to bottom — the first block plays first.</p>
           </div>
 
-          <SpineCells segments={segments} />
+          {/* The 30-cell spine shows the fixed interview sections first, then the editable coarse
+              blocks, then the empty remainder — so the preview reflects the FULL 30-story budget. */}
+          <SpineCells segments={[...nicheSections, ...segments]} />
           <div className="spine-x">
             <span>STORY 1</span>
             <span>30</span>
@@ -487,13 +527,31 @@ export function BuildYour30({
           {/* Only the block list scrolls; the intro + 30-cell spine above and the budget/save
               footer below stay pinned (so the spine is always visible while you allocate). */}
           <div className="a-blocks">
+            {/* Read-only interview sections (niche + "Beyond your bubble") — named in the user's
+                own vocabulary, edited only by re-interviewing (coarse-only, founder 2026-07-05). */}
+            {nicheSections.length > 0 ? (
+              <div id="nicheSections" style={NICHE_SECTIONS_STYLE}>
+                <div className="ey" style={NICHE_SECTIONS_HEADING_STYLE}>
+                  From your interview · read-only
+                </div>
+                {nicheSections.map((section) => (
+                  // Reason: beyond-bubble rows all share the "Beyond your bubble" label, so the
+                  // label alone is not a unique key — disambiguate with the (distinct) bucketId.
+                  <NicheSectionRow
+                    key={`${section.bucketId}:${section.interestId ?? section.sectionLabel ?? ""}`}
+                    section={section}
+                  />
+                ))}
+              </div>
+            ) : null}
+
             <div className="seglist" id="seglist">
               {segments.map((segment, segmentIndex) => (
                 <SegmentRow
                   key={segment.bucketId}
                   segment={segment}
                   segmentIndex={segmentIndex}
-                  rangeStart={computeRangeStart(segments, segmentIndex)}
+                  rangeStart={nicheSlots + computeRangeStart(segments, segmentIndex)}
                   onDecrement={decrementSegment}
                   onIncrement={incrementSegment}
                   onMoveUp={moveSegmentUp}
@@ -524,10 +582,10 @@ export function BuildYour30({
         <div className="a-foot">
           <div className="budget">
             <div className="bar">
-              <i style={{ width: `${Math.min(100, (allocatedTotal / ALLOCATION_TOTAL) * 100)}%` }} />
+              <i style={{ width: `${Math.min(100, (filledTotal / ALLOCATION_TOTAL) * 100)}%` }} />
             </div>
             <span className={`lbl${slotsLeft !== 0 ? " over" : ""}`} id="blbl">
-              <b>{allocatedTotal}</b>/30 · {budgetTail}
+              <b>{filledTotal}</b>/30 · {budgetTail}
             </span>
           </div>
           <button
@@ -579,6 +637,53 @@ const SKIP_BUTTON_STYLE: CSSProperties = {
   display: "block",
   margin: "10px auto 0",
 };
+
+/** The read-only interview-sections group wrapper (sits above the editable seglist). */
+const NICHE_SECTIONS_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "9px",
+  padding: "14px 16px 4px",
+};
+
+/** The small eyebrow heading over the read-only interview sections. */
+const NICHE_SECTIONS_HEADING_STYLE: CSSProperties = {
+  marginBottom: "2px",
+  color: "rgba(255,255,255,.5)",
+};
+
+/** A read-only interview section row (dimmed, no controls) — reuses `.seg` chrome. */
+const NICHE_SECTION_ROW_STYLE: CSSProperties = {
+  opacity: 0.72,
+};
+
+/** The read-only slot-count badge on an interview section row (mono, matches the stepper count). */
+const NICHE_SECTION_COUNT_STYLE: CSSProperties = {
+  fontFamily: '"JetBrains Mono", monospace',
+  fontWeight: 600,
+  fontSize: "13.5px",
+  color: "rgba(255,255,255,.8)",
+  flex: "none",
+};
+
+/**
+ * One read-only interview section block ("IPL — 4"): range · dot · label · count. No stepper,
+ * reorder, or remove — niche/beyond-bubble sections are edited only by re-interviewing
+ * (coarse-only, founder decision 2026-07-05). The label is the user's own vocabulary
+ * ({@link AllocationSegment.sectionLabel}), falling back to the bucket name for a bare row.
+ */
+function NicheSectionRow({ section }: { section: AllocationSegment }) {
+  const bucket = DESIGN_BUCKETS[section.bucketId];
+  const dotStyle = bucket.kind === "src" ? sourceSwatchStyle(bucket) : categorySwatchStyle(bucket);
+  const label = section.sectionLabel ?? bucket.name;
+  return (
+    <div className="seg" style={NICHE_SECTION_ROW_STYLE}>
+      <span className="sdot" style={dotStyle} />
+      <span className="nm">{label}</span>
+      <span style={NICHE_SECTION_COUNT_STYLE}>{section.count}</span>
+    </div>
+  );
+}
 
 /** Compute a segment's 1-based starting story number (the cumulative sum before it). */
 function computeRangeStart(segments: AllocationSegment[], segmentIndex: number): number {

@@ -29,10 +29,12 @@ const AUTHED_USER_ID = "user-uuid-1";
  *
  * READ:   `.from().select().eq().order().returns()`
  * UPSERT: `.from().upsert(rows, opts)` → { error }
- * DELETE: `.from().delete().eq().not()`  (and `.eq()` alone when the saved set is empty)
+ * DELETE: `.from().delete().eq().is().is().not()`  (`.not()` omitted when the saved set is empty)
  *
- * Captures every upsert (payload + onConflict) and the delete's `.not()` args so a test
- * can assert exactly what was written/pruned, owner-scoped. `upsertErrors` is a QUEUE so a
+ * Captures every upsert (payload + onConflict), the delete's `.is()` predicates (the coarse
+ * scoping — slice #12) and its `.not()` args so a test can assert exactly what was written/
+ * pruned, owner-scoped. The delete chain is a single fluent, thenable builder: `.eq`/`.is`/`.not`
+ * each return the same builder, and awaiting it resolves. `upsertErrors` is a QUEUE so a
  * multi-upsert sequence (e.g. an error then a retry) can be modelled if ever needed.
  */
 function makeAllocationClient(options: {
@@ -62,27 +64,35 @@ function makeAllocationClient(options: {
     }),
   });
 
-  // DELETE chain: delete().eq(user) → { not() } | resolves directly when awaited (empty-set guard).
+  // DELETE chain: a single fluent, thenable builder. `.eq`/`.is`/`.not` each record their args
+  // and return the SAME builder; awaiting it (directly or after `.not`) resolves the delete.
   const deleteEqCalls: Array<[string, unknown]> = [];
+  const deleteIsCalls: Array<[string, unknown]> = [];
   const notCalls: Array<[string, string, string]> = [];
-  const del = vi.fn().mockReturnValue({
-    eq: vi.fn((column: string, value: unknown) => {
-      deleteEqCalls.push([column, value]);
-      const resolved = Promise.resolve({ error: options.deleteError ?? null });
-      // The query is "thenable": awaiting it directly (no .not()) resolves the delete (the
-      // empty-saved-set clear-all path); chaining .not() narrows it then resolves.
-      return Object.assign(resolved, {
-        not: vi.fn((notColumn: string, operator: string, listValue: string) => {
-          notCalls.push([notColumn, operator, listValue]);
-          return Promise.resolve({ error: options.deleteError ?? null });
-        }),
-      });
-    }),
+  const resolveDelete = () => Promise.resolve({ error: options.deleteError ?? null });
+  const del = vi.fn(() => {
+    const builder = {
+      eq: vi.fn((column: string, value: unknown) => {
+        deleteEqCalls.push([column, value]);
+        return builder;
+      }),
+      is: vi.fn((column: string, value: unknown) => {
+        deleteIsCalls.push([column, value]);
+        return builder;
+      }),
+      not: vi.fn((notColumn: string, operator: string, listValue: string) => {
+        notCalls.push([notColumn, operator, listValue]);
+        return builder;
+      }),
+      // biome-ignore lint/suspicious/noThenProperty: intentional thenable — mirrors the PostgREST query builder so `await deleteQuery` resolves.
+      then: (onFulfilled: (value: { error: unknown }) => unknown) => resolveDelete().then(onFulfilled),
+    };
+    return builder;
   });
 
   const from = vi.fn().mockReturnValue({ select, upsert, delete: del });
   const client = { auth: { getUser }, from } as never;
-  return { client, from, getUser, upsert, del, upsertCalls, selectEqCalls, deleteEqCalls, notCalls };
+  return { client, from, getUser, upsert, del, upsertCalls, selectEqCalls, deleteEqCalls, deleteIsCalls, notCalls };
 }
 
 const HAPPY_SEGMENTS: AllocationSegment[] = [
@@ -139,6 +149,45 @@ describe("saveUserFeedAllocation (owner-scoped upsert + stale-prune)", () => {
     expect(operator).toBe("in");
     // The saved enum values are excluded from the delete (so they survive; everything else is pruned).
     expect(listValue).toBe("(sport,geopolitics,tech)");
+  });
+
+  it("scopes the stale-prune to COARSE rows only, so niche/beyond-bubble sections survive (slice #12)", async () => {
+    // WHY (Rule 9): the whole anti-corruption guarantee. The prune must be pinned to
+    // `allocation_interest_id IS NULL AND allocation_section_label IS NULL` — otherwise a coarse
+    // save deletes any SECTION row (niche or "Beyond your bubble") whose category falls outside
+    // the coarse saved set, silently destroying the backend's niche allocation. If either `.is()`
+    // predicate is dropped, this test FAILS and the corruption is loud.
+    const { client, deleteIsCalls } = makeAllocationClient({ user: { id: AUTHED_USER_ID } });
+
+    await saveUserFeedAllocation(HAPPY_SEGMENTS, client);
+
+    expect(deleteIsCalls).toContainEqual(["allocation_interest_id", null]);
+    expect(deleteIsCalls).toContainEqual(["allocation_section_label", null]);
+  });
+
+  it("ignores read-only SECTION segments in the write set (never flattens a niche to coarse)", async () => {
+    // WHY (Rule 9): coarse-only editing (founder 2026-07-05). If a niche/beyond-bubble SECTION
+    // segment reaches the save, it must NOT be upserted as a coarse row (which would drop its
+    // niche columns and flatten the interview's allocation). Only the coarse block is written.
+    const mixed: AllocationSegment[] = [
+      { bucketId: "sport", count: 4, interestId: "int-ipl", sectionLabel: "IPL" }, // read-only section
+      { bucketId: "sport", count: 1, sectionLabel: "Beyond your bubble" }, // beyond-bubble reserve
+      { bucketId: "ai", count: 25 }, // coarse — the only writable block
+    ];
+    const { client, upsert, upsertCalls } = makeAllocationClient({ user: { id: AUTHED_USER_ID } });
+
+    const result = await saveUserFeedAllocation(mixed, client);
+
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsertCalls[0].rows).toEqual([
+      {
+        follow_user_id: AUTHED_USER_ID,
+        allocation_category: "ai",
+        allocation_slot_count: 25,
+        allocation_sort_order: 0,
+      },
+    ]);
+    expect(result.persisted_count).toBe(1);
   });
 
   it("persists every bucket with no deferral under the SP3 taxonomy (no degrade case)", async () => {
@@ -243,5 +292,242 @@ describe("getUserFeedAllocation (RLS owner-scoped read, mapped back to design bu
 
     await expect(getUserFeedAllocation(client)).rejects.toThrow(/signed out/i);
     expect(from).not.toHaveBeenCalled();
+  });
+
+  it("projects the migration-0026 niche columns so a section row hydrates as a read-only named block", async () => {
+    // WHY (Rule 9): slice #12 loader-projection fix. Without projecting allocation_interest_id +
+    // allocation_section_label, a niche row collapses into an anonymous coarse `sport` block and
+    // the screen can't render "IPL — 4". A coarse row must still hydrate as bare `{ bucketId, count }`.
+    const rows = [
+      {
+        allocation_category: "sport",
+        allocation_slot_count: 4,
+        allocation_sort_order: 0,
+        allocation_interest_id: "int-ipl",
+        allocation_section_label: "IPL",
+      },
+      {
+        allocation_category: "geopolitics",
+        allocation_slot_count: 1,
+        allocation_sort_order: 1,
+        allocation_interest_id: null,
+        allocation_section_label: "Beyond your bubble",
+      },
+      {
+        allocation_category: "ai",
+        allocation_slot_count: 5,
+        allocation_sort_order: 2,
+        allocation_interest_id: null,
+        allocation_section_label: null,
+      },
+    ];
+    const { client } = makeAllocationClient({ user: { id: AUTHED_USER_ID }, readResult: { data: rows, error: null } });
+
+    const result = await getUserFeedAllocation(client);
+
+    expect(result).toEqual([
+      { bucketId: "sport", count: 4, interestId: "int-ipl", sectionLabel: "IPL" },
+      { bucketId: "geopolitics", count: 1, interestId: null, sectionLabel: "Beyond your bubble" },
+      { bucketId: "ai", count: 5 }, // coarse row stays exactly { bucketId, count }
+    ]);
+  });
+});
+
+/**
+ * Integration (NO mock of the write logic — a real in-memory `user_feed_allocation` table) proving
+ * the slice #12 anti-corruption guarantee end-to-end: a coarse "Build your 30" save round-trips
+ * through the REAL save→delete→reload chain and the backend's niche/beyond-bubble SECTION rows
+ * survive untouched, while the coarse blocks are replaced by exactly the saved set.
+ *
+ * The fake table implements the two behaviours the corruption seam depends on:
+ *  - UPSERT arbiter (follow_user_id, allocation_category, allocation_interest_id), NULLS NOT
+ *    DISTINCT (migration 0026) — a coarse upsert (interest NULL) collides only with the coarse
+ *    row for that category, never with a niche row (interest set).
+ *  - DELETE honouring `.eq`/`.is`/`.not.in` predicates — so the coarse-scoped prune the code
+ *    issues is actually applied against stored rows (not just asserted as call args).
+ */
+interface StoredAllocationRow {
+  allocation_id: string;
+  follow_user_id: string;
+  allocation_category: string;
+  allocation_interest_id: string | null;
+  allocation_section_label: string | null;
+  allocation_slot_count: number;
+  allocation_sort_order: number;
+}
+
+/** A minimal in-memory `user_feed_allocation` supporting the exact read/upsert/delete chains used. */
+function makeInMemoryAllocationDb(initialRows: StoredAllocationRow[], user: { id: string }) {
+  let rows: StoredAllocationRow[] = initialRows.map((row) => ({ ...row }));
+  let nextId = initialRows.length + 1;
+  const getUser = vi.fn().mockResolvedValue({ data: { user }, error: null });
+
+  const from = vi.fn(() => ({
+    // READ: select().eq(col,val).order(col).returns()
+    select: vi.fn(() => {
+      const eqFilters: Array<[string, unknown]> = [];
+      const builder = {
+        eq: (column: string, value: unknown) => {
+          eqFilters.push([column, value]);
+          return builder;
+        },
+        order: (column: keyof StoredAllocationRow, opts: { ascending: boolean }) => ({
+          returns: () => {
+            const filtered = rows
+              .filter((row) =>
+                eqFilters.every(([col, val]) => (row as unknown as Record<string, unknown>)[col] === val),
+              )
+              .sort((a, b) => (opts.ascending ? 1 : -1) * (Number(a[column]) - Number(b[column])));
+            return Promise.resolve({ data: filtered.map((row) => ({ ...row })), error: null });
+          },
+        }),
+      };
+      return builder;
+    }),
+
+    // UPSERT: apply the 3-col NULLS NOT DISTINCT arbiter (interest omitted → NULL).
+    upsert: vi.fn((newRows: Array<Record<string, unknown>>) => {
+      for (const incoming of newRows) {
+        const category = incoming.allocation_category as string;
+        const interestId = (incoming.allocation_interest_id as string | null | undefined) ?? null;
+        const existing = rows.find(
+          (row) =>
+            row.follow_user_id === incoming.follow_user_id &&
+            row.allocation_category === category &&
+            row.allocation_interest_id === interestId,
+        );
+        if (existing) {
+          existing.allocation_slot_count = incoming.allocation_slot_count as number;
+          existing.allocation_sort_order = incoming.allocation_sort_order as number;
+        } else {
+          rows.push({
+            allocation_id: `gen-${nextId++}`,
+            follow_user_id: incoming.follow_user_id as string,
+            allocation_category: category,
+            allocation_interest_id: interestId,
+            allocation_section_label: (incoming.allocation_section_label as string | null | undefined) ?? null,
+            allocation_slot_count: incoming.allocation_slot_count as number,
+            allocation_sort_order: incoming.allocation_sort_order as number,
+          });
+        }
+      }
+      return Promise.resolve({ error: null });
+    }),
+
+    // DELETE: fluent thenable applying .eq / .is / .not.in predicates against stored rows.
+    delete: vi.fn(() => {
+      const predicates: Array<(row: StoredAllocationRow) => boolean> = [];
+      const builder = {
+        eq: (column: string, value: unknown) => {
+          predicates.push((row) => (row as unknown as Record<string, unknown>)[column] === value);
+          return builder;
+        },
+        is: (column: string, value: unknown) => {
+          predicates.push((row) => ((row as unknown as Record<string, unknown>)[column] ?? null) === value);
+          return builder;
+        },
+        not: (column: string, _operator: string, listValue: string) => {
+          const list = listValue.slice(1, -1).split(",");
+          predicates.push((row) => !list.includes(String((row as unknown as Record<string, unknown>)[column])));
+          return builder;
+        },
+        // biome-ignore lint/suspicious/noThenProperty: intentional thenable — the delete applies its accumulated predicates when awaited.
+        then: (onFulfilled: (value: { error: unknown }) => unknown) => {
+          rows = rows.filter((row) => !predicates.every((predicate) => predicate(row)));
+          return Promise.resolve({ error: null }).then(onFulfilled);
+        },
+      };
+      return builder;
+    }),
+  }));
+
+  const client = { auth: { getUser }, from } as never;
+  return { client, snapshot: () => rows.map((row) => ({ ...row })) };
+}
+
+describe("saveUserFeedAllocation — coarse round-trip preserves niche allocation (integration, Rule 9)", () => {
+  it("keeps niche + beyond-bubble section rows intact while replacing the coarse blocks", async () => {
+    // A deep-profile user: two niche `sport` sections (IPL, Team India), one beyond-bubble reserve,
+    // plus a coarse `tech` block the user is about to remove.
+    const initial: StoredAllocationRow[] = [
+      {
+        allocation_id: "a1",
+        follow_user_id: AUTHED_USER_ID,
+        allocation_category: "sport",
+        allocation_interest_id: "int-ipl",
+        allocation_section_label: "IPL",
+        allocation_slot_count: 4,
+        allocation_sort_order: 0,
+      },
+      {
+        allocation_id: "a2",
+        follow_user_id: AUTHED_USER_ID,
+        allocation_category: "sport",
+        allocation_interest_id: "int-ti",
+        allocation_section_label: "Team India",
+        allocation_slot_count: 3,
+        allocation_sort_order: 1,
+      },
+      {
+        allocation_id: "a3",
+        follow_user_id: AUTHED_USER_ID,
+        allocation_category: "arts",
+        allocation_interest_id: null,
+        allocation_section_label: "Beyond your bubble",
+        allocation_slot_count: 1,
+        allocation_sort_order: 2,
+      },
+      {
+        allocation_id: "a4",
+        follow_user_id: AUTHED_USER_ID,
+        allocation_category: "tech",
+        allocation_interest_id: null,
+        allocation_section_label: null,
+        allocation_slot_count: 5,
+        allocation_sort_order: 3,
+      },
+    ];
+    const { client, snapshot } = makeInMemoryAllocationDb(initial, { id: AUTHED_USER_ID });
+
+    // Coarse-only save: user keeps ai + business, drops the coarse tech block.
+    await saveUserFeedAllocation(
+      [
+        { bucketId: "ai", count: 10 },
+        { bucketId: "business", count: 20 },
+      ],
+      client,
+    );
+
+    const stored = snapshot();
+    // Both niche rows survive UNCHANGED (label + count intact) — the corruption guard.
+    expect(stored).toContainEqual(
+      expect.objectContaining({
+        allocation_interest_id: "int-ipl",
+        allocation_section_label: "IPL",
+        allocation_slot_count: 4,
+      }),
+    );
+    expect(stored).toContainEqual(
+      expect.objectContaining({
+        allocation_interest_id: "int-ti",
+        allocation_section_label: "Team India",
+        allocation_slot_count: 3,
+      }),
+    );
+    // The beyond-bubble reserve row survives too (label set → not a coarse row).
+    expect(stored).toContainEqual(
+      expect.objectContaining({ allocation_section_label: "Beyond your bubble", allocation_slot_count: 1 }),
+    );
+    // The removed coarse tech block is pruned; the new coarse ai/business blocks are written.
+    const coarse = stored.filter((row) => row.allocation_interest_id === null && row.allocation_section_label === null);
+    expect(coarse.map((row) => row.allocation_category).sort()).toEqual(["ai", "business"]);
+
+    // And a fresh reload hydrates the two niche sections as read-only named blocks.
+    const reloaded = await getUserFeedAllocation(client);
+    const niche = reloaded.filter((segment) => segment.interestId != null);
+    expect(niche).toEqual([
+      { bucketId: "sport", count: 4, interestId: "int-ipl", sectionLabel: "IPL" },
+      { bucketId: "sport", count: 3, interestId: "int-ti", sectionLabel: "Team India" },
+    ]);
   });
 });

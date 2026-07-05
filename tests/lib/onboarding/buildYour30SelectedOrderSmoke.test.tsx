@@ -142,12 +142,17 @@ function makePersistenceClient() {
     upsertCalls.push({ rows, onConflict: opts?.onConflict });
     return Promise.resolve({ error: null });
   });
-  // DELETE chain: delete().eq().not() — thenable so awaiting resolves the prune.
-  const del = vi.fn().mockReturnValue({
-    eq: vi.fn(() => {
-      const resolved = Promise.resolve({ error: null });
-      return Object.assign(resolved, { not: vi.fn(() => Promise.resolve({ error: null })) });
-    }),
+  // DELETE chain: delete().eq().is().is().not() — a fluent thenable builder (the coarse-scoping
+  // `.is()` predicates were added in slice #12) so awaiting resolves the prune.
+  const del = vi.fn(() => {
+    const builder = {
+      eq: vi.fn(() => builder),
+      is: vi.fn(() => builder),
+      not: vi.fn(() => builder),
+      // biome-ignore lint/suspicious/noThenProperty: intentional thenable — mirrors the PostgREST query builder so `await` resolves the prune.
+      then: (onFulfilled: (value: { error: unknown }) => unknown) => Promise.resolve({ error: null }).then(onFulfilled),
+    };
+    return builder;
   });
   const getUser = vi.fn().mockResolvedValue({ data: { user: { id: AUTHED_USER_ID } }, error: null });
   const from = vi.fn().mockReturnValue({ upsert, delete: del });
