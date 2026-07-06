@@ -42,6 +42,7 @@ from agents.pipeline.feed_assembly import (
     write_daily_feed,
 )
 from agents.pipeline.niche_allocation import NicheAllocationRow
+from agents.pipeline.x_theme_ladder import XThemeReelCandidate
 from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import CoverageReport, DigestScript, WritePhaseResult
@@ -828,6 +829,7 @@ def assemble_daily_feeds(
     supabase_client: Any,
     now_utc: Any = None,
     source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
+    x_theme_candidates_by_user: dict[str, list[XThemeReelCandidate]] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
 ) -> DailyFeedsBatchResult:
     """Assemble + persist a per-user ``daily_feeds`` feed for every active user.
@@ -857,6 +859,11 @@ def assemble_daily_feeds(
             user's followed YouTube/X reels produced this run, used to fill their
             ``youtube``/``x`` source slots (phase-5d). ``None`` → no source slots
             (every source budget soft-rolls into topics, the legacy behaviour).
+        x_theme_candidates_by_user: ``{user_id: [produced X theme reels]}`` — the user's
+            followed clusters' theme-of-the-day reels (slice #24). When provided, each
+            user's ``x`` slots are filled by the honest theme ladder (theme → second
+            theme → roundup), each stamped with its rung; unfilled x slots roll to news.
+            ``None`` → the legacy source-stories x fill (no theme ladder).
         cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
             within-category-normalized importance (FSR-M3) for clustered stories,
             SHARED across users (importance is intrinsic, not per-user). Threaded into
@@ -912,6 +919,11 @@ def assemble_daily_feeds(
             prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
             source_stories=(
                 (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
+            ),
+            x_theme_candidates=(
+                None
+                if x_theme_candidates_by_user is None
+                else x_theme_candidates_by_user.get(user_inputs.active_user_id, [])
             ),
             cluster_importance_by_story=cluster_importance_by_story,
             mute_terms=user_inputs.mute_terms,

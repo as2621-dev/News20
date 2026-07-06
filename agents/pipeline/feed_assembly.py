@@ -69,6 +69,11 @@ from agents.pipeline.categories import (
 )
 from agents.pipeline.niche_allocation import BEYOND_BUBBLE_LABEL, NicheAllocationRow
 from agents.pipeline.produce_gate import compute_importance_score
+from agents.pipeline.x_theme_ladder import (
+    XThemeLadderSlot,
+    XThemeReelCandidate,
+    build_x_theme_ladder,
+)
 from agents.pipeline.stages.ranking import (
     DEFAULT_SCORE_THRESHOLD,
     FollowedEntity,
@@ -234,6 +239,15 @@ class AllocatedSlot(BaseModel):
         ge=0,
         le=2,
         description="Ladder climb for this section: 0 direct / 1 parent / 2 grandparent",
+    )
+    feed_x_theme_rung: str | None = Field(
+        default=None,
+        description="X theme ladder rung: theme / second_theme / roundup; None otherwise (slice #24)",
+    )
+    feed_x_theme_attribution: dict[str, Any] | None = Field(
+        default=None,
+        description="X theme attribution {theme_summary, supporting_handles, supporting_tweet_urls}; "
+        "None on non-X-theme slots (slice #24)",
     )
 
 
@@ -953,6 +967,7 @@ def assemble_niche_feed(
     followed_entities: list[FollowedEntity] | None = None,
     prior_feed_story_ids: set[str] | None = None,
     source_stories: list[CanonicalStory] | None = None,
+    x_theme_candidates: list[XThemeReelCandidate] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
     mute_terms: list[str] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
@@ -1000,7 +1015,15 @@ def assemble_niche_feed(
         followed_entities: Forwarded to the coarse delegate only (the niche path does not
             apply the EntityBonus — see the residual note; a follow-on can thread it).
         prior_feed_story_ids: Story ids already shown to this user (§3.8 exclusion).
-        source_stories: This user's PRODUCED followed-source stories (youtube/x).
+        source_stories: This user's PRODUCED followed-source stories (youtube/x). When
+            ``x_theme_candidates`` is provided the ``x`` slots are owned by the theme
+            ladder instead, so pass only youtube reels here (any x reels are ignored for
+            the x budget); ``None``/empty keeps the legacy all-source path.
+        x_theme_candidates: This user's PRODUCED X theme reels (slice #24) from their
+            followed clusters' shared themes. When provided (even empty), the user's
+            ``x`` slots are filled by the honest theme ladder (theme → second theme →
+            roundup), each stamped with its rung + attribution; unfilled x slots roll to
+            the news floor. ``None`` keeps the legacy source-stories x fill.
         cluster_importance_by_story: E1 within-category-normalized importance map.
         feed_slot_budget: ``N`` — total feed slots (30).
         score_threshold: ``T`` — the qualifying/climb-stop bar.
@@ -1085,6 +1108,23 @@ def assemble_niche_feed(
                 source_budgets.get(row.allocation_category, 0)
                 + row.allocation_slot_count
             )
+
+    # ── Pass 1a: X theme ladder (slice #24) — when the caller supplies produced theme
+    # reels, the ``x`` slots are OWNED by the honest ladder (theme → second theme →
+    # roundup), not the generic source fill. Whatever the ladder leaves unfilled (quiet
+    # cluster / budget beyond the roundup) rolls to the news floor via the beyond-bubble
+    # backfill — never padded, never a faked theme (PRD stories #30/#33). ``x`` is then
+    # removed from the source-fill budgets so youtube still fills from source_stories. ──
+    x_theme_slots: list[XThemeLadderSlot] = []
+    if x_theme_candidates is not None:
+        x_theme_slots = build_x_theme_ladder(
+            x_theme_candidates,
+            x_slot_budget=source_budgets.get("x", 0),
+            used_story_ids=used_story_ids,
+            excluded_story_ids=excluded,
+        )
+        source_budgets.pop("x", None)
+
     source_filled_by_category = _fill_source_slots(
         source_stories or [],
         source_budgets,
@@ -1092,7 +1132,9 @@ def assemble_niche_feed(
         excluded_story_ids=excluded,
         guaranteed_cap=total_target,
     )
-    source_filled_total = sum(len(v) for v in source_filled_by_category.values())
+    source_filled_total = (
+        sum(len(v) for v in source_filled_by_category.values()) + len(x_theme_slots)
+    )
 
     # ── Pass 2: niche sections — leaf-first, honest one-level climb, in sequence ──
     niche_capacity = max(total_target - source_filled_total, 0)
@@ -1169,6 +1211,25 @@ def assemble_niche_feed(
         if row.allocation_category in SOURCE_CATEGORIES:
             if row.allocation_category in emitted_source:
                 continue
+            # X theme reels (slice #24) lead the ``x`` category, each carrying its ladder
+            # rung + attribution so the UI can be honest. Any x budget the ladder did not
+            # fill has already rolled to the news floor (beyond-bubble), so nothing is lost.
+            if row.allocation_category == "x" and x_theme_slots:
+                for theme_slot in x_theme_slots:
+                    if position >= feed_slot_budget:
+                        break
+                    position += 1
+                    slots.append(
+                        AllocatedSlot(
+                            feed_story_id=theme_slot.reel_story_id,
+                            feed_position=position,
+                            feed_score=theme_slot.reel_score,
+                            feed_matched_interest_id=None,
+                            feed_slot_kind=SLOT_KIND_SOURCE,
+                            feed_x_theme_rung=theme_slot.rung,
+                            feed_x_theme_attribution=theme_slot.attribution.model_dump(),
+                        )
+                    )
             for candidate in source_filled_by_category.get(row.allocation_category, []):
                 position += 1
                 slots.append(
@@ -1333,6 +1394,10 @@ def write_daily_feed(
             "feed_section_label": slot.feed_section_label,
             "feed_section_interest_id": slot.feed_section_interest_id,
             "feed_fallback_source_level": slot.feed_fallback_source_level,
+            # FSR slice #24 X theme rung + attribution (migration 0032). Both default to
+            # None on every non-X-theme slot — a news-floor X slot stays honest real news.
+            "feed_x_theme_rung": slot.feed_x_theme_rung,
+            "feed_x_theme_attribution": slot.feed_x_theme_attribution,
         }
         for slot in slots
     ]

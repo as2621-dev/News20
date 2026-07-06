@@ -21,7 +21,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { AnchorSpeaker, CaptionSentence, SegmentKey, Story, WordToken } from "@/types/feed";
+import type {
+  AnchorSpeaker,
+  CaptionSentence,
+  SegmentKey,
+  Story,
+  WordToken,
+  XThemeAttribution,
+  XThemeRung,
+} from "@/types/feed";
+
+/** The valid X theme rungs (slice #24). Twin of the Python `RUNG_*` constants. */
+const X_THEME_RUNGS: readonly XThemeRung[] = ["theme", "second_theme", "roundup"];
+
+/**
+ * Coerce a raw `feed_x_theme_rung` column value to a known {@link XThemeRung}, or
+ * `null`. An unknown/legacy value reads as `null` (no theme treatment) rather than
+ * leaking an unmodelled string into the UI — honest-degradation over trust.
+ */
+function normalizeXThemeRung(raw: string | null): XThemeRung | null {
+  return raw !== null && (X_THEME_RUNGS as readonly string[]).includes(raw) ? (raw as XThemeRung) : null;
+}
 
 /**
  * PostgREST embedded select: a story with its segment accent, its current digest,
@@ -194,6 +214,9 @@ interface DailyFeedRow {
   feed_section_label: string | null;
   feed_section_interest_id: string | null;
   feed_fallback_source_level: number | null;
+  /** FSR #24 X theme metadata (migration 0032). NULL on every non-X-theme slot. */
+  feed_x_theme_rung: string | null;
+  feed_x_theme_attribution: XThemeAttribution | null;
   /**
    * The matched interest's display label, embedded via the
    * `feed_matched_interest_id` FK (`interests` is public-read). Object in
@@ -238,6 +261,7 @@ export async function getDailyFeed(
       // level it was filled from ("…here's Cricket") with zero client-side inference.
       `feed_position,feed_slot_kind,feed_matched_interest_id,feed_section_label,` +
         `feed_section_interest_id,feed_fallback_source_level,` +
+        `feed_x_theme_rung,feed_x_theme_attribution,` +
         `matched_interest:interests!feed_matched_interest_id(interest_label),` +
         `stories!inner(${FEED_SELECT})`,
     )
@@ -276,6 +300,11 @@ export async function getDailyFeed(
       feed_section_label: row.feed_section_label ?? null,
       feed_section_interest_id: row.feed_section_interest_id ?? null,
       feed_fallback_source_level: row.feed_fallback_source_level ?? 0,
+      // Reason (FSR #24): carry the X theme rung + attribution so the reel chip renders
+      // the honest theme label + handle credit. Additive + null-safe: a non-X-theme row
+      // (every legacy row) reads as (null, null) — no theme treatment.
+      feed_x_theme_rung: normalizeXThemeRung(row.feed_x_theme_rung),
+      feed_x_theme_attribution: row.feed_x_theme_attribution ?? null,
     };
   });
 }

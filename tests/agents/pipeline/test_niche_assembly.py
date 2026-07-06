@@ -39,6 +39,12 @@ from agents.pipeline.feed_assembly import (
 )
 from agents.pipeline.niche_allocation import BEYOND_BUBBLE_LABEL, NicheAllocationRow
 from agents.pipeline.stages.ranking import UserProfileInterest
+from agents.pipeline.x_theme_ladder import (
+    RUNG_ROUNDUP,
+    RUNG_THEME,
+    XThemeAttribution,
+    XThemeReelCandidate,
+)
 
 _NOW = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
 _TARGET_DATE = date(2026, 5, 31)
@@ -462,6 +468,196 @@ def test_followed_source_slots_lead_the_feed() -> None:
     assert [s.feed_slot_kind for s in slots[1:]] == [SLOT_KIND_INTEREST] * 2
 
 
+# ── X theme-of-the-day reels + honest ladder in the feed (slice #24) ─────────────
+
+
+def _x_candidate(story_id: str, summary: str, handles: list[str], rank: float) -> XThemeReelCandidate:
+    return XThemeReelCandidate(
+        reel_story_id=story_id,
+        cluster_id="cluster-sport",
+        reel_rank=rank,
+        attribution=XThemeAttribution(
+            theme_summary=summary,
+            supporting_handles=handles,
+            supporting_tweet_urls=[f"https://x.com/{h}/status/1" for h in handles],
+        ),
+    )
+
+
+def test_x_theme_reel_fills_x_slot_with_rung_and_attribution() -> None:
+    """Happy path: an X slot gets the theme-of-the-day reel, stamped rung + handles (PRD #29/#32).
+
+    WHY: the first X slot must be the theme-of-the-day with its rung stamped and the
+    attributed handles carried, so the UI can render the honest theme label — not a
+    silent, unlabeled X reel.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [
+        NicheAllocationRow(
+            allocation_category="x", allocation_slot_count=1, allocation_sort_order=0
+        ),
+        _niche_row(_IPL, "IPL", slot_count=2, sort_order=1),
+    ]
+    stories, tags = [], []
+    for index in range(2):
+        sid = f"ipl-{index}"
+        stories.append(_story(sid))
+        tags += _chain_tags(sid, [_IPL, _CRICKET, _SPORT])
+
+    candidates = [_x_candidate("xtheme-1", "AI launch reactions", ["alice", "bob"], rank=0.9)]
+
+    slots = _run(
+        profile, alloc, stories, tags, feed_slot_budget=3, x_theme_candidates=candidates
+    )
+
+    theme_slot = slots[0]
+    assert theme_slot.feed_slot_kind == SLOT_KIND_SOURCE
+    assert theme_slot.feed_story_id == "xtheme-1"
+    assert theme_slot.feed_x_theme_rung == RUNG_THEME
+    assert theme_slot.feed_x_theme_attribution is not None
+    assert theme_slot.feed_x_theme_attribution["supporting_handles"] == ["alice", "bob"]
+    # The niche sections still fill after the X theme lead, unaffected.
+    assert [s.feed_slot_kind for s in slots[1:]] == [SLOT_KIND_INTEREST] * 2
+
+
+def test_quiet_cluster_x_slots_roll_to_news_floor_never_faked() -> None:
+    """Quiet-cluster day: no themes → X slots roll to the news floor, none faked (PRD #30/#33).
+
+    WHY: a quiet day must be honest — no story may carry an X theme rung when there is no
+    theme; the X budget becomes real news, never a padded/fabricated theme reel.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [
+        NicheAllocationRow(
+            allocation_category="x", allocation_slot_count=2, allocation_sort_order=0
+        ),
+        _niche_row(_IPL, "IPL", slot_count=1, sort_order=1),
+        _beyond_row("ai", sort_order=2),
+    ]
+    stories, tags = [], []
+    stories.append(_story("ipl-0"))
+    tags += _chain_tags("ipl-0", [_IPL, _CRICKET, _SPORT])
+    # Beyond-bubble news backbone for the un-lit ai root (fills the rolled X slots).
+    for index in range(5):
+        sid = f"ai-{index}"
+        stories.append(_story(sid))
+        tags.append(_tag(sid, _AI, 0))
+
+    slots = _run(
+        profile, alloc, stories, tags, feed_slot_budget=3, x_theme_candidates=[]
+    )
+
+    # No slot may carry an X theme rung — nothing was faked.
+    assert all(s.feed_x_theme_rung is None for s in slots)
+    # The feed is still filled to budget from real news (beyond-bubble) + the niche.
+    assert len(slots) == 3
+
+
+def test_all_x_allocation_failing_yields_news_with_no_theme_rungs() -> None:
+    """All-X allocation on a day X fails entirely → a full news feed, no faked themes (PRD #33).
+
+    WHY: if every X slot is unfillable, the whole 30 must fall to honest news — not a
+    single fabricated theme rung anywhere.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    # Nearly all-X: a token niche row keeps the niche path active, the rest is X.
+    alloc = [
+        NicheAllocationRow(
+            allocation_category="x", allocation_slot_count=29, allocation_sort_order=1
+        ),
+        _niche_row(_IPL, "IPL", slot_count=1, sort_order=2),
+        _beyond_row("ai", sort_order=3),
+    ]
+    stories, tags = [], []
+    stories.append(_story("ipl-0"))
+    tags += _chain_tags("ipl-0", [_IPL, _CRICKET, _SPORT])
+    for index in range(40):
+        sid = f"ai-{index}"
+        stories.append(_story(sid))
+        tags.append(_tag(sid, _AI, 0))
+
+    slots = _run(profile, alloc, stories, tags, x_theme_candidates=[])
+
+    assert len(slots) == 30
+    assert all(s.feed_x_theme_rung is None for s in slots)
+
+
+def test_x_theme_candidates_thread_through_orchestrator_to_daily_feeds() -> None:
+    """No-mock integration: assemble_daily_feeds threads theme candidates → stamped rows.
+
+    WHY (B3.5): the assembly seam is only real if the orchestrator passes the theme
+    candidates all the way into a written daily_feeds row with its rung + attribution —
+    a unit test of the pure ladder alone cannot prove that plumbing.
+    """
+    from agents.pipeline.orchestrator import ActiveUserFeedInputs, assemble_daily_feeds
+
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [
+        NicheAllocationRow(
+            allocation_category="x", allocation_slot_count=1, allocation_sort_order=0
+        ),
+        _niche_row(_IPL, "IPL", slot_count=1, sort_order=1),
+    ]
+    stories = [_story("ipl-0")]
+    tags = _chain_tags("ipl-0", [_IPL, _CRICKET, _SPORT])
+    candidates = [_x_candidate("xtheme-1", "AI launch reactions", ["alice", "bob"], rank=0.9)]
+
+    client = _FakeClient()
+    result = assemble_daily_feeds(
+        target_date=_TARGET_DATE,
+        active_user_inputs=[
+            ActiveUserFeedInputs(
+                active_user_id="u1", profile_interests=profile, niche_allocation=alloc
+            )
+        ],
+        stories=stories,
+        story_interest_tags=tags,
+        interest_nodes=_INTEREST_NODES,
+        supabase_client=client,
+        now_utc=_NOW,
+        x_theme_candidates_by_user={"u1": candidates},
+    )
+
+    assert result.feeds_written == 1
+    theme_rows = [r for r in client.inserted if r["feed_x_theme_rung"] is not None]
+    assert len(theme_rows) == 1
+    assert theme_rows[0]["feed_x_theme_rung"] == RUNG_THEME
+    assert theme_rows[0]["feed_story_id"] == "xtheme-1"
+    assert theme_rows[0]["feed_x_theme_attribution"]["supporting_handles"] == ["alice", "bob"]
+
+
+def test_two_clusters_one_theme_dedup_to_single_x_reel() -> None:
+    """Two followed clusters converging on one theme → ONE deduped X reel (dedup AC)."""
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [
+        NicheAllocationRow(
+            allocation_category="x", allocation_slot_count=2, allocation_sort_order=0
+        ),
+        _niche_row(_IPL, "IPL", slot_count=2, sort_order=1),
+    ]
+    stories, tags = [], []
+    for index in range(2):
+        sid = f"ipl-{index}"
+        stories.append(_story(sid))
+        tags += _chain_tags(sid, [_IPL, _CRICKET, _SPORT])
+
+    candidates = [
+        _x_candidate("xtheme-1", "Election reactions", ["alice"], rank=0.9),
+        _x_candidate("xtheme-2", "election REACTIONS", ["bob"], rank=0.5),
+    ]
+
+    slots = _run(
+        profile, alloc, stories, tags, feed_slot_budget=4, x_theme_candidates=candidates
+    )
+
+    theme_slots = [s for s in slots if s.feed_x_theme_rung is not None]
+    # The converging theme collapses to ONE reel (never the same story twice).
+    assert len(theme_slots) == 1
+    assert theme_slots[0].feed_x_theme_rung == RUNG_THEME
+    story_ids = [s.feed_story_id for s in slots]
+    assert len(story_ids) == len(set(story_ids))
+
+
 def test_feed_caps_at_budget_and_never_exceeds_thirty() -> None:
     """The assembled feed is capped at the feed budget (≤ 30 rows)."""
     profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
@@ -545,6 +741,51 @@ def test_writer_persists_section_columns_and_is_idempotent() -> None:
     assert row["feed_section_label"] == "IPL"
     assert row["feed_section_interest_id"] == _IPL
     assert row["feed_fallback_source_level"] == 1
+
+
+def test_writer_persists_x_theme_rung_and_attribution() -> None:
+    """write_daily_feed persists the X theme rung + attribution columns (slice #24)."""
+    attribution = {
+        "theme_summary": "AI launch reactions",
+        "supporting_handles": ["alice", "bob"],
+        "supporting_tweet_urls": ["https://x.com/alice/status/1"],
+    }
+    slots = [
+        AllocatedSlot(
+            feed_story_id="xtheme-1",
+            feed_position=1,
+            feed_score=0.9,
+            feed_slot_kind=SLOT_KIND_SOURCE,
+            feed_x_theme_rung=RUNG_ROUNDUP,
+            feed_x_theme_attribution=attribution,
+        )
+    ]
+    client = _FakeClient()
+
+    write_daily_feed(client, "u2", _TARGET_DATE, slots)
+
+    row = client.inserted[0]
+    assert row["feed_x_theme_rung"] == RUNG_ROUNDUP
+    assert row["feed_x_theme_attribution"] == attribution
+
+
+def test_writer_defaults_x_theme_columns_to_none_on_plain_slots() -> None:
+    """A non-X-theme slot persists NULL rung + attribution — honest real news (slice #24)."""
+    slots = [
+        AllocatedSlot(
+            feed_story_id="ipl-0",
+            feed_position=1,
+            feed_score=0.7,
+            feed_slot_kind=SLOT_KIND_INTEREST,
+        )
+    ]
+    client = _FakeClient()
+
+    write_daily_feed(client, "u3", _TARGET_DATE, slots)
+
+    row = client.inserted[0]
+    assert row["feed_x_theme_rung"] is None
+    assert row["feed_x_theme_attribution"] is None
 
 
 @pytest.mark.parametrize(

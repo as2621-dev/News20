@@ -20,7 +20,53 @@
  */
 
 import { logger } from "@/lib/logger";
-import type { Story } from "@/types/feed";
+import type { Story, XThemeRung } from "@/types/feed";
+
+/** How many handles to name in the attribution credit before eliding the rest. */
+const MAX_CREDITED_HANDLES = 3;
+
+/** The per-rung chip header (the rung IS visible — a roundup never reads as a theme). */
+const X_RUNG_CHIP_LABEL: Record<XThemeRung, string> = {
+  theme: "Theme of the day on X",
+  second_theme: "Also on X",
+  roundup: "Roundup of takes",
+};
+
+/**
+ * Format an X theme's supporting handles into a `"via @alice, @bob +2 more"` credit —
+ * the "attributed handles" the reel must show (slice #24 / PRD #29). Verbatim handles,
+ * `@`-prefixed if not already; empty list → `null` (no credit line).
+ */
+function creditLine(handles: string[]): string | null {
+  const cleaned = handles.map((handle) => handle.trim()).filter((handle) => handle.length > 0);
+  if (cleaned.length === 0) {
+    return null;
+  }
+  const shown = cleaned
+    .slice(0, MAX_CREDITED_HANDLES)
+    .map((handle) => (handle.startsWith("@") ? handle : `@${handle}`));
+  const extra = cleaned.length - shown.length;
+  const names = extra > 0 ? `${shown.join(", ")} +${extra} more` : shown.join(", ");
+  return `via ${names}`;
+}
+
+/**
+ * The chip model for an X theme reel slot (slice #24), or `null` when this row is not
+ * an X theme slot. The rung drives the header (theme / second theme / roundup) and the
+ * honesty line credits the handles; a roundup also says the day was quieter — so a
+ * lower rung never masquerades as the theme-of-the-day.
+ */
+function xThemeChip(story: Story): SectionChipModel | null {
+  const rung = story.feed_x_theme_rung ?? null;
+  if (rung === null) {
+    return null;
+  }
+  const credit = creditLine(story.feed_x_theme_attribution?.supporting_handles ?? []);
+  const roundupPrefix = rung === "roundup" ? "A quieter day on X — a roundup of takes" : null;
+  const fallbackLabel =
+    roundupPrefix !== null ? (credit !== null ? `${roundupPrefix} ${credit}` : roundupPrefix) : credit;
+  return { chip_label: X_RUNG_CHIP_LABEL[rung], fallback_label: fallbackLabel };
+}
 
 /** What the reel chrome paints for one slot's section chip. */
 export interface SectionChipModel {
@@ -92,6 +138,14 @@ export function computeSectionChips(stories: Story[]): SectionChipModel[] {
   }
 
   return stories.map((story) => {
+    // X theme reels (slice #24) are source-kind slots, so they must be handled BEFORE
+    // the source/section branches below — they carry their own honest rung header +
+    // handle credit, not a category chip.
+    const themeChip = xThemeChip(story);
+    if (themeChip !== null) {
+      return themeChip;
+    }
+
     const sectionLabel = sectionLabelOf(story);
     const sectionKey = sectionKeyOf(story);
     const fallbackLevel = story.feed_fallback_source_level ?? 0;

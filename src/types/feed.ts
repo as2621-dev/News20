@@ -230,4 +230,42 @@ export interface Story {
    * Twin of `AllocatedSlot.feed_fallback_source_level`.
    */
   feed_fallback_source_level?: number;
+  /**
+   * Which rung of the X theme ladder filled this X slot
+   * (`daily_feeds.feed_x_theme_rung`; FSR slice #24): `"theme"` (theme-of-the-day),
+   * `"second_theme"`, or `"roundup"` (roundup-of-takes). `null`/`undefined` on every
+   * non-X-theme slot — a news-floor X slot stays honest real news, never a faked theme.
+   * THIS is the honesty stamp the reel labels ("Theme of the day on X" /
+   * "A roundup of takes"). Twin of `AllocatedSlot.feed_x_theme_rung`
+   * (`agents/pipeline/feed_assembly.py` ← `agents/pipeline/x_theme_ladder.py`).
+   */
+  feed_x_theme_rung?: XThemeRung | null;
+  /**
+   * The X theme attribution the reel credits
+   * (`daily_feeds.feed_x_theme_attribution`; FSR slice #24) — the theme summary + the
+   * distinct handles + tweet urls the theme was drawn from (PRD story #29). `null`/
+   * `undefined` on non-X-theme slots. Twin of `AllocatedSlot.feed_x_theme_attribution`.
+   */
+  feed_x_theme_attribution?: XThemeAttribution | null;
+}
+
+/**
+ * The X theme ladder rungs (FSR slice #24). Twin of the Python
+ * `agents/pipeline/x_theme_ladder.py` `RUNG_*` constants. A news-floor X slot carries
+ * no rung (`null`), so the union deliberately excludes any "news" value.
+ */
+export type XThemeRung = "theme" | "second_theme" | "roundup";
+
+/**
+ * What an X theme reel credits (FSR slice #24) — twin of the Python
+ * `XThemeAttribution` (`agents/pipeline/x_theme_ladder.py`), stored as
+ * `daily_feeds.feed_x_theme_attribution` jsonb.
+ */
+export interface XThemeAttribution {
+  /** The one-line theme the reel is about. */
+  theme_summary: string;
+  /** The distinct handles whose posts back the theme (merged across converging clusters). */
+  supporting_handles: string[];
+  /** The real tweet urls the theme was drawn from. */
+  supporting_tweet_urls: string[];
 }
