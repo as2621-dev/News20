@@ -46,8 +46,10 @@ import {
   persistMuteTerms,
 } from "@/lib/interviewProfile";
 import { logger } from "@/lib/logger";
+import { commitClusterFollowSet, commitUserClusterFollows } from "@/lib/sourceClusters";
+import { followSource } from "@/lib/sources";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { InterviewTerminalPayload } from "@/types/interview";
+import type { InterviewSourceFollows, InterviewTerminalPayload } from "@/types/interview";
 
 /** Options for {@link persistOnboardingTerminal}. */
 export interface PersistOnboardingTerminalOptions {
@@ -69,6 +71,77 @@ export interface PersistOnboardingTerminalResult {
   allocation: SaveAllocationResult;
   /** Deferred-questions write outcome (how many skipped-question rows the user ends with). */
   deferred: PersistDeferredQuestionsResult;
+  /** In-chat source-picks write outcome (channel + cluster-member + cluster-ref follows). */
+  sourceFollows: PersistSourceFollowsResult;
+}
+
+/** Counts written by the in-chat source-picks persist (slice #20). */
+export interface PersistSourceFollowsResult {
+  /** YouTube channel sources followed (→ `user_content_sources`). */
+  youtube_channels_followed: number;
+  /** Distinct cluster-member sources followed (→ `user_content_sources`). */
+  cluster_member_sources_followed: number;
+  /** Distinct cluster-member personalities followed (→ `user_personalities`). */
+  cluster_member_personalities_followed: number;
+  /** Cluster refs written (→ `user_source_clusters`, for sweep scheduling / theme attribution). */
+  clusters_followed: number;
+}
+
+/**
+ * Persist the in-chat YOUTUBE + X CLUSTERS picks (slice #20): channel sources via
+ * {@link followSource}, cluster MEMBERS (deduped across clusters) via
+ * {@link commitClusterFollowSet}, and cluster REFS via {@link commitUserClusterFollows}.
+ * All three primitives are idempotent upserts, so a retry converges. An absent /
+ * empty-on-both-axes payload writes NOTHING and does not error (the zero-pick path —
+ * those youtube/x slots default to news at assembly).
+ */
+async function persistSourceFollows(
+  sourceFollows: InterviewSourceFollows | undefined,
+  client: SupabaseClient,
+): Promise<PersistSourceFollowsResult> {
+  const empty: PersistSourceFollowsResult = {
+    youtube_channels_followed: 0,
+    cluster_member_sources_followed: 0,
+    cluster_member_personalities_followed: 0,
+    clusters_followed: 0,
+  };
+  if (!sourceFollows) {
+    return empty;
+  }
+
+  // 1. YouTube channel follows (idempotent upserts). Dedup first so the count is honest even if the
+  //    picker ever emits a repeat (its selection is a Set today, but don't rely on that here).
+  const youtubeSourceIds = [...new Set(sourceFollows.youtube_source_ids)];
+  for (const sourceId of youtubeSourceIds) {
+    await followSource(sourceId, undefined, client);
+  }
+
+  // 2. Cluster follows: expand to member rows (deduped across clusters) + write cluster refs.
+  const memberSourceIds = new Set<string>();
+  const memberPersonalityIds = new Set<string>();
+  const clusterIds: string[] = [];
+  for (const cluster of sourceFollows.clusters) {
+    clusterIds.push(cluster.cluster_id);
+    for (const id of cluster.member_source_ids) {
+      memberSourceIds.add(id);
+    }
+    for (const id of cluster.member_personality_ids) {
+      memberPersonalityIds.add(id);
+    }
+  }
+  // Member rows BEFORE the cluster ref (intentional order): both are idempotent upserts and the whole
+  // terminal call rejects (no gate stamp) on any failure, so a retry converges. If only one half could
+  // land, member follows are the safer half — the user still gets content; only cluster-level sweep
+  // scheduling would be missing until the retry.
+  await commitClusterFollowSet({ sources: [...memberSourceIds], personalities: [...memberPersonalityIds] }, client);
+  const clusterRefs = await commitUserClusterFollows(clusterIds, client);
+
+  return {
+    youtube_channels_followed: youtubeSourceIds.length,
+    cluster_member_sources_followed: memberSourceIds.size,
+    cluster_member_personalities_followed: memberPersonalityIds.size,
+    clusters_followed: clusterRefs.clusters_followed,
+  };
 }
 
 /**
@@ -164,7 +237,11 @@ export async function persistOnboardingTerminal(
   const segments = splitToAllocationSegments(topSplit, selectedCategoryBuckets);
   const allocation = await saveUserFeedAllocation(segments, client);
 
-  // 4. Deferred (delete-last internally on replace). Never stamps user_onboarded_at.
+  // 4. In-chat source picks (slice #20): channel + cluster-member + cluster-ref follows.
+  //    Additive idempotent upserts (non-destructive), so ordered before the destructive tail.
+  const sourceFollows = await persistSourceFollows(payload.source_follows, client);
+
+  // 5. Deferred (delete-last internally on replace). Never stamps user_onboarded_at.
   const deferred = await persistDeferredQuestions(
     userId,
     payload.deferred_questions ?? [],
@@ -177,6 +254,8 @@ export async function persistOnboardingTerminal(
     persisted_mute_count: mutes.persisted_mute_count,
     allocation_persisted_count: allocation.persisted_count,
     persisted_deferred_count: deferred.persisted_deferred_count,
+    youtube_channels_followed: sourceFollows.youtube_channels_followed,
+    cluster_refs_followed: sourceFollows.clusters_followed,
   });
-  return { interests, mutes, allocation, deferred };
+  return { interests, mutes, allocation, deferred, sourceFollows };
 }

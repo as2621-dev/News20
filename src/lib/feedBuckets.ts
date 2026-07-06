@@ -100,6 +100,15 @@ export const DESIGN_BUCKETS: Readonly<Record<DesignBucketId, DesignBucket>> = {
 /** Every design bucket id, in canonical order (the Add-sheet `>= count` gate uses the length). */
 export const DESIGN_BUCKET_IDS: readonly DesignBucketId[] = Object.keys(DESIGN_BUCKETS) as DesignBucketId[];
 
+/**
+ * The 8 topic-CATEGORY roots (the `kind === "cat"` buckets), excluding the `youtube`/`x`
+ * source axes — the canonical "8 roots" list. Single-sourced here so the onboarding pickers
+ * (and any category-only fan-out) never re-open-code the `kind === "cat"` filter (Rule 7).
+ */
+export const CATEGORY_ROOT_IDS: readonly DesignBucketId[] = DESIGN_BUCKET_IDS.filter(
+  (id) => DESIGN_BUCKETS[id].kind === "cat",
+);
+
 /** The total slots the user must allocate across all buckets (the 30 in "Build your 30"). */
 export const ALLOCATION_TOTAL = 30;
 

@@ -22,17 +22,14 @@
  *      skip-everything roots-only payload is valid and not punished.
  *   4. `loading`  — calls {@link persistOnboardingTerminal} (scoped to the session user):
  *      the ONE terminal persist — interests + mutes + the budget-card allocation + deferred
- *      skips — in a single call. On success → the `sources` step. Any rejected micro-interests
- *      (backstop-invalid) are surfaced inline (Rule 12 — not silently dropped). Persistence
- *      fires ONLY on the closing-arc confirm (no half-profiles).
- *   5. `sources`  — {@link SourceClusterScreen}; the M6 source/cluster onboarding step
- *      (Phase FSR-M6a). It loads the chosen categories' resolved clusters (no-dup
- *      applied), renders the opt-out cluster/member grid, and on continue commits the
- *      resolved follow set to `user_content_sources`/`user_personalities`. It then
- *      marks the source step complete ({@link markSourceOnboardingComplete}), then stamps
- *      onboarding genuinely complete ({@link markOnboardingComplete}, the TRUE flow end) and
- *      routes to the reel. A returning user who already completed the source step skips it
- *      (gated in `onboarding/page.tsx` via {@link isSourceOnboardingComplete}).
+ *      skips + the in-chat YOUTUBE/X source & cluster follows (#20) — in a single call. Any
+ *      rejected micro-interests (backstop-invalid) are surfaced inline (Rule 12 — not silently
+ *      dropped). Persistence fires ONLY on the closing-arc "Build my 30" confirm (no half-profiles).
+ *      On success it marks the (in-chat-absorbed) source step complete
+ *      ({@link markSourceOnboardingComplete}), stamps onboarding genuinely complete
+ *      ({@link markOnboardingComplete}, the TRUE flow end) via {@link finishOnboarding}, and
+ *      routes to the reel. The standalone source/cluster screen is gone — the chat's YOUTUBE grid
+ *      + X CLUSTERS pickers (#20) are the source-selection surface.
  *
  * Static-export safe: client-only (`"use client"`), `window`-guarded, no
  * `useSearchParams` (the magic link uses the URL hash, handled in `/callback`).
@@ -44,23 +41,21 @@ import { EmailSignIn } from "@/components/onboarding/EmailSignIn";
 import { InterviewChat } from "@/components/onboarding/InterviewChat";
 import { OnboardingSplash } from "@/components/onboarding/OnboardingSplash";
 import { OtpCodeEntry } from "@/components/onboarding/OtpCodeEntry";
-import { SourceClusterScreen } from "@/components/sources/SourceClusterScreen";
 import { resolveRootGate } from "@/lib/auth/routeGuard";
-import { categoryBucketsFromMicroInterests, type DesignBucketId } from "@/lib/feedBuckets";
 import { clearInterviewSession } from "@/lib/interview/session";
 import { logger } from "@/lib/logger";
-import {
-  isSourceOnboardingComplete,
-  markOnboardingComplete,
-  markSourceOnboardingComplete,
-} from "@/lib/onboardingProfile";
+import { markOnboardingComplete, markSourceOnboardingComplete } from "@/lib/onboardingProfile";
 import { persistOnboardingTerminal } from "@/lib/onboardingTerminal";
 import { getCurrentSession, TEST_AUTH_CODE, TEST_AUTH_MODE } from "@/lib/supabase/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { InterviewTerminalPayload } from "@/types/interview";
 
-/** The ordered onboarding steps (spec §1: the interview + its in-chat budget card replace the picker). */
-type OnboardingStep = "splash" | "email" | "wait_session" | "interview" | "loading" | "sources";
+/**
+ * The ordered onboarding steps. The interview's closing arc now ABSORBS the source/cluster
+ * step (#20 — the in-chat YOUTUBE grid + X CLUSTERS pickers), so there is no separate
+ * `sources` step: `splash → email → wait_session → interview → loading → (reel)`.
+ */
+type OnboardingStep = "splash" | "email" | "wait_session" | "interview" | "loading";
 
 /**
  * Dev-only bypass: skip the email/magic-link auth gate and drop straight into the
@@ -86,10 +81,6 @@ export function OnboardingFlow() {
   // The email the magic-link/code email was sent to — the wait_session step's
   // OtpCodeEntry needs it (verifyOtp takes email + code).
   const [sentEmail, setSentEmail] = useState("");
-  // The category buckets the confirmed interests touch, derived from their canonical slugs.
-  // Captured in `handleInterviewComplete` so the `sources` step loads ONLY those categories'
-  // clusters. Empty (interview skipped) → the source step falls back to the broad roots set.
-  const [selectedCategoryBuckets, setSelectedCategoryBuckets] = useState<DesignBucketId[]>([]);
   // Hold the established session's user id so `loading` can scope the writes.
   const sessionUserIdRef = useRef<string | null>(null);
 
@@ -218,11 +209,6 @@ export function OnboardingFlow() {
    */
   const handleInterviewComplete = useCallback(
     async (payload: InterviewTerminalPayload) => {
-      // Capture which CATEGORY blocks the confirmed interests touch so the source step loads only
-      // those clusters (an empty set — skip-everything — falls back to the broad roots seed). One
-      // root→bucket fold, single-sourced in feedBuckets (Rule 7; #30 dedupe residual).
-      setSelectedCategoryBuckets(categoryBucketsFromMicroInterests(payload.micro_interests));
-
       const userId = sessionUserIdRef.current;
       if (!userId) {
         if (SKIP_AUTH) {
@@ -234,11 +220,10 @@ export function OnboardingFlow() {
           });
           clearInterviewSession();
           setPersistError(null);
-          if (isSourceOnboardingComplete()) {
-            void finishOnboarding();
-          } else {
-            setStep("sources");
-          }
+          // Sources were picked in-chat (#20) — no separate step. Mark the (absorbed) source
+          // step complete and route to the reel (finishOnboarding stamps the gate at the true end).
+          markSourceOnboardingComplete();
+          void finishOnboarding();
           return;
         }
         // Defensive: we should only reach `interview` with a session, but never write
@@ -269,13 +254,11 @@ export function OnboardingFlow() {
         });
         // The confirmed profile is now persisted — the resumable transcript is stale.
         clearInterviewSession();
-        // A returning user who already finished the source step goes straight to the reel (still
-        // stamping at the true end); everyone else runs the source step before the reel.
-        if (isSourceOnboardingComplete()) {
-          void finishOnboarding();
-        } else {
-          setStep("sources");
-        }
+        // The in-chat YOUTUBE + X CLUSTERS pickers (#20) already persisted source/cluster follows
+        // as part of this terminal call, so there is no separate source step. Mark it complete and
+        // route to the reel — finishOnboarding stamps `user_onboarded_at` at the TRUE flow end.
+        markSourceOnboardingComplete();
+        void finishOnboarding();
       } catch (error) {
         const message = error instanceof Error ? error.message : "Couldn't save your interests.";
         logger.error("onboarding_persist_failed", {
@@ -289,13 +272,6 @@ export function OnboardingFlow() {
     },
     [finishOnboarding],
   );
-
-  /** Complete the source/cluster step: mark it done, then stamp onboarding complete + route to the reel. */
-  const handleSourcesDone = useCallback(() => {
-    logger.info("source_onboarding_completed", {});
-    markSourceOnboardingComplete();
-    void finishOnboarding();
-  }, [finishOnboarding]);
 
   return (
     <main
@@ -361,10 +337,6 @@ export function OnboardingFlow() {
             </p>
           ) : null}
         </section>
-      ) : null}
-
-      {step === "sources" ? (
-        <SourceClusterScreen categories={selectedCategoryBuckets} onDone={handleSourcesDone} />
       ) : null}
     </main>
   );

@@ -29,12 +29,17 @@
  * effects/handlers (never at module scope).
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { XClusterPicker } from "@/components/onboarding/XClusterPicker";
+import { YoutubeChannelPicker } from "@/components/onboarding/YoutubeChannelPicker";
+import { categoryBucketsFromMicroInterests } from "@/lib/feedBuckets";
 import { TOP_SPLIT_TOTAL } from "@/lib/feedTopSplit";
 import { clearInterviewSession, loadInterviewSession, saveInterviewSession } from "@/lib/interview/session";
 import { fetchInterviewTurn } from "@/lib/interview/turnClient";
 import { logger } from "@/lib/logger";
+import { toggleInSet } from "@/lib/setUtils";
 import type {
+  InterviewClusterPick,
   InterviewExchange,
   InterviewQuestionTurn,
   InterviewRetryTurn,
@@ -69,9 +74,19 @@ const TOP_SPLIT_AXIS_META: ReadonlyArray<{ axis: TopSplitAxis; label: string; gl
 
 /**
  * The chat's visible phases. The closing arc runs `confirm` (the extracted interests) → `budget`
- * (the ± story-budget card) → `summary` (the YOUR-30 split recap) → the parent's `onComplete`.
+ * (the ± story-budget card) → `youtube` (the channel grid, #20) → `x_clusters` (the cluster
+ * checklist, #20) → `summary` (the YOUR-30 split recap) → the parent's `onComplete`.
  */
-type ChatPhase = "resume_prompt" | "loading" | "question" | "retry" | "confirm" | "budget" | "summary";
+type ChatPhase =
+  | "resume_prompt"
+  | "loading"
+  | "question"
+  | "retry"
+  | "confirm"
+  | "budget"
+  | "youtube"
+  | "x_clusters"
+  | "summary";
 
 export interface InterviewChatProps {
   /**
@@ -130,6 +145,10 @@ export function InterviewChat({
   // ± steppers that keep the running total ≤ 30 (never over), so the confirmed split always sums to
   // exactly TOP_SPLIT_TOTAL — the persist gate (#30) never sees a ≠30 payload from this UI.
   const [topSplit, setTopSplit] = useState<Record<TopSplitAxis, number>>({ ...DEFAULT_TOP_SPLIT });
+  // The in-chat source picks (#20), captured across the YOUTUBE + X CLUSTERS phases and folded into
+  // the terminal payload at "Build my 30" — persisted ONLY there, never on toggle (terminal-only invariant).
+  const [youtubePicks, setYoutubePicks] = useState<string[]>([]);
+  const [clusterPicks, setClusterPicks] = useState<InterviewClusterPick[]>([]);
 
   // The conversation state a failed turn was fetching — so `retry` re-sends EXACTLY it.
   const pendingStateRef = useRef<InterviewExchange[]>([]);
@@ -247,15 +266,7 @@ export function InterviewChat({
 
   /** Toggle one option chip in/out of the live-turn selection. */
   const handleToggleChip = useCallback((label: string) => {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(label)) {
-        next.delete(label);
-      } else {
-        next.add(label);
-      }
-      return next;
-    });
+    setSelected((current) => toggleInSet(current, label));
   }, []);
 
   /** Confirm the live turn: send the selected chips + any typed text as one answer. */
@@ -337,13 +348,38 @@ export function InterviewChat({
     });
   }, []);
 
-  /** Advance from the budget card to the YOUR-30 recap — only once the split lands on exactly 30. */
+  /**
+   * Advance from the budget card to the in-chat YOUTUBE picker (#20) — only once the split lands on
+   * exactly 30. The source pickers (youtube → x_clusters) run before the YOUR-30 recap.
+   */
   const handleReviewSplit = useCallback(() => {
     if (splitTotal !== TOP_SPLIT_TOTAL) {
       return;
     }
-    setPhase("summary");
+    setPhase("youtube");
   }, [splitTotal]);
+
+  /** Confirm the YouTube channel picks (#20) → advance to the X CLUSTERS picker (does NOT persist). */
+  const handleYoutubeConfirm = useCallback((youtubeSourceIds: string[]) => {
+    setYoutubePicks(youtubeSourceIds);
+    setPhase("x_clusters");
+  }, []);
+
+  /** Confirm the X cluster picks (#20) → advance to the YOUR-30 recap (does NOT persist). */
+  const handleClusterConfirm = useCallback((picks: InterviewClusterPick[]) => {
+    setClusterPicks(picks);
+    setPhase("summary");
+  }, []);
+
+  /**
+   * The user's interview roots (most-wanted first) — drives the pickers' relevance sort + grouping.
+   * Memoized on the terminal interests so it is a STABLE reference: the pickers wire it into their
+   * load effects, so a fresh array each render would re-fire the catalog fetch on any parent re-render.
+   */
+  const orderedRoots = useMemo(
+    () => (terminal ? categoryBucketsFromMicroInterests(terminal.micro_interests) : []),
+    [terminal],
+  );
 
   /**
    * Confirm the whole closing arc → hand off for the single terminal persist. Guarded by `isBusyRef`
@@ -366,10 +402,12 @@ export function InterviewChat({
       angle_preferences: terminal.angle_preferences,
       deferred_questions: terminal.deferred_questions,
       top_split: { news: topSplit.news, youtube: topSplit.youtube, x: topSplit.x },
+      source_follows: { youtube_source_ids: youtubePicks, clusters: clusterPicks },
     });
-  }, [onComplete, terminal, splitTotal, topSplit]);
+  }, [onComplete, terminal, splitTotal, topSplit, youtubePicks, clusterPicks]);
 
-  const inClosingArc = phase === "confirm" || phase === "budget" || phase === "summary";
+  const inClosingArc =
+    phase === "confirm" || phase === "budget" || phase === "youtube" || phase === "x_clusters" || phase === "summary";
   const progressFraction = Math.min(conversation.length / TAP_TARGET, 0.92);
   const optionBubbles = questionTurn?.bubbles.filter((bubble) => bubble.bubble_kind === "option") ?? [];
   const skipBubble = questionTurn?.bubbles.find((bubble) => bubble.bubble_kind === "skip") ?? null;
@@ -619,6 +657,14 @@ export function InterviewChat({
           </section>
         ) : null}
 
+        {phase === "youtube" ? (
+          <YoutubeChannelPicker orderedRoots={orderedRoots} onConfirm={handleYoutubeConfirm} />
+        ) : null}
+
+        {phase === "x_clusters" ? (
+          <XClusterPicker orderedRoots={orderedRoots} onConfirm={handleClusterConfirm} />
+        ) : null}
+
         {phase === "summary" ? (
           <section data-testid="your-30-summary" className="flex flex-col gap-3">
             <span className="font-mono text-[11px] tracking-wide text-text-secondary">YOUR 30</span>
@@ -630,9 +676,21 @@ export function InterviewChat({
                 <li
                   key={axis}
                   data-testid={`summary-${axis}`}
-                  className="flex items-center justify-between rounded-control border border-white/12 bg-white/5 px-4 py-2.5 font-sans text-[14px] text-text-primary"
+                  className="flex items-center justify-between gap-3 rounded-control border border-white/12 bg-white/5 px-4 py-2.5 font-sans text-[14px] text-text-primary"
                 >
-                  <span>{label}</span>
+                  <span className="flex flex-col gap-0.5">
+                    <span>{label}</span>
+                    {axis === "youtube" && youtubePicks.length > 0 ? (
+                      <span data-testid="summary-youtube-picks" className="font-sans text-[11px] text-text-secondary">
+                        from {youtubePicks.length} channel{youtubePicks.length === 1 ? "" : "s"} you picked
+                      </span>
+                    ) : null}
+                    {axis === "x" && clusterPicks.length > 0 ? (
+                      <span data-testid="summary-x-picks" className="font-sans text-[11px] text-text-secondary">
+                        from {clusterPicks.length} cluster{clusterPicks.length === 1 ? "" : "s"} you follow
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="font-mono text-[13px] text-primary">{topSplit[axis]}</span>
                 </li>
               ))}

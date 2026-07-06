@@ -76,6 +76,37 @@ export interface InterviewDeferredQuestion {
   subniche_label: string | null;
 }
 
+/**
+ * One X-cluster the user selected in the in-chat CLUSTERS picker (slice #20). Carries
+ * enough to persist WITHOUT re-reading the catalog at terminal: the cluster's own id
+ * (for the `user_source_clusters` cluster ref — sweep scheduling / theme attribution)
+ * plus its already-resolved member followables (which the picker expanded from the
+ * catalog when it loaded). Client-computed in the closing arc, like {@link InterviewTerminalPayload.top_split}.
+ */
+export interface InterviewClusterPick {
+  /** `source_clusters.cluster_id` — the cluster ref written to `user_source_clusters`. */
+  cluster_id: string;
+  /** `source_clusters.cluster_slug` — for logging / provenance. */
+  cluster_slug: string;
+  /** The cluster's `content_sources.source_id` members to follow (→ `user_content_sources`). */
+  member_source_ids: string[];
+  /** The cluster's `personalities.personality_id` members to follow (→ `user_personalities`). */
+  member_personality_ids: string[];
+}
+
+/**
+ * The user's in-chat source picks (slice #20) — the YOUTUBE grid selections + the X
+ * CLUSTERS selections. Empty on both axes is VALID (those slots default to news at
+ * assembly). Persisted at terminal ONLY (never on toggle) by
+ * {@link import("@/lib/onboardingTerminal").persistOnboardingTerminal}.
+ */
+export interface InterviewSourceFollows {
+  /** Selected `content_sources.source_id`s (youtube_channel axis) → `user_content_sources`. */
+  youtube_source_ids: string[];
+  /** Selected X clusters, each pre-expanded to its members + cluster ref. */
+  clusters: InterviewClusterPick[];
+}
+
 /** The terminal interview payload the client confirms, then persists. */
 export interface InterviewTerminalPayload {
   /** The extracted micro-interests. Empty when the user skipped through with no roots lit. */
@@ -102,6 +133,13 @@ export interface InterviewTerminalPayload {
    * whose split does not sum to exactly 30 before any allocation write.
    */
   top_split?: { news: number; youtube: number; x: number };
+  /**
+   * The in-chat YOUTUBE + X CLUSTERS picks (slice #20). CLIENT-COMPUTED in the closing arc
+   * (the worker never sends it), so optional here. Absent = no source picks (valid — the
+   * youtube/x slots default to news). Persisted at terminal ONLY: channel sources +
+   * cluster member expansion + cluster refs.
+   */
+  source_follows?: InterviewSourceFollows;
 }
 
 // ─── Turn protocol (spec §2–§3) — the TS twin of the worker's turn models ─────

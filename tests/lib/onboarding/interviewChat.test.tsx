@@ -218,6 +218,16 @@ async function reachBudgetCard(onComplete = vi.fn()): Promise<ReturnType<typeof 
   return res.onComplete;
 }
 
+/**
+ * Skip through the in-chat YOUTUBE + X CLUSTERS pickers (#20) with zero picks — the closing arc
+ * now runs budget → youtube → x_clusters → summary. Each picker's confirm is present immediately
+ * (independent of the catalog load), so this advances without awaiting the loaders.
+ */
+async function advanceThroughSourcePickers(): Promise<void> {
+  await clickTestId("youtube-confirm");
+  await clickTestId("x-cluster-confirm");
+}
+
 const TERMINAL_INTERESTS = (TERMINAL as Extract<InterviewTurn, { response_kind: "terminal" }>).micro_interests;
 
 describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
@@ -343,8 +353,9 @@ describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
     expect(container.querySelector("[data-testid='budget-card']")).not.toBeNull();
     expect(onComplete).not.toHaveBeenCalled();
 
-    // Default split already sums to 30 → review → YOUR-30 summary → build.
+    // Default split already sums to 30 → review → source pickers → YOUR-30 summary → build.
     await clickText("Review my 30");
+    await advanceThroughSourcePickers();
     expect(container.querySelector("[data-testid='your-30-summary']")).not.toBeNull();
     expect(onComplete).not.toHaveBeenCalled();
 
@@ -357,12 +368,14 @@ describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
       angle_preferences: [{ angle_category: "sport", angle_label: "tactics" }],
       deferred_questions: [],
       top_split: { news: 20, youtube: 7, x: 3 },
+      source_follows: { youtube_source_ids: [], clusters: [] },
     });
   });
 
   it("YOUR-30 summary shows the news/YouTube/X split before Build my 30 (AC2)", async () => {
     await reachBudgetCard();
     await clickText("Review my 30");
+    await advanceThroughSourcePickers();
     expect(container.querySelector("[data-testid='summary-news']")?.textContent).toContain("20");
     expect(container.querySelector("[data-testid='summary-youtube']")?.textContent).toContain("7");
     expect(container.querySelector("[data-testid='summary-x']")?.textContent).toContain("3");
@@ -391,6 +404,7 @@ describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
     await clickTestIdN("budget-inc-news", 10); // news 20 → 30
     expect(budgetValue("news")).toBe("30");
     await clickText("Review my 30");
+    await advanceThroughSourcePickers();
     await clickText("Build my 30");
     expect(onComplete.mock.calls[0][0]).toMatchObject({ top_split: { news: 30, youtube: 0, x: 0 } });
   });
@@ -402,6 +416,7 @@ describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
     await clickTestIdN("budget-inc-x", 27); // x 3 → 30
     expect(budgetValue("x")).toBe("30");
     await clickText("Review my 30");
+    await advanceThroughSourcePickers();
     await clickText("Build my 30");
     expect(onComplete.mock.calls[0][0]).toMatchObject({ top_split: { news: 0, youtube: 0, x: 30 } });
   });
@@ -416,6 +431,7 @@ describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
     await clickText("Continue");
     expect(container.querySelector("[data-testid='budget-card']")).not.toBeNull();
     await clickText("Review my 30");
+    await advanceThroughSourcePickers();
     await clickText("Build my 30");
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete.mock.calls[0][0]).toMatchObject({
@@ -428,6 +444,7 @@ describe("InterviewChat — one-scrollback interview (Rule 9)", () => {
   it("ignores a double-tap on Build my 30 so persistence fires once", async () => {
     const onComplete = await reachBudgetCard();
     await clickText("Review my 30");
+    await advanceThroughSourcePickers();
 
     const build = container.querySelector<HTMLButtonElement>("[data-testid='build-my-30']");
     await act(async () => {

@@ -74,7 +74,7 @@ const DEFAULT_SOURCE_PRIORITY: SourcePriority = "everything";
  * @returns The authed `user_id` (= `auth.uid()`).
  * @throws If unauthenticated (or the session read fails) — never returns null.
  */
-async function requireAuthedUserId(client: SupabaseClient): Promise<string> {
+export async function requireAuthedUserId(client: SupabaseClient): Promise<string> {
   const { data, error } = await client.auth.getUser();
   if (error || !data.user) {
     logger.error("source_follow_requires_auth", {

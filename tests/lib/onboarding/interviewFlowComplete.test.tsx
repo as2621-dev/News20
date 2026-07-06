@@ -147,7 +147,7 @@ async function clickConfirm(): Promise<void> {
 }
 
 describe("OnboardingFlow — interview persist handoff (Rule 9)", () => {
-  it("runs the ONE terminal persist on confirm, advances to sources, and NEVER stamps the gate", async () => {
+  it("runs the ONE terminal persist on the closing-arc confirm (sources absorbed in-chat, #20)", async () => {
     mockPersist.mockResolvedValue(TERMINAL_OK as unknown as Awaited<ReturnType<typeof persistOnboardingTerminal>>);
 
     await reachInterview();
@@ -156,30 +156,25 @@ describe("OnboardingFlow — interview persist handoff (Rule 9)", () => {
 
     await clickConfirm();
 
-    // Interests + mutes + allocation + deferred land in ONE call scoped to the authed user.
+    // Interests + mutes + allocation + deferred + in-chat source follows land in ONE call.
     expect(mockPersist).toHaveBeenCalledTimes(1);
     expect(mockPersist).toHaveBeenCalledWith("user-1", CONFIRM_PAYLOAD);
-    expect(container.querySelector("[data-testid='source-cluster']")).not.toBeNull();
-    // Onboarding-gate invariant: the interview stage must never stamp user_onboarded_at.
-    expect(mockMarkOnboardingComplete).not.toHaveBeenCalled();
+    // The standalone source/cluster step is gone — the chat's pickers are the source surface.
+    expect(container.querySelector("[data-testid='source-cluster']")).toBeNull();
     // Success clears the resumable transcript.
     expect(mockClearSession).toHaveBeenCalledTimes(1);
   });
 
-  it("stamps the onboarding gate ONLY at the true flow end (after the source step) — AC7", async () => {
+  it("stamps the onboarding gate at the true flow end — the end of the chat (#20) — AC7", async () => {
     mockPersist.mockResolvedValue(TERMINAL_OK as unknown as Awaited<ReturnType<typeof persistOnboardingTerminal>>);
 
     await reachInterview();
-    await clickConfirm();
-    // At the source step, the gate is STILL not stamped (2026-06-30 gate rule).
+    // Before the closing-arc confirm, the gate must not be stamped (2026-06-30 gate rule).
     expect(mockMarkOnboardingComplete).not.toHaveBeenCalled();
 
-    const sourceDone = container.querySelector<HTMLButtonElement>("[data-testid='source-done']");
-    await act(async () => {
-      sourceDone?.click();
-    });
+    await clickConfirm();
 
-    // Completing the source step is the true flow end → stamp fires exactly once, scoped to the user.
+    // The chat (which now absorbs source picking) is the true flow end → stamp fires exactly once.
     expect(mockMarkOnboardingComplete).toHaveBeenCalledTimes(1);
     expect(mockMarkOnboardingComplete).toHaveBeenCalledWith("user-1");
   });
