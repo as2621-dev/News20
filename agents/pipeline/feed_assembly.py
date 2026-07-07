@@ -95,6 +95,26 @@ logger = get_logger("pipeline.feed_assembly")
 # totalling to 30 when source categories (youtube/x) are budgeted-but-empty.
 FEED_SLOT_BUDGET = 30  # N = 30 per-user feed budget ("Build your 30")
 
+# Reason (issue #39): the niche-section importance floor — recency must never impersonate
+# importance. A section candidate below this 0–1 importance bar loses the slot even when
+# fresh enough to clear the Score threshold T; the slot climbs the honest ladder (stamped
+# ``feed_fallback_source_level``) or falls through to the importance-ranked beyond-bubble
+# backfill instead. Applies at EVERY ladder rung (leaf/parent/grandparent) so a below-floor
+# story cannot re-enter one level up. Inclusive (``>=`` fills). Scoped to niche-section fill
+# ONLY: source/X-theme slots are follows (not importance-ranked; their synthetic importance
+# is 0.0) and beyond-bubble is already importance-RANKED and must complete the 30 — all
+# exempt. The coarse (roots-only) allocator is untouched (byte-identical regression guard).
+# Value: parity with the produce gate's _DEFAULT_MIN_IMPORTANCE (0.05) — what was worth
+# producing is worth placing, re-checked at assembly (defense in depth for fail-open /
+# auto-exempt produce paths). The discriminating power lives on the E1 cluster-importance
+# path (prod default ON): bottom-of-category noise is floored. Under the clustering-off
+# outlet-count fallback the floor is a degenerate guard only — a 1-outlet story scores
+# 1/12 ≈ 0.083 and PASSES deliberately, because micro-niche scoops are single-outlet by
+# design (the DOC-scalpel contract; see test_anchor_scalpel end-to-end) and raw outlet
+# count cannot tell a scoop from trivia at 1 outlet. First-draft constant — tuned in the
+# M2 validation slice (no config surface).
+NICHE_SECTION_IMPORTANCE_FLOOR = 0.05
+
 # Reason: a mute must match whole words, not substrings — a raw substring "ai" would nuke
 # "Spain"/"rain", and "f1" inside "of10k"; word-boundary matching keeps a mute honest.
 # Terms shorter than this are ignored (too broad to hard-filter safely).
@@ -851,6 +871,9 @@ def _fill_niche_section(
 
       1. **Direct fill** — take top-``Score ≥ T`` stories tagged at the leaf
          (``fallback_depth == 0``) — no fallback metadata; the interview's promise kept.
+         Every rung additionally applies the importance floor
+         (:data:`NICHE_SECTION_IMPORTANCE_FLOOR`, issue #39): a fresh-but-below-floor
+         candidate never fills — the slot climbs (stamped) or falls to beyond-bubble.
       2. **One-level climb** — if the section is still short AND not strict, climb to the
          parent (``fallback_depth == 1``), then the grandparent (2), taking only enough to
          top up. Each climbed slot is stamped with its climb level so the UI labels the
@@ -905,8 +928,36 @@ def _fill_niche_section(
             fallback_depth=fallback_depth,
             cluster_importance_by_story=cluster_importance_by_story,
         )
+        # Reason (issue #39): the importance floor — a candidate below the bar never
+        # fills a section slot, even when fresh enough to clear T; the slot climbs the
+        # honest ladder (or falls to beyond-bubble) instead. ``candidate.importance`` is
+        # the E1 cluster importance when clustered and the raw outlet-count fallback when
+        # clustering is off, so the floor degrades transparently with the signal.
+        eligible = [
+            candidate
+            for candidate in node_scored
+            if candidate.importance >= NICHE_SECTION_IMPORTANCE_FLOOR
+        ]
+        floored_qualifying_count = sum(
+            1
+            for candidate in node_scored
+            if candidate.importance < NICHE_SECTION_IMPORTANCE_FLOOR
+            and candidate.score >= score_threshold
+            and candidate.story_id not in used_story_ids
+            and candidate.story_id not in excluded_story_ids
+        )
+        if floored_qualifying_count:
+            logger.info(
+                "niche_section_slot_floored",
+                section_interest_id=section_interest_id,
+                fallback_rung=fallback_depth,
+                floored_candidate_count=floored_qualifying_count,
+                importance_floor=NICHE_SECTION_IMPORTANCE_FLOOR,
+                fix_suggestion="Fresh-but-below-floor candidates yielded the slot to the "
+                "honest ladder; raise coverage for this niche or tune the floor in M2.",
+            )
         taken = _take_top_qualifying(
-            candidates=node_scored,
+            candidates=eligible,
             count=remaining,
             used_story_ids=used_story_ids,
             excluded_story_ids=excluded_story_ids,

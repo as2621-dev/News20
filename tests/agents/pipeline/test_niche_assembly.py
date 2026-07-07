@@ -884,3 +884,226 @@ def test_category_override_pins_merged_story_into_beyond_bubble_root() -> None:
     # With the pin the story lands in the ai beyond-bubble slot.
     assert [slot.feed_story_id for slot in pinned] == ["merged-0"]
     assert pinned[0].feed_section_label == BEYOND_BUBBLE_LABEL
+
+
+# ── Importance floor: below-floor leaves climb honestly, never fill on recency (#39) ──
+
+
+def test_below_floor_leaf_loses_slot_to_climb_rung_stamped() -> None:
+    """A fresh-but-unimportant leaf candidate loses its slot to the honest climb rung.
+
+    WHY (issue #39): recency must never impersonate importance. A leaf story that is
+    fresh enough to score above T but sits below the importance floor would previously
+    fill the slot "just for being fresh" — now the slot climbs one level and the climbed
+    slot is STAMPED (``feed_fallback_source_level == 1``), exactly like thin days.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [_niche_row(_IPL, "IPL", slot_count=2, sort_order=0)]
+    stories, tags = [], []
+    for sid in ("ipl-strong", "ipl-weak"):
+        stories.append(_story(sid))
+        tags += _chain_tags(sid, [_IPL, _CRICKET, _SPORT])
+    stories.append(_story("cricket-strong"))
+    tags += _chain_tags("cricket-strong", [_CRICKET, _SPORT])
+
+    slots = _run(
+        profile,
+        alloc,
+        stories,
+        tags,
+        feed_slot_budget=2,
+        # E1 cluster importance: ipl-weak is fresh but BELOW the floor.
+        cluster_importance_by_story={
+            "ipl-strong": 0.9,
+            "ipl-weak": 0.02,
+            "cricket-strong": 0.8,
+        },
+    )
+
+    assert len(slots) == 2
+    by_story = {slot.feed_story_id: slot for slot in slots}
+    # The at/above-floor leaf fills DIRECT; the below-floor leaf is gone entirely
+    # (it may not re-enter via the parent rung either — floor holds at every rung).
+    assert "ipl-weak" not in by_story
+    assert by_story["ipl-strong"].feed_fallback_source_level == 0
+    assert by_story["ipl-strong"].feed_matched_interest_id == _IPL
+    # The slot it lost goes to the CLIMB rung, honestly stamped.
+    assert by_story["cricket-strong"].feed_fallback_source_level == 1
+    assert by_story["cricket-strong"].feed_matched_interest_id == _CRICKET
+    assert by_story["cricket-strong"].feed_section_interest_id == _IPL
+
+
+def test_leaf_exactly_at_floor_fills_direct() -> None:
+    """A leaf candidate EXACTLY at the floor fills the leaf slot (>= semantics).
+
+    WHY: the floor is inclusive — "at the bar" passes, so tuning the constant in M2
+    moves a sharp, predictable boundary (no off-by-one ambiguity at the floor value).
+    """
+    from agents.pipeline.feed_assembly import NICHE_SECTION_IMPORTANCE_FLOOR
+
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [_niche_row(_IPL, "IPL", slot_count=1, sort_order=0)]
+    stories = [_story("ipl-at-floor")]
+    tags = _chain_tags("ipl-at-floor", [_IPL, _CRICKET, _SPORT])
+
+    slots = _run(
+        profile,
+        alloc,
+        stories,
+        tags,
+        feed_slot_budget=1,
+        cluster_importance_by_story={"ipl-at-floor": NICHE_SECTION_IMPORTANCE_FLOOR},
+    )
+
+    assert [slot.feed_story_id for slot in slots] == ["ipl-at-floor"]
+    assert slots[0].feed_fallback_source_level == 0
+
+
+def test_all_leaves_below_floor_climb_never_pad() -> None:
+    """ALL leaf candidates below floor on a thin day → honest climb, never a padded leaf.
+
+    WHY (issue #39 edge): a section whose entire leaf pool is fresh-but-trivial must not
+    quietly pad itself with those leaves — every filled slot comes from the climb rung,
+    stamped, so the user sees the substitution.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [_niche_row(_IPL, "IPL", slot_count=2, sort_order=0)]
+    stories, tags = [], []
+    for index in range(2):  # every direct IPL story is below the floor
+        sid = f"ipl-weak-{index}"
+        stories.append(_story(sid))
+        tags += _chain_tags(sid, [_IPL, _CRICKET, _SPORT])
+    for index in range(2):
+        sid = f"cricket-{index}"
+        stories.append(_story(sid))
+        tags += _chain_tags(sid, [_CRICKET, _SPORT])
+
+    slots = _run(
+        profile,
+        alloc,
+        stories,
+        tags,
+        feed_slot_budget=2,
+        cluster_importance_by_story={
+            "ipl-weak-0": 0.04,
+            "ipl-weak-1": 0.02,
+            "cricket-0": 0.8,
+            "cricket-1": 0.7,
+        },
+    )
+
+    assert len(slots) == 2
+    # NOT ONE below-floor leaf filled — no padded leaf slot exists.
+    assert all(not slot.feed_story_id.startswith("ipl-weak") for slot in slots)
+    assert all(slot.feed_fallback_source_level == 1 for slot in slots)
+    assert all(slot.feed_section_interest_id == _IPL for slot in slots)
+
+
+def test_whole_ladder_below_floor_backfills_beyond_bubble() -> None:
+    """Whole ladder below floor → beyond-bubble still completes the feed, honestly labeled.
+
+    WHY (issue #39 edge): the floor must never starve a section into a SHORT feed. When
+    every rung of the ladder is below the floor, the slots fall through to the
+    importance-ranked beyond-bubble backfill — full feed, honest labels.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [
+        _niche_row(_IPL, "IPL", slot_count=2, sort_order=0),
+        _beyond_row("ai", sort_order=1),
+    ]
+    stories, tags = [], []
+    ladder_importance: dict[str, float] = {}
+    for sid, chain in (
+        ("ipl-weak", [_IPL, _CRICKET, _SPORT]),
+        ("cricket-weak", [_CRICKET, _SPORT]),
+        ("sport-weak", [_SPORT]),
+    ):
+        stories.append(_story(sid))
+        tags += _chain_tags(sid, chain)
+        ladder_importance[sid] = 0.02  # every rung below the floor
+    for index in range(3):  # the un-lit-root backbone
+        sid = f"ai-{index}"
+        stories.append(_story(sid, outlet_count=6))
+        tags += _chain_tags(sid, [_AI])
+
+    slots = _run(
+        profile,
+        alloc,
+        stories,
+        tags,
+        feed_slot_budget=3,
+        cluster_importance_by_story=ladder_importance,
+    )
+
+    # total_target = 2 (ipl) + 1 (ai reserve) = 3 — the feed still completes.
+    assert len(slots) == 3
+    assert all(slot.feed_section_label == BEYOND_BUBBLE_LABEL for slot in slots)
+    assert all(slot.feed_story_id.startswith("ai-") for slot in slots)
+    # No below-floor ladder story leaked in anywhere.
+    assert all("weak" not in slot.feed_story_id for slot in slots)
+
+
+def test_floor_uses_outlet_count_fallback_when_clustering_off() -> None:
+    """Clustering off → the floor gates on the raw outlet-count importance, no crash.
+
+    WHY (issue #39 boundary): with ENABLE_SEMANTIC_CLUSTERING=0 no cluster importance
+    map exists, so a candidate's importance degrades to
+    ``compute_importance_score(story_outlet_count)`` — the floor must use that fallback
+    transparently. On this coarse signal the floor is a DEGENERATE guard only: a
+    zero-coverage candidate (importance 0.0) is floored, while a 1-outlet story
+    (1/12 ≈ 0.083) deliberately PASSES — micro-niche scoops are single-outlet by design
+    (the DOC-scalpel contract) and raw outlet count cannot tell a scoop from trivia.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [_niche_row(_IPL, "IPL", slot_count=2, sort_order=0)]
+    stories, tags = [], []
+    stories.append(_story("ipl-covered", outlet_count=6))  # 6/12 = 0.5 ≥ floor
+    tags += _chain_tags("ipl-covered", [_IPL, _CRICKET, _SPORT])
+    stories.append(_story("ipl-thin", outlet_count=0))  # importance 0.0 < floor
+    tags += _chain_tags("ipl-thin", [_IPL, _CRICKET, _SPORT])
+    stories.append(_story("cricket-covered", outlet_count=6))
+    tags += _chain_tags("cricket-covered", [_CRICKET, _SPORT])
+
+    # NO cluster_importance_by_story — the ENABLE_SEMANTIC_CLUSTERING=0 fallback path.
+    slots = _run(profile, alloc, stories, tags, feed_slot_budget=2)
+
+    assert len(slots) == 2
+    by_story = {slot.feed_story_id: slot for slot in slots}
+    assert "ipl-thin" not in by_story
+    assert by_story["ipl-covered"].feed_fallback_source_level == 0
+    assert by_story["cricket-covered"].feed_fallback_source_level == 1
+
+
+def test_source_slots_exempt_from_importance_floor() -> None:
+    """Followed-source slots are EXEMPT from the floor — a follow is not importance-ranked.
+
+    WHY: the user asked for the creator, not a topic; a followed upload's synthetic
+    candidate carries importance 0.0 by design, so applying the floor there would kill
+    every source slot. The floor is scoped to niche-section fill only.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [
+        NicheAllocationRow(
+            allocation_category="youtube", allocation_slot_count=1, allocation_sort_order=0
+        ),
+        _niche_row(_IPL, "IPL", slot_count=1, sort_order=1),
+    ]
+    stories = [_story("ipl-0")]
+    tags = _chain_tags("ipl-0", [_IPL, _CRICKET, _SPORT])
+    source_story = CanonicalStory(
+        canonical_story_id="yt-0",
+        canonical_title="YT upload",
+        canonical_url="https://youtube.com/watch?v=1",
+        canonical_normalized_url="https://youtube.com/watch?v=1",
+        canonical_published_utc=_NOW,
+        canonical_primary_outlet_domain="youtube.com",
+        covering_outlets=[],
+        story_outlet_count=0,  # importance 0.0 — below the floor, and irrelevant
+    )
+
+    slots = _run(
+        profile, alloc, stories, tags, feed_slot_budget=2, source_stories=[source_story]
+    )
+
+    assert slots[0].feed_slot_kind == SLOT_KIND_SOURCE
+    assert slots[0].feed_story_id == "yt-0"
