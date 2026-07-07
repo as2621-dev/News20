@@ -51,3 +51,22 @@ f58cdc4, now automated). Hard-won details:
 - Pin ALL the twin maps: the panel found a second TS map
   (`interestVector.ts` `INTEREST_ROOT_TO_PINNED_KEY`) with live drift the new
   test didn't cover (→ issue #43). One map per concern, or one test per map.
+
+## #43 resolution — derive the identity half, pin the keys list (b1deef2)
+
+The pinned-key map was the second live instance of this drift class. The fix
+that KILLS the class (vs. hand-adding the 4 missing entries):
+
+- **Derive identity entries from the canonical keys literal** — `{
+  ...Object.fromEntries(ARCHETYPE_CATEGORY_KEYS.map((k) => [k, k])) }` — and
+  keep only genuine legacy alias folds literal. A new root can then never be
+  missing from the identity half.
+- **The derivation just moves the drift target**: now the KEYS LITERAL
+  (`archetypeMatch.ts` `ARCHETYPE_CATEGORY_KEYS`) must be pinned
+  cross-language. A regex parse can't see spread/derived entries, so the
+  Python twin test pins the keys array (`== TOPIC_CATEGORIES`) and a TS-side
+  test pins the map's identity property (`map[key] === key` per key — also
+  catches an alias shadowing an identity entry).
+- Advisory (same file, same shape, no live drift yet):
+  `ENTITY_ROOT_TO_PINNED_KEY` is still a hand-listed identity map over the
+  same 8 keys — derive it the same way if it's ever touched.
