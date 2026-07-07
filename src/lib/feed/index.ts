@@ -5,6 +5,8 @@
  * which provider it got:
  *  - `NEXT_PUBLIC_FEED_SOURCE="fixtures"` → the bundled M0 fixtures (dev only).
  *  - an authed user WITH a `daily_feeds` row → their per-user personalized feed.
+ *  - an authed user whose TODAY is empty (assembly not run yet) → their most recent
+ *    earlier briefing (default path only; explicit-date Archive reads stay exact).
  *  - otherwise → an EMPTY feed (the reel shows its "briefing is being prepared" state).
  *
  * No global fallback (owner rule 2026-06-30): a user with no `daily_feeds` yet is
@@ -18,7 +20,7 @@
 
 import { firstRunFlagKey } from "@/lib/feed/assembleFirstRunFeed";
 import { getFeed as getFixtureFeed } from "@/lib/feed/fixtureFeed";
-import { getDailyFeed } from "@/lib/feed/supabaseFeed";
+import { getDailyFeed, getLatestFeedDate } from "@/lib/feed/supabaseFeed";
 import { logger } from "@/lib/logger";
 import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 import { getCurrentSession } from "@/lib/supabase/auth";
@@ -97,9 +99,25 @@ export async function getReelFeed(feedDate?: string): Promise<ReelFeedResult> {
       if (personalized.length > 0) {
         return toReelFeedResult(personalized, requestedDate);
       }
-      // Onboarding finished but the daily assembly has not populated this user/date yet.
-      // Return EMPTY — never the global seeded pool (owner rule 2026-06-30): the reel
-      // shows "your briefing is being prepared" rather than someone else's stories.
+      // Today's assembly hasn't populated this user/date yet. On the DEFAULT path
+      // (no explicit feedDate — the Archive replay must stay exact-date) replay the
+      // user's most recent OWN briefing instead of dead-ending on "being prepared":
+      // stale-but-mine beats an unescapable empty state. Still never the global pool
+      // (owner rule 2026-06-30) — a brand-new user with no briefing at all keeps the
+      // "being prepared" state until their first assembly lands.
+      if (feedDate === undefined) {
+        const latestEarlierDate = await getLatestFeedDate(session.user.id, requestedDate);
+        if (latestEarlierDate !== null) {
+          const previousBriefing = await getDailyFeed(session.user.id, latestEarlierDate);
+          if (previousBriefing.length > 0) {
+            logger.info("reel_feed_fell_back_to_latest_briefing", {
+              requested_date: requestedDate,
+              served_date: latestEarlierDate,
+            });
+            return toReelFeedResult(previousBriefing, latestEarlierDate);
+          }
+        }
+      }
       logger.info("reel_feed_empty_no_daily_feeds", {
         reason: "no_daily_feeds_for_user",
         feed_date: requestedDate,

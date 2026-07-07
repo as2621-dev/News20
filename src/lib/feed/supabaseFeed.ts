@@ -202,6 +202,47 @@ export async function getFeed(client: SupabaseClient = getSupabaseBrowserClient(
   return (data ?? []).slice(0, FEED_TOTAL).map(mapStoryRow);
 }
 
+/**
+ * Find the user's most recent `daily_feeds` date strictly BEFORE `beforeDate`.
+ *
+ * The "briefing being prepared" fallback seam: when today's assembly has not run
+ * yet, the reel replays the freshest prior briefing instead of dead-ending. RLS
+ * scopes the read to the authed user, so this can only ever see the user's own days.
+ *
+ * @param userId - The authed `users.user_id` (= `auth.uid()`).
+ * @param beforeDate - Exclusive upper bound (ISO `YYYY-MM-DD`), normally today.
+ * @param client - Optional Supabase client (injected in tests).
+ * @returns The latest earlier `feed_date` (ISO `YYYY-MM-DD`), or `null` when the
+ *   user has no earlier briefing at all.
+ * @throws If the query itself fails (not when it is merely empty).
+ *
+ * @example
+ * const lastDate = await getLatestFeedDate(session.user.id, "2026-07-07");
+ * // → "2026-07-06" (or null for a brand-new user)
+ */
+export async function getLatestFeedDate(
+  userId: string,
+  beforeDate: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<string | null> {
+  const { data, error } = await client
+    .from("daily_feeds")
+    .select("feed_date")
+    .eq("feed_user_id", userId)
+    .lt("feed_date", beforeDate)
+    .order("feed_date", { ascending: false })
+    .limit(1)
+    .returns<{ feed_date: string }[]>();
+
+  if (error) {
+    throw new Error(
+      `Failed to look up the latest feed date from Supabase: ${error.message}. ` +
+        "fix_suggestion: confirm daily_feeds RLS allows the authed SELECT.",
+    );
+  }
+  return data?.[0]?.feed_date ?? null;
+}
+
 /** A `daily_feeds` row with its embedded story (the same {@link StoryRow} shape). */
 interface DailyFeedRow {
   feed_position: number;
