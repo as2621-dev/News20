@@ -152,13 +152,16 @@ class TestTypescriptTwinDrift:
     _FEED_BUCKETS_TS = (
         Path(__file__).resolve().parents[3] / "src" / "lib" / "feedBuckets.ts"
     )
+    _ARCHETYPE_MATCH_TS = (
+        Path(__file__).resolve().parents[3] / "src" / "lib" / "archetypeMatch.ts"
+    )
 
-    def _ts_source(self) -> str:
-        assert self._FEED_BUCKETS_TS.is_file(), (
-            f"TS twin missing at {self._FEED_BUCKETS_TS} — if feedBuckets.ts moved, "
-            "update this drift check"
+    def _ts_source(self, ts_path: Path | None = None) -> str:
+        ts_file = ts_path if ts_path is not None else self._FEED_BUCKETS_TS
+        assert ts_file.is_file(), (
+            f"TS twin missing at {ts_file} — if the file moved, update this drift check"
         )
-        return self._FEED_BUCKETS_TS.read_text(encoding="utf-8")
+        return ts_file.read_text(encoding="utf-8")
 
     def _ts_block(self, source: str, marker: str) -> str:
         """Extract the literal block that starts at ``marker`` (up to the closing ``;``).
@@ -212,6 +215,29 @@ class TestTypescriptTwinDrift:
                 f"root {root_slug!r}: TS maps to {bucket_id!r} but Python maps to "
                 f"{SLUG_TO_CATEGORY[root_slug]!r}"
             )
+
+    def test_archetype_category_keys_match_topic_roots(self) -> None:
+        """TS ``ARCHETYPE_CATEGORY_KEYS`` == the 8 Python ``TOPIC_CATEGORIES`` roots.
+
+        WHY (issue #43): ``src/lib/interestVector.ts`` DERIVES the identity
+        entries of ``INTEREST_ROOT_TO_PINNED_KEY`` from ``ARCHETYPE_CATEGORY_KEYS``
+        (post-SP3 the picker roots ARE the pinned archetype keys), so the whole
+        interest-vector roll-up hangs off that literal. If it drifts from the
+        Python taxonomy roots, follows rooted at the divergent root are silently
+        dropped from the vector — the Thirty-tab phantom-block regression. The
+        TS-side identity check lives in ``tests/lib/interestVector.test.ts``; this
+        test pins the cross-language half of the chain.
+        """
+        block = self._ts_block(
+            self._ts_source(self._ARCHETYPE_MATCH_TS),
+            "export const ARCHETYPE_CATEGORY_KEYS",
+        )
+        ts_keys = set(re.findall(r'"([a-z_]+)"', block))
+        assert ts_keys == set(TOPIC_CATEGORIES), (
+            f"ARCHETYPE_CATEGORY_KEYS (TS) != TOPIC_CATEGORIES (Py): "
+            f"TS-only={sorted(ts_keys - set(TOPIC_CATEGORIES))} "
+            f"Py-only={sorted(set(TOPIC_CATEGORIES) - ts_keys)}"
+        )
 
     def test_default_allocation_twin_matches_ordered(self) -> None:
         """``DEFAULT_ALLOCATION_SEGMENTS`` (TS) == ``DEFAULT_FEED_ALLOCATION`` (Py),

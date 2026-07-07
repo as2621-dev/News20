@@ -38,7 +38,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ArchetypeCategoryKey, InterestVector } from "@/lib/archetypeMatch";
+import { ARCHETYPE_CATEGORY_KEYS, type ArchetypeCategoryKey, type InterestVector } from "@/lib/archetypeMatch";
 import { logger } from "@/lib/logger";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -63,51 +63,60 @@ const AI_INTEREST_ROOT = "tech";
 const AI_INTEREST_SUBROOT = "ai";
 
 /**
+ * Identity entries for the 8 pinned archetype keys, DERIVED from
+ * {@link ARCHETYPE_CATEGORY_KEYS} (`ai, geopolitics, business, environment,
+ * politics, tech, sport, arts`). Post-SP3 the 8 onboarding picker roots ARE the 8
+ * pinned keys, and the canonical profile slugs (migrations 0023/0024) are rooted
+ * at them directly (`ai.business.startups`, `politics.elections`, …).
+ *
+ * Reason (issue #43): hand-listing these entries drifted — `ai`/`politics`/
+ * `environment`/`arts` were missing, so follows rooted there were silently
+ * dropped from the vector and the Thirty tab reported "no backing" (phantom
+ * blocks). Deriving from the taxonomy source of truth kills that drift class:
+ * a new pinned key is an identity entry automatically (same drift class as the
+ * 2026-06-17 `SLUG_TO_CATEGORY` incident, f58cdc4).
+ */
+const PINNED_KEY_IDENTITY_ENTRIES: Readonly<Record<string, ArchetypeCategoryKey>> = Object.fromEntries(
+  ARCHETYPE_CATEGORY_KEYS.map((pinnedKey) => [pinnedKey, pinnedKey]),
+);
+
+/**
  * Map an interest taxonomy ROOT slug → its PINNED archetype-category key.
  *
- * Keys are the depth-0 `interests` roots actually seeded (`supabase/seed/
- * interests.sql`): `world, business, tech, sport, health, entertainment, climate,
- * lifestyle, crypto, science` — plus the segment-accent aliases the locked screen
- * map names (`geopolitics, markets, wildcard`) so the map matches that taxonomy
- * verbatim and stays forward-compatible. Values are the 8 PINNED keys
- * (`ai|geopolitics|business|environment|politics|tech|sport|arts`).
+ * Two layers:
+ *  1. IDENTITY entries for the 8 post-SP3 picker roots (= the pinned keys),
+ *     derived via {@link PINNED_KEY_IDENTITY_ENTRIES} so they can never drift.
+ *  2. LEGACY alias roots from the pre-SP3 seeded taxonomy (`supabase/seed/
+ *     interests.sql`: `world, health, entertainment, climate, lifestyle, crypto,
+ *     science` + the segment-accent aliases `markets, wildcard`), folded by
+ *     semantics onto the pinned axis.
  *
- * Reason (the non-obvious rolls): the pinned axis has `geopolitics`, `politics`
- * and `environment` keys with no 1:1 interest root, and NO `health`/`crypto`/
- * `markets` pinned key — so we fold by semantics, mirroring the interest segment
+ * Reason (the non-obvious legacy rolls) — the pinned axis has NO `health`/
+ * `crypto`/`markets` key, so pre-SP3 roots fold mirroring the interest segment
  * accents (`interests.sql`):
  *   - `world` → `geopolitics`  ("World & Politics" carries the `geopolitics`
  *     segment accent; the pinned axis splits geopolitics vs politics, but the
  *     seeded interest root is the geopolitics-accented world bucket).
  *   - `climate` → `environment` ("Climate & Environment" → the environment key).
- *   - `business`/`markets`/`crypto` → `business` (the markets-accented roots all
- *     fold into the one `business` pinned key — there is no markets/crypto key).
- *   - `tech`/`science` → `tech` (hard-science folds into tech; `tech.ai*` is the
+ *   - `markets`/`crypto` → `business` (the markets-accented roots fold into the
+ *     one `business` pinned key — there is no markets/crypto key).
+ *   - `science` → `tech` (hard-science folds into tech; `tech.ai*` is the
  *     {@link AI_INTEREST_ROOT} exception → `ai`).
  *   - `health` → `tech` (no health key; health/biotech is closest to the tech/
  *     science axis the archetypes model).
  *   - `entertainment`/`lifestyle`/`wildcard` → `arts` (culture long-tail → arts).
- *   - `sport` → `sport` (direct).
  * A root NOT in this map is dropped from the vector (logged once) rather than
  * mis-bucketed — a wrong bucket is a silent miscategorization (Rule 12).
  */
 export const INTEREST_ROOT_TO_PINNED_KEY: Readonly<Record<string, ArchetypeCategoryKey>> = {
-  // World & Politics → geopolitics
+  ...PINNED_KEY_IDENTITY_ENTRIES,
+  // Legacy pre-SP3 roots / segment-accent aliases (see the fold table above).
   world: "geopolitics",
-  geopolitics: "geopolitics",
-  // Environment
   climate: "environment",
-  // Business (markets/crypto fold in — no separate pinned key)
-  business: "business",
   markets: "business",
   crypto: "business",
-  // Tech & Science (tech.ai* is the AI exception, handled in pinnedKeyForInterestSlug)
-  tech: "tech",
   science: "tech",
   health: "tech",
-  // Sport
-  sport: "sport",
-  // Arts & Culture (entertainment/lifestyle/wildcard long-tail)
   entertainment: "arts",
   lifestyle: "arts",
   wildcard: "arts",
