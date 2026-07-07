@@ -279,20 +279,20 @@ _GUARD_INTEREST_NODES = {
 
 
 @pytest.mark.asyncio
-async def test_cross_category_merge_keeps_representative_category_and_logs_conflict():
-    """(e) Issue #34: a cross-category merge must NOT flip the surviving story into a
-    category contradicting its fetching interest — and the conflict must be logged.
+async def test_cross_category_merge_logs_conflict_and_never_touches_tag_depths():
+    """(e) Issue #34: a cross-category merge whose absorbed member carries a lower-depth
+    FOREIGN tag is a category conflict — it must be logged as a structured
+    ``reconcile_category_conflict`` event, and the remapped tags' ``match_depth`` values
+    must be BYTE-IDENTICAL to their inputs.
 
-    The representative (egypt-a) was fetched via a sport interest (shifted keyword
-    depth 1, the #35 uniform-shift shape); the absorbed member (egypt-b) carries a
-    geopolitics tag at depth 0 that would WIN assign_category's lowest-depth rule
-    after the tag union — silently flipping a sport story into geopolitics. The
-    guard must clamp the foreign tag's depth so the representative's fetching
-    category still wins, and emit a structured ``reconcile_category_conflict``."""
+    WHY the depths must not move (review-panel HIGH): ``story_interest_match_depth`` is
+    also the ranker's DepthMatch input and is persisted verbatim to ``story_interests``
+    — clamping it to steer the category contest would cut a genuine follower of the
+    foreign interest from DepthMatch 1.0 to 0.6/0.3 (or zero it entirely past depth 2).
+    Category ENFORCEMENT without depth mutation is the recorded #34 remainder."""
     from unittest.mock import MagicMock
 
     from agents.pipeline.clustering import reconcile as reconcile_module
-    from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
 
     stories = [
         _story("cand-egypt-a", _TITLE_EGYPT_A, outlet="bbc.com", url="https://bbc.com/egypt-win"),
@@ -317,15 +317,14 @@ async def test_cross_category_merge_keeps_representative_category_and_logs_confl
 
     assert len(result.reconciled_stories) == 1
     shared_id = result.reconciled_stories[0].canonical_story_id
-    # The merged story still classifies into the REPRESENTATIVE's fetching category.
-    merged_category = assign_category(
-        shared_id, _index_tags_by_story(result.reconciled_tags), _GUARD_INTEREST_NODES
-    )
-    assert merged_category == "sport", (
-        "the absorbed member's lower-depth geopolitics tag must not flip the "
-        "representative sport story's category (issue #34 merge guard)"
-    )
-    # The conflict is visible: a structured event fired exactly once.
+    # The ranking-facing depths are UNTOUCHED — remapped onto the shared id verbatim.
+    depth_by_interest = {
+        tag.story_interest_interest_id: tag.story_interest_match_depth
+        for tag in result.reconciled_tags
+    }
+    assert depth_by_interest == {_EGYPT_INTEREST_ID: 1, _GEO_INTEREST_ID: 0}
+    assert all(tag.story_interest_story_id == shared_id for tag in result.reconciled_tags)
+    # The conflict is visible: a structured event fired exactly once, marked unenforced.
     conflict_calls = [
         call for call in fake_logger.info.call_args_list
         if call.args and call.args[0] == "reconcile_category_conflict"
@@ -334,6 +333,7 @@ async def test_cross_category_merge_keeps_representative_category_and_logs_confl
     kwargs = conflict_calls[0].kwargs
     assert kwargs["story_id"] == shared_id
     assert kwargs["representative_category"] == "sport"
+    assert kwargs["guard_enforced"] is False
 
 
 @pytest.mark.asyncio
@@ -374,3 +374,63 @@ async def test_same_category_merge_does_not_log_conflict_or_touch_depths():
     # Existing lowest-depth dedup contract holds unchanged.
     assert len(result.reconciled_tags) == 1
     assert result.reconciled_tags[0].story_interest_match_depth == 0
+
+
+@pytest.mark.asyncio
+async def test_untagged_representative_conflict_is_logged_unenforced_and_tags_pass_through():
+    """(g) Issue #34 boundary (review-panel pin): when the REPRESENTATIVE has no
+    resolvable tags of its own (provisional category = the no-tag fallback) and the
+    absorbed members span two OTHER categories, the conflict is still logged
+    (``guard_enforced=False``) and every remapped tag depth passes through untouched
+    (designed detection-only behavior, Rule 9: pin it or it silently changes)."""
+    from unittest.mock import MagicMock
+
+    from agents.pipeline.clustering import reconcile as reconcile_module
+
+    stories = [
+        # Representative (smallest batch index) — deliberately UNTAGGED.
+        _story("cand-egypt-a", _TITLE_EGYPT_A, outlet="bbc.com", url="https://bbc.com/egypt-win"),
+        _story("cand-egypt-b", _TITLE_EGYPT_B, outlet="reuters.com", url="https://reuters.com/egypt-australia"),
+        _story(
+            "cand-egypt-c",
+            "Egypt penalty-shootout win over Australia sends fans into the streets",
+            outlet="apnews.com",
+            url="https://apnews.com/egypt-celebrations",
+        ),
+    ]
+    tags = [
+        # Two absorbed members tagged in two DIFFERENT foreign categories.
+        StoryInterestTag(story_interest_story_id="cand-egypt-b", story_interest_interest_id=_EGYPT_INTEREST_ID, story_interest_match_depth=0),
+        StoryInterestTag(story_interest_story_id="cand-egypt-c", story_interest_interest_id=_GEO_INTEREST_ID, story_interest_match_depth=0),
+    ]
+    client = _RecordingClient()
+    fake_logger = MagicMock()
+    with (
+        patch("agents.pipeline.clustering.online_clusterer.embed_texts", new=_patched_embed()),
+        patch.object(reconcile_module, "logger", fake_logger),
+    ):
+        result = await reconcile_story_ids_via_clustering(
+            stories, tags,
+            supabase_client=client, llm_client=None, interest_nodes=_GUARD_INTEREST_NODES,
+            resolve_existing_story_ids=lambda urls: {}, now_utc=_NOW,
+            mint_cluster_id=_mint_cluster_counter(),
+        )
+
+    # All three collapsed onto the untagged representative's id.
+    assert len(result.reconciled_stories) == 1
+    shared_id = result.reconciled_stories[0].canonical_story_id
+    # The conflict fired once, explicitly UNENFORCED.
+    conflict_calls = [
+        call for call in fake_logger.info.call_args_list
+        if call.args and call.args[0] == "reconcile_category_conflict"
+    ]
+    assert len(conflict_calls) == 1
+    assert conflict_calls[0].kwargs["guard_enforced"] is False
+    assert conflict_calls[0].kwargs["story_id"] == shared_id
+    # Nothing was clamped: both remapped tags keep depth 0.
+    depth_by_interest = {
+        tag.story_interest_interest_id: tag.story_interest_match_depth
+        for tag in result.reconciled_tags
+    }
+    assert depth_by_interest == {_EGYPT_INTEREST_ID: 0, _GEO_INTEREST_ID: 0}
+    assert all(tag.story_interest_story_id == shared_id for tag in result.reconciled_tags)

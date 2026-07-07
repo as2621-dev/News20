@@ -893,10 +893,12 @@ async def run_daily_pipeline(
                 candidate_count=len(stories),
                 fix_suggestion=(
                     "Semantic reconcile failed mid-run; the batch fell back to the "
-                    "legacy un-clustered pool (raw outlet-count importance, no "
-                    "same-event collapse). Check Gemini embedding availability/quota "
-                    "(gemini-embedding-001) and story_clusters DB access, then re-run "
-                    "— cluster persistence is idempotent upserts."
+                    "legacy un-clustered pool (raw outlet-count importance). The "
+                    "same-event collapse is PERMANENTLY skipped for this batch's "
+                    "candidates — once they are produced un-merged, produce-once "
+                    "keeps the duplicates. Fix Gemini embedding availability/quota "
+                    "(gemini-embedding-001) or story_clusters DB access BEFORE the "
+                    "next batch."
                 ),
             )
         else:

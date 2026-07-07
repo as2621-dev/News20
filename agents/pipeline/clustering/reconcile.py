@@ -190,7 +190,7 @@ async def reconcile_story_ids_via_clustering(
     reconciled_tags = _remap_tags(
         story_interest_tags, stories=stories, shared_id_by_index=shared_id_by_index
     )
-    reconciled_tags = _guard_category_precedence(
+    _log_cross_category_merge_conflicts(
         reconciled_tags,
         stories=stories,
         shared_id_by_index=shared_id_by_index,
@@ -456,33 +456,34 @@ def _remap_tags(
     return [best_by_edge[edge] for edge in sorted(best_by_edge)]
 
 
-def _guard_category_precedence(
+def _log_cross_category_merge_conflicts(
     reconciled_tags: list[StoryInterestTag],
     *,
     stories: list[CanonicalStory],
     shared_id_by_index: dict[int, str],
     provisional_categories: list[FeedCategory],
     interest_nodes: dict[str, InterestNode],
-) -> list[StoryInterestTag]:
-    """Keep a merged story in its representative's fetching category (issue #34).
+) -> None:
+    """Detect + log cross-category merge conflicts (issue #34) — detection ONLY.
 
     A cross-category merge (deliberate — ``block_by_category=False``) unions tags from
     members whose FETCHING interests live under different roots. Downstream
     ``assign_category`` picks the lowest-depth tag, so an absorbed member's lower-depth
-    foreign tag would silently FLIP the surviving story's category away from its fetching
-    interest — contradicting the #35 precedence doctrine (fetching interest wins).
+    foreign tag can FLIP the surviving story's category away from its fetching
+    interest's — contradicting the #35 precedence doctrine. This logs every such
+    contest as a structured ``reconcile_category_conflict`` event (extending #35's
+    conflict-visibility pattern).
 
-    For each merged group whose merged tags span more than one root category, this clamps
-    any foreign-category tag that would win (or tie) the lowest-depth contest to one depth
-    BELOW the representative's own best tag, and logs a structured
-    ``reconcile_category_conflict`` event (extending #35's conflict-visibility pattern —
-    resolved deterministically, never silent). Same-category merges and un-merged stories
-    pass through untouched. When the representative has no resolvable tag on the merged
-    story (its provisional category was the no-tag fallback) nothing can be enforced —
-    the conflict is still logged (``guard_enforced=False``).
+    It deliberately does NOT touch ``story_interest_match_depth``: that field is also
+    the ranker's DepthMatch input and is persisted verbatim to ``story_interests``
+    (``persist_helpers.build_story_interest_rows``), so clamping it to steer the
+    category contest would corrupt a genuine follower's affinity (issue #34 review-
+    panel HIGH). Enforcement — pinning the merged story to its representative's
+    category WITHOUT touching depths (a ``category_override_by_story`` map threaded to
+    the ``assign_category`` call sites) — is the recorded #34 remainder.
 
     Args:
-        reconciled_tags: The remapped/deduped tags from :func:`_remap_tags`.
+        reconciled_tags: The remapped/deduped tags from :func:`_remap_tags` (read-only).
         stories: The ORIGINAL candidate pool (representative choice parity with
             :func:`_collapse_stories`).
         shared_id_by_index: ``{story_index: shared_story_id}`` merge mapping.
@@ -490,81 +491,34 @@ def _guard_category_precedence(
             ``ClusterInput.input_provisional_category`` values — fetching-interest
             derived via ``assign_category``).
         interest_nodes: Taxonomy lookup to resolve each tag's root category.
-
-    Returns:
-        The tags with foreign-category depths clamped where a flip would occur.
     """
     indices_by_shared_id: dict[str, list[int]] = {}
     for index, shared_id in shared_id_by_index.items():
         indices_by_shared_id.setdefault(shared_id, []).append(index)
 
-    adjusted_depth_by_edge: dict[tuple[str, str], int] = {}
     for shared_id, indices in indices_by_shared_id.items():
         if len(indices) < 2:
             continue
         # Resolve each merged tag's root category (orphan tags cannot be categorized —
         # assign_category ignores them too, so they cannot cause a flip). The conflict
         # decision keys on the MERGED TAGS' categories, not the members' provisional
-        # ones — an absorbed member with no tags (provisional = the no-tag fallback)
-        # contributes nothing to the category contest and is not a conflict.
-        group_tags = [
-            (tag, category_for_slug(interest_nodes[tag.story_interest_interest_id].interest_slug))
+        # ones — an absorbed member with no tags contributes nothing to the contest.
+        tag_categories = {
+            category_for_slug(interest_nodes[tag.story_interest_interest_id].interest_slug)
             for tag in reconciled_tags
             if tag.story_interest_story_id == shared_id
             and tag.story_interest_interest_id in interest_nodes
-        ]
-        contender_categories = {tag_category for _tag, tag_category in group_tags}
-        if len(contender_categories) <= 1:
+        }
+        if len(tag_categories) <= 1:
             continue
         representative_index = _pick_representative_index(stories, sorted(indices), shared_id)
-        representative_category = provisional_categories[representative_index]
-        aligned_depths = [
-            tag.story_interest_match_depth
-            for tag, tag_category in group_tags
-            if tag_category == representative_category
-        ]
-        if not aligned_depths:
-            logger.info(
-                "reconcile_category_conflict",
-                story_id=shared_id,
-                representative_category=representative_category,
-                contender_categories=sorted(contender_categories),
-                guard_enforced=False,
-            )
-            continue
-        representative_best_depth = min(aligned_depths)
-        clamped = 0
-        for tag, tag_category in group_tags:
-            if (
-                tag_category != representative_category
-                and tag.story_interest_match_depth <= representative_best_depth
-            ):
-                edge = (shared_id, tag.story_interest_interest_id)
-                adjusted_depth_by_edge[edge] = representative_best_depth + 1
-                clamped += 1
         logger.info(
             "reconcile_category_conflict",
             story_id=shared_id,
-            representative_category=representative_category,
-            contender_categories=sorted(contender_categories),
-            clamped_tag_count=clamped,
-            guard_enforced=True,
+            representative_category=provisional_categories[representative_index],
+            contender_categories=sorted(tag_categories),
+            guard_enforced=False,
         )
-
-    if not adjusted_depth_by_edge:
-        return reconciled_tags
-    return [
-        tag.model_copy(
-            update={
-                "story_interest_match_depth": adjusted_depth_by_edge[
-                    (tag.story_interest_story_id, tag.story_interest_interest_id)
-                ]
-            }
-        )
-        if (tag.story_interest_story_id, tag.story_interest_interest_id) in adjusted_depth_by_edge
-        else tag
-        for tag in reconciled_tags
-    ]
 
 
 def _score_run(run: ClusterRun, *, now_utc: datetime) -> ClusterRun:
