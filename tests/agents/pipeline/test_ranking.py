@@ -588,6 +588,101 @@ class TestAssignCategory:
         """Edge: an untagged story classifies to the default, never raising."""
         assert assign_category("missing", {}, {}) == "arts"
 
+    def test_no_tags_fallback_is_loud_never_silent(self, monkeypatch) -> None:
+        """Issue #35: the no-tag arts fallback is a DEFINED, LOGGED fallback.
+
+        WHY: a beyond-bubble story with no fetching interest and no matched theme
+        must never silently land in arts — the fallback warns with the story id and
+        a fix_suggestion so the gap is operator-visible.
+        """
+        from unittest.mock import MagicMock
+
+        from agents.pipeline.stages import ranking as ranking_module
+
+        fake_logger = MagicMock()
+        monkeypatch.setattr(ranking_module, "logger", fake_logger)
+
+        assert assign_category("orphan-story", {}, {}) == "arts"
+
+        fake_logger.warning.assert_called_once()
+        event = fake_logger.warning.call_args.args[0]
+        kwargs = fake_logger.warning.call_args.kwargs
+        assert event == "category_fallback_no_tags"
+        assert kwargs["story_id"] == "orphan-story"
+        assert "fix_suggestion" in kwargs
+
+    def test_same_depth_cross_root_conflict_is_logged(self, monkeypatch) -> None:
+        """Issue #35 edge: two fetching interests under DIFFERENT roots, same depth.
+
+        WHY: the existing lowest-depth rule (slug tiebreak at equal depth) decides —
+        but a cross-root contest is information the operator needs, so it is logged
+        as a structured conflict event with contenders + winner.
+        """
+        from unittest.mock import MagicMock
+
+        from agents.pipeline.stages import ranking as ranking_module
+
+        fake_logger = MagicMock()
+        monkeypatch.setattr(ranking_module, "logger", fake_logger)
+
+        nodes = {
+            "int-nvda": InterestNode(
+                interest_id="int-nvda",
+                parent_interest_id=None,
+                interest_slug="tech.semiconductors",
+                interest_label="Semiconductors",
+            ),
+            "int-ipl": InterestNode(
+                interest_id="int-ipl",
+                parent_interest_id=None,
+                interest_slug="sport.cricket.ipl",
+                interest_label="IPL",
+            ),
+        }
+        tags_by_story = {"s1": {"int-nvda": 0, "int-ipl": 0}}
+
+        # Slug tiebreak at equal depth: 'sport.cricket.ipl' < 'tech.semiconductors'.
+        assert assign_category("s1", tags_by_story, nodes) == "sport"
+
+        fake_logger.info.assert_called_once()
+        event = fake_logger.info.call_args.args[0]
+        kwargs = fake_logger.info.call_args.kwargs
+        assert event == "category_conflict_lowest_depth_won"
+        assert kwargs["story_id"] == "s1"
+        assert kwargs["winner_category"] == "sport"
+        assert set(kwargs["contender_categories"]) == {"sport", "tech"}
+
+    def test_single_root_at_lowest_depth_logs_no_conflict(self, monkeypatch) -> None:
+        """A depth-decided contest (leaf sport vs grandparent world) is the DESIGNED
+        precedence, not a conflict — no conflict event fires."""
+        from unittest.mock import MagicMock
+
+        from agents.pipeline.stages import ranking as ranking_module
+
+        fake_logger = MagicMock()
+        monkeypatch.setattr(ranking_module, "logger", fake_logger)
+
+        nodes = {
+            "int-cricket": InterestNode(
+                interest_id="int-cricket",
+                parent_interest_id=None,
+                interest_slug="sport.cricket.india",
+                interest_label="India",
+            ),
+            "int-world": InterestNode(
+                interest_id="int-world",
+                parent_interest_id=None,
+                interest_slug="world",
+                interest_label="World",
+            ),
+        }
+        assert (
+            assign_category("s1", {"s1": {"int-cricket": 0, "int-world": 2}}, nodes)
+            == "sport"
+        )
+        fake_logger.info.assert_not_called()
+        fake_logger.warning.assert_not_called()
+
 
 class TestScoreAndClassifyReturnsAllTenKeys:
     """The SP3 handoff contract — all 10 keys, source buckets empty (no breaking)."""

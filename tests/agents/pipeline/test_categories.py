@@ -11,11 +11,17 @@ Pure functions / pure data — no DB, no LLM, no clock.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+from typing import get_args
+
 from agents.pipeline.categories import (
     DEFAULT_CATEGORY,
     DEFAULT_FEED_ALLOCATION,
+    SLUG_TO_CATEGORY,
     SOURCE_CATEGORIES,
     TOPIC_CATEGORIES,
+    FeedCategory,
     category_for_slug,
     empty_category_buckets,
 )
@@ -128,3 +134,82 @@ class TestKeyCompleteness:
         buckets = empty_category_buckets()
         assert frozenset(buckets.keys()) == _ALL_TEN_KEYS
         assert all(bucket_items == [] for bucket_items in buckets.values())
+
+
+class TestTypescriptTwinDrift:
+    """Automated Python ↔ TS twin drift check (issue #35, 2026-06-17 precedent).
+
+    WHY: on 2026-06-17 the backend ``SLUG_TO_CATEGORY`` drifted from the TS twin
+    (``src/lib/feedBuckets.ts`` was missing ai/politics/environment parity) and AI
+    feeds silently collapsed into culture/markets (fixed in f58cdc4 by eyeball).
+    These tests parse the CHECKED-IN TS source, so any future divergence between
+    the Python taxonomy and the frontend twin fails CI instead of waiting for a
+    human to notice mis-bucketed feeds. Regex-on-source is deliberately the least
+    brittle mechanism available here: pytest cannot execute TS, and both literals
+    are plain data blocks pinned by these very tests.
+    """
+
+    _FEED_BUCKETS_TS = (
+        Path(__file__).resolve().parents[3] / "src" / "lib" / "feedBuckets.ts"
+    )
+
+    def _ts_source(self) -> str:
+        assert self._FEED_BUCKETS_TS.is_file(), (
+            f"TS twin missing at {self._FEED_BUCKETS_TS} — if feedBuckets.ts moved, "
+            "update this drift check"
+        )
+        return self._FEED_BUCKETS_TS.read_text(encoding="utf-8")
+
+    def _ts_block(self, source: str, marker: str) -> str:
+        """Extract the literal block that starts at ``marker`` (up to the closing ``;``)."""
+        start = source.index(marker)
+        return source[start : source.index(";", start)]
+
+    def test_design_bucket_ids_match_feed_category_literal(self) -> None:
+        """The TS ``DesignBucketId`` union == the Python ``FeedCategory`` Literal."""
+        block = self._ts_block(self._ts_source(), "export type DesignBucketId")
+        ts_ids = set(re.findall(r'"([a-z_]+)"', block))
+        py_ids = set(get_args(FeedCategory))
+        assert ts_ids == py_ids, (
+            f"DesignBucketId (TS) != FeedCategory (Py): "
+            f"TS-only={sorted(ts_ids - py_ids)} Py-only={sorted(py_ids - ts_ids)}"
+        )
+
+    def test_picker_roots_all_present_in_slug_to_category(self) -> None:
+        """Every TS picker root maps identically in Python ``SLUG_TO_CATEGORY``.
+
+        This is EXACTLY the 2026-06-17 drift: SLUG_TO_CATEGORY missing
+        ai/politics/environment while the TS twin carried them.
+        """
+        block = self._ts_block(
+            self._ts_source(), "export const PICKER_ROOT_TO_CATEGORY_BUCKET"
+        )
+        ts_roots = dict(
+            re.findall(r'^\s*([a-z_]+):\s*"([a-z_]+)"', block, re.MULTILINE)
+        )
+        assert ts_roots, "failed to parse PICKER_ROOT_TO_CATEGORY_BUCKET from TS"
+        for root_slug, bucket_id in ts_roots.items():
+            assert root_slug in SLUG_TO_CATEGORY, (
+                f"TS picker root {root_slug!r} missing from Python SLUG_TO_CATEGORY "
+                "(the 2026-06-17 drift class — add it)"
+            )
+            assert SLUG_TO_CATEGORY[root_slug] == bucket_id, (
+                f"root {root_slug!r}: TS maps to {bucket_id!r} but Python maps to "
+                f"{SLUG_TO_CATEGORY[root_slug]!r}"
+            )
+
+    def test_default_allocation_twin_matches_ordered(self) -> None:
+        """``DEFAULT_ALLOCATION_SEGMENTS`` (TS) == ``DEFAULT_FEED_ALLOCATION`` (Py),
+        same keys, counts AND order (both sides document the order as meaningful)."""
+        block = self._ts_block(
+            self._ts_source(), "export const DEFAULT_ALLOCATION_SEGMENTS"
+        )
+        ts_segments = [
+            (key, int(count))
+            for key, count in re.findall(r'\[\s*"([a-z_]+)"\s*,\s*(\d+)\s*\]', block)
+        ]
+        assert ts_segments, "failed to parse DEFAULT_ALLOCATION_SEGMENTS from TS"
+        py_segments = list(DEFAULT_FEED_ALLOCATION.items())
+        assert ts_segments == py_segments, (
+            f"allocation twins drifted: TS={ts_segments} Py={py_segments}"
+        )

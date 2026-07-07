@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from agents.pipeline import theme_category
-from agents.pipeline.categories import DEFAULT_CATEGORY, TOPIC_CATEGORIES
+from agents.pipeline.categories import TOPIC_CATEGORIES
 from agents.pipeline.theme_category import (
     THEME_CATEGORY_WHITELIST,
     category_for_themes,
@@ -75,25 +75,32 @@ class TestTiebreak:
         assert category_for_themes(themes) == "geopolitics"
 
 
-class TestNoWhitelistedThemeFallback:
-    """(c) A list with no whitelisted theme → DEFAULT_CATEGORY AND a warning."""
+class TestNoWhitelistedThemeReturnsNone:
+    """(c) A list with no whitelisted theme → ``None`` AND a warning.
 
-    def test_unknown_themes_fall_back_to_default(self) -> None:
-        assert category_for_themes(["TOTALLY_UNKNOWN", "ALSO_FAKE"]) == DEFAULT_CATEGORY
+    WHY (issue #35): returning a category here is exactly the arts-default bug — the
+    caller stamped the fallback at depth 0 and overrode the fetching interest. ``None``
+    means "themes carry no category signal"; precedence then belongs to the fetching
+    interest's root. A regression to returning DEFAULT_CATEGORY re-breaks precedence,
+    so these assert ``is None`` (a test passing with the old arts-default is wrong).
+    """
+
+    def test_unknown_themes_return_none(self) -> None:
+        assert category_for_themes(["TOTALLY_UNKNOWN", "ALSO_FAKE"]) is None
 
     def test_unknown_themes_emit_warning_with_fix_suggestion(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # WHY (Rule 12, fail loud): an un-mappable story must not be silently dropped
-        # — it falls back AND surfaces a structured warning telling the operator to
-        # extend the whitelist. We patch the module logger (structlog→stdlib caplog
-        # routing is environment-fragile; patching the boundary is deterministic).
+        # WHY (Rule 12, fail loud): an un-mappable theme list still surfaces a
+        # structured warning telling the operator to extend the whitelist. We patch
+        # the module logger (structlog→stdlib caplog routing is environment-fragile;
+        # patching the boundary is deterministic).
         fake_logger = MagicMock()
         monkeypatch.setattr(theme_category, "logger", fake_logger)
 
         result = category_for_themes(["NOPE_NOT_A_THEME"])
 
-        assert result == DEFAULT_CATEGORY
+        assert result is None
         fake_logger.warning.assert_called_once()
         event = fake_logger.warning.call_args.args[0]
         kwargs = fake_logger.warning.call_args.kwargs
@@ -102,10 +109,10 @@ class TestNoWhitelistedThemeFallback:
         assert "whitelist" in kwargs["fix_suggestion"].lower()
 
 
-class TestEmptyListFallback:
-    """(d) Empty list → DEFAULT_CATEGORY + warning (same fail-loud path as (c))."""
+class TestEmptyListReturnsNone:
+    """(d) Empty list → ``None`` + warning (same no-signal path as (c))."""
 
-    def test_empty_list_falls_back_and_warns(
+    def test_empty_list_returns_none_and_warns(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         fake_logger = MagicMock()
@@ -113,7 +120,7 @@ class TestEmptyListFallback:
 
         result = category_for_themes([])
 
-        assert result == DEFAULT_CATEGORY
+        assert result is None
         fake_logger.warning.assert_called_once()
         assert (
             fake_logger.warning.call_args.args[0]

@@ -860,7 +860,15 @@ def assign_category(
          :func:`agents.pipeline.categories.category_for_slug`.
 
     A story with NO resolvable tag (no tags, or none of its tags' interests are in
-    the taxonomy) falls back to :data:`DEFAULT_CATEGORY` so it is never dropped.
+    the taxonomy) falls back to :data:`DEFAULT_CATEGORY` so it is never dropped —
+    LOGGED, never silent (issue #35: e.g. a beyond-bubble story with no fetching
+    interest and no matched theme must be operator-visible, not quietly arts).
+
+    When several tags at the same lowest depth resolve to DIFFERENT categories (a
+    story fetched by two interests under different roots), the slug tiebreak decides
+    and a structured ``category_conflict_lowest_depth_won`` event records the
+    contenders + winner (issue #35: the conflict is resolved deterministically but
+    must be visible).
 
     Args:
         story_id: The canonical story id to classify.
@@ -885,12 +893,45 @@ def assign_category(
         if interest_id in interest_nodes
     ]
     if not resolvable:
+        # Reason: issue #35 — the arts fallback is DEFINED but never silent: a story
+        # with no fetching interest and no matched theme is an ingestion gap the
+        # operator must see, not a quiet arts bucket.
+        logger.warning(
+            "category_fallback_no_tags",
+            story_id=story_id,
+            fallback_category=DEFAULT_CATEGORY,
+            fix_suggestion=(
+                "Story has no resolvable story_interests tag — it cannot be "
+                "categorized and falls back to the arts catch-all. Check that its "
+                "fetching interest was tagged (interest_keyed_pipeline) or extend "
+                "THEME_CATEGORY_WHITELIST for its themes."
+            ),
+        )
         return DEFAULT_CATEGORY
     # Lowest match_depth first (leaf < parent < grandparent); tiebreak by slug.
-    _best_interest_id, _best_depth, best_slug = min(
+    _best_interest_id, best_depth, best_slug = min(
         resolvable, key=lambda item: (item[1], item[2])
     )
-    return category_for_slug(best_slug)
+    winner_category = category_for_slug(best_slug)
+    # Reason: issue #35 — a same-lowest-depth contest across DIFFERENT roots (e.g. a
+    # story fetched by two interests under different roots) is decided by the slug
+    # tiebreak; log the resolved conflict so cross-root ambiguity stays visible.
+    # Depth-decided contests are the designed precedence, not a conflict — no log.
+    contender_categories = {
+        category_for_slug(slug)
+        for _interest_id, depth, slug in resolvable
+        if depth == best_depth
+    }
+    if len(contender_categories) > 1:
+        logger.info(
+            "category_conflict_lowest_depth_won",
+            story_id=story_id,
+            match_depth=best_depth,
+            contender_categories=sorted(contender_categories),
+            winner_category=winner_category,
+            winner_slug=best_slug,
+        )
+    return winner_category
 
 
 def _best_candidate_per_story(

@@ -763,9 +763,10 @@ class TestThemeDerivedCategoryTagging:
         assert depth_by_interest[_GEO_LEAF_ID] == 1
 
     @pytest.mark.asyncio
-    async def test_no_theme_falls_back_to_default_and_batch_completes(self) -> None:
-        """A story with NO themes falls back to DEFAULT_CATEGORY (arts) and the batch
-        still completes (fail-loud-per-cell, never a batch abort)."""
+    async def test_no_theme_falls_back_to_fetching_interest_root(self) -> None:
+        """Issue #35: a story with NO themes is categorized by the interest that
+        FETCHED it (its root), never the arts default — and the batch still
+        completes (fail-loud-per-cell, never a batch abort)."""
         nodes = _m2_interest_nodes()
         adapter = _ThemedAdapter(themes=[])  # no V2Themes on the candidate
 
@@ -774,20 +775,124 @@ class TestThemeDerivedCategoryTagging:
         assert len(result.canonical_stories) == 1  # batch completed, not aborted
         story_id = result.canonical_stories[0].canonical_story_id
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
-        # DEFAULT_CATEGORY == "arts" (categories.py) — the long-tail fallback.
-        assert assign_category(story_id, tags_by_story, nodes) == "arts"
+        # The geopolitics leaf fetched it → geopolitics, NOT the old arts default.
+        assert assign_category(story_id, tags_by_story, nodes) == "geopolitics"
 
     @pytest.mark.asyncio
-    async def test_unknown_theme_falls_back_not_keyword(self) -> None:
-        """An UNRECOGNIZED theme (not in the whitelist) falls back to DEFAULT, it does
-        NOT silently revert to the keyword-inherited geopolitics category."""
+    async def test_unmatched_theme_falls_back_to_fetching_interest_root(self) -> None:
+        """Issue #35: an UNRECOGNIZED theme (not in the whitelist) carries no
+        category signal — the fetching interest's root wins, never arts."""
         nodes = _m2_interest_nodes()
         adapter = _ThemedAdapter(themes=["WB_9999_NONSENSE_UNMAPPED"])
 
         result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
         story_id = result.canonical_stories[0].canonical_story_id
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
-        assert assign_category(story_id, tags_by_story, nodes) == "arts"
+        assert assign_category(story_id, tags_by_story, nodes) == "geopolitics"
+        assert assign_category(story_id, tags_by_story, nodes) != "arts"
+
+
+class _RootedLeafAdapter(BaseNewsAdapter):
+    """One story keyword-matched via a leaf under an arbitrary root, with the given
+    themes — the table-driven precedence harness for issue #35."""
+
+    def __init__(self, query: str, themes: list[str]) -> None:
+        self.query = query
+        self.themes = themes
+
+    async def search(self, search_query, since_utc, **kwargs):
+        if search_query != self.query:
+            return []
+        return [
+            CandidateStory(
+                candidate_external_id="https://example.com/rooted-story",
+                candidate_title="A story with themes the whitelist does not know",
+                candidate_url="https://example.com/rooted-story",
+                candidate_outlet_domain="example.com",
+                candidate_published_utc=_NOW,
+                candidate_themes=list(self.themes),
+            )
+        ]
+
+    async def extract_body(self, candidate, **kwargs):
+        candidate.candidate_body_text = "body"
+        return candidate
+
+
+class TestFetchingInterestPrecedence:
+    """Issue #35, table-driven: when NO whitelisted theme matched, the FETCHING
+    interest's root is authoritative — a tech-fetched story is tech, a sport-fetched
+    story is sport, NEVER the arts default. These tests FAIL under the old
+    arts-at-depth-0 behavior (the theme tag used to override the keyword tags)."""
+
+    @pytest.mark.parametrize(
+        ("root_slug", "leaf_slug"),
+        [
+            ("tech", "tech.semiconductors"),  # the issue's named happy path
+            ("ai", "ai.interpretability"),
+            ("business", "business.equities"),
+            ("sport", "sport.cricket.ipl"),
+            ("environment", "environment.climate-policy"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "themes",
+        [
+            [],  # zero themes at all
+            ["WB_9999_NONSENSE_UNMAPPED", "TAX_WEAPONS_FAKE"],  # only unmatched codes
+        ],
+        ids=["no-themes", "unmatched-themes"],
+    )
+    @pytest.mark.asyncio
+    async def test_fetching_interest_root_wins_without_theme_match(
+        self, root_slug: str, leaf_slug: str, themes: list[str]
+    ) -> None:
+        nodes = _m2_interest_nodes()
+        leaf_id = f"leaf-{leaf_slug}"
+        nodes[leaf_id] = InterestNode(
+            interest_id=leaf_id,
+            parent_interest_id=_ROOT_IDS_M2[root_slug],
+            interest_slug=leaf_slug,
+            interest_label=leaf_slug,
+            depth_level=1,
+            interest_search_query=f"query {leaf_slug}",
+        )
+        adapter = _RootedLeafAdapter(query=f"query {leaf_slug}", themes=themes)
+
+        result = await ingest_active_interests([leaf_id], nodes, adapter)
+
+        assert len(result.canonical_stories) == 1
+        story_id = result.canonical_stories[0].canonical_story_id
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        got = assign_category(story_id, tags_by_story, nodes)
+        assert got == root_slug, (
+            f"story fetched by a {root_slug}-root interest with unmatched themes "
+            f"must categorize {root_slug}, got {got!r}"
+        )
+        assert got != "arts" or root_slug == "arts"
+
+    @pytest.mark.asyncio
+    async def test_whitelisted_theme_still_beats_fetching_interest(self) -> None:
+        """Precedence guard: an ACTUAL whitelist match still wins over the fetching
+        interest (existing behavior preserved — the flip only covers no-match)."""
+        nodes = _m2_interest_nodes()
+        leaf_id = "leaf-tech.semiconductors"
+        nodes[leaf_id] = InterestNode(
+            interest_id=leaf_id,
+            parent_interest_id=_ROOT_IDS_M2["tech"],
+            interest_slug="tech.semiconductors",
+            interest_label="Semiconductors",
+            depth_level=1,
+            interest_search_query="query tech.semiconductors",
+        )
+        adapter = _RootedLeafAdapter(
+            query="query tech.semiconductors", themes=["SPORT", "WB_1953_SPORTS"]
+        )
+
+        result = await ingest_active_interests([leaf_id], nodes, adapter)
+        story_id = result.canonical_stories[0].canonical_story_id
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        assert assign_category(story_id, tags_by_story, nodes) == "sport"
 
 
 class _MultiThemedGkgAdapter(BaseNewsAdapter):
@@ -843,7 +948,8 @@ class TestThemeCategoryEndToEnd:
     @pytest.mark.asyncio
     async def test_gkg_batch_themes_drive_category_end_to_end(self) -> None:
         """Two stories from the batched GKG path: a business-themed one categorizes
-        business; a no-theme one falls back to arts — in a SINGLE batch run."""
+        business; a no-theme one falls back to its FETCHING interest's root
+        (geopolitics — issue #35, never arts) — in a SINGLE batch run."""
         nodes = _m2_interest_nodes()
         adapter = _MultiThemedGkgAdapter(
             rows=[
@@ -853,7 +959,7 @@ class TestThemeCategoryEndToEnd:
                     _GEO_LEAF_ID,
                     ["ECON_STOCKMARKET", "ECON_BANKRUPTCY"],
                 ),
-                # genuinely no themes → fallback
+                # genuinely no themes → the fetching interest's root owns category
                 ("https://reuters.com/none", _GEO_LEAF_ID, []),
             ]
         )
@@ -872,7 +978,7 @@ class TestThemeCategoryEndToEnd:
             s.canonical_url: s.canonical_story_id for s in result.canonical_stories
         }
         assert cats[by_url["https://reuters.com/biz"]] == "business"
-        assert cats[by_url["https://reuters.com/none"]] == "arts"
+        assert cats[by_url["https://reuters.com/none"]] == "geopolitics"
 
 
 def _param(job_config, name):

@@ -18,15 +18,20 @@ convention and is what the SP1 DoD requires. Prefix matching is deliberately NOT
 and the offline DoD only asks for representative coverage. Broadening the whitelist is
 the stated LIVE-E2E tuning follow-up (phase Open Question 2), not a blocker here.
 
-Coverage here is **representative**, not exhaustive: ~2-4 plausible real GKG codes per
-category, enough to prove the map + tiebreak + fallback. Exhaustive taxonomy curation
-is the LIVE-E2E follow-up.
+Coverage here started **representative** (~2-4 plausible real GKG codes per
+category). Issue #35 (2026-07-07) expanded it DATA-DRIVEN: a real production-shaped
+batch (live GdeltBigQueryAdapter over the prod active-interest set; 2,368 canonical
+stories, 884 with no whitelisted theme) was tallied and only the OBSERVED top-miss
+codes with a crisp single-category meaning were added (counts inline below).
+Generic role/sentiment/crisis codes (``TAX_FNCACT_*``, ``CRISISLEX_*``, ``LEADER``,
+``AFFECT``, ``KILL`` …) are deliberately NOT mapped — they are not category-
+indicative, and an unmatched story now falls back to its fetching interest's root
+(never an arts default), so a missing entry is safe.
 """
 
 from __future__ import annotations
 
 from agents.pipeline.categories import (
-    DEFAULT_CATEGORY,
     TOPIC_CATEGORIES,
     FeedCategory,
 )
@@ -80,6 +85,44 @@ THEME_CATEGORY_WHITELIST: dict[str, FeedCategory] = {
     "ENTERTAINMENT": "arts",
     "SOC_POINTSOFINTEREST_MUSEUMS": "arts",
     "WB_1803_CULTURE": "arts",
+    # ── Issue #35 data-driven expansion (2026-07-07) ────────────────────────────
+    # Observed top-miss codes from a real batch (story-level counts on the 884
+    # no-whitelisted-theme stories); each mapped only where the code has ONE crisp
+    # category meaning. See module docstring for the methodology + exclusions.
+    # Reason: environment — natural-resource / disaster / ecosystem codes.
+    "UNGP_FORESTS_RIVERS_OCEANS": "environment",  # 303
+    "MANMADE_DISASTER_IMPLIED": "environment",  # 132
+    "WB_566_ENVIRONMENT_AND_NATURAL_RESOURCES": "environment",  # 67
+    "WB_590_ECOSYSTEMS": "environment",  # 58
+    "WB_137_WATER": "environment",  # 44
+    # Reason: business — economy / prices / trade / industry / energy-sector codes.
+    "EPU_ECONOMY_HISTORIC": "business",  # 205
+    "TAX_ECON_PRICE": "business",  # 173
+    "WB_507_ENERGY_AND_EXTRACTIVES": "business",  # 93
+    "WB_698_TRADE": "business",  # 82
+    "WB_1921_PRIVATE_SECTOR_DEVELOPMENT": "business",  # 72
+    "WB_346_COMPETITIVE_INDUSTRIES": "business",  # 50
+    "WB_818_INDUSTRY_POLICY_AND_REAL_SECTORS": "business",  # 47
+    # Reason: tech — ICT / science / innovation codes, plus the health cluster
+    # (health has no root of its own; SLUG_TO_CATEGORY pins health → tech).
+    "WB_133_INFORMATION_AND_COMMUNICATION_TECHNOLOGIES": "tech",  # 159
+    "WB_621_HEALTH_NUTRITION_AND_POPULATION": "tech",  # 132
+    "GENERAL_HEALTH": "tech",  # 112
+    "MEDICAL": "tech",  # 102
+    "SCIENCE": "tech",  # 88
+    "WB_658_ENTERPRISE_APPLICATIONS": "tech",  # 49
+    "WB_652_ICT_APPLICATIONS": "tech",  # 49
+    "SOC_INNOVATION": "tech",  # 44
+    # Reason: politics — domestic policy / governance / justice codes.
+    "USPEC_POLICY1": "politics",  # 153
+    "WB_678_DIGITAL_GOVERNMENT": "politics",  # 135
+    "WB_696_PUBLIC_SECTOR_MANAGEMENT": "politics",  # 124
+    "USPEC_POLITICS_GENERAL1": "politics",  # 94
+    "WB_831_GOVERNANCE": "politics",  # 55
+    "WB_840_JUSTICE": "politics",  # 48
+    "EPU_POLICY_POLICY": "politics",  # 47
+    # Reason: geopolitics — cross-border conflict/fragility codes.
+    "WB_2432_FRAGILITY_CONFLICT_AND_VIOLENCE": "geopolitics",  # 62
 }
 
 # Reason: the deterministic tiebreak priority order when two categories tie on
@@ -99,8 +142,8 @@ _TIEBREAK_PRIORITY: tuple[FeedCategory, ...] = (
 )
 
 
-def category_for_themes(themes: list[str]) -> FeedCategory:
-    """Resolve a story's GDELT ``V2Themes`` codes to one ``FeedCategory`` (fail-loud).
+def category_for_themes(themes: list[str]) -> FeedCategory | None:
+    """Resolve a story's GDELT ``V2Themes`` codes to one ``FeedCategory``, or ``None``.
 
     Pure and deterministic. Each theme is looked up in
     :data:`THEME_CATEGORY_WHITELIST` (exact-code match). The winning category is
@@ -115,26 +158,29 @@ def category_for_themes(themes: list[str]) -> FeedCategory:
     (Rule 9: a test pins the winner of a crafted mixed list and fails if the rule
     changes).
 
-    A theme list with **no whitelisted theme** (or an empty list) returns
-    :data:`DEFAULT_CATEGORY` and emits a structured ``logger.warning`` carrying a
-    ``fix_suggestion`` to extend the whitelist — it never raises and never silently
-    drops a story (Rule 12: fail loud, but resiliently — one bad/unknown story falls
-    back, it does not abort the batch).
+    A theme list with **no whitelisted theme** (or an empty list) returns ``None``
+    and emits a structured ``logger.warning`` carrying a ``fix_suggestion`` to
+    extend the whitelist. ``None`` means "the themes carry no category signal" —
+    the caller must let the FETCHING interest's root own categorization (issue #35:
+    a theme-derived category may only win when a whitelisted theme actually
+    matched; the old behavior returned the arts default here, which the caller
+    stamped at depth 0 and mis-bucketed every unmatched story into arts).
 
     Args:
         themes: The story's GDELT GKG ``V2Themes`` codes (offset-stripped, e.g.
             ``["ECON_STOCKMARKET", "WB_2670_JOBS"]``). May be empty.
 
     Returns:
-        Exactly one of the 8 topic ``FeedCategory`` roots.
+        One of the 8 topic ``FeedCategory`` roots when at least one theme matched
+        the whitelist; ``None`` when none did (no category signal).
 
     Example:
         >>> category_for_themes(["ECON_STOCKMARKET"])
         'business'
         >>> category_for_themes(["ENV_CLIMATECHANGE", "ECON_STOCKMARKET", "WB_2670_JOBS"])
         'business'
-        >>> category_for_themes([])
-        'arts'
+        >>> category_for_themes([]) is None
+        True
     """
     # Reason: count hits per category in one pass (deterministic; no model, Rule 5).
     hit_counts: dict[FeedCategory, int] = {}
@@ -144,21 +190,21 @@ def category_for_themes(themes: list[str]) -> FeedCategory:
             hit_counts[category] = hit_counts.get(category, 0) + 1
 
     if not hit_counts:
-        # Reason: fail loud but resilient — no recognized theme means we cannot
-        # derive the category, so fall back to the long-tail default AND surface it
-        # so the whitelist can be extended (the no-whitelisted-theme / empty case).
+        # Reason: fail loud but resilient — no recognized theme means the themes
+        # carry NO category signal, so return None (the fetching interest's root
+        # then owns categorization — issue #35) AND surface it so the whitelist can
+        # be extended (the no-whitelisted-theme / empty case).
         logger.warning(
             "theme_category_no_whitelisted_theme",
             theme_count=len(themes),
             themes=themes[:20],
-            fallback_category=DEFAULT_CATEGORY,
             fix_suggestion=(
                 "No V2Themes code matched THEME_CATEGORY_WHITELIST; add the "
                 "representative code(s) for this story's themes to the whitelist "
                 "in agents/pipeline/theme_category.py"
             ),
         )
-        return DEFAULT_CATEGORY
+        return None
 
     max_hits = max(hit_counts.values())
     # Reason: among the categories tied on max hits, pick the first by the pinned

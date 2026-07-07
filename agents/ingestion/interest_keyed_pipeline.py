@@ -78,9 +78,12 @@ def _build_theme_root_tag(
     (its GDELT ``V2Themes``), NOT from which keyword query surfaced it. This:
 
       1. resolves the story's aggregated ``canonical_themes`` to one
-         :data:`FeedCategory` via :func:`category_for_themes` (fail-loud: an
-         empty/unknown theme list falls back to ``DEFAULT_CATEGORY`` with a warning,
-         it never raises — one bad story does not abort the batch),
+         :data:`FeedCategory` via :func:`category_for_themes` (``None`` when NO
+         whitelisted theme matched — issue #35: an unmatched theme list carries no
+         category signal, so no theme tag is emitted and the FETCHING interest's
+         root stays authoritative via the keyword tags at natural depth; the old
+         behavior stamped the arts default at depth 0 here, mis-bucketing every
+         unmatched story into arts),
       2. maps that category to its depth-0 ROOT interest slug via
          :func:`root_interest_slug_for_category` (identity for the 8 topic roots;
          ``None`` for the source axes youtube/x, which never apply to news), and
@@ -90,13 +93,20 @@ def _build_theme_root_tag(
     ``assign_category`` picks the lowest-``match_depth`` tag, and the caller shifts
     keyword tags to depth >= 1 so the theme tag strictly wins (no keyword-inherited
     category, even when the keyword query matched a different root — the M2 bug).
+    The theme tag may only win when a whitelisted theme ACTUALLY matched.
 
-    Returns ``None`` (no theme tag) only when the category's root interest node is
-    absent from the taxonomy map — a fail-loud signal that migration 0023's root
-    nodes were not loaded; the caller then leaves the keyword tags at their natural
-    depth so the story is still categorizable (degraded, not dropped).
+    Returns ``None`` (no theme tag) when there is no theme-derived category signal
+    (no whitelist match), or when the category's root interest node is absent from
+    the taxonomy map — a fail-loud signal that migration 0023's root nodes were not
+    loaded. In both cases the caller leaves the keyword tags at their natural depth
+    so the story is still categorizable (degraded, not dropped).
     """
     category = category_for_themes(story.canonical_themes)
+    if category is None:
+        # Reason: issue #35 — no whitelisted theme matched, so the themes carry no
+        # category signal. Emit NO theme tag: the keyword tags keep natural depth
+        # and the fetching interest's root wins categorization (never arts-default).
+        return None
     root_slug = root_interest_slug_for_category(category)
     if root_slug is None:
         # Reason: youtube/x have no interest node — but news categories never resolve
