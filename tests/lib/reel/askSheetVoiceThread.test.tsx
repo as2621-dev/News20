@@ -161,6 +161,35 @@ describe("AskSheetVoice rolling dual-transcript thread", () => {
     expect(container.querySelector(".bub-a p")?.textContent).toBe("A chip shortage.");
   });
 
+  it("starts a NEW bubble for the resumed session's first model output (review HIGH)", async () => {
+    // WHY (Rule 9): the hydrated thread commonly ends with a MODEL turn, and a
+    // resumed session re-sends the greeting nudge — whose spoken greeting also
+    // arrives as a model transcript. The consecutive-same-role merge must NOT
+    // glue the new session's greeting onto the previous session's last answer
+    // ("...A chip shortage.Hi again…") — and that corrupted bubble would be
+    // exactly what the session store persists next.
+    await renderSheet();
+    await pushTranscript("user", "What led to this?");
+    await pushTranscript("model", "A chip shortage.");
+
+    await act(async () => {
+      root.unmount();
+    });
+    root = createRoot(container);
+    await renderSheet();
+
+    // The resumed session's greeting is a model transcript too.
+    await pushTranscript("model", "Hi again, what would you like to know?");
+
+    const modelBubbles = [...container.querySelectorAll(".bub-a p")].map((node) => node.textContent);
+    expect(modelBubbles).toEqual(["A chip shortage.", "Hi again, what would you like to know?"]);
+
+    // Later deltas of the SAME greeting turn still append (rolling partials).
+    await pushTranscript("model", " Ask away.");
+    const modelBubblesAfterDelta = [...container.querySelectorAll(".bub-a p")].map((node) => node.textContent);
+    expect(modelBubblesAfterDelta).toEqual(["A chip shortage.", "Hi again, what would you like to know? Ask away."]);
+  });
+
   it("never leaks a thread across stories (failure/contamination case)", async () => {
     await renderSheet(makeStory("story-1"));
     await pushTranscript("user", "About story one");

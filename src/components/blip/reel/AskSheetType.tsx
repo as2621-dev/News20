@@ -153,19 +153,17 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
         citation_count: answer.answer_citations.length,
       });
     } catch (error: unknown) {
-      // askQuestion already degrades to a safe refusal — this guard is belt-and-suspenders.
+      // askQuestion already degrades to a safe refusal, so this branch is
+      // unreachable by contract — degrade straight to the retryable failed
+      // state instead of duplicating the refusal payload here (review).
       logger.error("type_ask_unexpected_error", {
         story_id,
         error_message: error instanceof Error ? error.message : "Unknown error",
         fix_suggestion: "askQuestion should never reject — check askQuestion.ts for the safe refusal fallback.",
       });
-      answer = {
-        answer_text:
-          "I can only answer from this story’s source — that isn’t available right now. Try a suggested question, or ask again in a moment.",
-        answer_citations: [],
-        answer_is_grounded: false,
-        answer_request_failed: true,
-      };
+      setFailedQuestionText(question_text);
+      setPendingQuestionText(null);
+      return;
     }
 
     // A REQUEST failure is retryable, not a turn (issue #40): keep the question
@@ -196,6 +194,14 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
     }
     setDraftQuestion("");
     void runAsk(trimmed);
+  }
+
+  /** Retry the failed question (review LOW): guarded against double-click double-asks. */
+  function retryFailedQuestion(): void {
+    if (failedQuestionText === null || isThinking) {
+      return;
+    }
+    void runAsk(failedQuestionText);
   }
 
   /** Handle the main composer form submit. */
@@ -232,13 +238,7 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
                   <div className="ask-error">
                     <div className="rl">ANSWER DIDN&rsquo;T ARRIVE</div>
                     <p>That didn&rsquo;t go through. Your question is still here.</p>
-                    <button
-                      type="button"
-                      className="ask-error-retry"
-                      onClick={() => {
-                        void runAsk(failedQuestionText);
-                      }}
-                    >
+                    <button type="button" className="ask-error-retry" onClick={retryFailedQuestion}>
                       Try again
                     </button>
                   </div>

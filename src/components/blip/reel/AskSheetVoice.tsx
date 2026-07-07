@@ -241,6 +241,10 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
 
   // Persist the thread to the session store as it grows; on a story CHANGE,
   // rehydrate instead (never save the old story's turns under the new id).
+  // Reason (review): the rehydrate branch is DEFENSIVE dead code in production —
+  // BlipReel keys the ask sheet by story, so a story change remounts this
+  // component and the branch never runs. It only guards a future non-keyed
+  // caller from cross-story contamination; do not build on it.
   const turnsStoryIdRef = useRef<string>(story.digest_id);
   useEffect(() => {
     if (turnsStoryIdRef.current !== story.digest_id) {
@@ -260,6 +264,15 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   // Inline error message when connect fails.
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Session turn boundary (review HIGH): a RESUMED session's first transcript
+  // must start a NEW bubble even when its role matches the hydrated thread's
+  // last turn — the reconnect greeting is a model transcript and would
+  // otherwise be glued onto the previous session's last answer (and that
+  // corrupted bubble is what the session store would persist next). Set at
+  // every session start: startVoiceSession covers mount auto-connect,
+  // enable-mic, the voice-name fallback, and retry (all route through it).
+  const forceNewTurnRef = useRef<boolean>(false);
+
   /**
    * Transcript callback: append/update turns as they stream.
    *
@@ -267,13 +280,18 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
    * A new `model` turn flips to RESPONDING.
    */
   const handleTranscript = useCallback((transcript: { role: "user" | "model"; text: string }): void => {
+    // Reason: read + clear the boundary flag OUTSIDE the updater — StrictMode
+    // double-invokes state updaters, and a ref mutation inside would flip the
+    // second invocation from "new turn" back to "append".
+    const isNewSessionTurn = forceNewTurnRef.current;
+    forceNewTurnRef.current = false;
     setTurns((prev) => {
       const last = prev[prev.length - 1];
       // Reason: Gemini Live streams transcript DELTAS (fragments) for the
       // CURRENT turn — APPEND to the last entry while the role is unchanged so
       // the bubble shows the whole sentence, not just the latest fragment; a
-      // role switch starts a new turn.
-      if (last && last.role === transcript.role) {
+      // role switch (or a session boundary) starts a new turn.
+      if (last && last.role === transcript.role && !isNewSessionTurn) {
         return [...prev.slice(0, -1), { role: transcript.role, text: last.text + transcript.text }];
       }
       return [...prev, { role: transcript.role, text: transcript.text }];
@@ -408,6 +426,9 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
       return;
     }
     connectingRef.current = true;
+    // Reason (review HIGH): every session start forces a turn boundary so the
+    // reconnect greeting never merges into the hydrated thread's last bubble.
+    forceNewTurnRef.current = true;
     logger.info("ask_sheet_voice_connecting", {
       story_id: story.digest_id,
     });
