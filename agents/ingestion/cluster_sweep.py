@@ -549,6 +549,42 @@ def _parse_dt(value: Any) -> datetime | None:
 # ----------------------------------------------------------------------
 
 
+def load_cluster_sweeps(
+    db_client: Any, cluster_ids: list[str], sweep_date: date
+) -> dict[str, ClusterSweepResult]:
+    """Load the stored sweeps for several clusters on one day, in ONE query.
+
+    The batch-read companion to :func:`_load_existing_sweep` (slice #31 — the daily
+    batch reads today's shared themes for every followed cluster with a single
+    ``.in_()`` round-trip, no per-cluster N+1). A cluster with no stored sweep for
+    ``sweep_date`` is simply absent from the result (an honest "not swept today").
+    DB errors are NOT swallowed here — the caller (the batch wiring) owns the
+    degrade-loudly decision.
+
+    Args:
+        db_client: The injected Supabase client.
+        cluster_ids: The clusters to load sweeps for.
+        sweep_date: The calendar day.
+
+    Returns:
+        ``{cluster_id: ClusterSweepResult}`` for the clusters swept on that day.
+    """
+    if not cluster_ids:
+        return {}
+    response = (
+        db_client.table(_SWEEPS_TABLE)
+        .select(
+            "cluster_id,sweep_date,handle_count,raw_post_count,original_post_count,themes"
+        )
+        .in_("cluster_id", cluster_ids)
+        .eq("sweep_date", sweep_date.isoformat())
+        .execute()
+    )
+    rows = getattr(response, "data", None) or []
+    results = [_row_to_result(row) for row in rows]
+    return {result.cluster_id: result for result in results}
+
+
 def _load_existing_sweep(
     db_client: Any, cluster_id: str, sweep_date: date
 ) -> ClusterSweepResult | None:

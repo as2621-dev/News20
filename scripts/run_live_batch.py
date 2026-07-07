@@ -596,6 +596,11 @@ async def _run() -> int:
         outlets_lookup=outlets_lookup,
         gdelt_adapter=census_adapter,
         source_stories_by_user=source_stories_by_user,
+        # Reason (slice #31): RUN_X_THEMES=1 wires the X theme-of-the-day reels —
+        # followed-cluster join → today's shared x_cluster_sweeps.themes → one reel
+        # per (cluster, theme) produced this run → honest ladder x slots. Off by
+        # default (mirrors RUN_SOURCES): the interest-only batch is unchanged.
+        enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
     )
 
     print(

@@ -497,6 +497,11 @@ async def _run_daily(
             interest_segment_lookup=interest_segment_lookup,
             outlets_lookup=outlets_lookup,
             gdelt_adapter=census_adapter,
+            # Reason (slice #31): RUN_X_THEMES=1 wires the X theme-of-the-day reels
+            # (followed-cluster join → shared x_cluster_sweeps.themes → produced theme
+            # reels → honest ladder x slots). Off by default, same gate as the
+            # run_live_batch entry point — one flag, both entry points.
+            enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
         )
         logger.info(
             "pipeline_daily_run_completed",

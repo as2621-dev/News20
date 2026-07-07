@@ -27,6 +27,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.ingestion.x_theme_reel import TweetScreenshotRenderer
 from agents.memory.session_processor import ProfileUpdateResult, run_profile_update_job
 from agents.pipeline.categories import (
     CATEGORY_FLOOR,
@@ -59,6 +60,12 @@ from agents.pipeline.stages.ranking import (
     FOLLOW_SOURCE_WEIGHT,
     FollowedEntity,
     UserProfileInterest,
+)
+from agents.pipeline.x_theme_ladder import XThemeReelCandidate
+from agents.pipeline.x_theme_production import (
+    XThemeGatherResult,
+    filter_placeable_theme_candidates,
+    gather_x_theme_candidates,
 )
 from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
@@ -354,9 +361,7 @@ def _load_category_allocation(
     return allocation_by_user
 
 
-def _load_mute_terms(
-    supabase_client: Any, user_ids: list[str]
-) -> dict[str, list[str]]:
+def _load_mute_terms(supabase_client: Any, user_ids: list[str]) -> dict[str, list[str]]:
     """Load every active user's ``user_mute_terms`` in ONE query (FSR #17).
 
     The SKIP-TUNE mute terms the assembler hard-filters on (migration 0029). One ``.in_()``
@@ -772,6 +777,8 @@ async def run_daily_pipeline(
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
     source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
+    enable_x_theme_reels: bool = False,
+    tweet_screenshot_renderer: TweetScreenshotRenderer | None = None,
 ) -> DailyPipelineResult:
     """Run the full daily personalized-feed batch end-to-end (stages A–E).
 
@@ -847,6 +854,20 @@ async def run_daily_pipeline(
             poster stage uses their thumbnail, not Nano Banana), and the produced
             subset is handed to ``assemble_daily_feeds`` to fill each user's
             ``youtube``/``x`` source slots. ``None`` → the legacy interest-only batch.
+        enable_x_theme_reels: Slice #31 gate (``RUN_X_THEMES`` at the entry points).
+            When True, each active user's followed X clusters are joined
+            (``user_content_sources → source_cluster_members → source_clusters``),
+            today's shared ``x_cluster_sweeps.themes`` are read, ONE theme reel story
+            per (cluster, theme) is produced IN THIS RUN (deterministic id — a re-run
+            reuses the same ``stories`` row via the produce-once digest gate), and the
+            FK-guarded ``x_theme_candidates_by_user`` is handed to
+            ``assemble_daily_feeds`` so eligible users' ``x`` slots fill via the
+            honest theme ladder (rung + attribution stamped). Users following no X
+            cluster keep the legacy x fill. A gather failure degrades LOUDLY to the
+            legacy fill for the whole run. Defaults False — zero behaviour change.
+        tweet_screenshot_renderer: Optional ``(tweet_url) -> path|None`` seam for the
+            theme reels' top-tweet screenshot (mocked in tests; the real Playwright
+            renderer when ``None``). Only read when ``enable_x_theme_reels`` is True.
 
     Returns:
         A :class:`DailyPipelineResult` summarizing every stage.
@@ -1028,6 +1049,56 @@ async def run_daily_pipeline(
             source_to_produce=len(source_to_produce),
         )
 
+    # ── X theme-of-the-day merge (slice #31) — join each active user's followed X
+    # clusters, read today's SHARED x_cluster_sweeps.themes, and merge ONE reel
+    # story per (cluster, theme) into the produce pool, EXEMPT from the gate + caps
+    # (mirrors the source-origin merge above; deterministic ids + the current-digest
+    # skip keep a same-day re-run from re-paying). The theme stories are produced IN
+    # THIS RUN because daily_feeds only fills from same-run stories. ──
+    x_theme_gather: XThemeGatherResult | None = None
+    x_theme_already_produced: dict[str, bool] = {}
+    if enable_x_theme_reels:
+        try:
+            x_theme_gather = await gather_x_theme_candidates(
+                supabase_client,
+                active_user_ids,
+                target_date,
+                screenshot_renderer=tweet_screenshot_renderer,
+            )
+        except Exception as gather_error:  # noqa: BLE001 — never kill the nightly batch
+            # Reason: a cluster-join/sweep-read failure must not abort the whole
+            # nightly batch — degrade to the legacy x fill (candidates stay None so
+            # NO user is switched into ladder mode with an empty list) and log loud.
+            logger.error(
+                "x_theme_gather_failed_run_fallback",
+                error_type=type(gather_error).__name__,
+                error_message=str(gather_error),
+                fix_suggestion="X theme gather failed; this run falls back to the "
+                "legacy source-stories x fill (no theme ladder). Check "
+                "user_content_sources/source_cluster_members/source_clusters/"
+                "x_cluster_sweeps access before the next batch.",
+            )
+            x_theme_gather = None
+        if x_theme_gather is not None and x_theme_gather.theme_stories:
+            x_theme_already_produced = _load_has_current_digest(
+                supabase_client,
+                [s.canonical_story_id for s in x_theme_gather.theme_stories],
+            )
+            pool_ids = {s.canonical_story_id for s in to_produce}
+            theme_to_produce = [
+                s
+                for s in x_theme_gather.theme_stories
+                if not x_theme_already_produced.get(s.canonical_story_id)
+                and s.canonical_story_id not in pool_ids
+            ]
+            to_produce = to_produce + theme_to_produce
+            logger.info(
+                "run_daily_pipeline_x_theme_merge",
+                theme_stories=len(x_theme_gather.theme_stories),
+                theme_to_produce=len(theme_to_produce),
+                eligible_user_count=len(x_theme_gather.candidates_by_user),
+            )
+
     produced_stories = await _produce_story_pool(
         stories_to_produce=to_produce,
         story_interest_tags=story_interest_tags,
@@ -1080,6 +1151,19 @@ async def run_daily_pipeline(
             ]
             for user_id, user_source_stories in source_stories_by_user.items()
         }
+    # ── X theme FK guard (slice #31, residual R3) — keep only candidates whose reel
+    # story is placeable (produced this run, or already carrying a current digest) so
+    # a verification/render halt can never fail a user's batched daily_feeds insert.
+    # Eligible users are kept even at zero candidates (honest ladder → news floor).
+    x_theme_candidates_by_user: dict[str, list[XThemeReelCandidate]] | None = None
+    if x_theme_gather is not None:
+        placeable_theme_ids = {s.canonical_story_id for s in produced_stories}
+        placeable_theme_ids |= {
+            story_id for story_id, has in x_theme_already_produced.items() if has
+        }
+        x_theme_candidates_by_user = filter_placeable_theme_candidates(
+            x_theme_gather.candidates_by_user, placeable_theme_ids
+        )
     feeds = assemble_daily_feeds(
         target_date=target_date,
         active_user_inputs=active_user_inputs,
@@ -1089,6 +1173,7 @@ async def run_daily_pipeline(
         supabase_client=supabase_client,
         now_utc=now,
         source_stories_by_user=produced_source_by_user,
+        x_theme_candidates_by_user=x_theme_candidates_by_user,
         cluster_importance_by_story=cluster_importance_by_story,
         category_override_by_story=category_override_by_story,
     )

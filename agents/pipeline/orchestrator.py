@@ -870,10 +870,12 @@ def assemble_daily_feeds(
             ``youtube``/``x`` source slots (phase-5d). ``None`` → no source slots
             (every source budget soft-rolls into topics, the legacy behaviour).
         x_theme_candidates_by_user: ``{user_id: [produced X theme reels]}`` — the user's
-            followed clusters' theme-of-the-day reels (slice #24). When provided, each
-            user's ``x`` slots are filled by the honest theme ladder (theme → second
-            theme → roundup), each stamped with its rung; unfilled x slots roll to news.
-            ``None`` → the legacy source-stories x fill (no theme ladder).
+            followed clusters' theme-of-the-day reels (slice #24). Eligibility is per
+            user (slice #31): a user PRESENT in the dict gets the honest theme ladder
+            for their ``x`` slots (theme → second theme → roundup, rung-stamped; an
+            EMPTY list rolls their x slots to the news floor), while a user ABSENT
+            from the dict keeps the legacy source-stories x fill. ``None`` → the
+            legacy x fill for everyone (no theme ladder).
         cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
             within-category-normalized importance (FSR-M3) for clustered stories,
             SHARED across users (importance is intrinsic, not per-user). Threaded into
@@ -938,7 +940,11 @@ def assemble_daily_feeds(
             x_theme_candidates=(
                 None
                 if x_theme_candidates_by_user is None
-                else x_theme_candidates_by_user.get(user_inputs.active_user_id, [])
+                # Reason (slice #31): eligibility is PER USER — a user present in the
+                # dict follows >= 1 X cluster and gets the honest ladder (even with an
+                # empty list → x slots roll to the news floor); a user ABSENT from the
+                # dict follows no X cluster and keeps the legacy source-stories x fill.
+                else x_theme_candidates_by_user.get(user_inputs.active_user_id)
             ),
             cluster_importance_by_story=cluster_importance_by_story,
             category_override_by_story=category_override_by_story,
