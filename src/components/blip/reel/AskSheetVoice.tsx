@@ -41,6 +41,7 @@ import { ic } from "@/components/blip/reel/icons";
 import { SignalMark } from "@/components/SignalMark";
 import { logger } from "@/lib/logger";
 import { fetchStoryCorpus } from "@/lib/voice/fetchStoryCorpus";
+import { SPEECH_ACTIVITY_AMPLITUDE_FLOOR } from "@/lib/voice/liveLatency";
 import { getMicPermissionState, requestMicPermission } from "@/lib/voice/micPermission";
 import {
   askAboutStoryDeclaration,
@@ -61,9 +62,11 @@ const VOICE_GRANTED_KEY = "blip-voice-granted";
 
 /**
  * Input amplitude below this is treated as "the mic is sending silence" —
- * drives the can't-hear-you hint. RMS of real speech sits well above 0.01.
+ * drives the can't-hear-you hint. ONE floor shared with the latency tracker's
+ * speech-end detection (liveLatency.ts) so "this RMS = real speech" can't
+ * silently diverge between the two consumers.
  */
-const SILENT_MIC_AMPLITUDE_FLOOR = 0.01;
+const SILENT_MIC_AMPLITUDE_FLOOR = SPEECH_ACTIVITY_AMPLITUDE_FLOOR;
 
 /** How long (ms) the session may stay silent before the mic hint shows. */
 const SILENT_MIC_HINT_DELAY_MS = 8000;
@@ -266,9 +269,18 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   // function, not takes one — memoize the returned async handler by story id.
   const onToolCall = useMemo(() => buildAskAboutStoryHandler(story.digest_id), [story.digest_id]);
 
+  // Whether the current error came from a MIC failure (post-setup). The
+  // voice-name fallback below must not consume it: the hook's mic-error path
+  // disconnects (resetting isSetupComplete) BEFORE status lands on "error", so
+  // the fallback's !isSetupComplete guard alone can't tell a rejected voice
+  // from a dead mic — and a fallback reconnect over a dead mic would burn a
+  // second token and flash a fake LISTENING (review finding).
+  const micErrorOccurredRef = useRef<boolean>(false);
+
   // Mic failure after connect (gotcha 8 surfacing): specific copy + error view —
   // the hook has already disconnected, so the orb never fakes LISTENING.
   const handleMicError = useCallback((): void => {
+    micErrorOccurredRef.current = true;
     setErrorMessage("Couldn’t access your microphone. Check mic permission in Settings, or type your question.");
     setViewState("error");
   }, []);
@@ -411,7 +423,12 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     // Voice-name fallback: a pre-setup failure with Jordan's voice may mean the
     // live endpoint rejected the voice — retry ONCE with the safe default.
     // Post-setup errors (e.g. mic failure) never trigger this.
-    if (!hasRetriedFallbackVoiceRef.current && !isSetupComplete && liveVoiceName === GEMINI_LIVE_JORDAN_VOICE) {
+    if (
+      !hasRetriedFallbackVoiceRef.current &&
+      !micErrorOccurredRef.current &&
+      !isSetupComplete &&
+      liveVoiceName === GEMINI_LIVE_JORDAN_VOICE
+    ) {
       hasRetriedFallbackVoiceRef.current = true;
       pendingReconnectRef.current = true;
       logger.warn("ask_sheet_voice_fallback_voice_retry", {
@@ -483,6 +500,9 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
       story_id: story.digest_id,
       fix_suggestion: "The live socket closed mid-session (goAway / network). Offer retry; check token TTL.",
     });
+    // Reason (review): release the mic + audio contexts before showing the
+    // ended view — never leave a hot mic behind an error screen. Idempotent.
+    disconnectRef.current();
     setErrorMessage("The live session ended.");
     setViewState("error");
   }, [status, viewState, story.digest_id]);

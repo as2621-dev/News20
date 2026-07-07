@@ -255,6 +255,7 @@ interface GeminiServerFrame {
     inputTranscription?: { text?: string };
     outputTranscription?: { text?: string };
     turnComplete?: boolean;
+    interrupted?: boolean;
   };
   toolCall?: { functionCalls?: { id?: string; name?: string; args?: Record<string, unknown> }[] };
   goAway?: unknown;
@@ -504,7 +505,7 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
   );
 
   const handleServerFrame = useCallback(
-    async (raw: unknown): Promise<void> => {
+    async (raw: unknown, originSocket: WebSocket): Promise<void> => {
       const text = await normalizeFrameToText(raw);
       if (text === null) {
         return;
@@ -522,6 +523,10 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
           error_message: JSON.stringify(frame.error).slice(0, 200),
           fix_suggestion: "Inspect the Gemini Live error frame; often a stale token or bad setup.",
         });
+        // Reason (review): tear down BEFORE surfacing the error — without this
+        // the socket stays OPEN and the mic keeps streaming to Gemini while the
+        // UI shows an error view (hot mic behind a dead-looking session).
+        disconnect();
         setStatus("error");
         return;
       }
@@ -529,7 +534,15 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
         logger.warn("voice_live_go_away", {
           fix_suggestion: "Server asked the session to end; reconnect with a fresh token.",
         });
+        // Reason (review): a goAway BEFORE setupComplete is a failed handshake,
+        // not an ended session — land on "error" (visible retry) instead of
+        // "closed" (which a never-live watcher rightly ignores → the orb would
+        // sit on CONNECTING forever).
+        const wasSetupComplete = isSetupCompleteRef.current;
         disconnect();
+        if (!wasSetupComplete) {
+          setStatus("error");
+        }
         return;
       }
 
@@ -548,7 +561,10 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
           playerRef.current?.enqueueBase64Chunk(audioData);
         }
       }
-      if (serverContent?.turnComplete) {
+      // Reason (review): a barge-in (`interrupted`) ends the model's turn with
+      // NO turnComplete — treat it as a turn boundary too, or the once-per-turn
+      // latency latches never re-arm and later turns emit no marks.
+      if (serverContent?.turnComplete || serverContent?.interrupted) {
         latencyTrackerRef.current?.recordTurnComplete();
       }
 
@@ -565,12 +581,17 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
           args: call.args ?? {},
         });
         const liveSocket = socketRef.current;
-        if (!liveSocket || liveSocket.readyState !== WebSocket.OPEN) {
+        // Reason (review): the handler await can span seconds — if THIS frame's
+        // session was superseded meanwhile (reconnect), sending its response
+        // with a stale call.id over the NEW socket would poison the fresh
+        // session. Only reply on the socket the call arrived on, while current.
+        if (!liveSocket || liveSocket !== originSocket || liveSocket.readyState !== WebSocket.OPEN) {
           // Reason (Rule 12): send() on a non-OPEN socket drops the frame
           // silently — the model would wait forever for the tool response.
           logger.warn("voice_live_send_dropped_socket_not_open", {
             frame_kind: "tool_response",
             ready_state: liveSocket?.readyState ?? -1,
+            is_stale_session: liveSocket !== originSocket,
             fix_suggestion: "Socket closed mid tool round-trip; the turn is lost — reconnect.",
           });
           continue;
@@ -649,13 +670,18 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
       const isPrewarmedTokenFresh =
         prewarmedToken !== null && Date.now() - prewarmedToken.minted_at_epoch_ms < PREWARMED_TOKEN_MAX_AGE_MS;
       ephemeralTokenName = isPrewarmedTokenFresh ? prewarmedToken.ephemeral_token_name : await mintEphemeralTokenName();
-      logLiveLatencyMark({
-        mark_name: "token_mint",
-        // Reason: this measures the CRITICAL-PATH wait for a token (≈0 on a
-        // pre-warm hit) — the pre-warm's own mint time is logged at pre-warm.
-        duration_ms: Date.now() - connectStartedAtEpochMs,
-        used_prewarmed_token: isPrewarmedTokenFresh,
-      });
+      // Reason (review): a connect torn down during the await (stale epoch)
+      // never opens a socket — skip its mark so the metrics only count real
+      // connects (the stale-epoch bail below aborts it anyway).
+      if (connectEpoch === connectEpochRef.current) {
+        logLiveLatencyMark({
+          mark_name: "token_mint",
+          // Reason: this measures the CRITICAL-PATH wait for a token (≈0 on a
+          // pre-warm hit) — the pre-warm's own mint time is logged at pre-warm.
+          duration_ms: Date.now() - connectStartedAtEpochMs,
+          used_prewarmed_token: isPrewarmedTokenFresh,
+        });
+      }
     } catch (mintError) {
       logger.error("voice_live_token_mint_failed", {
         error_message: mintError instanceof Error ? mintError.message : "unknown",
@@ -723,7 +749,7 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
             return;
           }
         }
-        await handleServerFrame(frameData);
+        await handleServerFrame(frameData, socket);
       })();
     };
 
