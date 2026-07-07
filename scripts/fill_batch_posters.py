@@ -42,6 +42,7 @@ from agents.m0.generate_posters import _extract_image_bytes, generate_from_refer
 from agents.m0.grade_and_brand import grade_and_brand  # noqa: E402
 from agents.m0.poster_models import DEFAULT_ACCENT_HEX  # noqa: E402
 from agents.pipeline.persist import POSTER_BUCKET  # noqa: E402
+from agents.pipeline.poster_gate import poster_generation_disabled  # noqa: E402
 from agents.shared.logger import get_logger  # noqa: E402
 
 logger = get_logger("scripts.fill_batch_posters")
@@ -152,6 +153,11 @@ def _attach_poster(supabase, story_id: str, digest_id: str | None, poster_url: s
 
 def main() -> int:
     load_dotenv(os.path.join(_REPO_ROOT, ".env"))
+    # Reason (issue #32 kill switch): the Batch-API second pass is image-model
+    # spend too — DISABLE_POSTER_GEN must stop it, not just the inline path.
+    if poster_generation_disabled():
+        print("FAIL: DISABLE_POSTER_GEN is set — poster batch fill refused (zero image calls).")
+        return 1
     paid = os.environ.get("RUN_FILL") == "1"
     email = os.environ.get("ONLY_USER_EMAIL", "").strip()
     if not email:

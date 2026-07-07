@@ -382,6 +382,7 @@ async def _run_daily(
         )
         from agents.pipeline.llm_clients import LLMClient
         from agents.pipeline.persist_helpers import load_outlets_lookup
+        from agents.pipeline.poster_gate import poster_generation_disabled
         from agents.voice.gemini_tts import GeminiTTSClient
 
         supabase = _build_service_role_supabase()
@@ -464,7 +465,13 @@ async def _run_daily(
 
         llm_client = LLMClient()
         tts_client = GeminiTTSClient()
-        poster_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        # Reason (issue #32 kill switch): DISABLE_POSTER_GEN=1 must make image-model
+        # spend impossible — skip constructing the image client entirely. Source
+        # reels keep their free supplied-image posters; news reels persist posterless
+        # (the reel renders the category wash).
+        poster_client = (
+            None if poster_generation_disabled() else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        )
 
         result = await run_daily_pipeline(
             target_date=target_date,

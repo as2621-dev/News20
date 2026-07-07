@@ -32,6 +32,10 @@ SAFETY (this run costs real paid Gemini calls):
     semantic same-event reconcile before the produce gate: paid gemini-embedding-001
     calls, one reel per real-world event, authority-weighted cluster importance in
     the ranker. Set ``0`` for the byte-for-byte legacy path (no embedding spend).
+  * ``DISABLE_POSTER_GEN`` (default unset — posters ON) is the poster kill switch
+    (issue #32): set ``1`` and NO image client is constructed — no inline posters,
+    and ``scripts/fill_batch_posters.py`` refuses to run. Stories, audio and
+    captions are unchanged; source reels keep their free supplied-image posters.
   * ``LOOKBACK_DAYS`` (default 1) bounds GDELT recency.
   * ``INGEST_SOURCE`` (default ``bigquery``) — niche ingestion runs through the
     unthrottled GDELT BigQuery dataset (one batched SQL for ALL active interests;
@@ -87,6 +91,7 @@ from agents.pipeline.produce_caps import (  # noqa: E402
 )
 from agents.pipeline.llm_clients import LLMClient  # noqa: E402
 from agents.pipeline.persist_helpers import load_outlets_lookup  # noqa: E402
+from agents.pipeline.poster_gate import poster_generation_disabled  # noqa: E402
 from agents.shared.logger import get_logger  # noqa: E402
 from agents.voice.gemini_tts import GeminiTTSClient  # noqa: E402
 
@@ -519,11 +524,20 @@ async def _run() -> int:
     # posters.py) then generates all posters in one async batch job (50% cheaper)
     # and updates the rows. Any other value keeps the proven synchronous poster path.
     poster_mode = os.environ.get("POSTER_MODE", "sync").strip().lower()
+    # Reason (issue #32 kill switch): DISABLE_POSTER_GEN=1 skips constructing the
+    # image client entirely — no inline posters AND the Batch-API filler refuses to
+    # run, so image-model spend is impossible. Source reels keep supplied images.
+    poster_killed = poster_generation_disabled()
     poster_client = (
-        None if poster_mode == "batch" else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        None
+        if poster_killed or poster_mode == "batch"
+        else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     )
-    print(f"  poster mode ................... {poster_mode}"
-          f"{' (inline posters OFF — fill via Batch API after)' if poster_mode == 'batch' else ''}")
+    if poster_killed:
+        print("  poster mode ................... DISABLED (DISABLE_POSTER_GEN kill switch — zero image calls)")
+    else:
+        print(f"  poster mode ................... {poster_mode}"
+              f"{' (inline posters OFF — fill via Batch API after)' if poster_mode == 'batch' else ''}")
     resolver = build_story_id_resolver(supabase)
     since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 

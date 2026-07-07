@@ -209,6 +209,55 @@ class TestOrchestrateHappyPath:
             result.persist_result.poster_object_path == "FIXTURE-SP3-poster/poster.webp"
         )
 
+    @pytest.mark.asyncio
+    async def test_kill_switch_publishes_posterless_with_zero_image_calls(
+        self, canonical_story, story_interest_tags, tmp_path, monkeypatch
+    ) -> None:
+        """DISABLE_POSTER_GEN=1 through the REAL orchestrator path (issue #32):
+        the reel still publishes, the poster is null (persist handles it — the
+        client renders the category wash), the builder never runs, and the
+        injected image client sees ZERO calls."""
+        from agents.pipeline import poster_gate
+
+        monkeypatch.setenv("DISABLE_POSTER_GEN", "1")
+        monkeypatch.setattr(poster_gate, "_poster_disabled_logged", False)
+        llm = _llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED)
+        tts = _tts_returning_audio()
+        supabase = FakeSupabaseClient()
+        image_client = MagicMock()
+
+        poster_file = tmp_path / "poster.webp"
+        poster_file.write_bytes(b"RIFF-FAKE-WEBP")
+        builder_calls: list[object] = []
+
+        def fake_builder(digest, client):  # noqa: ARG001
+            builder_calls.append(client)
+            report = MagicMock()
+            report.poster_path = str(poster_file)
+            return report
+
+        result = await orch.orchestrate_story(
+            story=canonical_story,
+            story_interest_tags=story_interest_tags,
+            llm_client=llm,
+            tts_client=tts,
+            supabase_client=supabase,
+            poster_genai_client=image_client,  # would generate — the switch must stop it
+            poster_builder=fake_builder,
+            story_id="FIXTURE-KILL-poster",
+        )
+
+        assert result.published is True
+        assert result.persist_result is not None
+        # Null poster persisted without crash (the reel falls to the category wash).
+        assert result.persist_result.poster_url is None
+        assert (
+            supabase.captured_inserts["digests"][0]["digest_ambient_poster_url"] is None
+        )
+        # Zero image-model work: builder never invoked, client never touched.
+        assert builder_calls == []
+        assert image_client.mock_calls == []
+
 
 class TestOrchestrateVerificationHalt:
     """The guardrail: an ungrounded story is skipped, never persisted."""

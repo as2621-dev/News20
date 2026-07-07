@@ -48,6 +48,7 @@ from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import CoverageReport, DigestScript, WritePhaseResult
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
 from agents.pipeline.persist_helpers import resolve_segment_from_tags
+from agents.pipeline.poster_gate import poster_generation_disabled
 from agents.pipeline.stages.coverage_gdelt import build_coverage_report
 from agents.pipeline.stages.detail_enrichment import (
     DetailEnrichment,
@@ -311,6 +312,14 @@ def generate_poster_bytes(
     Returns:
         The graded poster PNG bytes, or None when disabled/failed.
     """
+    # Reason (issue #32 kill switch): DISABLE_POSTER_GEN must stop ALL image-model
+    # spend even if an entry point constructed and injected a client — forcing the
+    # client to None here (the single choke point every production path funnels
+    # through) reuses the proven None-handling below. The FREE supplied-image path
+    # for source-origin stories never touches the client, so it keeps working.
+    if poster_generation_disabled():
+        poster_genai_client = None
+
     # Reason (Phase 5d SP4): a source-origin story (followed YouTube channel / X
     # account — recognised purely by its youtube.com / x.com outlet domain) carries
     # its own image (video thumbnail / tweet screenshot) on

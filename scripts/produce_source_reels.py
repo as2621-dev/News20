@@ -42,6 +42,7 @@ from agents.ingestion.source_pipeline import run_source_ingestion  # noqa: E402
 from agents.pipeline.categories import category_for_slug  # noqa: E402
 from agents.pipeline.daily_batch import _load_has_current_digest  # noqa: E402
 from agents.pipeline.orchestrator import orchestrate_story  # noqa: E402
+from agents.pipeline.poster_gate import poster_generation_disabled  # noqa: E402
 from agents.shared.logger import get_logger  # noqa: E402
 from scripts.run_live_batch import _load_followed_sources_by_user  # noqa: E402
 
@@ -175,7 +176,12 @@ async def _main() -> int:
     # ── 2. Produce until target (thumbnail poster, no Nano Banana) ─────────────
     llm_client = LLMClient()
     tts_client = GeminiTTSClient()
-    poster_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    # Reason (issue #32 kill switch): DISABLE_POSTER_GEN=1 skips constructing the
+    # image client — source reels still get their FREE supplied-image poster
+    # (thumbnail / screenshot download+grade never touches the client).
+    poster_client = (
+        None if poster_generation_disabled() else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    )
 
     async def _produce_until(pool: list[CanonicalStory], want: int) -> list[str]:
         """Produce stories from ``pool`` until ``want`` publish; return persisted ids.
