@@ -76,7 +76,7 @@ class TestEmbedTextsHappyPath:
     async def test_returns_one_unit_vector_per_text(self) -> None:
         """(a) N in → N out, each len 768, each L2-norm ≈ 1.0."""
         texts = ["headline one", "headline two", "headline three"]
-        embed_mock = AsyncMock(side_effect=lambda model, contents: _embed_response(contents))
+        embed_mock = AsyncMock(side_effect=lambda model, contents, config=None: _embed_response(contents))
         client = _make_llm_client_with_embed(embed_mock)
 
         vectors = await embed_texts(texts, llm_client=client)
@@ -86,11 +86,15 @@ class TestEmbedTextsHappyPath:
             assert len(vector) == _EMBED_DIM
             norm = math.sqrt(sum(component * component for component in vector))
             assert norm == pytest.approx(1.0, abs=1e-9)
+        # Reason: gemini-embedding-001 defaults to 3072-d; the call MUST pin
+        # output_dimensionality to 768 or the vector(768) column + centroid math
+        # break. Assert it so a dropped config regresses loudly (Rule 9).
+        assert embed_mock.await_args.kwargs["config"].output_dimensionality == _EMBED_DIM
 
     @pytest.mark.asyncio
     async def test_empty_input_returns_empty_without_calling_api(self) -> None:
         """Edge case: empty input short-circuits to [] and never calls embed."""
-        embed_mock = AsyncMock(side_effect=lambda model, contents: _embed_response(contents))
+        embed_mock = AsyncMock(side_effect=lambda model, contents, config=None: _embed_response(contents))
         client = _make_llm_client_with_embed(embed_mock)
 
         vectors = await embed_texts([], llm_client=client)
@@ -117,7 +121,7 @@ class TestEmbedTextsBatching:
         """(b) 250 texts / batch_size 100 → exactly 3 underlying embed calls."""
         texts = [f"story-{index}" for index in range(250)]
         # side_effect returns the right-sized slice per call (100, 100, 50).
-        embed_mock = AsyncMock(side_effect=lambda model, contents: _embed_response(contents))
+        embed_mock = AsyncMock(side_effect=lambda model, contents, config=None: _embed_response(contents))
         client = _make_llm_client_with_embed(embed_mock)
 
         vectors = await embed_texts(texts, llm_client=client, batch_size=100)

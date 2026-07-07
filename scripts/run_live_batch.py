@@ -569,6 +569,11 @@ async def _run() -> int:
         produce_cap_headroom=produce_cap_headroom,
         enable_detail_enrichment=True,
         enable_editorial_rewrite=True,
+        # Reason: semantic same-event reconciliation (collapses "two reels, one event"
+        # duplicates onto one story id) is gated behind ENABLE_SEMANTIC_CLUSTERING — it
+        # adds paid text-embedding-004 calls, so it stays OFF until a spend-go flips the
+        # env var. Off = byte-for-byte the legacy path.
+        enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING") == "1",
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=census_adapter,

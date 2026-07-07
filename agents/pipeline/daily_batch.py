@@ -34,6 +34,7 @@ from agents.pipeline.categories import (
     CategoryAllocation,
     FeedCategory,
 )
+from agents.pipeline.clustering.reconcile import reconcile_story_ids_via_clustering
 from agents.pipeline.demand import compute_pool_target
 from agents.pipeline.feed_assembly import ScoredCandidate
 from agents.pipeline.niche_allocation import NicheAllocationRow
@@ -766,6 +767,7 @@ async def run_daily_pipeline(
     enable_editorial_rewrite: bool = False,
     enable_produce_dedup: bool = True,
     enable_batch_review: bool = False,
+    enable_semantic_clustering: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
@@ -818,6 +820,16 @@ async def run_daily_pipeline(
             scaffolding (openers/reactions/handoffs), re-verifying any reel it
             touches. Fail-open. Defaults False so the legacy produce path is byte-
             for-byte unchanged until the pass is verified.
+        enable_semantic_clustering: When True, the deduped candidate pool is run
+            through the M3a/M3b online semantic clusterer BEFORE the produce gate so
+            two candidates about the SAME real-world event (that ingestion's
+            URL+0.85-title dedup missed — e.g. two reworded headlines for one match)
+            collapse onto one shared ``story_id``. Downstream produce-once + the
+            ``feed_assembly`` exact-id dedup then guarantee one reel per event, and the
+            clusters' E1 importance feeds the assembler's Importance term. Adds one paid
+            Gemini ``text-embedding-004`` call per near-dup representative. Defaults
+            False so the legacy path costs nothing and is byte-for-byte unchanged until
+            a caller opts in.
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
             story's ``story_segment_slug`` (and the enrichment's analytic kind /
             coverage mode). Injected per batch; ``None`` → ``wildcard`` fallback.
@@ -846,6 +858,28 @@ async def run_daily_pipeline(
 
     # ── Stage B — ingest + dedup + ancestor-tag (injected) ────────────────────
     stories, story_interest_tags = await ingest_fn()
+
+    # ── Stage B.5 — semantic same-event reconciliation (FSR-M3, gated) ────────
+    # Collapse candidates about the SAME real-world event that ingestion's
+    # URL+0.85-title dedup left as separate ``story_id`` s (the "two reels, one
+    # event" bug) onto ONE shared id, BEFORE the gate/caps/assembly all key on it.
+    # Also produces the shared cluster-importance map (closes the FSR-M3 residual).
+    # Gated OFF by default — no Gemini spend, no behaviour change — until a caller
+    # opts in (see ``enable_semantic_clustering``).
+    cluster_importance_by_story: dict[str, float] | None = None
+    if enable_semantic_clustering:
+        reconciled = await reconcile_story_ids_via_clustering(
+            stories,
+            story_interest_tags,
+            supabase_client=supabase_client,
+            llm_client=llm_client,
+            interest_nodes=interest_nodes,
+            resolve_existing_story_ids=build_story_id_resolver(supabase_client),
+            now_utc=now,
+        )
+        stories = reconciled.reconciled_stories
+        story_interest_tags = reconciled.reconciled_tags
+        cluster_importance_by_story = reconciled.cluster_importance_by_story
 
     # ── Stage C — produce-once gate, then bounded paid fan-out ────────────────
     has_current_digest = _load_has_current_digest(
@@ -981,28 +1015,18 @@ async def run_daily_pipeline(
     active_user_inputs = load_active_user_inputs(
         supabase_client, target_date, exploration_by_user
     )
-    # ── FSR-M3 cluster-importance bridge (RESIDUAL — see note) ────────────────
-    # The assembly seam is wired: ``assemble_daily_feeds`` accepts a SHARED
-    # ``cluster_importance_by_story`` map and threads it through ``assemble_user_feed`` →
-    # ``score_and_classify_for_user`` → ``compute_story_score(cluster_importance=…)`` so a
-    # clustered story's Importance term is its authority-weighted, within-category-
-    # normalized E1 score (``agents/pipeline/importance/story_importance.score_clusters``),
-    # falling back to the raw outlet count for un-clustered stories (Rule 3, additive).
+    # ── FSR-M3 cluster-importance bridge ──────────────────────────────────────
+    # The assembly seam threads a SHARED ``cluster_importance_by_story`` map through
+    # ``assemble_daily_feeds`` → ``assemble_user_feed`` → ``score_and_classify_for_user`` →
+    # ``compute_story_score(cluster_importance=…)`` so a clustered story's Importance term
+    # is its authority-weighted, within-category-normalized E1 score
+    # (``agents/pipeline/importance/story_importance.score_clusters``), falling back to the
+    # raw outlet count for un-clustered stories (Rule 3, additive).
     #
-    # RESIDUAL (NOT closed this phase — surfaced, not faked, Rule 12): the SOURCE of that
-    # map is not yet produced in this batch. The shared-pool ONLINE clusterer
-    # (``agents/pipeline/clustering/online_clusterer.cluster_candidates`` → ``StoryCluster``
-    # rows + the ``story_clusters`` table, M3a/M3b) is NOT called anywhere in
-    # ``run_daily_pipeline`` today — ingestion uses the simpler URL+title
-    # ``StoryClusterer`` (``agents/ingestion/dedup``) that produces ``CanonicalStory`` with
-    # NO ``cluster_id``. Closing this requires, post-clustering: (1) call ``score_clusters``
-    # on the clustered batch and persist via ``cluster_store.upsert``; (2) bridge each
-    # cluster's ``cluster_importance`` onto the candidate at the ``cluster_id ↔ story_id``
-    # seam (``build_story_id_resolver`` / ``story_url_aliases``) to build the map below. That
-    # wiring (embeddings + blocking + continuity persistence) is an entangled, paid-Gemini
-    # change beyond M6b's surgical scope — tracked as a LIVE-pipeline residual. Until then
-    # the map is ``None`` and the un-clustered raw-importance fallback is used (no fake).
-    cluster_importance_by_story: dict[str, float] | None = None
+    # The SOURCE of that map is produced upstream in Stage B.5 by
+    # ``reconcile_story_ids_via_clustering`` when ``enable_semantic_clustering`` is on
+    # (``cluster_importance_by_story`` was set there). When the flag is off it stays
+    # ``None`` and the un-clustered raw-importance fallback is used (no fake).
     # Reason: a source slot can be filled by a source story produced THIS run or one
     # that already had a current digest (persisted, placeable). Restrict each user's
     # source pool to those placeable ids so a verification halt never leaves a

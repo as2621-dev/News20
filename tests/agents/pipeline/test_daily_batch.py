@@ -383,3 +383,145 @@ async def test_produce_pool_skips_review_barrier_when_disabled(
 
     assert len(produced) == 2
     assert called == []  # review pass never invoked
+
+
+def _pipeline_seams(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub the non-clustering pipeline seams so a run reaches the gate + assembler."""
+    monkeypatch.setattr(
+        daily_batch, "run_profile_update_job",
+        lambda *_a, **_k: ProfileUpdateResult(users_processed=0, weights_changed=0),
+    )
+    monkeypatch.setattr(daily_batch, "_load_has_current_digest", lambda *_a, **_k: {})
+    monkeypatch.setattr(daily_batch, "_load_active_user_ids", lambda *_a, **_k: ["u1"])
+    monkeypatch.setattr(daily_batch, "_load_category_allocation", lambda *_a, **_k: {})
+    monkeypatch.setattr(daily_batch, "_load_interest_nodes_by_user", lambda *_a, **_k: {})
+    monkeypatch.setattr(
+        daily_batch, "load_active_user_inputs",
+        lambda *_a, **_k: [ActiveUserFeedInputs(active_user_id="u1")],
+    )
+
+    async def fake_write(story, **_k):
+        return SimpleNamespace(
+            canonical_story_id=story.canonical_story_id, original_story=story
+        )
+
+    async def fake_render(write_result, *_a, **_k):
+        return SimpleNamespace(published=True)
+
+    monkeypatch.setattr(daily_batch, "write_phase", fake_write)
+    monkeypatch.setattr(daily_batch, "render_phase", fake_render)
+
+
+@pytest.mark.asyncio
+async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_importance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Wiring contract (the dedup fix): with enable_semantic_clustering True the batch
+    reconciles the ingested pool BEFORE the gate — so the gate + assembler see collapsed
+    stories, not the raw two-id pool — and the reconciled cluster-importance map reaches
+    the assembler. If this regresses, same-event candidates survive to feed assembly and
+    the user sees one event twice."""
+    _pipeline_seams(monkeypatch)
+    raw_pool = [_story("cand-egypt-a"), _story("cand-egypt-b")]
+    collapsed = [_story("cand-egypt-a")]  # the two events collapsed to one shared id
+    importance_map = {"cand-egypt-a": 0.9}
+
+    async def fake_ingest():
+        return raw_pool, []
+
+    async def fake_reconcile(stories, tags, **_k):
+        # Proves the RAW two-id pool is what gets reconciled (pre-gate).
+        assert [s.canonical_story_id for s in stories] == ["cand-egypt-a", "cand-egypt-b"]
+        return SimpleNamespace(
+            reconciled_stories=collapsed,
+            reconciled_tags=[],
+            cluster_importance_by_story=importance_map,
+        )
+
+    gate_saw: dict = {}
+
+    def fake_select(stories, _tags, _lookup, **_k):
+        gate_saw["ids"] = [s.canonical_story_id for s in stories]
+        decisions = [
+            SimpleNamespace(story_id=s.canonical_story_id, should_produce=True,
+                            importance_score=0.5, freshness_score=0.5)
+            for s in stories
+        ]
+        return list(stories), decisions
+
+    assemble_saw: dict = {}
+
+    def fake_assemble(*, target_date, cluster_importance_by_story=None, **_k):
+        assemble_saw["importance"] = cluster_importance_by_story
+        return DailyFeedsBatchResult(
+            feed_date=target_date.isoformat(), active_user_count=1, feeds_written=1
+        )
+
+    monkeypatch.setattr(daily_batch, "reconcile_story_ids_via_clustering", fake_reconcile)
+    monkeypatch.setattr(daily_batch, "select_stories_to_produce", fake_select)
+    monkeypatch.setattr(daily_batch, "assemble_daily_feeds", fake_assemble)
+
+    await daily_batch.run_daily_pipeline(
+        target_date=date(2026, 7, 5),
+        supabase_client=object(),
+        llm_client=object(),
+        tts_client=object(),
+        ingest_fn=fake_ingest,
+        interest_nodes={},
+        enable_semantic_clustering=True,
+    )
+
+    # The gate saw ONE collapsed story, not the two raw candidates.
+    assert gate_saw["ids"] == ["cand-egypt-a"]
+    # The reconciled importance map was threaded into the assembler.
+    assert assemble_saw["importance"] == importance_map
+
+
+@pytest.mark.asyncio
+async def test_semantic_clustering_disabled_by_default_leaves_pool_and_map_untouched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default-off rollout: with the flag unset, reconcile is NEVER called and the
+    assembler's cluster-importance map is None (the un-clustered raw-importance fallback)
+    — the legacy path is unchanged and costs no Gemini embeddings."""
+    _pipeline_seams(monkeypatch)
+    reconcile_called: list[int] = []
+
+    async def fake_ingest():
+        return [_story("s-1"), _story("s-2")], []
+
+    async def fake_reconcile(*_a, **_k):
+        reconcile_called.append(1)
+        raise AssertionError("reconcile must not run when the flag is off")
+
+    def fake_select(stories, _tags, _lookup, **_k):
+        decisions = [
+            SimpleNamespace(story_id=s.canonical_story_id, should_produce=True,
+                            importance_score=0.5, freshness_score=0.5)
+            for s in stories
+        ]
+        return list(stories), decisions
+
+    assemble_saw: dict = {}
+
+    def fake_assemble(*, target_date, cluster_importance_by_story=None, **_k):
+        assemble_saw["importance"] = cluster_importance_by_story
+        return DailyFeedsBatchResult(
+            feed_date=target_date.isoformat(), active_user_count=1, feeds_written=1
+        )
+
+    monkeypatch.setattr(daily_batch, "reconcile_story_ids_via_clustering", fake_reconcile)
+    monkeypatch.setattr(daily_batch, "select_stories_to_produce", fake_select)
+    monkeypatch.setattr(daily_batch, "assemble_daily_feeds", fake_assemble)
+
+    await daily_batch.run_daily_pipeline(
+        target_date=date(2026, 7, 5),
+        supabase_client=object(),
+        llm_client=object(),
+        tts_client=object(),
+        ingest_fn=fake_ingest,
+        interest_nodes={},
+    )
+
+    assert reconcile_called == []
+    assert assemble_saw["importance"] is None
