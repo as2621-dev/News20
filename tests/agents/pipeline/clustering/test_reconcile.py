@@ -261,6 +261,7 @@ async def test_empty_pool_is_a_noop_passthrough():
     assert result.reconciled_stories == []
     assert result.reconciled_tags == []
     assert result.cluster_importance_by_story == {}
+    assert result.category_override_by_story == {}
     embed.assert_not_awaited()
 
 
@@ -279,17 +280,19 @@ _GUARD_INTEREST_NODES = {
 
 
 @pytest.mark.asyncio
-async def test_cross_category_merge_logs_conflict_and_never_touches_tag_depths():
+async def test_cross_category_merge_enforces_representative_category_and_never_touches_tag_depths():
     """(e) Issue #34: a cross-category merge whose absorbed member carries a lower-depth
     FOREIGN tag is a category conflict — it must be logged as a structured
-    ``reconcile_category_conflict`` event, and the remapped tags' ``match_depth`` values
-    must be BYTE-IDENTICAL to their inputs.
+    ``reconcile_category_conflict`` event, ENFORCED via the returned
+    ``category_override_by_story`` map (the representative's fetching-interest category),
+    and the remapped tags' ``match_depth`` values must be BYTE-IDENTICAL to their inputs.
 
     WHY the depths must not move (review-panel HIGH): ``story_interest_match_depth`` is
     also the ranker's DepthMatch input and is persisted verbatim to ``story_interests``
     — clamping it to steer the category contest would cut a genuine follower of the
     foreign interest from DepthMatch 1.0 to 0.6/0.3 (or zero it entirely past depth 2).
-    Category ENFORCEMENT without depth mutation is the recorded #34 remainder."""
+    Enforcement therefore rides an explicit override map to the ``assign_category``
+    call sites, never a depth mutation (the #34 remainder, panel-agreed design)."""
     from unittest.mock import MagicMock
 
     from agents.pipeline.clustering import reconcile as reconcile_module
@@ -324,7 +327,19 @@ async def test_cross_category_merge_logs_conflict_and_never_touches_tag_depths()
     }
     assert depth_by_interest == {_EGYPT_INTEREST_ID: 1, _GEO_INTEREST_ID: 0}
     assert all(tag.story_interest_story_id == shared_id for tag in result.reconciled_tags)
-    # The conflict is visible: a structured event fired exactly once, marked unenforced.
+    # Persist parity: the exact rows ranking persists verbatim to ``story_interests``
+    # carry the SAME depths — the guard steered category via the override map only.
+    from agents.pipeline.persist_helpers import build_story_interest_rows
+
+    persisted_rows = build_story_interest_rows(shared_id, result.reconciled_tags)
+    assert {
+        row["story_interest_interest_id"]: row["story_interest_match_depth"]
+        for row in persisted_rows
+    } == {_EGYPT_INTEREST_ID: 1, _GEO_INTEREST_ID: 0}
+    # ENFORCEMENT: the merged story is pinned to its representative's fetching category
+    # via the override map (never via a depth clamp — the depths above are untouched).
+    assert result.category_override_by_story == {shared_id: "sport"}
+    # The conflict is visible: a structured event fired exactly once, marked enforced.
     conflict_calls = [
         call for call in fake_logger.info.call_args_list
         if call.args and call.args[0] == "reconcile_category_conflict"
@@ -333,7 +348,7 @@ async def test_cross_category_merge_logs_conflict_and_never_touches_tag_depths()
     kwargs = conflict_calls[0].kwargs
     assert kwargs["story_id"] == shared_id
     assert kwargs["representative_category"] == "sport"
-    assert kwargs["guard_enforced"] is False
+    assert kwargs["guard_enforced"] is True
 
 
 @pytest.mark.asyncio
@@ -381,8 +396,9 @@ async def test_untagged_representative_conflict_is_logged_unenforced_and_tags_pa
     """(g) Issue #34 boundary (review-panel pin): when the REPRESENTATIVE has no
     resolvable tags of its own (provisional category = the no-tag fallback) and the
     absorbed members span two OTHER categories, the conflict is still logged
-    (``guard_enforced=False``) and every remapped tag depth passes through untouched
-    (designed detection-only behavior, Rule 9: pin it or it silently changes)."""
+    (``guard_enforced=False``), NO override is emitted (pinning to the no-tag arts
+    fallback would be arbitrary, not fetching-interest truth), and every remapped tag
+    depth passes through untouched (Rule 9: pin it or it silently changes)."""
     from unittest.mock import MagicMock
 
     from agents.pipeline.clustering import reconcile as reconcile_module
@@ -427,6 +443,8 @@ async def test_untagged_representative_conflict_is_logged_unenforced_and_tags_pa
     assert len(conflict_calls) == 1
     assert conflict_calls[0].kwargs["guard_enforced"] is False
     assert conflict_calls[0].kwargs["story_id"] == shared_id
+    # No override is possible: the map passes through empty (no arbitrary arts pin).
+    assert result.category_override_by_story == {}
     # Nothing was clamped: both remapped tags keep depth 0.
     depth_by_interest = {
         tag.story_interest_interest_id: tag.story_interest_match_depth

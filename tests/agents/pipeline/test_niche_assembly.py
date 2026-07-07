@@ -845,3 +845,42 @@ def test_ladder_scenarios_never_short_and_dedup(scenario: str) -> None:
             assert slot.feed_matched_interest_id != slot.feed_section_interest_id
         if slot.feed_fallback_source_level == 0 and slot.feed_section_interest_id:
             assert slot.feed_matched_interest_id == slot.feed_section_interest_id
+
+
+def test_category_override_pins_merged_story_into_beyond_bubble_root() -> None:
+    """Issue #34 remainder: reconcile's category pin reaches the beyond-bubble
+    classifier, so a cross-category merged story fills its fetching root's reserve.
+
+    WHY: the merged story's absorbed member left a lower-depth foreign business tag
+    (depth 0) that would normally win ``assign_category`` — an ai-only beyond-bubble
+    reserve would then miss the ai-fetched story entirely. The pin must route it into
+    the ai reserve WITHOUT touching the tags the ranker scores.
+    """
+    profile = [UserProfileInterest(profile_interest_id=_IPL, profile_weight=3.0)]
+    alloc = [
+        _niche_row(_IPL, "IPL", slot_count=1, sort_order=0),
+        _beyond_row("ai", sort_order=1),
+    ]
+    # One merged story: fetching ai tag at depth 1 + absorbed foreign business tag at 0.
+    stories = [_story("merged-0", outlet_count=6)]
+    tags = [
+        _tag("merged-0", _AI, 1),
+        _tag("merged-0", _BUSINESS, 0),
+    ]
+
+    baseline = _run(profile, alloc, stories, tags, feed_slot_budget=2)
+    pinned = _run(
+        profile,
+        alloc,
+        stories,
+        tags,
+        feed_slot_budget=2,
+        category_override_by_story={"merged-0": "ai"},
+    )
+
+    # Without the pin the foreign depth-0 business tag classifies the story business →
+    # it misses the ai reserve and the feed stays empty (the flip, observable).
+    assert baseline == []
+    # With the pin the story lands in the ai beyond-bubble slot.
+    assert [slot.feed_story_id for slot in pinned] == ["merged-0"]
+    assert pinned[0].feed_section_label == BEYOND_BUBBLE_LABEL

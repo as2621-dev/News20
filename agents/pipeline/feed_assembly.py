@@ -563,6 +563,7 @@ def assemble_user_feed(
     exploration_candidates_by_interest: Any = None,
     source_stories: list[CanonicalStory] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
     mute_terms: list[str] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
@@ -607,6 +608,10 @@ def assemble_user_feed(
             Importance term is its authority-weighted E1 score. Un-clustered stories
             (absent from the map) fall back to the raw outlet-count importance, so the
             seam is additive (``None``/empty → byte-identical to the pre-M3 feed).
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to the classifier so
+            a cross-category merged story buckets into its representative's fetching
+            category. ``None``/empty → classification exactly as before.
         feed_slot_budget: ``N`` — total feed slots (30).
         score_threshold: ``T`` — the qualifying bar.
         now_utc: Current time for the freshness term (defaults to ``utcnow``).
@@ -647,6 +652,7 @@ def assemble_user_feed(
         now_utc=now_utc,
         score_threshold=score_threshold,
         cluster_importance_by_story=cluster_importance_by_story,
+        category_override_by_story=category_override_by_story,
     )
 
     # ── Layer 1: resolve the per-category budgets + manual sequence ──
@@ -918,6 +924,7 @@ def _beyond_bubble_ranked(
     used_story_ids: set[str],
     excluded_story_ids: set[str],
     cluster_importance_by_story: dict[str, float],
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> list[tuple[str, float]]:
     """Importance-rank the beyond-bubble backbone: un-lit-root stories, best first.
 
@@ -938,6 +945,8 @@ def _beyond_bubble_ranked(
         used_story_ids: Story ids already placed (excluded here; NOT mutated).
         excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
         cluster_importance_by_story: E1 importance map (falls back to outlet count).
+        category_override_by_story: Reconcile's enforced category pins (issue #34),
+            forwarded to :func:`assign_category`. ``None``/empty → as before.
 
     Returns:
         ``[(story_id, importance), ...]`` descending by importance, then story id
@@ -948,7 +957,12 @@ def _beyond_bubble_ranked(
         story_id = story.canonical_story_id
         if story_id in used_story_ids or story_id in excluded_story_ids:
             continue
-        if assign_category(story_id, tags_by_story, interest_nodes) not in reserve_roots:
+        if (
+            assign_category(
+                story_id, tags_by_story, interest_nodes, category_override_by_story
+            )
+            not in reserve_roots
+        ):
             continue
         importance = cluster_importance_by_story.get(story_id)
         if importance is None:
@@ -969,6 +983,7 @@ def assemble_niche_feed(
     source_stories: list[CanonicalStory] | None = None,
     x_theme_candidates: list[XThemeReelCandidate] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
     mute_terms: list[str] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
@@ -1025,6 +1040,9 @@ def assemble_niche_feed(
             roundup), each stamped with its rung + attribution; unfilled x slots roll to
             the news floor. ``None`` keeps the legacy source-stories x fill.
         cluster_importance_by_story: E1 within-category-normalized importance map.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to the coarse
+            delegate and the beyond-bubble classifier. ``None``/empty → as before.
         feed_slot_budget: ``N`` — total feed slots (30).
         score_threshold: ``T`` — the qualifying/climb-stop bar.
         now_utc: Current time for freshness (defaults to ``utcnow``).
@@ -1068,6 +1086,7 @@ def assemble_niche_feed(
             prior_feed_story_ids=excluded,
             source_stories=source_stories,
             cluster_importance_by_story=cluster_importance_by_story,
+            category_override_by_story=category_override_by_story,
             feed_slot_budget=feed_slot_budget,
             score_threshold=score_threshold,
             now_utc=now_utc,
@@ -1195,6 +1214,7 @@ def assemble_niche_feed(
             used_story_ids=used_story_ids,
             excluded_story_ids=excluded,
             cluster_importance_by_story=cluster_importance,
+            category_override_by_story=category_override_by_story,
         )
         for story_id, importance in ranked[:beyond_capacity]:
             beyond_fills.append((story_id, importance))

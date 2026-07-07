@@ -53,7 +53,7 @@ from agents.pipeline.stages.detail_enrichment import (
     DetailEnrichment,
     run_detail_enrichment,
 )
-from agents.pipeline.categories import CategoryAllocation
+from agents.pipeline.categories import CategoryAllocation, FeedCategory
 from agents.pipeline.stages.ranking import FollowedEntity, UserProfileInterest
 from agents.pipeline.stages.acoustic_alignment import acoustically_align_turn_windows
 from agents.pipeline.stages.forced_alignment import (
@@ -831,6 +831,7 @@ def assemble_daily_feeds(
     source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
     x_theme_candidates_by_user: dict[str, list[XThemeReelCandidate]] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> DailyFeedsBatchResult:
     """Assemble + persist a per-user ``daily_feeds`` feed for every active user.
 
@@ -870,6 +871,11 @@ def assemble_daily_feeds(
             each user's ``assemble_user_feed`` so a clustered story's Importance term is
             its authority-weighted E1 score; un-clustered stories fall back to the raw
             outlet count (Rule 3 — additive). ``None`` → the pre-M3 raw-importance feed.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile stage's
+            enforced category pins for cross-category merged stories (issue #34), SHARED
+            across users (a story's category is intrinsic). Threaded into each user's
+            assembly so classification can never flip a merged story away from its
+            fetching interest's category. ``None`` → classification exactly as before.
 
     Returns:
         A :class:`DailyFeedsBatchResult` summarizing writes/skips per user.
@@ -926,6 +932,7 @@ def assemble_daily_feeds(
                 else x_theme_candidates_by_user.get(user_inputs.active_user_id, [])
             ),
             cluster_importance_by_story=cluster_importance_by_story,
+            category_override_by_story=category_override_by_story,
             mute_terms=user_inputs.mute_terms,
             now_utc=now_utc,
         )

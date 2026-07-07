@@ -841,6 +841,7 @@ def assign_category(
     story_id: str,
     tags_by_story: dict[str, dict[str, int]],
     interest_nodes: dict[str, InterestNode],
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> FeedCategory:
     """Classify a story into exactly ONE best-fit screen category (phase-5a SP2).
 
@@ -877,6 +878,11 @@ def assign_category(
             :func:`_index_tags_by_story`).
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup (resolves
             an interest id to its slug).
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins for cross-category merged stories (issue
+            #34). Checked FIRST: a story in the map returns its pinned category and
+            skips the depth/slug rule entirely. Stories absent from the map (and a
+            ``None``/empty map) classify exactly as before — the seam is additive.
 
     Returns:
         The single best-fit :data:`FeedCategory` for the story.
@@ -885,6 +891,14 @@ def assign_category(
         >>> # See tests/agents/pipeline/test_ranking.py: a Nvidia earnings story
         >>> # tagged on a markets-rooted interest classifies into 'markets'.
     """
+    # Reason: issue #34 — a cross-category semantic merge pins the surviving story to
+    # its representative's fetching-interest category via this explicit override seam
+    # (NEVER by mutating story_interest_match_depth, which is the ranker's DepthMatch
+    # input persisted verbatim to story_interests).
+    if category_override_by_story:
+        override_category = category_override_by_story.get(story_id)
+        if override_category is not None:
+            return override_category
     story_tags = tags_by_story.get(story_id) or {}
     # Reason: consider only tags whose interest resolves to a slug in the taxonomy —
     # an orphan tag (interest absent from interest_nodes) cannot be categorized.
@@ -1001,6 +1015,7 @@ def score_and_classify_for_user(
     now_utc: datetime | None = None,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> dict[FeedCategory, list[ScoredCandidate]]:
     """Score (entity-aware) + classify a user's candidates into the 8 categories.
 
@@ -1038,6 +1053,12 @@ def score_and_classify_for_user(
             its authority-weighted E1 score instead of the raw outlet count; a story
             absent from the map (un-clustered) is scored exactly as before (Rule 3 —
             additive seam). Empty/None → byte-identical to the pre-M3 behaviour.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to
+            :func:`assign_category` so a cross-category merged story classifies into
+            its representative's fetching category, never a flipped one. Scores are
+            UNTOUCHED — only the bucket changes. Empty/None → classification exactly
+            as before.
 
     Returns:
         ``{feed_category: [ScoredCandidate, ...]}`` — all 8 keys; topic buckets
@@ -1073,7 +1094,9 @@ def score_and_classify_for_user(
         )
         if bonus > 0.0:
             entity_boosted += 1
-        category = assign_category(story_id, tags_by_story, interest_nodes)
+        category = assign_category(
+            story_id, tags_by_story, interest_nodes, category_override_by_story
+        )
         classified = candidate.model_copy(
             update={
                 "score": candidate.score + bonus,

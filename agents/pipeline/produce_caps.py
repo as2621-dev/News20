@@ -149,6 +149,7 @@ def cap_stories_per_category(
     caps: dict[FeedCategory, int],
     *,
     default_cap: int,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> list[CanonicalStory]:
     """Cap the gated pool per category, keeping the most important stories.
 
@@ -167,6 +168,9 @@ def cap_stories_per_category(
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup (classify).
         caps: ``{category: max kept}`` from :func:`compute_category_produce_caps`.
         default_cap: Per-category cap used only when ``caps`` is empty.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to
+            :func:`assign_category`. ``None``/empty → classification as before.
 
     Returns:
         The capped subset of ``to_produce`` (original order preserved).
@@ -188,7 +192,10 @@ def cap_stories_per_category(
     by_category: dict[FeedCategory, list[CanonicalStory]] = {}
     for story in to_produce:
         category = assign_category(
-            story.canonical_story_id, tags_by_story, interest_nodes
+            story.canonical_story_id,
+            tags_by_story,
+            interest_nodes,
+            category_override_by_story,
         )
         by_category.setdefault(category, []).append(story)
 
@@ -230,6 +237,8 @@ def enforce_overall_ceiling(
     story_interest_tags: list[StoryInterestTag],
     interest_nodes: dict[str, InterestNode],
     max_total: int,
+    *,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> list[CanonicalStory]:
     """Trim a capped pool to an overall ceiling, round-robin across categories.
 
@@ -244,6 +253,9 @@ def enforce_overall_ceiling(
         story_interest_tags: All ``story_interests`` tags (classify).
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup (classify).
         max_total: The overall ceiling. ``<= 0`` or ``>= len(stories)`` is a no-op.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to
+            :func:`assign_category`. ``None``/empty → classification as before.
 
     Returns:
         At most ``max_total`` stories (original order preserved), balanced across
@@ -265,7 +277,10 @@ def enforce_overall_ceiling(
     by_category: dict[FeedCategory, list[CanonicalStory]] = {}
     for story in stories:
         category = assign_category(
-            story.canonical_story_id, tags_by_story, interest_nodes
+            story.canonical_story_id,
+            tags_by_story,
+            interest_nodes,
+            category_override_by_story,
         )
         by_category.setdefault(category, []).append(story)
 

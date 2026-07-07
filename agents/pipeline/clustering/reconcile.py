@@ -70,19 +70,33 @@ class ReconcileResult:
             de-duplicated per (story_id, interest_id) at the lowest match depth.
         cluster_importance_by_story: ``{shared_story_id: cluster_importance ∈ [0, 1]}``
             for the assembler's Importance term; empty when nothing clustered.
+        category_override_by_story: ``{shared_story_id: FeedCategory}`` — the enforced
+            category pin for cross-category merged stories (issue #34): each conflicted
+            merged story maps to its REPRESENTATIVE's fetching-interest category. The
+            caller threads it to the ``assign_category`` call sites so a merge can never
+            flip the surviving story's category (never via a depth mutation —
+            ``reconciled_tags`` stays byte-identical for ranking). Empty when no
+            enforceable conflict occurred.
     """
 
-    __slots__ = ("reconciled_stories", "reconciled_tags", "cluster_importance_by_story")
+    __slots__ = (
+        "reconciled_stories",
+        "reconciled_tags",
+        "cluster_importance_by_story",
+        "category_override_by_story",
+    )
 
     def __init__(
         self,
         reconciled_stories: list[CanonicalStory],
         reconciled_tags: list[StoryInterestTag],
         cluster_importance_by_story: dict[str, float],
+        category_override_by_story: dict[str, FeedCategory],
     ) -> None:
         self.reconciled_stories = reconciled_stories
         self.reconciled_tags = reconciled_tags
         self.cluster_importance_by_story = cluster_importance_by_story
+        self.category_override_by_story = category_override_by_story
 
 
 async def reconcile_story_ids_via_clustering(
@@ -139,7 +153,7 @@ async def reconcile_story_ids_via_clustering(
     """
     if not stories:
         logger.info("reconcile_story_ids_skipped_empty", candidate_count=0)
-        return ReconcileResult(list(stories), list(story_interest_tags), {})
+        return ReconcileResult(list(stories), list(story_interest_tags), {}, {})
 
     mint_cluster_id = mint_cluster_id or (lambda: f"clu-{uuid.uuid4().hex}")
     tags_by_story = _index_tags_by_story(story_interest_tags)
@@ -190,13 +204,14 @@ async def reconcile_story_ids_via_clustering(
     reconciled_tags = _remap_tags(
         story_interest_tags, stories=stories, shared_id_by_index=shared_id_by_index
     )
-    _log_cross_category_merge_conflicts(
+    category_override_by_story = _category_overrides_for_merge_conflicts(
         reconciled_tags,
         stories=stories,
         shared_id_by_index=shared_id_by_index,
         provisional_categories=[
             cluster_input.input_provisional_category for cluster_input in inputs
         ],
+        tags_by_story=tags_by_story,
         interest_nodes=interest_nodes,
     )
 
@@ -217,10 +232,14 @@ async def reconcile_story_ids_via_clustering(
         collapsed_story_count=len(reconciled_stories),
         merged_away=len(stories) - len(reconciled_stories),
         importance_entries=len(cluster_importance_by_story),
+        category_overrides=len(category_override_by_story),
         block_by_category=block_by_category,
     )
     return ReconcileResult(
-        reconciled_stories, reconciled_tags, cluster_importance_by_story
+        reconciled_stories,
+        reconciled_tags,
+        cluster_importance_by_story,
+        category_override_by_story,
     )
 
 
@@ -456,31 +475,37 @@ def _remap_tags(
     return [best_by_edge[edge] for edge in sorted(best_by_edge)]
 
 
-def _log_cross_category_merge_conflicts(
+def _category_overrides_for_merge_conflicts(
     reconciled_tags: list[StoryInterestTag],
     *,
     stories: list[CanonicalStory],
     shared_id_by_index: dict[int, str],
     provisional_categories: list[FeedCategory],
+    tags_by_story: dict[str, dict[str, int]],
     interest_nodes: dict[str, InterestNode],
-) -> None:
-    """Detect + log cross-category merge conflicts (issue #34) — detection ONLY.
+) -> dict[str, FeedCategory]:
+    """Detect, log, and ENFORCE cross-category merge conflicts (issue #34 remainder).
 
     A cross-category merge (deliberate — ``block_by_category=False``) unions tags from
     members whose FETCHING interests live under different roots. Downstream
     ``assign_category`` picks the lowest-depth tag, so an absorbed member's lower-depth
-    foreign tag can FLIP the surviving story's category away from its fetching
-    interest's — contradicting the #35 precedence doctrine. This logs every such
-    contest as a structured ``reconcile_category_conflict`` event (extending #35's
-    conflict-visibility pattern).
+    foreign tag could FLIP the surviving story's category away from its fetching
+    interest's — contradicting the #35 precedence doctrine. Every such contest is logged
+    as a structured ``reconcile_category_conflict`` event (extending #35's
+    conflict-visibility pattern) and, when enforceable, PINNED: the returned override
+    map fixes the merged story to its representative's fetching-interest category, and
+    the caller threads it to the ``assign_category`` call sites.
 
-    It deliberately does NOT touch ``story_interest_match_depth``: that field is also
-    the ranker's DepthMatch input and is persisted verbatim to ``story_interests``
-    (``persist_helpers.build_story_interest_rows``), so clamping it to steer the
-    category contest would corrupt a genuine follower's affinity (issue #34 review-
-    panel HIGH). Enforcement — pinning the merged story to its representative's
-    category WITHOUT touching depths (a ``category_override_by_story`` map threaded to
-    the ``assign_category`` call sites) — is the recorded #34 remainder.
+    NOT enforceable (logged ``guard_enforced=False``, no override): the representative
+    itself has no resolvable tag, so its provisional category is the no-tag arts
+    fallback — pinning to that would be arbitrary, not fetching-interest truth; the
+    contest falls through to ``assign_category``'s normal lowest-depth rule.
+
+    Enforcement deliberately does NOT touch ``story_interest_match_depth``: that field
+    is also the ranker's DepthMatch input and is persisted verbatim to
+    ``story_interests`` (``persist_helpers.build_story_interest_rows``), so clamping it
+    to steer the category contest would corrupt a genuine follower's affinity (issue
+    #34 review-panel HIGH). ``reconciled_tags`` passes through byte-identical.
 
     Args:
         reconciled_tags: The remapped/deduped tags from :func:`_remap_tags` (read-only).
@@ -490,12 +515,20 @@ def _log_cross_category_merge_conflicts(
         provisional_categories: Index-aligned per-story pre-merge categories (the
             ``ClusterInput.input_provisional_category`` values — fetching-interest
             derived via ``assign_category``).
+        tags_by_story: The PRE-merge ``{story_id: {interest_id: match_depth}}`` index
+            (detects a representative whose provisional category is the no-tag
+            fallback rather than a real fetching-interest signal).
         interest_nodes: Taxonomy lookup to resolve each tag's root category.
+
+    Returns:
+        ``{shared_story_id: FeedCategory}`` — one entry per ENFORCED conflict; empty
+        when no conflict occurred or none was enforceable.
     """
     indices_by_shared_id: dict[str, list[int]] = {}
     for index, shared_id in shared_id_by_index.items():
         indices_by_shared_id.setdefault(shared_id, []).append(index)
 
+    overrides: dict[str, FeedCategory] = {}
     for shared_id, indices in indices_by_shared_id.items():
         if len(indices) < 2:
             continue
@@ -512,13 +545,25 @@ def _log_cross_category_merge_conflicts(
         if len(tag_categories) <= 1:
             continue
         representative_index = _pick_representative_index(stories, sorted(indices), shared_id)
+        # Reason: enforce only when the representative's provisional category came from
+        # a real resolvable tag — an untagged representative's category is the no-tag
+        # fallback, and pinning the merge to it would be arbitrary.
+        enforced = any(
+            interest_id in interest_nodes
+            for interest_id in tags_by_story.get(
+                stories[representative_index].canonical_story_id, {}
+            )
+        )
+        if enforced:
+            overrides[shared_id] = provisional_categories[representative_index]
         logger.info(
             "reconcile_category_conflict",
             story_id=shared_id,
             representative_category=provisional_categories[representative_index],
             contender_categories=sorted(tag_categories),
-            guard_enforced=False,
+            guard_enforced=enforced,
         )
+    return overrides
 
 
 def _score_run(run: ClusterRun, *, now_utc: datetime) -> ClusterRun:

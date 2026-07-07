@@ -418,13 +418,15 @@ async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_imp
 ) -> None:
     """Wiring contract (the dedup fix): with enable_semantic_clustering True the batch
     reconciles the ingested pool BEFORE the gate — so the gate + assembler see collapsed
-    stories, not the raw two-id pool — and the reconciled cluster-importance map reaches
-    the assembler. If this regresses, same-event candidates survive to feed assembly and
-    the user sees one event twice."""
+    stories, not the raw two-id pool — and the reconciled cluster-importance +
+    category-override maps reach the assembler. If this regresses, same-event candidates
+    survive to feed assembly and the user sees one event twice (or a cross-category
+    merge flips the survivor's category unenforced — the #34 remainder)."""
     _pipeline_seams(monkeypatch)
     raw_pool = [_story("cand-egypt-a"), _story("cand-egypt-b")]
     collapsed = [_story("cand-egypt-a")]  # the two events collapsed to one shared id
     importance_map = {"cand-egypt-a": 0.9}
+    override_map = {"cand-egypt-a": "sport"}
 
     async def fake_ingest():
         return raw_pool, []
@@ -436,6 +438,7 @@ async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_imp
             reconciled_stories=collapsed,
             reconciled_tags=[],
             cluster_importance_by_story=importance_map,
+            category_override_by_story=override_map,
         )
 
     gate_saw: dict = {}
@@ -451,8 +454,12 @@ async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_imp
 
     assemble_saw: dict = {}
 
-    def fake_assemble(*, target_date, cluster_importance_by_story=None, **_k):
+    def fake_assemble(
+        *, target_date, cluster_importance_by_story=None,
+        category_override_by_story=None, **_k,
+    ):
         assemble_saw["importance"] = cluster_importance_by_story
+        assemble_saw["overrides"] = category_override_by_story
         return DailyFeedsBatchResult(
             feed_date=target_date.isoformat(), active_user_count=1, feeds_written=1
         )
@@ -475,6 +482,8 @@ async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_imp
     assert gate_saw["ids"] == ["cand-egypt-a"]
     # The reconciled importance map was threaded into the assembler.
     assert assemble_saw["importance"] == importance_map
+    # #34 remainder: the enforced category pins rode the same plumbing.
+    assert assemble_saw["overrides"] == override_map
 
 
 @pytest.mark.asyncio
@@ -504,8 +513,12 @@ async def test_semantic_clustering_disabled_by_default_leaves_pool_and_map_untou
 
     assemble_saw: dict = {}
 
-    def fake_assemble(*, target_date, cluster_importance_by_story=None, **_k):
+    def fake_assemble(
+        *, target_date, cluster_importance_by_story=None,
+        category_override_by_story=None, **_k,
+    ):
         assemble_saw["importance"] = cluster_importance_by_story
+        assemble_saw["overrides"] = category_override_by_story
         return DailyFeedsBatchResult(
             feed_date=target_date.isoformat(), active_user_count=1, feeds_written=1
         )
@@ -525,6 +538,8 @@ async def test_semantic_clustering_disabled_by_default_leaves_pool_and_map_untou
 
     assert reconcile_called == []
     assert assemble_saw["importance"] is None
+    # Flag off → no override map either (classification byte-identical to legacy).
+    assert assemble_saw["overrides"] is None
 
 
 @pytest.mark.asyncio

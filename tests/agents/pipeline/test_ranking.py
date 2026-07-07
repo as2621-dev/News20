@@ -1091,3 +1091,110 @@ class TestClusterImportanceThreadsThroughScorer:
         assert buckets["business"][0].importance == pytest.approx(
             0.5
         )  # 6/12, unchanged
+
+
+class TestCategoryOverrideEnforcement:
+    """Issue #34 remainder: reconcile's category pin rides an explicit override seam.
+
+    WHY: a cross-category semantic merge must never flip the surviving story into a
+    category contradicting its fetching interest — and enforcement must never ride a
+    ``story_interest_match_depth`` mutation, because that field is the ranker's
+    DepthMatch input persisted verbatim to ``story_interests`` (review-panel HIGH).
+    These tests pin both halves: the category is actually enforced, and a follower of
+    the "losing" interest scores field-for-field identically.
+    """
+
+    _SPORT_ID = "int-sport"
+    _GEO_ID = "int-geo"
+
+    def _nodes(self) -> dict[str, InterestNode]:
+        return {
+            self._SPORT_ID: InterestNode(
+                interest_id=self._SPORT_ID,
+                interest_slug="sport.football",
+                interest_label="Football",
+            ),
+            self._GEO_ID: InterestNode(
+                interest_id=self._GEO_ID,
+                interest_slug="geopolitics.mena",
+                interest_label="MENA",
+            ),
+        }
+
+    def test_override_pins_category_over_lower_depth_foreign_tag(self) -> None:
+        """The pinned category wins outright; unpinned stories keep the depth rule.
+
+        WHY: without the seam the absorbed member's depth-0 geopolitics tag flips
+        the merged sport story into geopolitics — the exact #34 criterion-4 failure.
+        """
+        tags_by_story = {"merged-1": {self._SPORT_ID: 1, self._GEO_ID: 0}}
+        nodes = self._nodes()
+        # Normal rule: the lower-depth foreign tag wins (the flip the pin prevents).
+        assert assign_category("merged-1", tags_by_story, nodes) == "geopolitics"
+        # Enforced: the reconcile pin wins, skipping the depth/slug rule.
+        assert (
+            assign_category("merged-1", tags_by_story, nodes, {"merged-1": "sport"})
+            == "sport"
+        )
+        # A story absent from the map is untouched by someone else's override.
+        assert (
+            assign_category("merged-1", tags_by_story, nodes, {"other": "arts"})
+            == "geopolitics"
+        )
+
+    def test_pin_rebuckets_story_without_perturbing_losing_followers_score(self) -> None:
+        """A follower of the LOSING (geopolitics) interest scores IDENTICALLY with the
+        pin on — only the bucket moves.
+
+        WHY (review-panel HIGH): the guard must never steer categories via a depth
+        clamp — this follower's DepthMatch reads the same persisted depth either way.
+        If any score term drifts when the pin is applied, the guard is corrupting
+        personalization to win the category contest.
+        """
+        user = [
+            UserProfileInterest(profile_interest_id=self._GEO_ID, profile_weight=3.0)
+        ]
+        nodes = self._nodes()
+        story = _story("merged-1", 6)
+        tags = [
+            StoryInterestTag(
+                story_interest_story_id="merged-1",
+                story_interest_interest_id=self._SPORT_ID,
+                story_interest_match_depth=1,
+            ),
+            StoryInterestTag(
+                story_interest_story_id="merged-1",
+                story_interest_interest_id=self._GEO_ID,
+                story_interest_match_depth=0,
+            ),
+        ]
+        baseline = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[],
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+        pinned = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[],
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+            category_override_by_story={"merged-1": "sport"},
+        )
+
+        base = baseline["geopolitics"][0]
+        pin = pinned["sport"][0]
+        # ENFORCEMENT: the bucket moved to the pinned category — and only the bucket.
+        assert baseline["sport"] == []
+        assert pinned["geopolitics"] == []
+        assert pin.feed_category == "sport"
+        # Field-for-field score parity for the losing interest's follower.
+        assert pin.score == base.score
+        assert pin.affinity == base.affinity
+        assert pin.depth_match == base.depth_match
+        assert pin.importance == base.importance
+        assert pin.freshness == base.freshness

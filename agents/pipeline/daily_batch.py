@@ -870,6 +870,7 @@ async def run_daily_pipeline(
     # Gated OFF by default — no Gemini spend, no behaviour change — until a caller
     # opts in (see ``enable_semantic_clustering``).
     cluster_importance_by_story: dict[str, float] | None = None
+    category_override_by_story: dict[str, FeedCategory] | None = None
     if enable_semantic_clustering:
         try:
             reconciled = await reconcile_story_ids_via_clustering(
@@ -905,6 +906,11 @@ async def run_daily_pipeline(
             stories = reconciled.reconciled_stories
             story_interest_tags = reconciled.reconciled_tags
             cluster_importance_by_story = reconciled.cluster_importance_by_story
+            # Reason: issue #34 — a cross-category merge's enforced category pin rides
+            # this map to every assign_category call site (caps, ceiling, assembly) so
+            # the merge can never flip the surviving story's category (never via a
+            # story_interest_match_depth mutation, which ranking persists verbatim).
+            category_override_by_story = reconciled.category_override_by_story
 
     # ── Stage C — produce-once gate, then bounded paid fan-out ────────────────
     has_current_digest = _load_has_current_digest(
@@ -943,6 +949,7 @@ async def run_daily_pipeline(
         interest_nodes,
         caps,
         default_cap=DEFAULT_PER_CATEGORY_CAP,
+        category_override_by_story=category_override_by_story,
     )
     if max_total_productions and max_total_productions > 0:
         to_produce = enforce_overall_ceiling(
@@ -951,6 +958,7 @@ async def run_daily_pipeline(
             story_interest_tags,
             interest_nodes,
             max_total_productions,
+            category_override_by_story=category_override_by_story,
         )
     capped_count = gated_count - len(to_produce)
 
@@ -1082,6 +1090,7 @@ async def run_daily_pipeline(
         now_utc=now,
         source_stories_by_user=produced_source_by_user,
         cluster_importance_by_story=cluster_importance_by_story,
+        category_override_by_story=category_override_by_story,
     )
 
     logger.info(
