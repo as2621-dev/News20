@@ -1,108 +1,59 @@
-# Product Brief — Chat Onboarding + YouTube/X Source Reels
+# Product Brief — blip Pre-Launch Hardening
 
-**Date:** 2026-07-04
+**Date:** 2026-07-06
 **Status:** Draft — needs `/cto` to translate into a PRD
-**Scope:** Revamp of an existing product (blip / News20). Supersedes the 2026-07-03 brief (single-select tap-through interview — built in slice #4, rejected by the founder on sight) and formally supersedes the FSR "roots-only, no drilling" thesis. Prior briefs in git history.
-**Design handoff (canonical):** Claude Design project `2bd1f0ab-87f5-4392-a699-8e3e6e5a1c68`, file `News20 Prototype/Onboarding Chat.html` (+ `onboarding-chat.js`). Local copies: `reference/design-handoff/onboarding-chat.{html,js}`. The prototype is a deterministic script; the build keeps its **interaction contract** and replaces canned copy/branching with the real engine.
+**Scope:** Final hardening pass before public launch. Supersedes the 2026-07-04 brief (chat onboarding + YT/X source reels — shipped); prior briefs in git history.
 
 ## One-liner
-
-Onboard in one ChatGPT-style conversation; every morning get 30 stories — news, your YouTube channels, and your X people.
+Make blip's core promise real before public launch: top news per followed sub-niche, correctly labeled, in a provably current app.
 
 ## Target user
-
-The founder is user #1: a news-heavy professional who checks YouTube subscriptions and X every morning on top of news apps, and has specific sub-niches (IPL, frontier AI labs, Indian markets) no broad category captures. The moment: first app open — and every morning after.
+Founder (ashesh) as proxy for launch users: opens blip each morning expecting the 30 reels to lead with the stories leading outlets are covering for his followed sub-niches (tech, geopolitics, cricket…).
 
 ## Problem
+The daily feed reads as random low-weight news, mislabeled by category; the phone runs stale builds so fixes are invisible; voice mode has ~5-6s dead air while falsely showing LISTENING; poster images burn credits during testing.
 
-Two problems, one product. (1) The shipped interview is single-select tap-through — a workflow wearing chat clothes; users can't say "I follow AI *and* geopolitics *and* markets" or pick several sub-niches at once, and it silently forces one path. (2) The daily 30 is news-only; the user's actual morning sources — YouTube channels and X voices — aren't in the feed, so the app doesn't replace the morning ritual, it adds to it.
+## Root causes (from 4-agent code review, 2026-07-06)
+1. **Importance engine gated OFF** — `ENABLE_SEMANTIC_CLUSTERING` defaults off, so authority-weighted importance never reaches the ranker; intra-section ranking collapses to recency (`agents/pipeline/stages/ranking.py:493-556`, `agents/pipeline/produce_gate.py:75`). Fixes for it sit uncommitted on `claude/feed-source-revamp-plan-388edf`.
+2. **Wrong categories** — GDELT themes missing a thin ~30-code whitelist default to `arts` and OVERRIDE the fetching interest (`agents/pipeline/theme_category.py:42-161`, `agents/ingestion/interest_keyed_pipeline.py:433-449`).
+3. **Queryless interests silently skipped** — sections under-fill, padded with backfill that reads as random (`agents/ingestion/interest_keyed_pipeline.py:206-213`).
+4. **Stale baked bundle** — `ios/App/App/public/` is gitignored + no version badge; installed binary provably predates current onboarding (build-id mismatch). 5-tab nav is NOT lost (renders after wordmark tap, by design).
+5. **Voice lag** — serial setup (token mint on cold Railway → WSS → setupComplete) before any echo is possible; orb shows LISTENING while connecting so first words are dropped (`src/components/blip/reel/AskSheetVoice.tsx:598`, `src/lib/voice/useGeminiLive.ts:523-635`).
+6. **Poster gen ungated on worker** — `agents/worker/pipeline_routes.py:467` always creates a live image client; single choke point exists at `agents/pipeline/orchestrator.py` `generate_poster_bytes` (line 333).
 
-## Today's workaround
-
-The user manually checks YouTube subscriptions + X + a news app every morning. In-product: the slice-#4 interview and the M6a grid-based source screen exist but don't match how the founder wants selection to feel or work.
-
-## Unique angle
-
-1. **The whole onboarding is one chat scrollback** — multi-select bubble chips, an always-available composer for free typing, budget card and source pickers *inside the chat*. Answered steps collapse into user bubbles; the history stays visible.
-2. **X theme-of-the-day reels per category**: one reel that finds the story your followed cluster is all reacting to — with an honest ladder (theme → roundup-of-takes → news) on quiet days. Nobody else turns "what my corner of X is saying" into a daily reel.
-3. **YouTube reels from your own channels**: one reel per long-form video, script from the transcript, the video's own thumbnail as the reel image.
-
-## The onboarding contract (locked in the design prototype)
-
-1. **INTERESTS** — multi-select category chips → per selected category, multi-select sub-niche chips + live composer for typing custom interests → **one open-ended WHO drill per selected sub-niche** ("Cricket — a series, a player? Name it and I'll follow it"), skippable via "Nothing specific →". Real engine generates sub-niche bubbles and drill wording dynamically.
-2. **TUNE** — 3–4 quick single-tap follow-ons **conditional on picks** (dynamically generated). Fixed jobs per category: **ANGLE** (which lens grabs you) and **SKIP** (mute list — *missing from the prototype, must be added*); WHO is already covered by the drill step. Then the **story budget card** with ± steppers, total pinned, "Lock →".
-3. **YOUTUBE** — ~30 channel tiles sorted by profile relevance, multi-select, in-chat.
-4. **X CLUSTERS** — curated handle clusters grouped by the user's categories (+ "beyond your picks"), samples + expandable handle list, multi-select, in-chat.
-5. **YOUR 30** — summary card (news / YouTube / X split) → "Build my 30 →".
-
-Skip semantics: every question skippable; consecutive skips fast-forward (skip first follow-up → offer to skip the category; two categories skipped → offer "just build my feed"). Skipped questions resurface later in-app, one at a time. Interview re-run = existing rebuild-my-feed entry, clean-replace semantics.
-
-## Feed rules (locked)
-
-- **Defaults are defaults only** — the user can re-mix the 30 all the way to all-news or all-X, in the budget card and later in Build-your-30.
-- **YouTube**: one reel per video, **long-form only** (exclude Shorts; no minimum beyond that). Reel = transcript → summary → script, video thumbnail as image, prominent channel credit + tap-through to the video.
-- **X**: original posts only, never retweets. Per selected category, first X slot = **theme-of-the-day** reel; extra X slots walk down the ladder (second theme → roundup → news). v1 reel image = screenshot of the top tweet (existing renderer); composite multi-element theme image is v2.
-- **News floor**: any unfillable source slot falls back to news. Never padded, never faked.
-- **Supply expectations shown at selection time**: "these 12 channels ≈ ~5 long-form videos/day" (guesstimate is fine) so slot counts stay grounded.
-- **Sub-niche guarantee**: at least one story for a followed niche on days news exists — via per-anchor entity queries + the already-shipped niche-first assembly (slice #7). Representation, not domination.
-
-## Ingestion (verified where marked)
-
-- **News wide sweep** — unchanged, in production (GDELT via BigQuery + trusted outlets).
-- **News per-anchor queries** — WHO answers carry ≥2 concrete search-anchor terms each; run through BigQuery entity tags (bulk, unthrottled) + GDELT DOC 2.0 as a paced nightly scalpel. **Live-verified 2026-07-04**: DOC 2.0 returned real Vaibhav Suryavanshi articles; hard limit ~1 request/5s/IP with multi-minute penalty box — single paced loop only, never parallel, never on-demand. Spec: `GDELT_API_specs` (repo root). GDELT-only in v1; vertical APIs (cricket etc.) only if validation shows persistent misses.
-- **X** — xAI Agent Tools `x_search` (adapter already in repo: `agents/ingestion/adapters/x_account.py`). **Live-verified 2026-07-04**: batches work; hard API cap **20 handles per call**; 20-handle sweep ≈ 36s, ~$0.12. Sweep each cluster **once daily, shared across all followers** — cost stays flat with user growth. Keep every cluster ≤18 handles.
-- **YouTube** — upload detection (RSS/Data API; June throttling incident known, fixable with pacing/API key) + thumbnail (trivial) + **transcripts: UNVERIFIED and the weakest link** — YouTube blocks cloud-IP transcript fetching unpredictably. **Test-first, before building the pipeline**; fallback = audio download + own transcription (pennies/video).
-
-## Seed catalog
-
-Report (2026-07-04): 8 roots, ~71 YouTube channels, 22 X clusters (~230 handles, all ≤18). ~60/71 channels already exist in the repo's raw catalog — the work is reorganizing, not sourcing. India-first variants for politics/cricket/markets/arts. Flagged-for-verification handles listed in the report's gaps table. Artifact: https://claude.ai/code/artifact/bd94cf30-abbb-4e2e-b665-bd3e99d7e67f
-
-## Smallest provable version
-
-Ships as one chain: chat onboarding (contract above) + profile persistence + YouTube pipeline + X theme reels with ladder + defaults re-mixable in the budget card. Deferred: composite theme images (v2), vertical sports API, in-app resurfacing of skipped questions (can follow fast).
-
-**Sequenced inside the chain: YouTube transcript live-test first** — it's the only unproven pipe.
+## Smallest provable version (launch scope)
+1. **Feed importance ON**: commit + enable semantic clustering; "top news" = covered by leading outlets today (authority-weighted). Backfill missing `interest_search_query` rows. Importance floor so backfill never masquerades as followed news.
+2. **Category fix**: unknown themes must NOT override the keyword-matched interest's category; expand the theme whitelist.
+3. **Build trust**: visible build-stamp (commit/build id) in app; build step that guarantees fresh bundle before archive.
+4. **Voice mode**: honest "Connecting…" gate on `isSetupComplete`; pre-warm session at sheet-open; warm token endpoint; PLUS instrument/debug in-conversation turn latency — setup slowness is tolerated, live-conversation slowness is not.
+5. **Chat UX (typed + voice)**: correct answers; chat-style layout with latest message at bottom; conversation history persists in-session; voice shows live rolling transcripts of both user and agent. Streaming NOT required — all-at-once answers are fine.
+6. **Images OFF**: env-gated kill switch at the orchestrator choke point covering all paths incl. scheduled worker; zero image-model calls until explicitly re-enabled. Posterless reels already degrade gracefully (category-color wash, captions, audio intact).
+7. **Onboarding verification**: Playwright pass over all onboarding steps on a FRESH build; fix the ~83px double top-padding gap if it reproduces (`src/components/onboarding/InterviewChat.tsx:453`, `src/components/onboarding/OnboardingFlow.tsx:277-285`).
 
 ## 90-day success metric
-
-*(Inferred — founder approved by moving to build; sharpen at /office-hours.)* The feed replaces the founder's morning YouTube/X check: ≥25 of 30 slots filled without fallback on a typical day, and every followed niche with real news represented same-day. Interview completion without skip-out on the founder's own runs.
+Launch gate (verified, not vibes): for each followed section, top reels match same-day coverage on leading outlets (spot-check vs BBC/Reuters/Google News top-of-page); 0 mislabeled categories in a 30-reel feed; onboarding→reel→voice→chat all pass end-to-end on a build-stamped fresh install.
 
 ## Competition
-
-Google News/Artifact-style aggregators (broad-topic, no conversational profile, no source reels); the user's own YouTube/X apps (the thing being replaced); do nothing = the shipped single-select interview the founder already rejected.
+N/A — hardening pass on existing product. "Do nothing" = launch a feed that visibly fails its core promise.
 
 ## What held up under pressure
-
-- Theme-of-the-day over roundup for X — with the ladder making quiet days honest instead of empty.
-- One-sweep-per-cluster economics (flat cost with growth).
-- WHO/ANGLE/SKIP as fixed jobs with dynamic wording — complete profile per category, readable back in the user's own words.
-- Skip-spam as the early exit (with fast-forward).
-- Creator credit + tap-through as both the optics mitigation and good UX.
-- "You mostly already own the catalog" — 85% seeded.
+- "Top news" definition: coverage by leading publications — measurable, and maps 1:1 to the existing authority-weighted importance engine.
+- Stale bundle explains both "lost tabs" and (likely) the onboarding misalignment — fix the pipeline, don't chase ghosts.
+- Voice lag is architectural (serial setup + no local echo possible) plus a UX lie (LISTENING while connecting).
 
 ## What's still soft
-
-1. **YouTube transcripts** — unverified; the plan's weakest link. Test before build.
-2. **xAI dependency** — proven today, but the provider shut off its predecessor mid-flight in June; keep the adapter swappable, news floor always on.
-3. **90-day metric** — never explicitly confirmed by the founder.
-4. **Catalog handle accuracy** — India + F1 handles flagged for live verification before seeding.
-5. **Onboarding length tolerance** — multi-category × drills is a lot of taps; skip design mitigates, zero observation yet.
+- Whether onboarding misalignment reproduces on a fresh build (verify before fixing).
+- Live-mode voice turn latency: cause unknown until instrumented (scope item 4 debug task).
+- Embedding-credit cost per run with clustering on — assumed acceptable while posters are off (inferred; user did not state a ceiling).
+- "Smooth onboarding" acceptance is subjective; Playwright walkthrough + founder eyeball is the bar.
 
 ## Riskiest assumption
-
-**That the YouTube transcript pipe works reliably from our infrastructure.** Everything else is verified or already in production. If transcripts fail from cloud IPs, the audio-transcription fallback becomes the plan — slower and slightly costlier, but it must be proven before the YouTube half is promised.
+Enabling semantic clustering (importance + dedup + category-aware merge) actually makes sections lead with the day's top stories — validate the first live run against outlet coverage before calling the feed fixed.
 
 ## Contradictions surfaced
-
-1. **Slot defaults: spoken "6 YouTube / 4 X" vs the design's "20 news / 7 YouTube / 3 X".** Unresolved by the founder in-session. Recommendation: **follow the design (20/7/3)** — it's the newer, founder-authored artifact and the budget card math is built around it. Flag at /cto if disagreement.
-2. **Design's 9 categories (incl. Health, Climate, Culture, Markets) vs the backend's 8 roots.** The prototype's list is illustrative. Needs a /cto decision: map design categories onto the 8 existing roots, or extend the taxonomy.
-3. **Prototype has no SKIP (mute-list) question.** The founder locked who/angle/skip; TUNE must gain the skip job even though the design doesn't show it.
-4. **FSR "roots-only" thesis vs deep drilling** — formally superseded: the product drills deep on purpose; update `documents/feed-source-revamp-plan.md` when the PRD lands.
+- Typed-chat streaming: initially in scope, user cut it — all-at-once answers fine; correctness + chat layout + persistent history are what matter.
+- Edge cases explicitly deprioritized; core flows must work end-to-end.
 
 ## Open questions
-
-1. Slot-default contradiction above (20/7/3 vs 26/6/4-ish — pick one).
-2. Category taxonomy mapping (design 9 vs backend 8 roots).
-3. Where TUNE's dynamic questions come from (engine prompt design — /cto).
-4. Migration of existing profiles (founder's real account) to the new profile shape.
-5. Whether X cluster sweeps also feed the sub-niche news guarantee (a cluster mention of Suryavanshi counting toward his representation) or stay separate.
+- Approve committing the uncommitted clustering/reconcile work on this branch as part of scope item 1? (Assumed yes.)
+- Any budget ceiling for embedding calls per daily run?
