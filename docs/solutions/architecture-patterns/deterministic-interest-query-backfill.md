@@ -49,3 +49,24 @@ Label→query heuristic that works (traceable, same input→same output):
 
 Verified on prod (#28): dry-run 118 write + 2 skip; live changed 118; non-v2 snapshot
 109==109; second live run changed 0.
+
+**Sweep addendum (issue #36, 2026-07-07)** — `scripts/seed_catalog/backfill_queryless_interests.py`
+generalizes this to ALL queryless interests (not a known key set):
+- **The SQL "empty" predicate must mirror the consumer's Python check exactly.** The
+  pipeline skips on `.strip()` (ALL whitespace) — so the sweep predicate is
+  `col IS NULL OR col ~ '^\s*$'`, NOT `btrim(col) = ''` (btrim trims only spaces; a
+  `"\t"` row would be pipeline-skipped yet sweep-invisible). Make any FakeConn test
+  double mirror the SQL, not just the Python.
+- Roots need CURATED comma-phrase queries (`ROOT_QUERIES` in the sweep script — a
+  1-word root label like "AI" can't be derived; fail loud on an unmapped root).
+  User-minted `mint_interest_ladder` rungs are context-free single segments
+  ("Business" under ai.*) — ALWAYS root-qualify them (word-boundary presence check,
+  qualifier expanded via `ROOT_QUERY_QUALIFIERS` so "AI" → "artificial intelligence"
+  survives the ≥3-char tokenizer).
+- Skip the before/after table-wide count "proof": it races concurrent writers
+  (mint RPC) and the per-row re-checked predicate already IS the no-clobber
+  guarantee. `rows_changed` + a re-fetch of remaining queryless rows suffice.
+- The loud-fail twin: `build_active_interest_set` WARNING-logs each
+  `queryless_interest_skipped` and the batch summary + `IngestionResult` carry
+  `skipped_queryless_interests` **explicitly 0 when none** — absence of the field is
+  never proof of no skips (Rule 12).
