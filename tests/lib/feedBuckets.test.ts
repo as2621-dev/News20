@@ -96,7 +96,16 @@ describe("PICKER_ROOT_TO_CATEGORY_BUCKET (the picker-root → screen-bucket map,
     // WHY: the whole point of SP3 — the picker roots ARE the screen buckets, so a story picked
     // under "ai" must seed the "ai" block, never fold into "tech". A non-identity entry here
     // would re-introduce the retired fold.
-    const eightRoots: DesignBucketId[] = ["ai", "geopolitics", "business", "environment", "politics", "tech", "sport", "arts"];
+    const eightRoots: DesignBucketId[] = [
+      "ai",
+      "geopolitics",
+      "business",
+      "environment",
+      "politics",
+      "tech",
+      "sport",
+      "arts",
+    ];
     for (const root of eightRoots) {
       expect(PICKER_ROOT_TO_CATEGORY_BUCKET[root]).toBe(root);
     }

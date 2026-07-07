@@ -31,15 +31,7 @@ import type { AnalyticKind, CoverageMode } from "@/types/detail";
  * default. `podcasts` rides the `youtube` source layout (it has no SP3 axis of its
  * own — see `feedBuckets.ts` `SOURCE_TYPE_TO_DESIGN_BUCKET`).
  */
-export type DetailCategory =
-  | "world"
-  | "markets"
-  | "tech"
-  | "sport"
-  | "culture"
-  | "youtube"
-  | "podcasts"
-  | "x";
+export type DetailCategory = "world" | "markets" | "tech" | "sport" | "culture" | "youtube" | "podcasts" | "x";
 
 /** The kind of panel a slot renders. */
 export type PanelKind = "timeline" | "coverage" | "analytic";

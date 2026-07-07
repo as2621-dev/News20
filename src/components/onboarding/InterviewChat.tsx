@@ -460,7 +460,7 @@ export function InterviewChat({
       {/* The one continuous scrollback: every prior Q + A stays here, no screen swaps. */}
       <div ref={scrollRef} data-testid="chat-scroll" className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
         {conversation.map((exchange, index) => {
-          // biome-ignore lint/suspicious/noArrayIndexKey: the transcript is append/truncate-only (never reordered), so a turn's POSITION is its stable identity — question_text can repeat.
+          // The transcript is append/truncate-only (never reordered), so a turn's POSITION is its stable identity — question_text can repeat.
           const key = `${index}:${exchange.question_text}`;
           return (
             <div key={key} className="flex flex-col gap-2">

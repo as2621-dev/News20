@@ -100,7 +100,10 @@ describe("BuildYour30 — saved-allocation gate against current backing (Rule 9)
   it("DROPS a saved Sport block when the user no longer backs sport (no sport interest, no sport source)", async () => {
     mockGetUserFeedAllocation.mockResolvedValue(SAVED_WITH_SPORT);
     // Current backing: ai/tech/geopolitics/business — but NOT sport.
-    await renderBuild({ selectedCategoryBuckets: ["ai", "tech", "geopolitics", "business"], followedSourceBuckets: [] });
+    await renderBuild({
+      selectedCategoryBuckets: ["ai", "tech", "geopolitics", "business"],
+      followedSourceBuckets: [],
+    });
 
     const labels = renderedBlockLabels();
     // The stale Sport block is dropped — it can't resurrect (the bug SP2 fixes).
