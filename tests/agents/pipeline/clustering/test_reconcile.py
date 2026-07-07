@@ -262,3 +262,115 @@ async def test_empty_pool_is_a_noop_passthrough():
     assert result.reconciled_tags == []
     assert result.cluster_importance_by_story == {}
     embed.assert_not_awaited()
+
+
+# ── Issue #34 — cross-category merge guard (fetching interest wins, #35 doctrine) ──
+
+_GEO_INTEREST_ID = "int-geopolitics"
+
+_GUARD_INTEREST_NODES = {
+    **_INTEREST_NODES,
+    _GEO_INTEREST_ID: InterestNode(
+        interest_id=_GEO_INTEREST_ID,
+        interest_slug="geopolitics",
+        interest_label="Geopolitics",
+    ),
+}
+
+
+@pytest.mark.asyncio
+async def test_cross_category_merge_keeps_representative_category_and_logs_conflict():
+    """(e) Issue #34: a cross-category merge must NOT flip the surviving story into a
+    category contradicting its fetching interest — and the conflict must be logged.
+
+    The representative (egypt-a) was fetched via a sport interest (shifted keyword
+    depth 1, the #35 uniform-shift shape); the absorbed member (egypt-b) carries a
+    geopolitics tag at depth 0 that would WIN assign_category's lowest-depth rule
+    after the tag union — silently flipping a sport story into geopolitics. The
+    guard must clamp the foreign tag's depth so the representative's fetching
+    category still wins, and emit a structured ``reconcile_category_conflict``."""
+    from unittest.mock import MagicMock
+
+    from agents.pipeline.clustering import reconcile as reconcile_module
+    from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
+
+    stories = [
+        _story("cand-egypt-a", _TITLE_EGYPT_A, outlet="bbc.com", url="https://bbc.com/egypt-win"),
+        _story("cand-egypt-b", _TITLE_EGYPT_B, outlet="reuters.com", url="https://reuters.com/egypt-australia"),
+    ]
+    tags = [
+        StoryInterestTag(story_interest_story_id="cand-egypt-a", story_interest_interest_id=_EGYPT_INTEREST_ID, story_interest_match_depth=1),
+        StoryInterestTag(story_interest_story_id="cand-egypt-b", story_interest_interest_id=_GEO_INTEREST_ID, story_interest_match_depth=0),
+    ]
+    client = _RecordingClient()
+    fake_logger = MagicMock()
+    with (
+        patch("agents.pipeline.clustering.online_clusterer.embed_texts", new=_patched_embed()),
+        patch.object(reconcile_module, "logger", fake_logger),
+    ):
+        result = await reconcile_story_ids_via_clustering(
+            stories, tags,
+            supabase_client=client, llm_client=None, interest_nodes=_GUARD_INTEREST_NODES,
+            resolve_existing_story_ids=lambda urls: {}, now_utc=_NOW,
+            mint_cluster_id=_mint_cluster_counter(),
+        )
+
+    assert len(result.reconciled_stories) == 1
+    shared_id = result.reconciled_stories[0].canonical_story_id
+    # The merged story still classifies into the REPRESENTATIVE's fetching category.
+    merged_category = assign_category(
+        shared_id, _index_tags_by_story(result.reconciled_tags), _GUARD_INTEREST_NODES
+    )
+    assert merged_category == "sport", (
+        "the absorbed member's lower-depth geopolitics tag must not flip the "
+        "representative sport story's category (issue #34 merge guard)"
+    )
+    # The conflict is visible: a structured event fired exactly once.
+    conflict_calls = [
+        call for call in fake_logger.info.call_args_list
+        if call.args and call.args[0] == "reconcile_category_conflict"
+    ]
+    assert len(conflict_calls) == 1
+    kwargs = conflict_calls[0].kwargs
+    assert kwargs["story_id"] == shared_id
+    assert kwargs["representative_category"] == "sport"
+
+
+@pytest.mark.asyncio
+async def test_same_category_merge_does_not_log_conflict_or_touch_depths():
+    """(f) Issue #34 boundary: a same-category merge is NOT a conflict — no
+    ``reconcile_category_conflict`` event, and tag depths pass through the existing
+    lowest-depth dedup untouched (regression pin on test (b)'s contract)."""
+    from unittest.mock import MagicMock
+
+    from agents.pipeline.clustering import reconcile as reconcile_module
+
+    stories = [
+        _story("cand-egypt-a", _TITLE_EGYPT_A, outlet="bbc.com", url="https://bbc.com/egypt-win"),
+        _story("cand-egypt-b", _TITLE_EGYPT_B, outlet="reuters.com", url="https://reuters.com/egypt-australia"),
+    ]
+    tags = [
+        StoryInterestTag(story_interest_story_id="cand-egypt-a", story_interest_interest_id=_EGYPT_INTEREST_ID, story_interest_match_depth=2),
+        StoryInterestTag(story_interest_story_id="cand-egypt-b", story_interest_interest_id=_EGYPT_INTEREST_ID, story_interest_match_depth=0),
+    ]
+    client = _RecordingClient()
+    fake_logger = MagicMock()
+    with (
+        patch("agents.pipeline.clustering.online_clusterer.embed_texts", new=_patched_embed()),
+        patch.object(reconcile_module, "logger", fake_logger),
+    ):
+        result = await reconcile_story_ids_via_clustering(
+            stories, tags,
+            supabase_client=client, llm_client=None, interest_nodes=_INTEREST_NODES,
+            resolve_existing_story_ids=lambda urls: {}, now_utc=_NOW,
+            mint_cluster_id=_mint_cluster_counter(),
+        )
+
+    conflict_events = [
+        call.args[0] for call in fake_logger.info.call_args_list
+        if call.args and call.args[0] == "reconcile_category_conflict"
+    ]
+    assert conflict_events == []
+    # Existing lowest-depth dedup contract holds unchanged.
+    assert len(result.reconciled_tags) == 1
+    assert result.reconciled_tags[0].story_interest_match_depth == 0

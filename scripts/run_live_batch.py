@@ -28,6 +28,10 @@ SAFETY (this run costs real paid Gemini calls):
     user's true allocation by ``feed_assembly``. Pair with ``MAX_PRODUCE=0`` — a low
     overall ceiling trims the pool back down and negates the headroom (the preflight
     warns when this happens). Set ``1.0`` for the old 1×-demand behaviour.
+  * ``ENABLE_SEMANTIC_CLUSTERING`` (default 1 — ON in production, issue #34) runs the
+    semantic same-event reconcile before the produce gate: paid gemini-embedding-001
+    calls, one reel per real-world event, authority-weighted cluster importance in
+    the ranker. Set ``0`` for the byte-for-byte legacy path (no embedding spend).
   * ``LOOKBACK_DAYS`` (default 1) bounds GDELT recency.
   * ``INGEST_SOURCE`` (default ``bigquery``) — niche ingestion runs through the
     unthrottled GDELT BigQuery dataset (one batched SQL for ALL active interests;
@@ -570,10 +574,10 @@ async def _run() -> int:
         enable_detail_enrichment=True,
         enable_editorial_rewrite=True,
         # Reason: semantic same-event reconciliation (collapses "two reels, one event"
-        # duplicates onto one story id) is gated behind ENABLE_SEMANTIC_CLUSTERING — it
-        # adds paid text-embedding-004 calls, so it stays OFF until a spend-go flips the
-        # env var. Off = byte-for-byte the legacy path.
-        enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING") == "1",
+        # duplicates onto one story id) defaults ON in production (issue #34 spend-go)
+        # — paid gemini-embedding-001 calls. Set ENABLE_SEMANTIC_CLUSTERING=0 to fall
+        # back to the byte-for-byte legacy path.
+        enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING", "1") == "1",
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=census_adapter,

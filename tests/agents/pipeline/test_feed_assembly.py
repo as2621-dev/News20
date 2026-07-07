@@ -1149,3 +1149,43 @@ def test_write_daily_feed_is_idempotent_on_rerun() -> None:
     assert len(client.inserted) == rows_after_first, (
         "re-run must NOT insert any new rows (produce-once)"
     )
+
+
+def test_fresher_but_less_important_candidate_loses_to_clustered_important_one() -> None:
+    """Issue #34 acceptance: two same-section candidates — the FRESHER one carries only
+    its low raw-outlet importance, the older one carries a high E1 ``cluster_importance``
+    — and the important one must win the section ordering.
+
+    WHY: this is the whole point of threading cluster importance into the ranker — a
+    big authority-weighted event must beat a fresher-but-minor story, which the raw
+    outlet-count fallback (β·0.45 vs freshness·0.2) could not guarantee for thin pools.
+    """
+    fresher_minor = _story("business-fresh-minor", outlet_count=1, published=_NOW)
+    older_important = _story(
+        "business-old-important",
+        outlet_count=1,
+        published=datetime(2026, 5, 31, 0, 0, 0, tzinfo=timezone.utc),  # 12h older
+    )
+    tags = [
+        _tag("business-fresh-minor", _INTEREST_BUSINESS),
+        _tag("business-old-important", _INTEREST_BUSINESS),
+    ]
+    profile = [UserProfileInterest(profile_interest_id=_INTEREST_BUSINESS, profile_weight=3.0)]
+    allocation = [
+        CategoryAllocation(allocation_category="business", allocation_slot_count=2, allocation_sort_order=0),
+    ]
+
+    slots = assemble_user_feed(
+        profile_interests=profile,
+        stories=[fresher_minor, older_important],
+        story_interest_tags=tags,
+        interest_nodes=_INTEREST_NODES,
+        category_allocation=allocation,
+        cluster_importance_by_story={"business-old-important": 1.0},
+        now_utc=_NOW,
+    )
+
+    order = [s.feed_story_id for s in slots]
+    assert order.index("business-old-important") < order.index("business-fresh-minor"), (
+        "cluster importance must outweigh the freshness edge — the important event wins"
+    )

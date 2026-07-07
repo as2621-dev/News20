@@ -482,10 +482,11 @@ async def _run_daily(
             # it touches. Fail-open (a judge error leaves reels unchanged) and
             # self-reverting (an ungrounded rewrite reverts), so it is safe on.
             enable_batch_review=True,
-            # Reason: same-event reconciliation (one reel per real-world event) is gated
-            # behind ENABLE_SEMANTIC_CLUSTERING — paid embeddings, so OFF until a spend-go
-            # flips the env var. Off = byte-for-byte the legacy path.
-            enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING") == "1",
+            # Reason: same-event reconciliation (one reel per real-world event) defaults
+            # ON in production (issue #34 spend-go) so authority-weighted cluster
+            # importance reaches the ranker. Set ENABLE_SEMANTIC_CLUSTERING=0 to fall
+            # back to the byte-for-byte legacy path (no paid embeddings).
+            enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING", "1") == "1",
             interest_segment_lookup=interest_segment_lookup,
             outlets_lookup=outlets_lookup,
             gdelt_adapter=census_adapter,

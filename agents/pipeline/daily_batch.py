@@ -827,9 +827,12 @@ async def run_daily_pipeline(
             collapse onto one shared ``story_id``. Downstream produce-once + the
             ``feed_assembly`` exact-id dedup then guarantee one reel per event, and the
             clusters' E1 importance feeds the assembler's Importance term. Adds one paid
-            Gemini ``text-embedding-004`` call per near-dup representative. Defaults
+            Gemini ``gemini-embedding-001`` call per near-dup representative. Defaults
             False so the legacy path costs nothing and is byte-for-byte unchanged until
-            a caller opts in.
+            a caller opts in (production entry points default it ON via
+            ``ENABLE_SEMANTIC_CLUSTERING``, issue #34). A reconcile failure mid-run
+            falls back to the un-reconciled pool for the WHOLE run — loud, never a
+            half-reconciled feed.
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
             story's ``story_segment_slug`` (and the enrichment's analytic kind /
             coverage mode). Injected per batch; ``None`` → ``wildcard`` fallback.
@@ -868,18 +871,38 @@ async def run_daily_pipeline(
     # opts in (see ``enable_semantic_clustering``).
     cluster_importance_by_story: dict[str, float] | None = None
     if enable_semantic_clustering:
-        reconciled = await reconcile_story_ids_via_clustering(
-            stories,
-            story_interest_tags,
-            supabase_client=supabase_client,
-            llm_client=llm_client,
-            interest_nodes=interest_nodes,
-            resolve_existing_story_ids=build_story_id_resolver(supabase_client),
-            now_utc=now,
-        )
-        stories = reconciled.reconciled_stories
-        story_interest_tags = reconciled.reconciled_tags
-        cluster_importance_by_story = reconciled.cluster_importance_by_story
+        try:
+            reconciled = await reconcile_story_ids_via_clustering(
+                stories,
+                story_interest_tags,
+                supabase_client=supabase_client,
+                llm_client=llm_client,
+                interest_nodes=interest_nodes,
+                resolve_existing_story_ids=build_story_id_resolver(supabase_client),
+                now_utc=now,
+            )
+        except Exception as reconcile_error:
+            # Reason: a mid-batch embedding/DB failure must degrade the WHOLE run to
+            # the legacy un-clustered pool — reconcile's outputs are all-or-nothing, so
+            # a half-embedded batch never leaks a half-reconciled feed. The paid dedup
+            # upgrade is lost for this run; the nightly batch itself must not be.
+            logger.error(
+                "semantic_reconcile_failed_run_fallback",
+                error_type=type(reconcile_error).__name__,
+                error_message=str(reconcile_error),
+                candidate_count=len(stories),
+                fix_suggestion=(
+                    "Semantic reconcile failed mid-run; the batch fell back to the "
+                    "legacy un-clustered pool (raw outlet-count importance, no "
+                    "same-event collapse). Check Gemini embedding availability/quota "
+                    "(gemini-embedding-001) and story_clusters DB access, then re-run "
+                    "— cluster persistence is idempotent upserts."
+                ),
+            )
+        else:
+            stories = reconciled.reconciled_stories
+            story_interest_tags = reconciled.reconciled_tags
+            cluster_importance_by_story = reconciled.cluster_importance_by_story
 
     # ── Stage C — produce-once gate, then bounded paid fan-out ────────────────
     has_current_digest = _load_has_current_digest(

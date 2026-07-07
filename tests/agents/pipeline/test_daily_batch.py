@@ -525,3 +525,71 @@ async def test_semantic_clustering_disabled_by_default_leaves_pool_and_map_untou
 
     assert reconcile_called == []
     assert assemble_saw["importance"] is None
+
+
+@pytest.mark.asyncio
+async def test_semantic_clustering_failure_falls_back_to_legacy_pool_loudly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Issue #34 failure edge: a mid-batch embedding/DB failure inside reconcile must
+    degrade the WHOLE run to the legacy un-clustered pool — never a half-reconciled
+    feed — with a loud structured error (``fix_suggestion``) so the operator sees the
+    paid dedup was skipped. If this regresses, one Gemini 5xx kills the entire nightly
+    batch instead of costing only the dedup upgrade."""
+    from unittest.mock import MagicMock
+
+    _pipeline_seams(monkeypatch)
+    raw_pool = [_story("cand-egypt-a"), _story("cand-egypt-b")]
+
+    async def fake_ingest():
+        return raw_pool, []
+
+    async def fake_reconcile(*_a, **_k):
+        raise RuntimeError("gemini embed 500 on batch 2 of 3")
+
+    gate_saw: dict = {}
+
+    def fake_select(stories, _tags, _lookup, **_k):
+        gate_saw["ids"] = [s.canonical_story_id for s in stories]
+        decisions = [
+            SimpleNamespace(story_id=s.canonical_story_id, should_produce=True,
+                            importance_score=0.5, freshness_score=0.5)
+            for s in stories
+        ]
+        return list(stories), decisions
+
+    assemble_saw: dict = {}
+
+    def fake_assemble(*, target_date, cluster_importance_by_story=None, **_k):
+        assemble_saw["importance"] = cluster_importance_by_story
+        return DailyFeedsBatchResult(
+            feed_date=target_date.isoformat(), active_user_count=1, feeds_written=1
+        )
+
+    fake_logger = MagicMock()
+    monkeypatch.setattr(daily_batch, "reconcile_story_ids_via_clustering", fake_reconcile)
+    monkeypatch.setattr(daily_batch, "select_stories_to_produce", fake_select)
+    monkeypatch.setattr(daily_batch, "assemble_daily_feeds", fake_assemble)
+    monkeypatch.setattr(daily_batch, "logger", fake_logger)
+
+    await daily_batch.run_daily_pipeline(
+        target_date=date(2026, 7, 5),
+        supabase_client=object(),
+        llm_client=object(),
+        tts_client=object(),
+        ingest_fn=fake_ingest,
+        interest_nodes={},
+        enable_semantic_clustering=True,
+    )
+
+    # The run COMPLETED on the untouched legacy pool (both raw ids reach the gate)…
+    assert gate_saw["ids"] == ["cand-egypt-a", "cand-egypt-b"]
+    # …with the un-clustered raw-importance fallback (no half-reconciled map).
+    assert assemble_saw["importance"] is None
+    # …and the fallback was LOUD: structured error with a fix_suggestion.
+    fallback_calls = [
+        call for call in fake_logger.error.call_args_list
+        if call.args and call.args[0] == "semantic_reconcile_failed_run_fallback"
+    ]
+    assert len(fallback_calls) == 1
+    assert "fix_suggestion" in fallback_calls[0].kwargs
