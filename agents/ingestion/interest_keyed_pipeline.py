@@ -147,17 +147,35 @@ class TrustedOutletResult:
     total_candidates_fetched: int = 0
 
 
+@dataclass
+class ActiveInterestSet:
+    """The distinct ingestible active interests + fail-loud skip bookkeeping.
+
+    Attributes:
+        active_interests: The distinct, ingestible active interests (by slug).
+        skipped_queryless_count: Followed interests skipped for a missing/empty
+            ``interest_search_query`` (issue #36 — each is also WARNING-logged).
+        skipped_unknown_count: Followed interests absent from the taxonomy map.
+    """
+
+    active_interests: list[ActiveInterest]
+    skipped_queryless_count: int = 0
+    skipped_unknown_count: int = 0
+
+
 def build_active_interest_set(
     followed_interest_ids: Iterable[str],
     interest_nodes: dict[str, InterestNode],
-) -> list[ActiveInterest]:
+) -> ActiveInterestSet:
     """Build the distinct active-interest set — followed interests with a query.
 
     The active-interest set is the *unit of ingestion*: the distinct union of all
     users' followed interest nodes (``user_interest_profile.profile_interest_id``)
     that carry a non-empty ``interest_search_query``. A followed interest with no
-    query (or unknown to the taxonomy) is skipped with a warning — it cannot be
-    ingested, but it does not abort the batch.
+    query (or unknown to the taxonomy) is skipped with a WARNING — it cannot be
+    ingested, but it does not abort the batch. The skip counts ride back on the
+    result so the batch summary can report them explicitly (issue #36: an empty
+    section must be a visible bug, never a silent one).
 
     Args:
         followed_interest_ids: All users' followed interest ids (may contain
@@ -165,7 +183,7 @@ def build_active_interest_set(
         interest_nodes: Taxonomy map ``interest_id -> InterestNode``.
 
     Returns:
-        The distinct, ingestible active interests (deterministic order: by slug).
+        The active-interest set (deterministic order: by slug) + skip counts.
 
     Raises:
         IngestionError: If ``followed_interest_ids`` is empty — there are no user
@@ -205,10 +223,17 @@ def build_active_interest_set(
         query = (node.interest_search_query or "").strip()
         if not query:
             skipped_no_query += 1
-            logger.debug(
-                "active_interest_no_search_query",
+            # Reason: a followed interest with no query produces NOTHING for its
+            # follower — that is a data bug, not routine noise, so it must be loud
+            # (issue #36; the old debug-level line hid the 2026-06-16 feed collapse).
+            logger.warning(
+                "queryless_interest_skipped",
                 interest_id=interest_id,
                 interest_slug=node.interest_slug,
+                interest_name=node.interest_label,
+                fix_suggestion="Followed interest has no interest_search_query so it "
+                "ingests nothing — run scripts/seed_catalog/backfill_queryless_interests.py "
+                "(dry-run first, then --live) to backfill it",
             )
             continue
 
@@ -226,10 +251,14 @@ def build_active_interest_set(
         followed_total=len(all_ids),
         distinct_followed=len(seen),
         active_interests=len(active),
-        skipped_no_query=skipped_no_query,
+        skipped_queryless_interests=skipped_no_query,
         skipped_unknown=skipped_unknown,
     )
-    return active
+    return ActiveInterestSet(
+        active_interests=active,
+        skipped_queryless_count=skipped_no_query,
+        skipped_unknown_count=skipped_unknown,
+    )
 
 
 async def ingest_active_interests(
@@ -282,7 +311,8 @@ async def ingest_active_interests(
         datetime.now(timezone.utc) - timedelta(days=_DEFAULT_LOOKBACK_DAYS)
     )
 
-    active = build_active_interest_set(followed_interest_ids, interest_nodes)
+    interest_set = build_active_interest_set(followed_interest_ids, interest_nodes)
+    active = interest_set.active_interests
 
     # --- Fan out searches; stamp each candidate's matched interest ---
     # Adapters exposing search_active_interests (e.g. GdeltBigQueryAdapter) ingest
@@ -452,6 +482,9 @@ async def ingest_active_interests(
         "interest_keyed_ingestion_completed",
         active_interests=len(active),
         failed_interests=failed_interests,
+        # Reason: explicit even when 0 — issue #36's contract is that the field's
+        # ABSENCE is never mistaken for "no skips" (Rule 12: fail loud).
+        skipped_queryless_interests=interest_set.skipped_queryless_count,
         total_candidates=total_candidates,
         canonical_stories=len(canonical_stories),
         reused_existing_story_ids=len(already_persisted_ids),
@@ -462,6 +495,7 @@ async def ingest_active_interests(
         story_interest_tags=story_interest_tags,
         active_interests=active,
         total_candidates_fetched=total_candidates,
+        skipped_queryless_interests=interest_set.skipped_queryless_count,
     )
 
 

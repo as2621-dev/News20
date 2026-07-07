@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from structlog.testing import capture_logs
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.adapters.gdelt_bigquery import GdeltBigQueryAdapter
@@ -93,7 +94,12 @@ class TestBuildActiveInterestSet:
     def test_dedups_skips_no_query_and_unknown(
         self, interest_nodes, interest_ids
     ) -> None:
-        """Duplicates collapse; query-less + unknown interests are skipped."""
+        """Duplicates collapse; query-less + unknown interests are skipped AND counted.
+
+        WHY: the skip counts are the fail-loud contract (issue #36) — a queryless
+        followed interest that vanished without a count is exactly the silent
+        empty-section bug this seam exists to prevent.
+        """
         followed = [
             interest_ids["arsenal"],
             interest_ids["arsenal"],  # duplicate across users
@@ -102,9 +108,28 @@ class TestBuildActiveInterestSet:
             interest_ids["markets"],
             "ghost-interest",  # not in taxonomy → skipped
         ]
-        active = build_active_interest_set(followed, interest_nodes)
-        slugs = [a.interest_slug for a in active]
+        interest_set = build_active_interest_set(followed, interest_nodes)
+        slugs = [a.interest_slug for a in interest_set.active_interests]
         assert slugs == ["markets", "sport.soccer.arsenal"]  # sorted by slug, deduped
+        assert interest_set.skipped_queryless_count == 2  # soccer + sport
+        assert interest_set.skipped_unknown_count == 1  # ghost-interest
+
+    def test_queryless_skip_emits_warning_with_fix_suggestion(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY: a queryless followed interest produces NOTHING for its follower —
+        that is a data bug and must surface at WARNING (not debug) with a
+        fix_suggestion, or the 2026-06-16 feed collapse repeats invisibly."""
+        followed = [interest_ids["arsenal"], interest_ids["soccer"]]
+        with capture_logs() as logs:
+            build_active_interest_set(followed, interest_nodes)
+        skips = [log for log in logs if log["event"] == "queryless_interest_skipped"]
+        assert len(skips) == 1
+        assert skips[0]["log_level"] == "warning"
+        assert skips[0]["interest_id"] == interest_ids["soccer"]
+        assert skips[0]["interest_slug"] == "sport.soccer"
+        assert skips[0]["interest_name"] == "Soccer"
+        assert "backfill_queryless_interests" in skips[0]["fix_suggestion"]
 
 
 class TestIngestActiveInterests:
@@ -171,6 +196,43 @@ class TestIngestActiveInterests:
         )
         assert adapter.extract_calls == 0
         assert result.canonical_stories[0].canonical_body_text is None
+
+    @pytest.mark.asyncio
+    async def test_batch_summary_reports_explicit_zero_queryless(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (issue #36): the summary must carry skipped_queryless_interests=0
+        EXPLICITLY on a clean run — the field's absence must never be the only
+        evidence that nothing was skipped."""
+        with capture_logs() as logs:
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"], interest_ids["markets"]],
+                interest_nodes,
+                _FakeAdapter(),
+            )
+        assert result.skipped_queryless_interests == 0
+        summary = next(
+            log for log in logs if log["event"] == "interest_keyed_ingestion_completed"
+        )
+        assert summary["skipped_queryless_interests"] == 0
+
+    @pytest.mark.asyncio
+    async def test_batch_summary_counts_queryless_followed_interest(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (issue #36): a queryless followed interest must show up in the batch
+        summary count (result + summary log), so an empty section is a visible bug."""
+        with capture_logs() as logs:
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"], interest_ids["soccer"]],  # soccer: no query
+                interest_nodes,
+                _FakeAdapter(),
+            )
+        assert result.skipped_queryless_interests == 1
+        summary = next(
+            log for log in logs if log["event"] == "interest_keyed_ingestion_completed"
+        )
+        assert summary["skipped_queryless_interests"] == 1
 
 
 class _UrlIdAdapter(BaseNewsAdapter):
@@ -315,8 +377,10 @@ class TestCatalogWindowDefaultLookback:
 
         assert adapter.received_since_utc is not None
         # since == now − 1 day, computed at call time; bound it by the call window.
-        assert (before - timedelta(days=1)) <= adapter.received_since_utc <= (
-            after - timedelta(days=1)
+        assert (
+            (before - timedelta(days=1))
+            <= adapter.received_since_utc
+            <= (after - timedelta(days=1))
         )
 
     @pytest.mark.asyncio
@@ -805,7 +869,9 @@ class TestThemeCategoryEndToEnd:
             )
             for s in result.canonical_stories
         }
-        by_url = {s.canonical_url: s.canonical_story_id for s in result.canonical_stories}
+        by_url = {
+            s.canonical_url: s.canonical_story_id for s in result.canonical_stories
+        }
         assert cats[by_url["https://reuters.com/biz"]] == "business"
         assert cats[by_url["https://reuters.com/none"]] == "arts"
 
@@ -892,9 +958,7 @@ class TestBigQueryNicheSeamIntegration:
         # struct-array param (proves the batch, not two separate queries).
         term_slugs = {
             struct.struct_values["interest_slug"]
-            for struct in _param(
-                client.captured["job_config"], "interest_terms"
-            ).values
+            for struct in _param(client.captured["job_config"], "interest_terms").values
         }
         assert term_slugs == {"sport.soccer.arsenal", "tech.semiconductors"}
         # The in-SQL per-interest cap is bound (one noisy niche cannot flood the pool).
@@ -1002,9 +1066,7 @@ class TestBackboneRegressionGuard:
 
         # Exact per-category outlet snapshot (the fetch is domain-scoped, deterministic).
         outlets_by_category = {
-            category: sorted(
-                s.canonical_primary_outlet_domain for s in stories
-            )
+            category: sorted(s.canonical_primary_outlet_domain for s in stories)
             for category, stories in result.canonical_stories_by_category.items()
         }
         assert outlets_by_category == {
