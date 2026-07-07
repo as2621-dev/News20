@@ -264,8 +264,9 @@ async function installRoutes(context) {
       } catch {
         requestBody = request.postData();
       }
-      log.calls.push({ method, table, body: requestBody, mark: log.mark });
-      if (method === "PATCH" && table === "users" && requestBody && "user_onboarded_at" in requestBody) {
+      const recordedCall = { method, table, body: requestBody, mark: log.mark };
+      log.calls.push(recordedCall);
+      if (isStampWrite(recordedCall)) {
         stampedOnboardedAt = requestBody.user_onboarded_at;
       }
 
@@ -315,9 +316,12 @@ async function installRoutes(context) {
   return log;
 }
 
-/** All users PATCHes that stamp user_onboarded_at — the gate-rule probe. */
-const stampWrites = (log) =>
-  log.calls.filter((call) => call.method === "PATCH" && call.table === "users" && call.body && "user_onboarded_at" in call.body);
+/** Is this recorded call the users.user_onboarded_at stamp? (single predicate — the gate-rule probe). */
+const isStampWrite = (call) =>
+  call.method === "PATCH" && call.table === "users" && call.body !== null && typeof call.body === "object" && "user_onboarded_at" in call.body;
+
+/** All recorded stamp writes. */
+const stampWrites = (log) => log.calls.filter(isStampWrite);
 
 // ---------------------------------------------------------------------------
 // Shared walk helpers.
@@ -325,7 +329,7 @@ const stampWrites = (log) =>
 
 const shoot = (page, name) => page.screenshot({ path: `${SHOT_DIR}${name}.png`, fullPage: false });
 
-/** Assert an element (by locator) is fully inside the viewport and below the top inset. */
+/** Assert an element (by locator) sits below the top inset and is not clipped horizontally. */
 async function assertClearOfInset(page, locator, label, insetTop) {
   const box = await locator.boundingBox();
   assert.ok(box, `${label} should be visible`);
@@ -335,7 +339,34 @@ async function assertClearOfInset(page, locator, label, insetTop) {
   );
   const viewport = page.viewportSize();
   assert.ok(box.x >= -1 && box.x + box.width <= viewport.width + 1, `${label} must not clip horizontally`);
-  return box;
+}
+
+/**
+ * Assert a picker section really fits the chat scroll: the scroller and the
+ * section itself must have NO horizontal overflow while the section is MOUNTED
+ * (phases are mutually exclusive — measuring later would probe an empty DOM).
+ */
+async function assertNoPickerOverflow(page, sectionTestId, label) {
+  const metrics = await page.evaluate((testId) => {
+    const chatScroll = document.querySelector("[data-testid='chat-scroll']");
+    const section = document.querySelector(`[data-testid='${testId}']`);
+    return {
+      chatScrollWidth: chatScroll?.scrollWidth ?? -1,
+      chatClientWidth: chatScroll?.clientWidth ?? -1,
+      sectionScrollWidth: section?.scrollWidth ?? -1,
+      sectionClientWidth: section?.clientWidth ?? -1,
+    };
+  }, sectionTestId);
+  assert.ok(metrics.chatClientWidth > 0 && metrics.sectionClientWidth > 0, `${label} and chat scroll must be mounted`);
+  assert.ok(
+    metrics.chatScrollWidth <= metrics.chatClientWidth + 1,
+    `chat scroll must not scroll horizontally while ${label} is mounted (${metrics.chatScrollWidth} > ${metrics.chatClientWidth})`,
+  );
+  assert.ok(
+    metrics.sectionScrollWidth <= metrics.sectionClientWidth + 1,
+    `${label} content must not overflow its own box (${metrics.sectionScrollWidth} > ${metrics.sectionClientWidth})`,
+  );
+  return metrics;
 }
 
 /** Walk the interview from Q0 through the terminal confirm card. */
@@ -358,9 +389,8 @@ async function walkInterviewToTerminal(page) {
   await page.getByText("IPL — auctions & transfers").waitFor();
 }
 
-/** Walk terminal confirm → budget → YouTube grid → X clusters → summary. Returns picker boxes. */
-async function walkClosingArc(page, { shotPrefix = null } = {}) {
-  const screenshots = shotPrefix !== null;
+/** Walk terminal confirm → budget → YouTube grid → X clusters → summary, screenshotting each. */
+async function walkClosingArc(page, shotPrefix) {
   await page.locator("[data-testid='confirm-terminal']").click();
   await page.locator("[data-testid='budget-card']").waitFor();
   assert.equal((await page.locator("[data-testid='budget-value-news']").textContent())?.trim(), "20");
@@ -372,35 +402,28 @@ async function walkClosingArc(page, { shotPrefix = null } = {}) {
     await page.locator("[data-testid='budget-inc-news']").isDisabled(),
     "increment must be disabled while the 30-slot pool is full (the pinned total)",
   );
-  if (screenshots) {
-    await shoot(page, `${shotPrefix}06-budget-card`);
-  }
+  await shoot(page, `${shotPrefix}06-budget-card`);
   await page.locator("[data-testid='budget-review']").click();
 
-  // YouTube grid — renders INSIDE the chat scroll container.
+  // YouTube grid — measured WHILE mounted inside the chat scroll.
   await page.locator("[data-testid='youtube-grid']").waitFor({ timeout: 15000 });
   const tileCount = await page.locator("[data-testid='youtube-tile']").count();
   assert.ok(tileCount >= 4, `youtube grid should render tiles from the catalog (got ${tileCount})`);
-  const scrollBox = await page.locator("[data-testid='chat-scroll']").boundingBox();
-  const gridBox = await page.locator("[data-testid='youtube-grid']").boundingBox();
-  assert.ok(
-    gridBox.x >= scrollBox.x - 1 && gridBox.x + gridBox.width <= scrollBox.x + scrollBox.width + 1,
-    "youtube grid must render inside the chat scroll, not overflow it",
-  );
-  await page.locator("[data-testid='youtube-tile']").first().click();
-  await page.locator("[data-testid='supply-expectation']").waitFor();
-  if (screenshots) {
-    await shoot(page, `${shotPrefix}07-youtube-grid`);
-  }
+  await assertNoPickerOverflow(page, "youtube-grid", "the YouTube grid");
+  const firstTile = page.locator("[data-testid='youtube-tile']").first();
+  await firstTile.click();
+  assert.equal(await firstTile.getAttribute("aria-pressed"), "true", "clicked channel tile must read as selected");
+  await shoot(page, `${shotPrefix}07-youtube-grid`);
   await page.locator("[data-testid='youtube-confirm']").click();
 
-  // X clusters.
+  // X clusters — measured WHILE mounted inside the chat scroll.
   await page.locator("[data-testid='x-cluster-picker']").waitFor();
   await page.locator("[data-testid='cluster-card']").first().waitFor({ timeout: 15000 });
-  await page.locator("[data-testid='cluster-toggle']").first().click();
-  if (screenshots) {
-    await shoot(page, `${shotPrefix}08-x-clusters`);
-  }
+  await assertNoPickerOverflow(page, "x-cluster-picker", "the X cluster picker");
+  const firstToggle = page.locator("[data-testid='cluster-toggle']").first();
+  await firstToggle.click();
+  assert.equal(await firstToggle.getAttribute("aria-pressed"), "true", "toggled cluster must read as followed");
+  await shoot(page, `${shotPrefix}08-x-clusters`);
   await page.locator("[data-testid='x-cluster-confirm']").click();
 
   // YOUR-30 summary reflects the picks.
@@ -413,9 +436,7 @@ async function walkClosingArc(page, { shotPrefix = null } = {}) {
     (await page.locator("[data-testid='summary-x-picks']").textContent())?.includes("1 cluster"),
     "summary should count the followed cluster",
   );
-  if (screenshots) {
-    await shoot(page, `${shotPrefix}09-summary`);
-  }
+  await shoot(page, `${shotPrefix}09-summary`);
 }
 
 // ---------------------------------------------------------------------------
@@ -457,7 +478,9 @@ async function islandPass(browser) {
   // 3. OTP code entry (wait_session).
   log.setMark("otp");
   await page.getByText("Check your inbox").waitFor();
+  await assertClearOfInset(page, page.getByText("Check your inbox"), "OTP heading", ISLAND_INSETS.top);
   const codeInput = page.getByPlaceholder("8-digit code");
+  await assertClearOfInset(page, codeInput, "OTP code input", ISLAND_INSETS.top);
   await codeInput.fill("12345678");
   await shoot(page, "03-otp");
   await page.getByRole("button", { name: "Sign in with code" }).click();
@@ -490,7 +513,7 @@ async function islandPass(browser) {
   await shoot(page, "05-interview-terminal");
 
   // 6-9. Closing arc with screenshots; the gate must NOT be stamped anywhere inside it.
-  await walkClosingArc(page, { shotPrefix: "" });
+  await walkClosingArc(page, "");
   assert.equal(stampWrites(log).length, 0, "user_onboarded_at must NOT be stamped before Build my 30");
 
   // 10. Build my 30 → persist → stamp at the TRUE flow end → routed to the reel.
@@ -550,7 +573,7 @@ async function sePass(browser) {
   await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle", timeout: 60000 });
   await page.getByRole("button", { name: "Get started" }).click();
   await walkInterviewToTerminal(page);
-  await walkClosingArc(page, { shotPrefix: "se-" });
+  await walkClosingArc(page, "se-");
 
   // No horizontal overflow anywhere on the small viewport.
   const overflow = await page.evaluate(() => {
