@@ -181,6 +181,69 @@ describe("AskSheetType thread model", () => {
     expect(container.querySelector(".refusal")).not.toBeNull();
   });
 
+  it("renders a failed answer as a RETRYABLE error keeping the question visible (issue #40)", async () => {
+    // WHY (Rule 9): a network blip must not wipe the thread or masquerade as a
+    // permanent "can't answer from source" — the user's question stays visible
+    // with a way to retry it.
+    askQuestionMock
+      .mockResolvedValueOnce(groundedAnswer("Because of the chip race."))
+      .mockResolvedValueOnce({ ...refusalAnswer(), answer_request_failed: true });
+    await renderSheet();
+
+    await askFirstSuggested();
+    await askFollowup("What about its margins?");
+
+    // Prior turn intact; failed question still visible; error card + retry shown.
+    const questionBubbles = [...container.querySelectorAll(".bub-q")].map((node) => node.textContent);
+    expect(questionBubbles).toEqual(["What led to this?", "What about its margins?"]);
+    expect(container.querySelector(".ask-error")).not.toBeNull();
+    const retryButton = container.querySelector<HTMLButtonElement>("button.ask-error-retry");
+    expect(retryButton).not.toBeNull();
+    // A request failure is NOT a grounding refusal — no refusal card.
+    expect(container.querySelector(".refusal")).toBeNull();
+  });
+
+  it("retry re-asks the SAME question and a success replaces the error with the answer", async () => {
+    askQuestionMock
+      .mockResolvedValueOnce({ ...refusalAnswer(), answer_request_failed: true })
+      .mockResolvedValueOnce(groundedAnswer("Margins are around 53%."));
+    await renderSheet();
+
+    await askFirstSuggested();
+    const retryButton = container.querySelector<HTMLButtonElement>("button.ask-error-retry");
+    expect(retryButton).not.toBeNull();
+    await act(async () => {
+      retryButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    // The retry re-sent the same question text…
+    expect(askQuestionMock).toHaveBeenCalledTimes(2);
+    expect(askQuestionMock.mock.calls[1][1]).toBe("What led to this?");
+    // …and the completed answer replaced the error state.
+    expect(container.querySelector(".ask-error")).toBeNull();
+    expect(container.querySelector(".bub-a")?.textContent).toBe("Margins are around 53%.");
+  });
+
+  it("never persists a failed turn — a reopened sheet shows only completed turns", async () => {
+    askQuestionMock
+      .mockResolvedValueOnce(groundedAnswer("Because of the chip race."))
+      .mockResolvedValueOnce({ ...refusalAnswer(), answer_request_failed: true });
+    await renderSheet();
+    await askFirstSuggested();
+    await askFollowup("Failed follow-up?");
+
+    // Close (unmount) and reopen the sheet — the failed turn must be gone.
+    await act(async () => {
+      root.unmount();
+    });
+    root = createRoot(container);
+    await renderSheet();
+
+    const questionBubbles = [...container.querySelectorAll(".bub-q")].map((node) => node.textContent);
+    expect(questionBubbles).toEqual(["What led to this?"]);
+    expect(container.querySelector(".ask-error")).toBeNull();
+  });
+
   it("rehydrates a previously saved thread on mount (Bug 5)", async () => {
     saveQaThreadForStory("s1", {
       completed_turns: [{ question_text: "Saved question?", answer: groundedAnswer("Saved answer.") }],

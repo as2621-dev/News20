@@ -16,6 +16,11 @@
  *    straight to `listening` on mount.
  * 2. `listening` — live orb in LISTENING state + spoken-turn transcript thread +
  *    END button. Maps to `status === "connecting" | "live"` (before model audio).
+ *    The thread is the FULL rolling conversation (issue #40): both roles,
+ *    oldest first, partials growing in place, pinned-to-newest unless the user
+ *    scrolled up. It hydrates from / saves to the in-session
+ *    `voiceTranscriptSession` store so switching to the typed sheet and back
+ *    (which unmounts this component) keeps the transcript for the same story.
  * 3. `responding` — orb in RESPONDING state + answer bubble + "Read the full
  *    story" link. Maps to model producing audio/transcript (tracked via
  *    `lastModelTextRef` delta).
@@ -39,6 +44,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
 import { SignalMark } from "@/components/SignalMark";
+import { useBottomAnchoredScroll } from "@/lib/chat/useBottomAnchoredScroll";
 import { logger } from "@/lib/logger";
 import { fetchStoryCorpus } from "@/lib/voice/fetchStoryCorpus";
 import { SPEECH_ACTIVITY_AMPLITUDE_FLOOR } from "@/lib/voice/liveLatency";
@@ -55,6 +61,11 @@ import {
   buildInNewsSystemInstructionWithCorpus,
 } from "@/lib/voice/storyVoicePrompts";
 import { GEMINI_LIVE_DEFAULT_VOICE, GEMINI_LIVE_JORDAN_VOICE, useGeminiLive } from "@/lib/voice/useGeminiLive";
+import {
+  loadVoiceTranscriptForStory,
+  saveVoiceTranscriptForStory,
+  type VoiceTranscriptTurn,
+} from "@/lib/voice/voiceTranscriptSession";
 import type { Story } from "@/types/feed";
 
 /** `localStorage` key the prototype uses to remember mic grant. */
@@ -97,14 +108,6 @@ function isVoiceCorpusInContextEnabled(): boolean {
  * is producing its answer; `error` = connect failed or hook in error.
  */
 type VoiceViewState = "permission" | "listening" | "responding" | "error";
-
-/** One turn in the spoken thread — user question or model answer. */
-interface VoiceTurn {
-  /** Whether this turn was produced by the user or the model. */
-  role: "user" | "model";
-  /** The transcribed text for this turn (may grow as it streams). */
-  text: string;
-}
 
 export interface AskSheetVoiceProps {
   /** The active story to ground the voice session in. */
@@ -232,7 +235,26 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   const [storyCorpus, setStoryCorpus] = useState<string>("");
 
   // Accumulate the spoken turns so we can render the full conversation thread.
-  const [turns, setTurns] = useState<VoiceTurn[]>([]);
+  // Hydrates from the in-session store (issue #40) so switching to the typed
+  // sheet and back — which unmounts this component — keeps the transcript.
+  const [turns, setTurns] = useState<VoiceTranscriptTurn[]>(() => loadVoiceTranscriptForStory(story.digest_id));
+
+  // Persist the thread to the session store as it grows; on a story CHANGE,
+  // rehydrate instead (never save the old story's turns under the new id).
+  const turnsStoryIdRef = useRef<string>(story.digest_id);
+  useEffect(() => {
+    if (turnsStoryIdRef.current !== story.digest_id) {
+      turnsStoryIdRef.current = story.digest_id;
+      setTurns(loadVoiceTranscriptForStory(story.digest_id));
+      return;
+    }
+    saveVoiceTranscriptForStory(story.digest_id, turns);
+  }, [story.digest_id, turns]);
+
+  // Keep the newest transcript in view as it streams — but never yank a user
+  // who scrolled up to reread (issue #40 chat contract). `turns` gets a new
+  // identity on every delta, so streaming partials keep the pin live.
+  const { scrollContainerRef, handleScroll } = useBottomAnchoredScroll<HTMLDivElement>([turns]);
   // Tracks whether a request is in flight (prevents double-click on CTA).
   const [isRequestingMic, setIsRequestingMic] = useState<boolean>(false);
   // Inline error message when connect fails.
@@ -703,11 +725,9 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   }
 
   // ── STATE: listening / responding ──────────────────────────────────────────
-  // Split the turns into the user's LAST question and the model's last answer
-  // so we can render the prototype's `.row-q` / `.row-a` structure.
-  const last_user_turn = [...turns].reverse().find((t) => t.role === "user") ?? null;
-  const last_model_turn = [...turns].reverse().find((t) => t.role === "model") ?? null;
-  const has_model_answer = last_model_turn !== null;
+  // The FULL rolling thread renders (issue #40) — both roles, oldest first,
+  // partials growing in place; the read-full handoff needs any model answer.
+  const has_model_answer = turns.some((turn) => turn.role === "model");
 
   // Honest orb state (issue #37): LISTENING may appear ONLY once the live
   // session is actually ready (`status === "live"` ⇔ setupComplete arrived).
@@ -748,29 +768,32 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
             Can&rsquo;t hear you — check mic access (Simulator: I/O ▸ Audio Input).
           </p>
         ) : null}
-        <div className="vthread" id="vthread">
-          {last_user_turn !== null && (
-            <div className="row-q">
-              <div className="bub-q voiced">
-                <VqWave />
-                <span>{last_user_turn.text}</span>
-              </div>
-            </div>
-          )}
-          {has_model_answer && (
-            <>
-              <div className="row-a">
-                <div className="bub-a">
-                  <p>{last_model_turn.text}</p>
+        <div className="vthread" id="vthread" ref={scrollContainerRef} onScroll={handleScroll}>
+          {turns.map((turn, turnIndex) =>
+            turn.role === "user" ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: append-only thread; index IS the turn identity.
+              <div className="row-q" key={turnIndex}>
+                <div className="bub-q voiced">
+                  <VqWave />
+                  <span>{turn.text}</span>
                 </div>
               </div>
-              <div className="row-a">
-                <button type="button" className="read-full" onClick={onOpenArticle}>
-                  {ic("doc")}
-                  Read the full story
-                </button>
+            ) : (
+              // biome-ignore lint/suspicious/noArrayIndexKey: append-only thread; index IS the turn identity.
+              <div className="row-a" key={turnIndex}>
+                <div className="bub-a">
+                  <p>{turn.text}</p>
+                </div>
               </div>
-            </>
+            ),
+          )}
+          {has_model_answer && (
+            <div className="row-a">
+              <button type="button" className="read-full" onClick={onOpenArticle}>
+                {ic("doc")}
+                Read the full story
+              </button>
+            </div>
           )}
         </div>
       </div>

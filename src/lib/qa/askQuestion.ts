@@ -46,13 +46,16 @@ export const CLIENT_REFUSAL_ANSWER_TEXT =
  * Build a SAFE refusal {@link QuestionAnswer}. Used on every client-side failure
  * path so a broken request can never surface as a grounded answer.
  *
- * @returns A refusal payload: not grounded, fixed copy, zero citations.
+ * @returns A refusal payload: not grounded, fixed copy, zero citations, and
+ *   `answer_request_failed: true` so the UI can offer a retry (issue #40) —
+ *   a genuine server refusal never carries this flag.
  */
 function buildClientRefusal(): QuestionAnswer {
   return {
     answer_text: CLIENT_REFUSAL_ANSWER_TEXT,
     answer_citations: [],
     answer_is_grounded: false,
+    answer_request_failed: true,
   };
 }
 

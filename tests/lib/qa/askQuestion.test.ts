@@ -109,4 +109,30 @@ describe("askQuestion conversation turns", () => {
     expect(answer.answer_text).toBe(CLIENT_REFUSAL_ANSWER_TEXT);
     expect(answer.answer_citations).toEqual([]);
   });
+
+  it("marks a client-side failure as request-failed so the UI can offer retry (issue #40)", async () => {
+    // WHY (Rule 9): the UI must tell "the REQUEST failed (retryable)" apart from
+    // "the WORKER refused to answer (retry is pointless)" — without this flag a
+    // network blip renders as a permanent-looking refusal card with no way back.
+    const fetchMock = vi.fn(async () => {
+      throw new Error("network down");
+    }) as unknown as typeof fetch;
+
+    const answer = await askQuestion("s1", "Anything?", [], fetchMock);
+
+    expect(answer.answer_request_failed).toBe(true);
+  });
+
+  it("never marks a SERVER refusal as request-failed (the flag is client-only)", async () => {
+    const fetchMock = buildFetchMock({
+      answer_text: "I can't answer that from this story's sources.",
+      answer_citations: [],
+      answer_is_grounded: false,
+    });
+
+    const answer = await askQuestion("s1", "Who wins the World Cup?", [], fetchMock);
+
+    expect(answer.answer_is_grounded).toBe(false);
+    expect(answer.answer_request_failed).toBeUndefined();
+  });
 });
