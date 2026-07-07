@@ -350,6 +350,106 @@ describe("useGeminiLive — the live transport contract", () => {
   });
 });
 
+describe("useGeminiLive — token pre-warm at sheet-open (issue #37)", () => {
+  it("prewarmToken() mints once and connect() consumes the cached token (no second mint)", async () => {
+    // WHY: the pre-warm exists to take the token-mint hop OFF the tap's critical
+    // path; if connect() re-minted anyway, the pre-warm would be a silent no-op.
+    await act(async () => {
+      root.render(<HookHarness systemInstruction="p" />);
+    });
+    await act(async () => {
+      capturedController?.prewarmToken();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      void capturedController?.connect();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(FakeWebSocket.instances.length).toBe(1);
+    expect(FakeWebSocket.instances[0].url).toContain("access_token=auth_tokens%2Ftest-token");
+  });
+
+  it("falls back to a fresh mint when the pre-warm mint failed (failure path)", async () => {
+    // WHY: a failed pre-warm must degrade to the pre-#37 behavior (mint inside
+    // connect), never surface as a user-visible error on its own.
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({}) });
+    await act(async () => {
+      root.render(<HookHarness systemInstruction="p" />);
+    });
+    await act(async () => {
+      capturedController?.prewarmToken();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      void capturedController?.connect();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(FakeWebSocket.instances.length).toBe(1);
+    expect(capturedController?.status).toBe("connecting");
+  });
+
+  it("discards a pre-warmed token older than the freshness window and mints fresh (edge)", async () => {
+    // WHY: the server's newSessionExpireTime is 60s — a stale cached token would
+    // open a WSS that 401s. Staleness must trigger a fresh mint instead.
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValue(1_000_000);
+    await act(async () => {
+      root.render(<HookHarness systemInstruction="p" />);
+    });
+    await act(async () => {
+      capturedController?.prewarmToken();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+    nowSpy.mockReturnValue(1_000_000 + 46_000); // past the 45s freshness window
+    await act(async () => {
+      void capturedController?.connect();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(FakeWebSocket.instances.length).toBe(1);
+  });
+
+  it("logs named token_mint and setup_complete latency marks, without the token value", async () => {
+    // WHY: PRD story #8 — connect-side slowness must be attributable to the mint
+    // vs the WSS handshake from structured numbers. CSO: the mark must never
+    // carry the auth_tokens/... value.
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await act(async () => {
+      root.render(<HookHarness systemInstruction="p" autoConnect />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const socket = FakeWebSocket.instances[0];
+    await act(async () => {
+      socket.open();
+      socket.deliver({ setupComplete: {} });
+      await Promise.resolve();
+    });
+
+    const markLines = consoleLogSpy.mock.calls
+      .map((call) => String(call[0]))
+      .filter((line) => line.includes("voice_live_latency_mark"));
+    expect(markLines.some((line) => line.includes('"mark_name":"token_mint"'))).toBe(true);
+    expect(markLines.some((line) => line.includes('"mark_name":"setup_complete"'))).toBe(true);
+    expect(markLines.every((line) => !line.includes("auth_tokens"))).toBe(true);
+  });
+});
+
 describe("useGeminiLive — gesture-synchronous audio (gotcha 8)", () => {
   it("constructs the AudioContexts and starts getUserMedia BEFORE the token mint resolves", async () => {
     // WHY: an AudioContext created after an await starts 'suspended' on iOS

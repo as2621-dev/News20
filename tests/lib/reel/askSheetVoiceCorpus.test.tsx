@@ -51,6 +51,7 @@ vi.mock("@/lib/voice/useGeminiLive", () => ({
       isSetupComplete: false,
       inputAmplitude: 0,
       connect: vi.fn(async () => {}),
+      prewarmToken: vi.fn(),
       disconnect: vi.fn(),
     };
   },

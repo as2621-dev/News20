@@ -44,6 +44,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logger } from "@/lib/logger";
 import { createMicCapture, createPcmPlayer, type MicCapture, type PcmPlayer } from "@/lib/voice/audio";
+import { createLiveTurnLatencyTracker, type LiveTurnLatencyTracker, logLiveLatencyMark } from "@/lib/voice/liveLatency";
 
 /** The default Gemini Live model (native-audio preview — gotcha intro). */
 export const GEMINI_LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
@@ -63,6 +64,13 @@ export const MINT_TOKEN_PATH = "/api/voice/live-token";
  */
 export const GEMINI_LIVE_WSS_BASE =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained";
+/**
+ * How long a pre-warmed ephemeral token stays usable by `connect()` (issue #37).
+ * The worker mints with `newSessionExpireTime` = 60s (live_token.py); past this
+ * window a cached token could no longer START a session, so connect() discards
+ * it and mints fresh.
+ */
+export const PREWARMED_TOKEN_MAX_AGE_MS = 45_000;
 
 /** A function declaration the model may call (gotcha 7 round-trip). */
 export interface GeminiToolDeclaration {
@@ -127,8 +135,48 @@ export interface GeminiLiveController {
   inputAmplitude: number;
   /** Open the token mint → WSS → setup handshake (call inside a user gesture). */
   connect: () => Promise<void>;
+  /**
+   * Pre-warm the ephemeral-token mint (issue #37): fire it at sheet-open so the
+   * mint overlaps the user's read/tap instead of sitting on connect()'s critical
+   * path. Fire-and-forget and NON-gestural (no audio is touched); `connect()`
+   * consumes the cached token if it is still fresh, else mints fresh. A failed
+   * pre-warm is only a warning — connect() falls back to its own mint.
+   */
+  prewarmToken: () => void;
   /** Tear down the socket, mic, and playback. Idempotent. */
   disconnect: () => void;
+}
+
+/** A pre-warm-minted ephemeral token plus when it was minted (staleness check). */
+interface PrewarmedEphemeralToken {
+  /** The opaque `auth_tokens/...` name — never logged. */
+  ephemeral_token_name: string;
+  /** `Date.now()` at mint completion, for the freshness window. */
+  minted_at_epoch_ms: number;
+}
+
+/**
+ * Mint one single-use Gemini Live ephemeral token via the worker (gotcha 1 —
+ * the API key never reaches the client; we only ever hold the opaque
+ * `auth_tokens/...` name). Throws on any HTTP/shape failure.
+ *
+ * Reason (4b-SP3): the deployed worker origin is prepended (same env Q&A uses) —
+ * the static Capacitor/export build has no same-origin server, so a bare
+ * relative path would 404. Empty env → same-origin (dev proxy) as before.
+ *
+ * @returns The minted `auth_tokens/...` token name.
+ */
+async function mintEphemeralTokenName(): Promise<string> {
+  const tokenBaseUrl = (process.env.NEXT_PUBLIC_QA_API_BASE_URL ?? "").replace(/\/+$/, "");
+  const tokenResponse = await fetch(`${tokenBaseUrl}${MINT_TOKEN_PATH}`, { method: "POST" });
+  if (!tokenResponse.ok) {
+    throw new Error(`token mint returned HTTP ${tokenResponse.status}`);
+  }
+  const tokenBody = (await tokenResponse.json()) as { ephemeral_token_name?: string };
+  if (!tokenBody.ephemeral_token_name) {
+    throw new Error("token mint response missing ephemeral_token_name");
+  }
+  return tokenBody.ephemeral_token_name;
 }
 
 /**
@@ -296,6 +344,14 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
   //     in-flight connects apart.
   const connectGuardRef = useRef<boolean>(false);
   const connectEpochRef = useRef<number>(0);
+  // Reason (issue #37): the sheet pre-warms the token mint at open; connect()
+  // consumes the cached promise (single-use — cleared on consumption). The
+  // promise NEVER rejects (failures resolve null) so a failed pre-warm degrades
+  // silently to connect()'s own mint.
+  const prewarmedTokenRef = useRef<Promise<PrewarmedEphemeralToken | null> | null>(null);
+  // Per-session turn-latency tracker (issue #37) — created in connect(),
+  // dropped in disconnect().
+  const latencyTrackerRef = useRef<LiveTurnLatencyTracker | null>(null);
   // Keep the latest callbacks in refs so the frame router never goes stale and
   // the connect callback identity stays stable.
   const onTranscriptRef = useRef(onTranscript);
@@ -348,6 +404,7 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     connectEpochRef.current += 1;
     micCaptureRef.current?.stop();
     micCaptureRef.current = null;
+    latencyTrackerRef.current = null;
     releasePreacquiredAudio();
     const socket = socketRef.current;
     socketRef.current = null;
@@ -396,7 +453,12 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
           micCaptureRef.current = createMicCapture({
             mediaStream,
             audioContext: micAudioContext,
-            onAmplitude: setInputAmplitude,
+            onAmplitude: (amplitude) => {
+              // Reason (issue #37): the tracker derives "speech end" from the
+              // mic energy dropping below the speech floor.
+              latencyTrackerRef.current?.recordAmplitude(amplitude);
+              setInputAmplitude(amplitude);
+            },
             onAudioChunk: (chunk) => {
               // Reason (gotcha 5): input is 16 kHz mono PCM16, base64, as realtimeInput.
               const liveSocket = socketRef.current;
@@ -473,6 +535,7 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
 
       const serverContent = frame.serverContent;
       if (serverContent?.inputTranscription?.text) {
+        latencyTrackerRef.current?.recordOwnTranscript();
         onTranscriptRef.current?.({ role: "user", text: serverContent.inputTranscription.text });
       }
       if (serverContent?.outputTranscription?.text) {
@@ -481,8 +544,12 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
       for (const part of serverContent?.modelTurn?.parts ?? []) {
         const audioData = part.inlineData?.data;
         if (audioData) {
+          latencyTrackerRef.current?.recordModelAudio();
           playerRef.current?.enqueueBase64Chunk(audioData);
         }
+      }
+      if (serverContent?.turnComplete) {
+        latencyTrackerRef.current?.recordTurnComplete();
       }
 
       // Function round-trip (gotcha 7): fulfil each call and reply with the EXACT
@@ -533,7 +600,10 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     // Reason (gotcha 7): snapshot the epoch so we can detect a teardown that
     // happens while the async token mint is in flight (the StrictMode case).
     const connectEpoch = connectEpochRef.current;
+    // Reason (issue #37): anchor for the connect-phase latency marks.
+    const connectStartedAtEpochMs = Date.now();
     setStatus("connecting");
+    latencyTrackerRef.current = createLiveTurnLatencyTracker();
 
     // Reason (gotcha 8): acquire ALL audio resources SYNCHRONOUSLY here, inside
     // the user tap — an AudioContext constructed after an await starts
@@ -569,21 +639,23 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
 
     let ephemeralTokenName: string;
     try {
-      // Reason (gotcha 1): the worker mints the token; the API key never reaches
-      // the client. We only ever hold the opaque `auth_tokens/...` name.
-      // Reason (4b-SP3): prepend the deployed worker origin (same env Q&A uses) —
-      // the static Capacitor/export build has no same-origin server, so a bare
-      // relative path would 404. Empty env → same-origin (dev proxy) as before.
-      const tokenBaseUrl = (process.env.NEXT_PUBLIC_QA_API_BASE_URL ?? "").replace(/\/+$/, "");
-      const tokenResponse = await fetch(`${tokenBaseUrl}${MINT_TOKEN_PATH}`, { method: "POST" });
-      if (!tokenResponse.ok) {
-        throw new Error(`token mint returned HTTP ${tokenResponse.status}`);
-      }
-      const tokenBody = (await tokenResponse.json()) as { ephemeral_token_name?: string };
-      if (!tokenBody.ephemeral_token_name) {
-        throw new Error("token mint response missing ephemeral_token_name");
-      }
-      ephemeralTokenName = tokenBody.ephemeral_token_name;
+      // Reason (issue #37): consume the sheet-open pre-warm if one landed and is
+      // still inside the freshness window; otherwise mint fresh (gotcha 1 — the
+      // key stays off-device either way). The cache is single-use: cleared here
+      // so a reconnect never replays a spent `uses:1` token.
+      const prewarmedTokenPromise = prewarmedTokenRef.current;
+      prewarmedTokenRef.current = null;
+      const prewarmedToken = prewarmedTokenPromise ? await prewarmedTokenPromise : null;
+      const isPrewarmedTokenFresh =
+        prewarmedToken !== null && Date.now() - prewarmedToken.minted_at_epoch_ms < PREWARMED_TOKEN_MAX_AGE_MS;
+      ephemeralTokenName = isPrewarmedTokenFresh ? prewarmedToken.ephemeral_token_name : await mintEphemeralTokenName();
+      logLiveLatencyMark({
+        mark_name: "token_mint",
+        // Reason: this measures the CRITICAL-PATH wait for a token (≈0 on a
+        // pre-warm hit) — the pre-warm's own mint time is logged at pre-warm.
+        duration_ms: Date.now() - connectStartedAtEpochMs,
+        used_prewarmed_token: isPrewarmedTokenFresh,
+      });
     } catch (mintError) {
       logger.error("voice_live_token_mint_failed", {
         error_message: mintError instanceof Error ? mintError.message : "unknown",
@@ -641,6 +713,10 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
           }
           if (isComplete && !isSetupCompleteRef.current) {
             isSetupCompleteRef.current = true;
+            logLiveLatencyMark({
+              mark_name: "setup_complete",
+              duration_ms: Date.now() - connectStartedAtEpochMs,
+            });
             setIsSetupComplete(true);
             setStatus("live");
             startMicAndGreeting(socket);
@@ -652,20 +728,33 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     };
 
     socket.onerror = (): void => {
+      // Reason (issue #37 race): a stale/superseded socket's error must not
+      // clobber the current session's status (see onclose).
+      if (socketRef.current !== socket) {
+        return;
+      }
       logger.error("voice_live_socket_error", {
         fix_suggestion: "WSS error — check the constrained endpoint URL + token freshness.",
       });
       setStatus("error");
     };
     socket.onclose = (closeEvent: CloseEvent): void => {
+      // Reason (issue #37 race): a STALE socket's close (torn down by
+      // disconnect(), or superseded by a newer connect — e.g. the voice-name
+      // fallback reconnects before the rejected socket's close event lands)
+      // must not clobber the CURRENT session's status or connect guard.
+      // disconnect() nulls socketRef BEFORE calling close(), so intentional
+      // teardowns land here too; it already resets guard + status itself.
+      if (socketRef.current !== socket) {
+        return;
+      }
       // Reason: allow a future reconnect after the socket closes.
       connectGuardRef.current = false;
       // Reason (Rule 12): a close BEFORE setupComplete on the still-active socket
       // means the server rejected the `setup` frame (e.g. 1007 on a malformed
       // field) — surface an error state instead of leaving the orb on LISTENING
-      // forever. Intentional teardowns skip this: disconnect() nulls socketRef
-      // BEFORE calling close(), so `socketRef.current === socket` is false there.
-      if (socketRef.current === socket && !isSetupCompleteRef.current) {
+      // forever.
+      if (!isSetupCompleteRef.current) {
         logger.error("voice_live_setup_rejected", {
           close_code: closeEvent?.code,
           close_reason: closeEvent?.reason,
@@ -681,6 +770,32 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     // Reason: hint the parameterized values are intentionally captured here.
   }, [handleServerFrame, startMicAndGreeting, releasePreacquiredAudio, model, systemInstruction, tools, voiceName]);
 
+  // Fire the token mint ahead of connect() (issue #37) — see the interface doc.
+  const prewarmToken = useCallback((): void => {
+    if (prewarmedTokenRef.current) {
+      // Reason: one pre-warm per consumption — a second call would waste a
+      // single-use token the first pre-warm already minted.
+      return;
+    }
+    const prewarmStartedAtEpochMs = Date.now();
+    prewarmedTokenRef.current = mintEphemeralTokenName()
+      .then((ephemeral_token_name): PrewarmedEphemeralToken => {
+        logger.info("voice_live_token_prewarmed", {
+          mint_duration_ms: Date.now() - prewarmStartedAtEpochMs,
+        });
+        return { ephemeral_token_name, minted_at_epoch_ms: Date.now() };
+      })
+      .catch((prewarmError: unknown): null => {
+        logger.warn("voice_live_token_prewarm_failed", {
+          error_message: prewarmError instanceof Error ? prewarmError.message : "unknown",
+          fix_suggestion:
+            "Pre-warm mint failed; connect() will mint fresh. If connect also fails, " +
+            "check the worker /api/voice/live-token route + GEMINI_API_KEY.",
+        });
+        return null;
+      });
+  }, []);
+
   // Tear everything down on unmount (also covers the StrictMode unmount). The
   // disconnect() bumps the connect epoch, which is what an in-flight connect()
   // checks after its async token mint so a torn-down (StrictMode-first) mount
@@ -692,5 +807,5 @@ export function useGeminiLive(params: UseGeminiLiveParams): GeminiLiveController
     };
   }, [disconnect]);
 
-  return { status, isSetupComplete, inputAmplitude, connect, disconnect };
+  return { status, isSetupComplete, inputAmplitude, connect, prewarmToken, disconnect };
 }

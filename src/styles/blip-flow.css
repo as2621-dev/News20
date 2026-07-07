@@ -2680,6 +2680,19 @@ body {
 .vs-state.live {
   color: #a1a1aa;
 }
+.vs-state.conn {
+  color: #71717a;
+  animation: connPulse 1.4s ease-in-out infinite;
+}
+@keyframes connPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 .vs-state.resp {
   color: #facc15;
 }
