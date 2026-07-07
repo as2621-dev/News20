@@ -155,12 +155,10 @@ class ActiveInterestSet:
         active_interests: The distinct, ingestible active interests (by slug).
         skipped_queryless_count: Followed interests skipped for a missing/empty
             ``interest_search_query`` (issue #36 — each is also WARNING-logged).
-        skipped_unknown_count: Followed interests absent from the taxonomy map.
     """
 
     active_interests: list[ActiveInterest]
     skipped_queryless_count: int = 0
-    skipped_unknown_count: int = 0
 
 
 def build_active_interest_set(
@@ -257,7 +255,6 @@ def build_active_interest_set(
     return ActiveInterestSet(
         active_interests=active,
         skipped_queryless_count=skipped_no_query,
-        skipped_unknown_count=skipped_unknown,
     )
 
 

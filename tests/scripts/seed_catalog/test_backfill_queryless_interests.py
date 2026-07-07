@@ -59,6 +59,16 @@ def test_label_already_carrying_root_term_is_not_double_qualified() -> None:
     assert query.lower().count("technology") == 1
 
 
+def test_qualifier_presence_check_is_word_bounded() -> None:
+    """WHY: 'sport' inside 'Transportation' must NOT count as the root term being
+    present — a substring false-positive would skip the qualifier and write a
+    broad off-ladder query (the exact firehose the qualifier prevents)."""
+    query = sweep.derive_query(
+        "sport.transportation-costs", "Transportation costs", 1, "Sport"
+    )
+    assert query == "Sport, Transportation costs"
+
+
 def test_all_curated_root_queries_pass_both_tokenizers() -> None:
     """WHY: a curated root query that ingestion still skips is a self-defeating map."""
     for root_slug, root_query in sweep.ROOT_QUERIES.items():
@@ -107,8 +117,9 @@ def test_build_plan_orphan_root_fails_loud() -> None:
 class FakeConn:
     """In-memory asyncpg stand-in enforcing the re-checked queryless predicate.
 
-    Holds interests as ``interest_id → query`` (None or "" = queryless, exactly the
-    two shapes the SQL predicate targets).
+    Holds interests as ``interest_id → query``. Queryless = None or whitespace-only,
+    mirroring BOTH the SQL predicate (``~ '^\\s*$'``) and the pipeline's ``.strip()``
+    skip check — the two must stay semantically identical (review finding #36).
     """
 
     def __init__(self, table: dict[str, str | None]) -> None:

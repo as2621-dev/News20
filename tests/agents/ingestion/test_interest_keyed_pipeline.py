@@ -112,7 +112,6 @@ class TestBuildActiveInterestSet:
         slugs = [a.interest_slug for a in interest_set.active_interests]
         assert slugs == ["markets", "sport.soccer.arsenal"]  # sorted by slug, deduped
         assert interest_set.skipped_queryless_count == 2  # soccer + sport
-        assert interest_set.skipped_unknown_count == 1  # ghost-interest
 
     def test_queryless_skip_emits_warning_with_fix_suggestion(
         self, interest_nodes, interest_ids

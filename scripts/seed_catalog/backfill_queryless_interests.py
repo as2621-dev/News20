@@ -7,8 +7,8 @@ Ingestion skips a followed interest that has no usable ``interest_search_query``
 so a queryless interest silently produces nothing for its followers. The v2 catalog
 backfill (``backfill_interest_query.py``, issue #28) covered the 120 catalog sub-niche
 nodes only — this script is the *sweep*: it reads prod for ALL interests whose query is
-NULL **or empty-string** (the mint RPC and legacy seeders can leave either), derives a
-deterministic query for each, and fills exactly those rows. Stragglers include:
+NULL **or whitespace-only** (the mint RPC and legacy seeders can leave either), derives
+a deterministic query for each, and fills exactly those rows. Stragglers include:
 
   * depth-0 roots minted without queries (0023 / legacy taxonomy roots), and
   * user-minted ladder rungs from chat-onboarding drills (``mint_interest_ladder``
@@ -36,10 +36,11 @@ plan time and never reaches prod.
 Safety (prod write)
 -------------------
 Dry-run is the DEFAULT: print every ``(slug → query)`` pair, write nothing. ``--live``
-is required to write. The UPDATE is scoped per ``interest_id`` AND re-checks
-``interest_search_query is null or btrim(...) = ''`` — a row that gained a query
-between plan and write is never clobbered, and a re-run changes zero rows
-(idempotent). Parameterized SQL only; the connection string is never logged.
+is required to write. The UPDATE is scoped per ``interest_id`` AND re-checks the
+queryless predicate (NULL or whitespace-only — matching the pipeline's ``.strip()``
+skip check exactly) — a row that gained a query between plan and write is never
+clobbered, and a re-run changes zero rows (idempotent). Parameterized SQL only; the
+connection string is never logged.
 
 Usage
 -----
@@ -57,6 +58,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import re
 from typing import Any
 
 from agents.ingestion.adapters.gdelt_bigquery import match_terms
@@ -70,8 +72,10 @@ logger = get_logger("seed_catalog.backfill_queryless_interests")
 # Reason: a depth-0 root's own label is too short/broad to derive from ("AI" → zero
 # >=3-char tokens; "Arts" alone is a firehose). Curated comma-phrase queries — the
 # comma is what split_anchor_terms recovers (one DOC exact-phrase anchor each) and
-# match_terms tokenizes over. Data, not judgment (Rule 5); style mirrors the
-# 2026-06-16 root entries in scripts/backfill_interest_queries.py.
+# match_terms tokenizes over. Data, not judgment (Rule 5). SUPERSEDES the root
+# entries in scripts/backfill_interest_queries.py (2026-06-16, historical one-shot):
+# any FUTURE queryless root is curated HERE, in comma-phrase form — do not extend
+# the old space-joined map.
 ROOT_QUERIES: dict[str, str] = {
     "ai": "artificial intelligence, machine learning",
     "arts": "arts and culture, books, film, music",
@@ -136,8 +140,11 @@ def derive_query(
     # Reason: a minted rung's label is a single context-free segment ("Business"
     # under ai.*). build_search_query qualifies only GENERIC labels; the sweep
     # qualifies every deeper node so the query stays on-ladder — unless the label
-    # already carries the root term (avoids "technology, Tech gadgets").
-    if qualifier and qualifier.lower() not in query.lower():
+    # already carries the root term as a whole word (avoids "technology, Tech
+    # gadgets" without false-matching "sport" inside "Transportation").
+    if qualifier and not re.search(
+        rf"\b{re.escape(qualifier.lower())}\b", query.lower()
+    ):
         query = f"{qualifier}, {query}"
     return query
 
@@ -183,8 +190,12 @@ def build_plan(
 
 
 # ── prod I/O (scoped, idempotent) ────────────────────────────────────────────
+# Reason: must match the pipeline's Python skip check EXACTLY —
+# build_active_interest_set uses .strip(), which strips ALL whitespace, so the SQL
+# side matches any whitespace-only value via regex (btrim would miss "\t"/"\n" rows,
+# leaving them pipeline-skipped but sweep-invisible). Constant SQL, no runtime input.
 _QUERYLESS_PREDICATE = (
-    "(interest_search_query is null or btrim(interest_search_query) = '')"
+    r"(interest_search_query is null or interest_search_query ~ '^\s*$')"
 )
 
 
@@ -203,18 +214,6 @@ async def fetch_root_labels(conn: Any) -> dict[str, str]:
         "select interest_slug, interest_label from interests where depth_level = 0"
     )
     return {record["interest_slug"]: record["interest_label"] for record in fetched}
-
-
-async def count_rows_with_query(conn: Any) -> int:
-    """Rows that already carry a query — snapshot before/after proves no clobber.
-
-    Every planned row is queryless, so the with-query count may only GROW by exactly
-    the number of rows changed; any pre-existing query changing would break that
-    arithmetic (checked by the runner).
-    """
-    return await conn.fetchval(
-        f"select count(*) from interests where not {_QUERYLESS_PREDICATE}"
-    )
 
 
 async def apply_backfill(conn: Any, plan: list[dict[str, Any]]) -> int:
@@ -275,17 +274,17 @@ async def _run(args: argparse.Namespace) -> None:
             )
             return
 
-        with_query_before = await count_rows_with_query(conn)
+        # Reason: no before/after count snapshot — the per-row re-checked queryless
+        # predicate IS the no-clobber guarantee (a post-hoc count race-conditions
+        # against concurrent writers like mint_interest_ladder and proves nothing
+        # the UPDATE predicate doesn't already enforce). rows_changed + the re-fetch
+        # of remaining queryless rows are the completion evidence.
         changed = await apply_backfill(conn, plan)
-        with_query_after = await count_rows_with_query(conn)
         remaining = await fetch_queryless_interests(conn)
         logger.info(
             "backfill_sweep_live_complete",
             rows_changed=changed,
             planned=len(plan),
-            with_query_before=with_query_before,
-            with_query_after=with_query_after,
-            growth_matches_changed=(with_query_after - with_query_before == changed),
             remaining_queryless=len(remaining),
         )
     finally:
