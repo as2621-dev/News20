@@ -15,8 +15,8 @@ are stable UPPERCASE underscore strings (``ECON_STOCKMARKET``, ``ENV_CLIMATECHAN
 ``WB_2670_JOBS`` …); an exact-set membership lookup is the simplest, most testable
 convention and is what the SP1 DoD requires. Prefix matching is deliberately NOT done
 (Rule 2 — no speculative generality): it would need its own ambiguity rules + tests
-and the offline DoD only asks for representative coverage. Broadening the whitelist is
-the stated LIVE-E2E tuning follow-up (phase Open Question 2), not a blocker here.
+and the offline DoD only asks for representative coverage. Whitelist broadening is an
+ongoing, data-driven activity (see below); re-tally with scripts/theme_miss_counts.py.
 
 Coverage here started **representative** (~2-4 plausible real GKG codes per
 category). Issue #35 (2026-07-07) expanded it DATA-DRIVEN: a real production-shaped
@@ -158,13 +158,17 @@ def category_for_themes(themes: list[str]) -> FeedCategory | None:
     (Rule 9: a test pins the winner of a crafted mixed list and fails if the rule
     changes).
 
-    A theme list with **no whitelisted theme** (or an empty list) returns ``None``
-    and emits a structured ``logger.warning`` carrying a ``fix_suggestion`` to
-    extend the whitelist. ``None`` means "the themes carry no category signal" —
-    the caller must let the FETCHING interest's root own categorization (issue #35:
-    a theme-derived category may only win when a whitelisted theme actually
-    matched; the old behavior returned the arts default here, which the caller
-    stamped at depth 0 and mis-bucketed every unmatched story into arts).
+    A theme list with **no whitelisted theme** returns ``None`` and emits a
+    structured ``logger.info`` naming the top unmatched codes (the input to the
+    data-driven whitelist expansion — scripts/theme_miss_counts.py aggregates the
+    same signal). An **empty** theme list also returns ``None`` but logs only a
+    debug event — there is nothing to whitelist. ``None`` means "the themes carry
+    no category signal" — the caller must let the FETCHING interest's root own
+    categorization (issue #35: a theme-derived category may only win when a
+    whitelisted theme actually matched; the old behavior returned the arts default
+    here, which the caller stamped at depth 0 and mis-bucketed every unmatched
+    story into arts). Neither case is an error: post-#35 the fetching-interest
+    fallback is the DESIGNED path, so this is routine signal, not a warning.
 
     Args:
         themes: The story's GDELT GKG ``V2Themes`` codes (offset-stripped, e.g.
@@ -190,20 +194,27 @@ def category_for_themes(themes: list[str]) -> FeedCategory | None:
             hit_counts[category] = hit_counts.get(category, 0) + 1
 
     if not hit_counts:
-        # Reason: fail loud but resilient — no recognized theme means the themes
-        # carry NO category signal, so return None (the fetching interest's root
-        # then owns categorization — issue #35) AND surface it so the whitelist can
-        # be extended (the no-whitelisted-theme / empty case).
-        logger.warning(
-            "theme_category_no_whitelisted_theme",
-            theme_count=len(themes),
-            themes=themes[:20],
-            fix_suggestion=(
-                "No V2Themes code matched THEME_CATEGORY_WHITELIST; add the "
-                "representative code(s) for this story's themes to the whitelist "
-                "in agents/pipeline/theme_category.py"
-            ),
-        )
+        # Reason: no recognized theme means the themes carry NO category signal, so
+        # return None (the fetching interest's root then owns categorization —
+        # issue #35, the DESIGNED fallback, hence info/debug not warning). The
+        # non-empty case still surfaces the unmatched codes as the raw input to
+        # data-driven whitelist expansion (scripts/theme_miss_counts.py).
+        if themes:
+            logger.info(
+                "theme_category_no_whitelisted_theme",
+                theme_count=len(themes),
+                themes=themes[:20],
+                fix_suggestion=(
+                    "No V2Themes code matched THEME_CATEGORY_WHITELIST — the "
+                    "fetching interest's root categorizes this story (by design). "
+                    "If one of these codes SHOULD drive categorization, add it to "
+                    "the whitelist in agents/pipeline/theme_category.py backed by "
+                    "scripts/theme_miss_counts.py counts"
+                ),
+            )
+        else:
+            # Nothing to whitelist for a zero-theme story — routine, debug only.
+            logger.debug("theme_category_no_themes")
         return None
 
     max_hits = max(hit_counts.values())

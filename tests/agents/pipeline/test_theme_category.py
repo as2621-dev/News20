@@ -88,11 +88,12 @@ class TestNoWhitelistedThemeReturnsNone:
     def test_unknown_themes_return_none(self) -> None:
         assert category_for_themes(["TOTALLY_UNKNOWN", "ALSO_FAKE"]) is None
 
-    def test_unknown_themes_emit_warning_with_fix_suggestion(
+    def test_unknown_themes_emit_info_with_fix_suggestion(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # WHY (Rule 12, fail loud): an un-mappable theme list still surfaces a
-        # structured warning telling the operator to extend the whitelist. We patch
+        # WHY: an unmatched theme list still surfaces its codes (the raw input to
+        # data-driven whitelist expansion) — but at INFO, not warning: post-#35 the
+        # fetching-interest fallback is the DESIGNED path, not an error. We patch
         # the module logger (structlog→stdlib caplog routing is environment-fragile;
         # patching the boundary is deterministic).
         fake_logger = MagicMock()
@@ -101,18 +102,19 @@ class TestNoWhitelistedThemeReturnsNone:
         result = category_for_themes(["NOPE_NOT_A_THEME"])
 
         assert result is None
-        fake_logger.warning.assert_called_once()
-        event = fake_logger.warning.call_args.args[0]
-        kwargs = fake_logger.warning.call_args.kwargs
+        fake_logger.info.assert_called_once()
+        event = fake_logger.info.call_args.args[0]
+        kwargs = fake_logger.info.call_args.kwargs
         assert event == "theme_category_no_whitelisted_theme"
         assert "fix_suggestion" in kwargs
         assert "whitelist" in kwargs["fix_suggestion"].lower()
+        fake_logger.warning.assert_not_called()
 
 
 class TestEmptyListReturnsNone:
-    """(d) Empty list → ``None`` + warning (same no-signal path as (c))."""
+    """(d) Empty list → ``None`` + debug only (nothing to whitelist)."""
 
-    def test_empty_list_returns_none_and_warns(
+    def test_empty_list_returns_none_without_whitelist_noise(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         fake_logger = MagicMock()
@@ -121,11 +123,11 @@ class TestEmptyListReturnsNone:
         result = category_for_themes([])
 
         assert result is None
-        fake_logger.warning.assert_called_once()
-        assert (
-            fake_logger.warning.call_args.args[0]
-            == "theme_category_no_whitelisted_theme"
-        )
+        # WHY: a zero-theme story has no code to add — an "extend the whitelist"
+        # info/warning here would be 271-per-batch inapplicable noise (panel finding).
+        fake_logger.warning.assert_not_called()
+        fake_logger.info.assert_not_called()
+        fake_logger.debug.assert_called_once_with("theme_category_no_themes")
 
 
 class TestWhitelistInvariant:

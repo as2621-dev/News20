@@ -11,6 +11,11 @@ backed by real counts, never guessed.
 Run (read-only; needs SUPABASE_* + GOOGLE_APPLICATION_CREDENTIALS in .env):
     .venv/bin/python scripts/theme_miss_counts.py
 
+CAVEAT: the Supabase reads use the client's default page (1,000 rows). The printed
+``interests=``/``followed_rows=`` counts make truncation visible — if either nears
+1,000, add ``.range()`` pagination before trusting the tally (2026-07-07 run:
+interests=237, followed_rows=55 — no truncation).
+
 2026-07-07 baseline (feeding the issue #35 expansion): 2,368 canonical stories,
 1,213 whitelist-hit, 271 zero-theme, 884 with no whitelisted theme.
 """

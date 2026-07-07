@@ -14,11 +14,13 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline import daily_batch
+from agents.pipeline.stages import ranking as ranking_module
 from agents.pipeline.stages.ranking import (
     AFFINITY_WEIGHT,
     DEPTH_MATCH_BY_DEPTH,
@@ -593,14 +595,11 @@ class TestAssignCategory:
 
         WHY: a beyond-bubble story with no fetching interest and no matched theme
         must never silently land in arts — the fallback warns with the story id and
-        a fix_suggestion so the gap is operator-visible.
+        a fix_suggestion so the gap is operator-visible (deduped: once per story).
         """
-        from unittest.mock import MagicMock
-
-        from agents.pipeline.stages import ranking as ranking_module
-
         fake_logger = MagicMock()
         monkeypatch.setattr(ranking_module, "logger", fake_logger)
+        ranking_module._warn_category_fallback_no_tags_once.cache_clear()
 
         assert assign_category("orphan-story", {}, {}) == "arts"
 
@@ -611,19 +610,21 @@ class TestAssignCategory:
         assert kwargs["story_id"] == "orphan-story"
         assert "fix_suggestion" in kwargs
 
+        # WHY deduped: assign_category runs O(users × call-sites) per story per
+        # batch — the second identical call must NOT add a second log line.
+        assert assign_category("orphan-story", {}, {}) == "arts"
+        fake_logger.warning.assert_called_once()
+
     def test_same_depth_cross_root_conflict_is_logged(self, monkeypatch) -> None:
         """Issue #35 edge: two fetching interests under DIFFERENT roots, same depth.
 
         WHY: the existing lowest-depth rule (slug tiebreak at equal depth) decides —
         but a cross-root contest is information the operator needs, so it is logged
-        as a structured conflict event with contenders + winner.
+        as a structured conflict event with contenders + winner (once per contest).
         """
-        from unittest.mock import MagicMock
-
-        from agents.pipeline.stages import ranking as ranking_module
-
         fake_logger = MagicMock()
         monkeypatch.setattr(ranking_module, "logger", fake_logger)
+        ranking_module._log_category_conflict_once.cache_clear()
 
         nodes = {
             "int-nvda": InterestNode(
@@ -652,13 +653,14 @@ class TestAssignCategory:
         assert kwargs["winner_category"] == "sport"
         assert set(kwargs["contender_categories"]) == {"sport", "tech"}
 
+        # WHY deduped: the same contest re-classified for another user/call-site
+        # must NOT add a second conflict line (panel finding: O(users × pool)).
+        assert assign_category("s1", tags_by_story, nodes) == "sport"
+        fake_logger.info.assert_called_once()
+
     def test_single_root_at_lowest_depth_logs_no_conflict(self, monkeypatch) -> None:
         """A depth-decided contest (leaf sport vs grandparent world) is the DESIGNED
         precedence, not a conflict — no conflict event fires."""
-        from unittest.mock import MagicMock
-
-        from agents.pipeline.stages import ranking as ranking_module
-
         fake_logger = MagicMock()
         monkeypatch.setattr(ranking_module, "logger", fake_logger)
 
@@ -927,7 +929,9 @@ class TestImportanceWeightFlip:
     _BIG_AFFINITY, _BIG_DEPTH = 0.5, 1  # parent match (DepthMatch 0.6)
     _MINOR_AFFINITY, _MINOR_DEPTH = 1.0, 0  # leaf match (DepthMatch 1.0)
 
-    def _score_at_beta(self, terms: tuple[float, float, float, float], beta: float) -> float:
+    def _score_at_beta(
+        self, terms: tuple[float, float, float, float], beta: float
+    ) -> float:
         """Reconstruct the Score at an arbitrary β from the (score, depth, imp, fresh)."""
         _score, depth_match, importance, freshness = terms
         affinity = self._affinity  # set by the caller for the term being rebuilt
@@ -941,13 +945,18 @@ class TestImportanceWeightFlip:
         story = _story("x", outlet_count=1, published=_NOW)
         self._affinity = affinity
         return affinity, compute_story_score(
-            affinity=affinity, match_depth=depth, story=story, now_utc=_NOW,
+            affinity=affinity,
+            match_depth=depth,
+            story=story,
+            now_utc=_NOW,
             cluster_importance=e1,
         )
 
     def test_minor_wins_at_old_beta_big_wins_at_new_beta(self) -> None:
         """The known minor-vs-major ordering flips between β=0.3 (old) and β=0.45 (new)."""
-        big_aff, big_terms = self._terms(self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1)
+        big_aff, big_terms = self._terms(
+            self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1
+        )
         minor_aff, minor_terms = self._terms(
             self._MINOR_AFFINITY, self._MINOR_DEPTH, self._MINOR_E1
         )
@@ -957,7 +966,9 @@ class TestImportanceWeightFlip:
         big_old = self._score_at_beta(big_terms, 0.3)
         self._affinity = minor_aff
         minor_old = self._score_at_beta(minor_terms, 0.3)
-        assert minor_old > big_old, "at old β=0.3 the minor story should still win (bug)"
+        assert minor_old > big_old, (
+            "at old β=0.3 the minor story should still win (bug)"
+        )
 
         # NEW β=0.45: the genuinely BIG story wins — the bug is fixed.
         self._affinity = big_aff
@@ -976,7 +987,9 @@ class TestImportanceWeightFlip:
             f"IMPORTANCE_WEIGHT={IMPORTANCE_WEIGHT} regressed below the pinned 0.45 — "
             "the big-story-beats-minor flip would break"
         )
-        big_aff, big_terms = self._terms(self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1)
+        big_aff, big_terms = self._terms(
+            self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1
+        )
         minor_aff, minor_terms = self._terms(
             self._MINOR_AFFINITY, self._MINOR_DEPTH, self._MINOR_E1
         )
@@ -1075,4 +1088,6 @@ class TestClusterImportanceThreadsThroughScorer:
             interest_nodes=self._NODES,
             now_utc=_NOW,
         )
-        assert buckets["business"][0].importance == pytest.approx(0.5)  # 6/12, unchanged
+        assert buckets["business"][0].importance == pytest.approx(
+            0.5
+        )  # 6/12, unchanged

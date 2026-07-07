@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -893,20 +894,7 @@ def assign_category(
         if interest_id in interest_nodes
     ]
     if not resolvable:
-        # Reason: issue #35 — the arts fallback is DEFINED but never silent: a story
-        # with no fetching interest and no matched theme is an ingestion gap the
-        # operator must see, not a quiet arts bucket.
-        logger.warning(
-            "category_fallback_no_tags",
-            story_id=story_id,
-            fallback_category=DEFAULT_CATEGORY,
-            fix_suggestion=(
-                "Story has no resolvable story_interests tag — it cannot be "
-                "categorized and falls back to the arts catch-all. Check that its "
-                "fetching interest was tagged (interest_keyed_pipeline) or extend "
-                "THEME_CATEGORY_WHITELIST for its themes."
-            ),
-        )
+        _warn_category_fallback_no_tags_once(story_id)
         return DEFAULT_CATEGORY
     # Lowest match_depth first (leaf < parent < grandparent); tiebreak by slug.
     _best_interest_id, best_depth, best_slug = min(
@@ -917,21 +905,73 @@ def assign_category(
     # story fetched by two interests under different roots) is decided by the slug
     # tiebreak; log the resolved conflict so cross-root ambiguity stays visible.
     # Depth-decided contests are the designed precedence, not a conflict — no log.
-    contender_categories = {
-        category_for_slug(slug)
-        for _interest_id, depth, slug in resolvable
-        if depth == best_depth
-    }
-    if len(contender_categories) > 1:
-        logger.info(
-            "category_conflict_lowest_depth_won",
-            story_id=story_id,
-            match_depth=best_depth,
-            contender_categories=sorted(contender_categories),
-            winner_category=winner_category,
-            winner_slug=best_slug,
-        )
+    # Guarded on >1 tag: a single resolvable tag can never conflict.
+    if len(resolvable) > 1:
+        contender_categories = {
+            category_for_slug(slug)
+            for _interest_id, depth, slug in resolvable
+            if depth == best_depth
+        }
+        if len(contender_categories) > 1:
+            _log_category_conflict_once(
+                story_id,
+                best_depth,
+                tuple(sorted(contender_categories)),
+                winner_category,
+                best_slug,
+            )
     return winner_category
+
+
+@lru_cache(maxsize=4096)
+def _warn_category_fallback_no_tags_once(story_id: str) -> None:
+    """Warn ONCE per story that the arts fallback fired (issue #35: never silent).
+
+    ``assign_category`` is a pure per-story classification but is called O(users ×
+    call-sites) per batch (ranking classify, produce caps, reconcile, per-user
+    beyond-bubble assembly) — an un-deduped warning would repeat thousands of times
+    and drown the signal it exists to surface (review-panel finding). ``lru_cache``
+    keyed on the story id bounds it to one line per story (and per process; a story
+    id is stable across days by design, so a re-run stays quiet too).
+    """
+    # Reason: issue #35 — the arts fallback is DEFINED but never silent: a story
+    # with no fetching interest and no matched theme is an ingestion gap the
+    # operator must see, not a quiet arts bucket.
+    logger.warning(
+        "category_fallback_no_tags",
+        story_id=story_id,
+        fallback_category=DEFAULT_CATEGORY,
+        fix_suggestion=(
+            "Story has no resolvable story_interests tag — it cannot be "
+            "categorized and falls back to the arts catch-all. Check that its "
+            "fetching interest was tagged (interest_keyed_pipeline) or extend "
+            "THEME_CATEGORY_WHITELIST for its themes."
+        ),
+    )
+
+
+@lru_cache(maxsize=4096)
+def _log_category_conflict_once(
+    story_id: str,
+    match_depth: int,
+    contender_categories: tuple[FeedCategory, ...],
+    winner_category: FeedCategory,
+    winner_slug: str,
+) -> None:
+    """Log a resolved cross-root category conflict ONCE per distinct contest.
+
+    Same dedup rationale as :func:`_warn_category_fallback_no_tags_once` — the
+    contest outcome is deterministic per story, so repeating it per user/call-site
+    adds volume, not information.
+    """
+    logger.info(
+        "category_conflict_lowest_depth_won",
+        story_id=story_id,
+        match_depth=match_depth,
+        contender_categories=list(contender_categories),
+        winner_category=winner_category,
+        winner_slug=winner_slug,
+    )
 
 
 def _best_candidate_per_story(

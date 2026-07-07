@@ -161,7 +161,15 @@ class TestTypescriptTwinDrift:
         return self._FEED_BUCKETS_TS.read_text(encoding="utf-8")
 
     def _ts_block(self, source: str, marker: str) -> str:
-        """Extract the literal block that starts at ``marker`` (up to the closing ``;``)."""
+        """Extract the literal block that starts at ``marker`` (up to the closing ``;``).
+
+        Comments are stripped FIRST (``/* … */`` then ``// …``) so (a) a ``;``
+        inside a comment cannot truncate the block and (b) commented-out entries
+        are never parsed as live data (review-panel finding: a disabled
+        ``// ["sport", 3],`` line must not keep the twin test green).
+        """
+        source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        source = re.sub(r"//.*$", "", source, flags=re.MULTILINE)
         start = source.index(marker)
         return source[start : source.index(";", start)]
 
@@ -187,7 +195,14 @@ class TestTypescriptTwinDrift:
         ts_roots = dict(
             re.findall(r'^\s*([a-z_]+):\s*"([a-z_]+)"', block, re.MULTILINE)
         )
-        assert ts_roots, "failed to parse PICKER_ROOT_TO_CATEGORY_BUCKET from TS"
+        # BOTH directions + completeness: a partial regex parse or a root missing
+        # from EITHER side fails loudly (review-panel finding: a subset parse would
+        # otherwise vacuously pass).
+        assert set(ts_roots) == set(TOPIC_CATEGORIES), (
+            f"PICKER_ROOT_TO_CATEGORY_BUCKET keys != the 8 topic roots: "
+            f"TS-only={sorted(set(ts_roots) - set(TOPIC_CATEGORIES))} "
+            f"Py-only={sorted(set(TOPIC_CATEGORIES) - set(ts_roots))}"
+        )
         for root_slug, bucket_id in ts_roots.items():
             assert root_slug in SLUG_TO_CATEGORY, (
                 f"TS picker root {root_slug!r} missing from Python SLUG_TO_CATEGORY "

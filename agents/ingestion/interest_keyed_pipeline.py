@@ -81,7 +81,7 @@ def _build_theme_root_tag(
          :data:`FeedCategory` via :func:`category_for_themes` (``None`` when NO
          whitelisted theme matched — issue #35: an unmatched theme list carries no
          category signal, so no theme tag is emitted and the FETCHING interest's
-         root stays authoritative via the keyword tags at natural depth; the old
+         root stays authoritative via its own lowest-depth keyword tag; the old
          behavior stamped the arts default at depth 0 here, mis-bucketing every
          unmatched story into arts),
       2. maps that category to its depth-0 ROOT interest slug via
@@ -98,8 +98,8 @@ def _build_theme_root_tag(
     Returns ``None`` (no theme tag) when there is no theme-derived category signal
     (no whitelist match), or when the category's root interest node is absent from
     the taxonomy map — a fail-loud signal that migration 0023's root nodes were not
-    loaded. In both cases the caller leaves the keyword tags at their natural depth
-    so the story is still categorizable (degraded, not dropped).
+    loaded. In both cases the keyword tags (shifted uniformly by the caller) still
+    categorize the story via the fetching interest's root (degraded, not dropped).
     """
     category = category_for_themes(story.canonical_themes)
     if category is None:
@@ -445,11 +445,13 @@ async def ingest_active_interests(
     # aggregated V2Themes resolve to a category whose depth-0 ROOT interest gets a
     # depth-0 tag — the authoritative lowest-depth signal assign_category reads. The
     # keyword-matched ancestor tags still ride along for scoring/affinity (DepthMatch
-    # + fallback climb) but are shifted to depth >= 1 so the theme tag strictly wins
-    # the category contest (so a retail story that matched a geopolitics keyword is
-    # categorized by its business themes, not the keyword — the M2 bug). When a story
-    # has no resolvable theme root the keyword tags keep their natural depth so it is
-    # still categorizable (degraded, never dropped).
+    # + fallback climb) but are shifted to depth >= 1 UNCONDITIONALLY — whether or
+    # not a theme tag exists — so (a) a present theme tag strictly wins the category
+    # contest (the M2 bug fix), (b) an absent theme tag (issue #35: no whitelist
+    # match) leaves the fetching interest's shifted-leaf tag as the lowest-depth
+    # winner, and (c) DepthMatch scoring stays UNIFORM across theme-matched and
+    # theme-miss stories (a conditional shift would systematically boost the stories
+    # the pipeline understands least — the review-panel finding).
     root_id_by_slug = {
         node.interest_slug: interest_id
         for interest_id, node in interest_nodes.items()
@@ -463,17 +465,18 @@ async def ingest_active_interests(
             story.canonical_matched_interest_ids,
             interest_nodes,
         )
-        if theme_tag is None:
-            # No resolvable theme root → keyword tags own categorization (natural depth).
-            story_interest_tags.extend(keyword_tags)
-            continue
-        # Theme tag owns depth 0; shift keyword tags down so they never out-rank it
-        # (clamped at the schema max so a grandparent stays depth 2, not 3). A keyword
-        # tag that collides with the theme-root interest is dropped in favour of the
-        # depth-0 theme tag (same interest, the more authoritative depth wins).
-        story_interest_tags.append(theme_tag)
+        if theme_tag is not None:
+            story_interest_tags.append(theme_tag)
+        # Shift keyword tags down (clamped at the schema max so a grandparent stays
+        # depth 2, not 3). A keyword tag that collides with the theme-root interest
+        # is dropped in favour of the depth-0 theme tag (same interest, the more
+        # authoritative depth wins).
         for tag in keyword_tags:
-            if tag.story_interest_interest_id == theme_tag.story_interest_interest_id:
+            if (
+                theme_tag is not None
+                and tag.story_interest_interest_id
+                == theme_tag.story_interest_interest_id
+            ):
                 continue
             story_interest_tags.append(
                 tag.model_copy(

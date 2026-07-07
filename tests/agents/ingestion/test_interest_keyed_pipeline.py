@@ -157,13 +157,18 @@ class TestIngestActiveInterests:
         assert arsenal_story.covering_outlets == ["bbc.com", "cnn.com"]
         assert arsenal_story.canonical_body_text is not None  # extracted
 
-        # Arsenal story → 3 tags (self/parent/grandparent); Markets → 1 tag.
+        # Arsenal story → 3 keyword tags (self/parent/grandparent). Keyword tags are
+        # shifted +1 UNCONDITIONALLY (clamped at the schema max 2) so DepthMatch
+        # scoring is uniform whether or not a theme tag exists (issue #35 panel
+        # finding: a conditional shift boosted theme-miss stories over theme-matched
+        # ones from the same interest). No themes here → no depth-0 theme tag, so
+        # the shifted leaf (depth 1) is the lowest tag and still wins categorization.
         tags_by_story: dict[str, list[int]] = {}
         for tag in result.story_interest_tags:
             tags_by_story.setdefault(tag.story_interest_story_id, []).append(
                 tag.story_interest_match_depth
             )
-        assert sorted(tags_by_story[arsenal_story.canonical_story_id]) == [0, 1, 2]
+        assert sorted(tags_by_story[arsenal_story.canonical_story_id]) == [1, 2, 2]
 
     @pytest.mark.asyncio
     async def test_one_source_failure_does_not_abort_batch(
@@ -689,16 +694,19 @@ def _m2_interest_nodes() -> dict[str, InterestNode]:
 class _ThemedAdapter(BaseNewsAdapter):
     """A fake whose one story carries the given V2Themes (set on the candidate).
 
-    The query is the geopolitics-leaf query (so the story is keyword-matched to a
-    geopolitics interest — the bug's mis-match) but the candidate's themes are
-    whatever the test injects, so the theme-vs-keyword contest is exercisable.
+    The query defaults to the geopolitics-leaf query (so the story is keyword-
+    matched to a geopolitics interest — the bug's mis-match) but the candidate's
+    themes are whatever the test injects, so the theme-vs-keyword contest is
+    exercisable. Passing ``query`` retargets the fetch at any other leaf (the
+    issue #35 table-driven precedence harness).
     """
 
-    def __init__(self, themes: list[str]) -> None:
+    def __init__(self, themes: list[str], query: str = "Russia sanctions") -> None:
         self.themes = themes
+        self.query = query
 
     async def search(self, search_query, since_utc, **kwargs):
-        if search_query != "Russia sanctions":
+        if search_query != self.query:
             return []
         return [
             CandidateStory(
@@ -789,34 +797,6 @@ class TestThemeDerivedCategoryTagging:
         story_id = result.canonical_stories[0].canonical_story_id
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
         assert assign_category(story_id, tags_by_story, nodes) == "geopolitics"
-        assert assign_category(story_id, tags_by_story, nodes) != "arts"
-
-
-class _RootedLeafAdapter(BaseNewsAdapter):
-    """One story keyword-matched via a leaf under an arbitrary root, with the given
-    themes — the table-driven precedence harness for issue #35."""
-
-    def __init__(self, query: str, themes: list[str]) -> None:
-        self.query = query
-        self.themes = themes
-
-    async def search(self, search_query, since_utc, **kwargs):
-        if search_query != self.query:
-            return []
-        return [
-            CandidateStory(
-                candidate_external_id="https://example.com/rooted-story",
-                candidate_title="A story with themes the whitelist does not know",
-                candidate_url="https://example.com/rooted-story",
-                candidate_outlet_domain="example.com",
-                candidate_published_utc=_NOW,
-                candidate_themes=list(self.themes),
-            )
-        ]
-
-    async def extract_body(self, candidate, **kwargs):
-        candidate.candidate_body_text = "body"
-        return candidate
 
 
 class TestFetchingInterestPrecedence:
@@ -857,7 +837,7 @@ class TestFetchingInterestPrecedence:
             depth_level=1,
             interest_search_query=f"query {leaf_slug}",
         )
-        adapter = _RootedLeafAdapter(query=f"query {leaf_slug}", themes=themes)
+        adapter = _ThemedAdapter(themes=themes, query=f"query {leaf_slug}")
 
         result = await ingest_active_interests([leaf_id], nodes, adapter)
 
@@ -865,11 +845,12 @@ class TestFetchingInterestPrecedence:
         story_id = result.canonical_stories[0].canonical_story_id
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
         got = assign_category(story_id, tags_by_story, nodes)
+        # None of the parametrized roots is arts, so this also proves "never the
+        # arts default" for every row.
         assert got == root_slug, (
             f"story fetched by a {root_slug}-root interest with unmatched themes "
             f"must categorize {root_slug}, got {got!r}"
         )
-        assert got != "arts" or root_slug == "arts"
 
     @pytest.mark.asyncio
     async def test_whitelisted_theme_still_beats_fetching_interest(self) -> None:
@@ -885,8 +866,8 @@ class TestFetchingInterestPrecedence:
             depth_level=1,
             interest_search_query="query tech.semiconductors",
         )
-        adapter = _RootedLeafAdapter(
-            query="query tech.semiconductors", themes=["SPORT", "WB_1953_SPORTS"]
+        adapter = _ThemedAdapter(
+            themes=["SPORT", "WB_1953_SPORTS"], query="query tech.semiconductors"
         )
 
         result = await ingest_active_interests([leaf_id], nodes, adapter)
@@ -1075,9 +1056,11 @@ class TestBigQueryNicheSeamIntegration:
             (t.story_interest_interest_id, t.story_interest_match_depth)
             for t in result.story_interest_tags
         }
-        # Leaf-matched tags (depth 0) exist for both followed interests → node + depth.
-        assert ("int-arsenal", 0) in tags_by_interest
-        assert ("int-chips", 0) in tags_by_interest
+        # Leaf-matched tags exist for both followed interests → node + depth. Leaf
+        # tags land at depth 1 (issue #35: keyword tags are shifted +1 uniformly so
+        # a depth-0 theme tag — when a whitelisted theme matches — always wins).
+        assert ("int-arsenal", 1) in tags_by_interest
+        assert ("int-chips", 1) in tags_by_interest
 
     @pytest.mark.asyncio
     async def test_zero_match_niche_yields_no_candidates_no_error(
