@@ -67,7 +67,7 @@ from agents.pipeline.stages.forced_alignment import (
 from agents.pipeline.stages.editorial import run_editorial_rewrite
 from agents.pipeline.stages.scripting import run_single_source_scripting
 from agents.pipeline.stages.verification import run_single_source_verification
-from agents.shared.exceptions import VerificationHaltError
+from agents.shared.exceptions import SegmentResolutionError, VerificationHaltError
 from agents.shared.logger import get_logger
 from agents.voice.audio import assemble_episode
 from agents.voice.gemini_tts import GeminiTTSClient, render_full_dialogue
@@ -481,6 +481,11 @@ async def write_phase(
     Returns:
         A :class:`WritePhaseResult`, or ``None`` when verification HALTs (the story
         is ungrounded vs its single source and must never publish).
+
+    Raises:
+        SegmentResolutionError: When the story resolves to no canonical segment root.
+            Raised BEFORE any LLM call, so a story that can never be filed honestly
+            costs nothing to reject.
     """
     # Reason: resolve the segment ONCE — both detail stages + persist must agree
     # (the second-analytic kind, coverage mode, and stored story_segment_slug all
@@ -488,6 +493,8 @@ async def write_phase(
     segment_slug = resolve_segment_from_tags(
         story_interest_tags, interest_segment_lookup
     )
+    if segment_slug is None:
+        raise SegmentResolutionError(story_id=story.canonical_story_id)
     logger.info(
         "write_phase_started",
         story_id=story.canonical_story_id,
@@ -711,16 +718,26 @@ async def orchestrate_story(
         >>> result.published
         True
     """
-    write_result = await write_phase(
-        story,
-        story_interest_tags,
-        llm_client,
-        story_id=story_id,
-        suggested_questions=suggested_questions,
-        enable_editorial_rewrite=enable_editorial_rewrite,
-        interest_segment_lookup=interest_segment_lookup,
-        pool_index=pool_index,
-    )
+    try:
+        write_result = await write_phase(
+            story,
+            story_interest_tags,
+            llm_client,
+            story_id=story_id,
+            suggested_questions=suggested_questions,
+            enable_editorial_rewrite=enable_editorial_rewrite,
+            interest_segment_lookup=interest_segment_lookup,
+            pool_index=pool_index,
+        )
+    except SegmentResolutionError:
+        # Reason: the rejection is already logged in full (with fix_suggestion) by
+        # the resolver; here it only has to become a distinct, non-published outcome
+        # so it is never conflated with a verification halt.
+        return OrchestratorResult(
+            story_id=story.canonical_story_id,
+            published=False,
+            skip_reason="segment_unresolved",
+        )
     if write_result is None:
         return OrchestratorResult(
             story_id=story.canonical_story_id,

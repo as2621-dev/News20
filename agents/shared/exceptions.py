@@ -143,6 +143,37 @@ class VerificationHaltError(PipelineStageError):
         )
 
 
+class SegmentResolutionError(PipelineStageError):
+    """Raised when a story cannot be assigned one of the 8 canonical segment roots.
+
+    There is deliberately no fallback bucket: a ``wildcard`` default silently
+    mislabelled every ai/business/environment/politics/arts story in prod (PRD RC1),
+    so an unclassifiable story is rejected instead. The orchestrator catches this to
+    skip the story (``skip_reason="segment_unresolved"``); the batch's other stories
+    are unaffected.
+
+    Attributes:
+        story_id: The story that could not be classified.
+
+    Example:
+        >>> raise SegmentResolutionError(story_id="cand-iran-001")
+    """
+
+    def __init__(
+        self,
+        story_id: str,
+        fix_suggestion: str = "No interest tag resolved to a canonical segment root. "
+        "Confirm the story's interests rows carry an interest_segment_slug (or inherit "
+        "one) and that the batch injected interest_segment_lookup",
+    ) -> None:
+        self.story_id = story_id
+        super().__init__(
+            stage="segment_resolution",
+            message=f"story {story_id!r} resolves to no canonical segment root",
+            fix_suggestion=fix_suggestion,
+        )
+
+
 class IngestionError(VoiceAgentError):
     """Base exception for the news ingestion stage.
 

@@ -67,6 +67,7 @@ from agents.pipeline.x_theme_production import (
     filter_placeable_theme_candidates,
     gather_x_theme_candidates,
 )
+from agents.shared.exceptions import SegmentResolutionError
 from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
 from agents.voice.gemini_tts import GeminiTTSClient
@@ -700,6 +701,19 @@ async def _produce_story_pool(
                     interest_segment_lookup=interest_segment_lookup,
                     pool_index=pool_index,
                 )
+            except SegmentResolutionError as exc:
+                # Reason: the nightly batch calls write_phase DIRECTLY (never
+                # orchestrate_story), so without this arm a segment rejection is
+                # swallowed by the generic handler below and reported as a
+                # script/verify failure — the exact conflation this guard exists to
+                # prevent. Distinct event, and the resolver's own fix_suggestion.
+                logger.error(
+                    "produce_write_segment_unresolved",
+                    story_id=story.canonical_story_id,
+                    error_message=str(exc),
+                    fix_suggestion=exc.fix_suggestion,
+                )
+                return None
             except Exception as exc:  # noqa: BLE001 — one bad write never aborts the batch
                 logger.error(
                     "produce_write_failed",
@@ -842,7 +856,8 @@ async def run_daily_pipeline(
             half-reconciled feed.
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
             story's ``story_segment_slug`` (and the enrichment's analytic kind /
-            coverage mode). Injected per batch; ``None`` → ``wildcard`` fallback.
+            coverage mode). Injected per batch; a story that resolves to no
+            canonical segment root is rejected and skipped, never defaulted.
         outlets_lookup: ``{outlet_domain: bias_lean}`` for the GDELT coverage
             census (with ``gdelt_adapter``); ``None`` skips the census.
         gdelt_adapter: The SHARED ``GdeltDocAdapter`` (honors the throttle) for the

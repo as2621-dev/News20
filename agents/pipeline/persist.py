@@ -57,7 +57,7 @@ from agents.pipeline.persist_helpers import (
 from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.stages.detail_enrichment import DetailEnrichment
 from agents.pipeline.stages.forced_alignment import CaptionTrack
-from agents.shared.exceptions import PipelineStageError
+from agents.shared.exceptions import PipelineStageError, SegmentResolutionError
 from agents.shared.logger import get_logger
 
 logger = get_logger("pipeline.persist")
@@ -139,25 +139,36 @@ class PersistResult(BaseModel):
 def _resolve_segment_slug(
     story_interest_tags: list[StoryInterestTag],
     interest_segment_lookup: dict[str, str] | None,
+    story_id: str,
 ) -> str:
     """Resolve the story's ``story_segment_slug`` from its best-matched interest.
 
     ``stories.story_segment_slug`` is a NOT NULL enum FK that ALSO fixes the
     Detail second-analytic kind + coverage mode (Decisions #2/#3) — so it must
-    reflect the interest the story most-closely serves, not a blanket
-    ``wildcard``. Resolved from the lowest-``match_depth`` tag against the injected
-    ``interest_segment_lookup`` (``{interest_id: segment_slug}``); falls back to
-    ``wildcard`` only when nothing resolves (Phase 2c SP4 — backfills the SP3 stub).
+    reflect the interest the story most-closely serves, not a blanket ``wildcard``.
+    Resolved from the lowest-``match_depth`` tag against the injected
+    ``interest_segment_lookup`` (``{interest_id: segment_slug}``).
 
     Args:
         story_interest_tags: The story's ``story_interests`` tags.
-        interest_segment_lookup: ``{interest_id: segment_slug}`` (injected per
-            batch; None/empty → wildcard).
+        interest_segment_lookup: ``{interest_id: segment_slug}`` (injected per batch).
+        story_id: The resolved ``stories.story_id`` — the identifier an operator
+            greps for, so the rejection names it even on an untagged story.
 
     Returns:
-        A valid ``segment_slug`` enum value.
+        A canonical 8-root ``segment_slug`` enum value.
+
+    Raises:
+        SegmentResolutionError: When nothing resolves. ``persist_digest`` is callable
+            directly (e2e fixtures, scripts), so the reject-don't-default guard has to
+            hold here too — not only in the orchestrator.
     """
-    return resolve_segment_from_tags(story_interest_tags, interest_segment_lookup)
+    segment_slug = resolve_segment_from_tags(
+        story_interest_tags, interest_segment_lookup
+    )
+    if segment_slug is None:
+        raise SegmentResolutionError(story_id=story_id)
+    return segment_slug
 
 
 def _insert_rows(
@@ -294,13 +305,16 @@ def persist_digest(
         coverage_report: The GDELT ``CoverageReport`` (SP2) → ``story_trust`` reach
             columns. ``None`` → legacy static ``covering_outlets`` derivation.
         interest_segment_lookup: ``{interest_id: segment_slug}`` (per batch) →
-            resolves ``story_segment_slug``. ``None`` → ``wildcard``.
+            resolves ``story_segment_slug``. ``None``/unresolvable → the story is
+            rejected with :class:`SegmentResolutionError`, never defaulted.
 
     Returns:
         A :class:`PersistResult` listing every created row id + storage path.
 
     Raises:
         PipelineStageError: When a required insert/upload fails.
+        SegmentResolutionError: When the story resolves to no canonical segment root
+            — raised before the first insert, so nothing is half-written.
 
     Example:
         >>> result = persist_digest(client, story, script, track, b"...", 55000, tags)  # doctest: +SKIP
@@ -308,9 +322,11 @@ def persist_digest(
         True
     """
     resolved_story_id = story_id or f"sp3-{story.canonical_story_id}"[:255]
-    # Reason: resolve_segment_from_tags only ever returns a valid segment_slug enum
-    # value (wildcard fallback), so no extra validity guard is needed here.
-    segment_slug = _resolve_segment_slug(story_interest_tags, interest_segment_lookup)
+    # Reason: resolve FIRST — an unclassifiable story raises here, before any insert
+    # or upload, so a rejection never leaves half a story behind.
+    segment_slug = _resolve_segment_slug(
+        story_interest_tags, interest_segment_lookup, story_id=resolved_story_id
+    )
 
     # Reason: confirm both anchors render (audit only; non-fatal).
     speaker_order = script_speaker_order(script)

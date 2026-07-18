@@ -72,6 +72,12 @@ def story_interest_tags() -> list[StoryInterestTag]:
     ]
 
 
+# Reason: the segment lookup the batch injects per run. Every orchestration test
+# passes it because segment resolution is now MANDATORY — with no lookup the story
+# is rejected outright (no ``wildcard`` default to ride on).
+_SEGMENT_LOOKUP: dict[str, str] = {"int-arsenal": "sport"}
+
+
 def _llm_returning(*responses: str) -> LLMClient:
     """An LLMClient whose call_gemini returns the given responses in order."""
     client = LLMClient.__new__(LLMClient)
@@ -155,6 +161,7 @@ class TestOrchestrateHappyPath:
         result = await orch.orchestrate_story(
             story=canonical_story,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             llm_client=llm,
             tts_client=tts,
             supabase_client=supabase,
@@ -196,6 +203,7 @@ class TestOrchestrateHappyPath:
         result = await orch.orchestrate_story(
             story=canonical_story,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             llm_client=llm,
             tts_client=tts,
             supabase_client=supabase,
@@ -239,6 +247,7 @@ class TestOrchestrateHappyPath:
         result = await orch.orchestrate_story(
             story=canonical_story,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             llm_client=llm,
             tts_client=tts,
             supabase_client=supabase,
@@ -274,6 +283,7 @@ class TestOrchestrateVerificationHalt:
         result = await orch.orchestrate_story(
             story=canonical_story,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             llm_client=llm,
             tts_client=tts,
             supabase_client=supabase,
@@ -302,6 +312,7 @@ class TestOrchestrateVerificationHalt:
         result = await orch.orchestrate_story(
             story=canonical_story,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             llm_client=llm,
             tts_client=tts,
             supabase_client=supabase,
@@ -311,6 +322,42 @@ class TestOrchestrateVerificationHalt:
         )
         assert result.published is True
         assert result.persist_result.poster_url is None
+
+
+class TestOrchestrateSegmentRejection:
+    """An unclassifiable story is rejected loudly, never persisted under a junk label.
+
+    WHY (Rule 9): before this, an unresolved segment silently became ``wildcard``
+    and the story shipped mislabelled — 0 of 67 stories in the prod 07-07 batch
+    carried a true ai/business/arts root. Rejecting is the ONLY behaviour that
+    keeps a junk bucket from re-forming, so the skip must be observable and the
+    reason must not be conflated with a verification halt.
+    """
+
+    @pytest.mark.asyncio
+    async def test_unresolvable_segment_skips_before_any_llm_call(
+        self, canonical_story, story_interest_tags
+    ) -> None:
+        llm = _llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED)
+        supabase = FakeSupabaseClient()
+
+        result = await orch.orchestrate_story(
+            story=canonical_story,
+            story_interest_tags=story_interest_tags,
+            interest_segment_lookup={},  # no interest resolves → unclassifiable
+            llm_client=llm,
+            tts_client=_tts_returning_audio(),
+            supabase_client=supabase,
+            poster_genai_client=None,
+            story_id="FIXTURE-SP3-nosegment",
+        )
+
+        assert result.published is False
+        assert result.skip_reason == "segment_unresolved"
+        assert result.persist_result is None
+        assert supabase.captured_inserts == {}
+        # The guard fires before scripting — a rejected story costs no LLM spend.
+        llm.call_gemini.assert_not_awaited()
 
 
 class TestBuildCaptionTrack:

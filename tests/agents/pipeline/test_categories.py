@@ -25,6 +25,7 @@ from agents.pipeline.categories import (
     category_for_slug,
     empty_category_buckets,
 )
+from agents.pipeline.niche_allocation import FEED_SLOT_BUDGET
 
 # The canonical roots SP3 locks: 8 topic roots + 2 source axes = 10 keys total.
 _EIGHT_ROOTS: tuple[str, ...] = (
@@ -155,6 +156,9 @@ class TestTypescriptTwinDrift:
     _ARCHETYPE_MATCH_TS = (
         Path(__file__).resolve().parents[3] / "src" / "lib" / "archetypeMatch.ts"
     )
+    _FEED_TYPES_TS = (
+        Path(__file__).resolve().parents[3] / "src" / "types" / "feed.ts"
+    )
 
     def _ts_source(self, ts_path: Path | None = None) -> str:
         ts_file = ts_path if ts_path is not None else self._FEED_BUCKETS_TS
@@ -237,6 +241,61 @@ class TestTypescriptTwinDrift:
             f"ARCHETYPE_CATEGORY_KEYS (TS) != TOPIC_CATEGORIES (Py): "
             f"TS-only={sorted(ts_keys - set(TOPIC_CATEGORIES))} "
             f"Py-only={sorted(set(TOPIC_CATEGORIES) - ts_keys)}"
+        )
+
+    def test_segment_key_union_matches_the_eight_topic_roots(self) -> None:
+        """TS ``SegmentKey`` (``src/types/feed.ts``) == Python ``TOPIC_CATEGORIES``.
+
+        WHY (issue #44 / PRD RC1): this is the twin that ACTUALLY broke. ``SegmentKey``
+        carried the correct 8 roots while the Python persist path validated against a
+        stale 5-set ``{geopolitics, markets, tech, sport, wildcard}``, so the reel chip
+        asked for a root the pipeline could not write — 0 of 67 stories in the prod
+        07-07 batch persisted under ai/business/arts. The legacy folds (``markets``,
+        ``wildcard``) are retained-unused in the Postgres enum and must appear in
+        NEITHER side's live set.
+        """
+        block = self._ts_block(
+            self._ts_source(self._FEED_TYPES_TS), "export type SegmentKey"
+        )
+        ts_segments = set(re.findall(r'"([a-z_]+)"', block))
+        assert ts_segments, "failed to parse SegmentKey from src/types/feed.ts"
+        assert ts_segments == set(TOPIC_CATEGORIES), (
+            f"SegmentKey (TS) != TOPIC_CATEGORIES (Py): "
+            f"TS-only={sorted(ts_segments - set(TOPIC_CATEGORIES))} "
+            f"Py-only={sorted(set(TOPIC_CATEGORIES) - ts_segments)}"
+        )
+        assert not ts_segments & {"markets", "wildcard"}, (
+            "a retired legacy slug is live in SegmentKey again"
+        )
+
+    def test_allocation_total_agrees_across_all_three_twins(self) -> None:
+        """The 30-slot budget is identical in all THREE allocation twins.
+
+        WHY (PRD decision 2): the brief counted two twins and missed
+        ``categories.DEFAULT_FEED_ALLOCATION``; with only the TS pair pinned, the
+        twins desync at 26 vs 30 and "Build your 30" silently under-fills. The
+        niche allocator is the third — it budgets sections against ``FEED_SLOT_BUDGET``
+        while filling them from ``DEFAULT_FEED_ALLOCATION``, so a drift between those
+        two strands the difference as unfilled slots.
+        """
+        block = self._ts_block(
+            self._ts_source(), "export const DEFAULT_ALLOCATION_SEGMENTS"
+        )
+        ts_total = sum(
+            int(count)
+            for _, count in re.findall(r'\[\s*"([a-z_]+)"\s*,\s*(\d+)\s*\]', block)
+        )
+        assert ts_total, "failed to parse DEFAULT_ALLOCATION_SEGMENTS from TS"
+        declared_total = int(
+            re.search(
+                r"export const ALLOCATION_TOTAL\s*=\s*(\d+)", self._ts_source()
+            ).group(1)
+        )
+        assert ts_total == declared_total == sum(DEFAULT_FEED_ALLOCATION.values()) == FEED_SLOT_BUDGET, (
+            f"allocation totals drifted: DEFAULT_ALLOCATION_SEGMENTS(TS)={ts_total} "
+            f"ALLOCATION_TOTAL(TS)={declared_total} "
+            f"DEFAULT_FEED_ALLOCATION(Py)={sum(DEFAULT_FEED_ALLOCATION.values())} "
+            f"FEED_SLOT_BUDGET(niche)={FEED_SLOT_BUDGET}"
         )
 
     def test_default_allocation_twin_matches_ordered(self) -> None:
