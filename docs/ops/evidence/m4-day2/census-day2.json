@@ -1,0 +1,333 @@
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/users?select=user_id%2Cuser_email&user_email=in.%28persona.founder%40news20.seed%2Cpersona.cricket%40news20.seed%2Cpersona.chip%40news20.seed%29&offset=0&limit=1000 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/user_interest_profile?select=profile_user_id%2Cprofile_interest_id%2Cprofile_created_at&profile_user_id=in.%285287026e-0b4b-4511-8a50-b6eea9d43da2%2C5044e496-adb2-411b-90a0-1669683ea4cc%2C4856bcd0-5da3-48fe-b9d7-c133eb203d81%29&offset=0&limit=1000 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/interests?select=interest_id%2Cinterest_slug%2Cinterest_label%2Cdepth_level%2Cparent_interest_id&offset=0&limit=1000 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/story_interests?select=story_interest_interest_id%2Cstory_interest_story_id%2Cstory_interest_created_at&story_interest_interest_id=in.%280c51af79-4a99-41ba-bf84-f35c571c9a34%2C0f780952-bc7f-468c-a2af-f95f10182101%2C2893b2f1-8b90-45bd-a193-3ef45387005f%2C3237026b-023e-4cb2-8b82-e28ed358e356%2C3f69ab85-64ae-48a9-bf2c-af6789d4bec6%2C5bcc14d1-08f2-4012-84d6-e8d4aa07307b%2C5d5bf2dd-0a99-47b9-a714-209cc77c30df%2C683d8c68-674b-42fc-a251-2475d7c402b8%2C6ee93ddc-aa54-4358-bc5b-aac5236c6e2d%2C75b61f97-00a6-49aa-a5ee-8a3f0905672c%2C75b7757e-b5fb-4ad4-92fe-5c881c2ed2de%2C9bef60f0-3dc1-4e5f-aa71-f78a09aea5c3%2Ca3903d5b-f6ef-4771-a934-c7446c29adac%2Cbd90b072-2733-4605-b6fc-eb91d07e5356%2Cf36a3ef8-ffee-4269-b4f4-c61718374da4%2Cfc698060-8fa0-41f4-a42a-35b537afccd8%29&story_interest_created_at=gte.2026-07-07T00%3A00%3A00%2B00%3A00&story_interest_created_at=lt.2026-07-08T00%3A00%3A00%2B00%3A00&offset=0&limit=1000 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/story_interests?select=story_interest_created_at&story_interest_created_at=gte.2026-07-07T00%3A00%3A00%2B00%3A00&story_interest_created_at=lt.2026-07-08T00%3A00%3A00%2B00%3A00&offset=0&limit=1000 \"HTTP/2 200 OK\""}
+{"personas": 3, "seeded_personas": 3, "relevant_interests": 16, "tag_rows": 152, "present_days": 1, "event": "coverage_census_inputs_fetched", "level": "info", "logger": "pipeline.coverage_census", "timestamp": "2026-07-07T14:29:34.460362Z", "func_name": "fetch_census_inputs", "module": "coverage_census"}
+{"personas": 3, "present_days": 1, "missing_days": 0, "overall_hit_rate": 1.0, "overall_meets_target": true, "event": "coverage_census_built", "level": "info", "logger": "pipeline.coverage_census", "timestamp": "2026-07-07T14:29:34.461001Z", "func_name": "build_coverage_census", "module": "coverage_census"}
+{
+  "generated_at_utc": "2026-07-07T14:29:34.460945+00:00",
+  "window_start_date": "2026-07-07",
+  "window_end_date": "2026-07-07",
+  "hit_rate_target": 0.6,
+  "present_days": [
+    "2026-07-07"
+  ],
+  "missing_days": [],
+  "personas": [
+    {
+      "persona_key": "founder",
+      "persona_email": "persona.founder@news20.seed",
+      "persona_user_id": "5287026e-0b4b-4511-8a50-b6eea9d43da2",
+      "interests": [
+        {
+          "interest_id": "9bef60f0-3dc1-4e5f-aa71-f78a09aea5c3",
+          "interest_slug": "ai.foundation-models",
+          "interest_label": "Foundation Models",
+          "interest_depth": 1,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 8,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 8
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "ai.foundation-models",
+              "depth_from_interest": 0,
+              "total_direct_hits": 8
+            },
+            {
+              "ladder_slug": "ai",
+              "depth_from_interest": 1,
+              "total_direct_hits": 10
+            }
+          ]
+        },
+        {
+          "interest_id": "fc698060-8fa0-41f4-a42a-35b537afccd8",
+          "interest_slug": "business.venture-capital",
+          "interest_label": "Venture Capital",
+          "interest_depth": 1,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 1,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 1
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "business.venture-capital",
+              "depth_from_interest": 0,
+              "total_direct_hits": 1
+            },
+            {
+              "ladder_slug": "business",
+              "depth_from_interest": 1,
+              "total_direct_hits": 23
+            }
+          ]
+        },
+        {
+          "interest_id": "3f69ab85-64ae-48a9-bf2c-af6789d4bec6",
+          "interest_slug": "tech.developer-tools",
+          "interest_label": "Developer Tools",
+          "interest_depth": 1,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 4,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 4
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "tech.developer-tools",
+              "depth_from_interest": 0,
+              "total_direct_hits": 4
+            },
+            {
+              "ladder_slug": "tech",
+              "depth_from_interest": 1,
+              "total_direct_hits": 23
+            }
+          ]
+        }
+      ],
+      "hit_cell_count": 3,
+      "total_cell_count": 3,
+      "hit_rate": 1.0,
+      "meets_target": true
+    },
+    {
+      "persona_key": "cricket",
+      "persona_email": "persona.cricket@news20.seed",
+      "persona_user_id": "5044e496-adb2-411b-90a0-1669683ea4cc",
+      "interests": [
+        {
+          "interest_id": "f36a3ef8-ffee-4269-b4f4-c61718374da4",
+          "interest_slug": "sport.cricket.india-team",
+          "interest_label": "India Team",
+          "interest_depth": 2,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 4,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 4
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "sport.cricket.india-team",
+              "depth_from_interest": 0,
+              "total_direct_hits": 4
+            },
+            {
+              "ladder_slug": "sport.cricket",
+              "depth_from_interest": 1,
+              "total_direct_hits": 13
+            },
+            {
+              "ladder_slug": "sport",
+              "depth_from_interest": 2,
+              "total_direct_hits": 22
+            }
+          ]
+        },
+        {
+          "interest_id": "75b7757e-b5fb-4ad4-92fe-5c881c2ed2de",
+          "interest_slug": "sport.cricket.ipl",
+          "interest_label": "Ipl",
+          "interest_depth": 2,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 3,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 3
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "sport.cricket.ipl",
+              "depth_from_interest": 0,
+              "total_direct_hits": 3
+            },
+            {
+              "ladder_slug": "sport.cricket",
+              "depth_from_interest": 1,
+              "total_direct_hits": 13
+            },
+            {
+              "ladder_slug": "sport",
+              "depth_from_interest": 2,
+              "total_direct_hits": 22
+            }
+          ]
+        },
+        {
+          "interest_id": "bd90b072-2733-4605-b6fc-eb91d07e5356",
+          "interest_slug": "sport.cricket.world-cup",
+          "interest_label": "World Cup",
+          "interest_depth": 2,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 6,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 6
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "sport.cricket.world-cup",
+              "depth_from_interest": 0,
+              "total_direct_hits": 6
+            },
+            {
+              "ladder_slug": "sport.cricket",
+              "depth_from_interest": 1,
+              "total_direct_hits": 13
+            },
+            {
+              "ladder_slug": "sport",
+              "depth_from_interest": 2,
+              "total_direct_hits": 22
+            }
+          ]
+        }
+      ],
+      "hit_cell_count": 3,
+      "total_cell_count": 3,
+      "hit_rate": 1.0,
+      "meets_target": true
+    },
+    {
+      "persona_key": "chip",
+      "persona_email": "persona.chip@news20.seed",
+      "persona_user_id": "4856bcd0-5da3-48fe-b9d7-c133eb203d81",
+      "interests": [
+        {
+          "interest_id": "5d5bf2dd-0a99-47b9-a714-209cc77c30df",
+          "interest_slug": "geopolitics.chip-export-controls",
+          "interest_label": "Chip Export Controls",
+          "interest_depth": 1,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 4,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 4
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "geopolitics.chip-export-controls",
+              "depth_from_interest": 0,
+              "total_direct_hits": 4
+            },
+            {
+              "ladder_slug": "geopolitics",
+              "depth_from_interest": 1,
+              "total_direct_hits": 19
+            }
+          ]
+        },
+        {
+          "interest_id": "0f780952-bc7f-468c-a2af-f95f10182101",
+          "interest_slug": "tech.semiconductors.nvidia",
+          "interest_label": "Nvidia",
+          "interest_depth": 2,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 4,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 4
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "tech.semiconductors.nvidia",
+              "depth_from_interest": 0,
+              "total_direct_hits": 4
+            },
+            {
+              "ladder_slug": "tech.semiconductors",
+              "depth_from_interest": 1,
+              "total_direct_hits": 5
+            },
+            {
+              "ladder_slug": "tech",
+              "depth_from_interest": 2,
+              "total_direct_hits": 23
+            }
+          ]
+        },
+        {
+          "interest_id": "0c51af79-4a99-41ba-bf84-f35c571c9a34",
+          "interest_slug": "tech.semiconductors.tsmc",
+          "interest_label": "Tsmc",
+          "interest_depth": 2,
+          "eligible_day_count": 1,
+          "hit_day_count": 1,
+          "total_direct_hits": 3,
+          "is_dry": false,
+          "per_day": [
+            {
+              "census_date": "2026-07-07",
+              "direct_hit_count": 3
+            }
+          ],
+          "ladder_context": [
+            {
+              "ladder_slug": "tech.semiconductors.tsmc",
+              "depth_from_interest": 0,
+              "total_direct_hits": 3
+            },
+            {
+              "ladder_slug": "tech.semiconductors",
+              "depth_from_interest": 1,
+              "total_direct_hits": 5
+            },
+            {
+              "ladder_slug": "tech",
+              "depth_from_interest": 2,
+              "total_direct_hits": 23
+            }
+          ]
+        }
+      ],
+      "hit_cell_count": 3,
+      "total_cell_count": 3,
+      "hit_rate": 1.0,
+      "meets_target": true
+    }
+  ],
+  "overall_hit_cell_count": 9,
+  "overall_total_cell_count": 9,
+  "overall_hit_rate": 1.0,
+  "overall_meets_target": true
+}
