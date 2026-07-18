@@ -140,3 +140,17 @@ Delete `trigger/sourceIngestion.ts` (~270L — `SOURCE_INGESTION_CRON = "0 */2 *
 ## 10. Docs to delete after removal
 
 `reference/source-catalog-taxonomy.md`, `reference/source-reels-spec.md`, `reference/sources-reuse-map.md`, and this file. Rewrite `reference/interview-onboarding-spec.md` (5→3 phases) as part of WS-E; sync `reference/supabase-schema.md`, `reference/api-contracts.md`, and README at the end of WS-D.
+
+## 11. Post-inventory additions (WS-A slices #45 / #62, 2026-07-18)
+
+This inventory predates WS-A. Slices #45 (`5012c70`) and #62 (`5ae3493`) each shipped a **source-origin exemption** so the new headline gates would not drop YouTube/X reels while those still existed. Every one of them is dead once removal lands, and none appear in §3/§9 above — §55's "lean on the inventory, do not re-derive" would otherwise miss them.
+
+The greppable removal criterion: `agents/ingestion/dedup.py::is_source_origin_domain` becomes a **constant-`False` predicate** once source ingestion is gone, so every branch it guards is dead code. Delete the branch, not just the call.
+
+- `agents/pipeline/orchestrator.py:338` and `agents/pipeline/persist_helpers.py:710` — write-gate exemptions (#45). Remove the guard; the gate then applies unconditionally.
+- `agents/shared/persisted_headline_gate.py` (**new file**, #62) — `load_source_origin_story_ids()` (:73) deletes outright; drop the `source_origin_ids` parameter from `persisted_headline_rejection_reason()` (:34). The module itself **stays** — it is the read-side gate, not source machinery.
+- `agents/worker/pipeline_routes.py:633, :674, :681` — import, lookup call, and pass-through of the exemption.
+- `scripts/retire_unpublishable_headlines.py` (**new file**, #62) — exemption threaded throughout (:59 import, :76/:88 param, :101 `exempt`, :224-232 two-pass lookup, :245 report line). The two-pass structure exists *only* to serve the exemption; collapse it to one pass.
+- `agents/shared/headline_quality.py` (**new file**, #45) — **keep, no source references.** Listed here so it is not swept up by a `grep -l source` pass.
+
+Note for the §55 grep-clean test: `is_source_origin_domain` also has a **pre-existing** caller at `agents/pipeline/summary_mode.py:66` that is not from WS-A — classify it against §0 before touching it.
