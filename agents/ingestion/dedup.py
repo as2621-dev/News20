@@ -27,6 +27,7 @@ import hashlib
 import re
 from datetime import datetime
 from difflib import SequenceMatcher
+from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from agents.ingestion.models import CandidateStory, CanonicalStory
@@ -90,6 +91,43 @@ def is_source_origin_domain(outlet_domain: str | None) -> bool:
     if not outlet_domain:
         return False
     return outlet_domain.strip().lower() in SOURCE_ORIGIN_DOMAINS
+
+
+def source_origin_story_ids_from_source_rows(
+    story_source_rows: list[dict[str, Any]],
+) -> set[str]:
+    """Which persisted stories are followed-source (YouTube/X) reels.
+
+    A read path that rebuilds a story from ``stories`` has lost the outlet domain the
+    in-flight :class:`CanonicalStory` carried — ``stories.story_primary_outlet_name``
+    holds a channel/creator name for source reels, never ``youtube.com``/``x.com``. The
+    origin survives in the citation URL on ``story_sources``, so that is what a
+    read-side gate has to inspect to honour the same source-origin exemption the
+    produce gate and the write-time headline gate already apply.
+
+    Args:
+        story_source_rows: ``story_sources`` rows carrying ``source_story_id`` and
+            ``source_article_url``.
+
+    Returns:
+        The set of story ids with at least one source-origin citation URL.
+
+    Example:
+        >>> source_origin_story_ids_from_source_rows(
+        ...     [{"source_story_id": "s1",
+        ...       "source_article_url": "https://www.youtube.com/watch?v=abc"}]
+        ... )
+        {'s1'}
+    """
+    origin_ids: set[str] = set()
+    for row in story_source_rows:
+        url = str(row.get("source_article_url") or "")
+        if not url:
+            continue
+        host = urlparse(url).netloc.strip().lower().removeprefix("www.")
+        if is_source_origin_domain(host):
+            origin_ids.add(str(row["source_story_id"]))
+    return origin_ids
 
 
 def normalize_url(url: str) -> str:

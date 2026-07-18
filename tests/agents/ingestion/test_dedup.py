@@ -17,6 +17,7 @@ from agents.ingestion.dedup import (
     compute_title_similarity,
     normalize_url,
     provisional_story_id,
+    source_origin_story_ids_from_source_rows,
 )
 
 _EARLIER = datetime(2026, 5, 31, 9, 0, 0, tzinfo=timezone.utc)
@@ -163,3 +164,69 @@ class TestStoryClusterer:
 
     def test_empty_input_returns_empty(self) -> None:
         assert StoryClusterer().cluster_candidates([]) == []
+
+
+# ── source_origin_story_ids_from_source_rows (slice #62) ────────────────────
+#
+# WHY (Rule 9): a read path that rebuilds a story from ``stories`` has lost the
+# outlet domain, so this is the only way it can honour the source-origin exemption
+# the produce gate and the write-time headline gate already apply. If it stopped
+# recognising a YouTube reel, the read-side headline gate would drop a subscribed
+# creator's short-titled upload out of the user's feed.
+
+
+def test_source_origin_ids_recognises_a_youtube_citation_url() -> None:
+    """A youtube.com citation marks the story as a followed-source reel."""
+    assert source_origin_story_ids_from_source_rows(
+        [
+            {
+                "source_story_id": "s-yt",
+                "source_article_url": "https://www.youtube.com/watch?v=abc",
+            }
+        ]
+    ) == {"s-yt"}
+
+
+def test_source_origin_ids_ignores_a_news_outlet_citation() -> None:
+    """A normal news URL is NOT source-origin — the gate must still apply to it."""
+    assert (
+        source_origin_story_ids_from_source_rows(
+            [
+                {
+                    "source_story_id": "s-news",
+                    "source_article_url": "https://reuters.com/x",
+                }
+            ]
+        )
+        == set()
+    )
+
+
+def test_source_origin_ids_tolerates_missing_and_empty_urls() -> None:
+    """A row with no URL is skipped rather than raising — prod rows allow NULL here."""
+    assert (
+        source_origin_story_ids_from_source_rows(
+            [
+                {"source_story_id": "s-a", "source_article_url": None},
+                {"source_story_id": "s-b"},
+                {"source_story_id": "s-c", "source_article_url": ""},
+            ]
+        )
+        == set()
+    )
+
+
+def test_source_origin_ids_marks_story_when_any_of_its_citations_is_source_origin() -> (
+    None
+):
+    """One source-origin citation is enough — a reel keeps its exemption.
+
+    An X/YouTube reel can accumulate news citations alongside its origin URL; the
+    exemption must survive that, or the reel becomes gate-able on a later run.
+    """
+    assert source_origin_story_ids_from_source_rows(
+        [
+            {"source_story_id": "s-x", "source_article_url": "https://reuters.com/a"},
+            {"source_story_id": "s-x", "source_article_url": "https://x.com/user/1"},
+        ]
+    ) == {"s-x"}
