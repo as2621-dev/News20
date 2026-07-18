@@ -677,9 +677,11 @@ async def _produce_story_pool(
     builds from whatever produced). Order is preserved.
 
     The Phase 2c detail-enrichment lookups (``enable_detail_enrichment`` +
-    ``interest_segment_lookup`` / ``outlets_lookup`` / ``gdelt_adapter``) are passed
-    straight through to the render phase — injected so the batch is
-    enrichment-capable without this module reading the DB itself.
+    ``outlets_lookup`` / ``gdelt_adapter``) are passed straight through to the render
+    phase — injected so the batch is enrichment-capable without this module reading
+    the DB itself. ``interest_segment_lookup`` goes to the WRITE phase only, which
+    resolves the segment ONCE onto ``WritePhaseResult.segment_slug``; render consumes
+    that rather than re-resolving (issue #61).
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     tags_by_story: dict[str, list[StoryInterestTag]] = {}
@@ -756,7 +758,6 @@ async def _produce_story_pool(
                     llm_client=llm_client,
                     poster_genai_client=poster_genai_client,
                     enable_detail_enrichment=enable_detail_enrichment,
-                    interest_segment_lookup=interest_segment_lookup,
                     outlets_lookup=outlets_lookup,
                     gdelt_adapter=gdelt_adapter,
                 )

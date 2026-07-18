@@ -360,6 +360,164 @@ class TestOrchestrateSegmentRejection:
         llm.call_gemini.assert_not_awaited()
 
 
+class TestSegmentResolvedOncePerOrchestration:
+    """The segment is resolved ONCE per story (issue #61 / #44 residue).
+
+    WHY (Rule 9): ``write_phase`` stores the resolved segment on
+    ``WritePhaseResult.segment_slug``, but ``persist_digest`` used to re-resolve it
+    from the raw tags a second time. That made the "resolve ONCE" invariant a lie,
+    doubled every ``segment_resolution_conflict`` log (so any conflict-rate the #47
+    audit reads is inflated 2x), and let a story burn TTS + poster + enrichment
+    spend before a persist-time re-resolution could reject it. These tests fail if
+    persist re-resolves — the count/log doubles the moment the threading regresses.
+    """
+
+    def _count_resolver_calls(self, monkeypatch) -> list[int]:
+        """Wrap ``resolve_segment_from_tags`` in both call sites with one counter.
+
+        ``write_phase`` (orchestrator module) and ``persist_digest`` (persist
+        module, via ``_resolve_segment_slug``) each bind the resolver by name, so
+        a single shared counter across both bindings measures total resolutions
+        per orchestration. Delegates to the real resolver so behaviour is unchanged.
+        """
+        from agents.pipeline import persist as persist_module
+        from agents.pipeline.persist_helpers import (
+            resolve_segment_from_tags as real_resolver,
+        )
+
+        calls = [0]
+
+        def counting_resolver(tags, lookup):
+            calls[0] += 1
+            return real_resolver(tags, lookup)
+
+        monkeypatch.setattr(orch, "resolve_segment_from_tags", counting_resolver)
+        monkeypatch.setattr(
+            persist_module, "resolve_segment_from_tags", counting_resolver
+        )
+        return calls
+
+    @pytest.mark.asyncio
+    async def test_grounded_story_resolves_its_segment_exactly_once(
+        self, canonical_story, story_interest_tags, monkeypatch
+    ) -> None:
+        """A story that publishes cleanly resolves its segment once, not twice.
+
+        Fails (count == 2) if ``persist_digest`` re-resolves instead of consuming
+        ``write_result.segment_slug`` — the core of the double-resolution bug.
+        """
+        calls = self._count_resolver_calls(monkeypatch)
+        llm = _llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED)
+
+        result = await orch.orchestrate_story(
+            story=canonical_story,
+            story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
+            llm_client=llm,
+            tts_client=_tts_returning_audio(),
+            supabase_client=FakeSupabaseClient(),
+            poster_genai_client=None,
+            story_id="FIXTURE-SP3-once",
+        )
+
+        assert result.published is True
+        assert calls[0] == 1
+
+    @pytest.mark.asyncio
+    async def test_conflict_is_logged_once_per_story_not_twice(
+        self, canonical_story, monkeypatch
+    ) -> None:
+        """``segment_resolution_conflict`` fires ONCE per orchestration.
+
+        Two tags under different roots make the resolver log a conflict; the count
+        that any conflict-rate measurement reads (issue #47) is only trustworthy if
+        it is emitted once. Re-resolution at persist doubled it.
+        """
+        from structlog.testing import capture_logs
+
+        tags = [
+            StoryInterestTag(
+                story_interest_story_id=canonical_story.canonical_story_id,
+                story_interest_interest_id="int-ai",
+                story_interest_match_depth=0,
+            ),
+            StoryInterestTag(
+                story_interest_story_id=canonical_story.canonical_story_id,
+                story_interest_interest_id="int-sport",
+                story_interest_match_depth=0,
+            ),
+        ]
+        lookup = {"int-ai": "ai", "int-sport": "sport"}
+        llm = _llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED)
+
+        with capture_logs() as events:
+            result = await orch.orchestrate_story(
+                story=canonical_story,
+                story_interest_tags=tags,
+                interest_segment_lookup=lookup,
+                llm_client=llm,
+                tts_client=_tts_returning_audio(),
+                supabase_client=FakeSupabaseClient(),
+                poster_genai_client=None,
+                story_id="FIXTURE-SP3-conflict",
+            )
+
+        assert result.published is True
+        conflicts = [
+            e for e in events if e.get("event") == "segment_resolution_conflict"
+        ]
+        assert len(conflicts) == 1
+
+    @pytest.mark.asyncio
+    async def test_unresolvable_story_rejected_before_tts_and_poster_spend(
+        self, canonical_story, story_interest_tags, tmp_path
+    ) -> None:
+        """The reject-before-spend ordering that threading segment_slug must preserve.
+
+        The invariant — an unclassifiable story is dropped in ``write_phase`` before
+        any render spend, never at persist — predates this slice; the sibling
+        ``test_unresolvable_segment_skips_before_any_llm_call`` already pins the
+        reject-before-scripting half. This extends it to the render stages that
+        criterion 3 names explicitly: with the segment now consumed from
+        ``write_result`` instead of re-resolved at persist, TTS (stage 3) and the
+        poster builder (stage 5) must STILL never run for a story that can't resolve,
+        and nothing may reach persist. A regression that moved the reject point to
+        persist would spend both before failing.
+        """
+        tts = _tts_returning_audio()
+        supabase = FakeSupabaseClient()
+        builder_calls: list[object] = []
+
+        poster_file = tmp_path / "poster.webp"
+        poster_file.write_bytes(b"RIFF-FAKE-WEBP")
+
+        def recording_builder(digest, client):  # noqa: ARG001
+            builder_calls.append(client)
+            report = MagicMock()
+            report.poster_path = str(poster_file)
+            return report
+
+        result = await orch.orchestrate_story(
+            story=canonical_story,
+            story_interest_tags=story_interest_tags,
+            interest_segment_lookup={},  # unclassifiable
+            llm_client=_llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED),
+            tts_client=tts,
+            supabase_client=supabase,
+            poster_genai_client=MagicMock(),
+            poster_builder=recording_builder,
+            story_id="FIXTURE-SP3-noseg-order",
+        )
+
+        assert result.published is False
+        assert result.skip_reason == "segment_unresolved"
+        assert result.persist_result is None
+        # No render spend happened before the reject: TTS + poster untouched, no writes.
+        tts.call_gemini_multispeaker_tts.assert_not_awaited()
+        assert builder_calls == []
+        assert supabase.captured_inserts == {}
+
+
 class TestBuildCaptionTrack:
     """The caption-timing step time-slices the script across the audio duration."""
 

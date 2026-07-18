@@ -577,7 +577,6 @@ async def render_phase(
     poster_genai_client: Any | None = None,
     poster_builder: Any | None = None,
     enable_detail_enrichment: bool = False,
-    interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: GdeltDocAdapter | None = None,
 ) -> OrchestratorResult:
@@ -597,12 +596,16 @@ async def render_phase(
         poster_genai_client: ``google.genai`` client (None to skip posters).
         poster_builder: Optional poster-builder override (tests inject a stub).
         enable_detail_enrichment: Phase 2c gate (grounded enrichment + GDELT census).
-        interest_segment_lookup: ``{interest_id: segment_slug}`` (persist lookup).
         outlets_lookup: ``{outlet_domain: bias_lean}`` (GDELT census).
         gdelt_adapter: The SHARED ``GdeltDocAdapter`` (None skips the GDELT census).
 
     Returns:
         An :class:`OrchestratorResult` with ``published=True`` once persisted.
+
+    Note:
+        RENDER does NOT take an ``interest_segment_lookup`` — the segment is
+        resolved ONCE in ``write_phase`` and travels on ``write_result.segment_slug``.
+        Persist consumes that, so render has nothing to re-resolve (issue #61).
     """
     start_time = time.monotonic()
     script = write_result.script
@@ -658,7 +661,9 @@ async def render_phase(
         story_id=write_result.story_id,
         enrichment=enrichment,
         coverage_report=coverage_report,
-        interest_segment_lookup=interest_segment_lookup,
+        # Reason: the segment resolved ONCE in write_phase — persist consumes it
+        # instead of re-resolving from the raw tags (issue #61).
+        segment_slug=write_result.segment_slug,
     )
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
@@ -780,7 +785,6 @@ async def orchestrate_story(
             poster_genai_client=poster_genai_client,
             poster_builder=poster_builder,
             enable_detail_enrichment=enable_detail_enrichment,
-            interest_segment_lookup=interest_segment_lookup,
             outlets_lookup=outlets_lookup,
             gdelt_adapter=gdelt_adapter,
         )

@@ -260,16 +260,22 @@ async def test_produce_pool_forwards_detail_enrichment_inputs(
 ) -> None:
     """D3: the batch must thread the Phase 2c enrichment flag + lookups through to
     the RENDER phase, so the pipeline is enrichment-capable (it defaulted OFF and
-    the lookups were never passed before)."""
-    captured: dict = {}
+    the lookups were never passed before).
 
-    async def fake_write(story, **_k):
+    ``interest_segment_lookup`` is the exception: it goes to the WRITE phase only,
+    which resolves the segment ONCE onto ``segment_slug``; render must NOT receive it
+    (it would re-resolve, the #61 double-resolution bug)."""
+    render_captured: dict = {}
+    write_captured: dict = {}
+
+    async def fake_write(story, **kwargs):
+        write_captured.update(kwargs)
         return SimpleNamespace(
             canonical_story_id=story.canonical_story_id, original_story=story
         )
 
     async def fake_render(write_result, *_a, **kwargs):
-        captured.update(kwargs)
+        render_captured.update(kwargs)
         return SimpleNamespace(published=True)
 
     monkeypatch.setattr(daily_batch, "write_phase", fake_write)
@@ -292,10 +298,12 @@ async def test_produce_pool_forwards_detail_enrichment_inputs(
         gdelt_adapter=adapter,
     )
 
-    assert captured["enable_detail_enrichment"] is True
-    assert captured["interest_segment_lookup"] == segment_lookup
-    assert captured["outlets_lookup"] == outlets_lookup
-    assert captured["gdelt_adapter"] is adapter
+    assert render_captured["enable_detail_enrichment"] is True
+    assert render_captured["outlets_lookup"] == outlets_lookup
+    assert render_captured["gdelt_adapter"] is adapter
+    # The segment lookup is a WRITE input (resolve once), never re-passed to render.
+    assert write_captured["interest_segment_lookup"] == segment_lookup
+    assert "interest_segment_lookup" not in render_captured
 
 
 @pytest.mark.asyncio

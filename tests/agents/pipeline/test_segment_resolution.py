@@ -27,11 +27,14 @@ from agents.pipeline.persist_helpers import (
 )
 
 
-def _tag(interest_id: str, depth: int = 0) -> StoryInterestTag:
+def _tag(
+    interest_id: str, depth: int = 0, relevance: float | None = None
+) -> StoryInterestTag:
     return StoryInterestTag(
         story_interest_story_id="story-1",
         story_interest_interest_id=interest_id,
         story_interest_match_depth=depth,
+        story_interest_relevance=relevance,
     )
 
 
@@ -93,6 +96,37 @@ class TestLowestDepthWins:
         with capture_logs() as events:
             assert resolve_segment_from_tags(tags, lookup) == "ai"
         assert _event(events, "segment_resolution_conflict") is None
+
+
+class TestEqualDepthTieBreakIsDeterministic:
+    """Equal-depth tags under different roots pick a STABLE winner (issue #61).
+
+    WHY (Rule 9): the resolver used to sort by ``story_interest_match_depth`` only,
+    so two tags at the same depth under different roots were decided by incoming
+    list order — the ``chosen_segment`` named in ``segment_resolution_conflict`` was
+    not actually deterministic. The winner must be identical no matter how the tag
+    list is ordered, else the "deterministic winner" claim in the log is false.
+    """
+
+    def test_higher_relevance_breaks_an_equal_depth_tie(self) -> None:
+        """When both tags are equal-depth, the higher relevance wins — in either
+        input order (relevance is the tie-break signal above the slug fallback)."""
+        lookup = {"int-ai": "ai", "int-sport": "sport"}
+        # sport is the more-relevant tag even though ai sorts first alphabetically.
+        forward = [
+            _tag("int-ai", depth=0, relevance=0.2),
+            _tag("int-sport", depth=0, relevance=0.9),
+        ]
+        assert resolve_segment_from_tags(forward, lookup) == "sport"
+        assert resolve_segment_from_tags(list(reversed(forward)), lookup) == "sport"
+
+    def test_unscored_equal_depth_tags_fall_back_to_a_stable_slug_order(self) -> None:
+        """With no relevance to separate them, the resolved root itself is the total
+        tie-break — so the winner is stable (alphabetically-first root) either way."""
+        lookup = {"int-ai": "ai", "int-sport": "sport"}
+        forward = [_tag("int-sport", depth=0), _tag("int-ai", depth=0)]
+        assert resolve_segment_from_tags(forward, lookup) == "ai"
+        assert resolve_segment_from_tags(list(reversed(forward)), lookup) == "ai"
 
 
 class TestLegacySlugsNeverPropagate:

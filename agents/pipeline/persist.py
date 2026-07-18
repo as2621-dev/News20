@@ -277,6 +277,7 @@ def persist_digest(
     enrichment: DetailEnrichment | None = None,
     coverage_report: CoverageReport | None = None,
     interest_segment_lookup: dict[str, str] | None = None,
+    segment_slug: str | None = None,
 ) -> PersistResult:
     """Persist one produced digest end-to-end (uploads + content INSERTs).
 
@@ -306,8 +307,16 @@ def persist_digest(
         coverage_report: The GDELT ``CoverageReport`` (SP2) → ``story_trust`` reach
             columns. ``None`` → legacy static ``covering_outlets`` derivation.
         interest_segment_lookup: ``{interest_id: segment_slug}`` (per batch) →
-            resolves ``story_segment_slug``. ``None``/unresolvable → the story is
-            rejected with :class:`SegmentResolutionError`, never defaulted.
+            resolves ``story_segment_slug`` for direct callers (e2e fixtures,
+            scripts) that have not pre-resolved it. ``None``/unresolvable → the
+            story is rejected with :class:`SegmentResolutionError`, never defaulted.
+            Ignored when ``segment_slug`` is supplied.
+        segment_slug: The segment already resolved ONCE upstream (``write_phase``
+            stores it on ``WritePhaseResult.segment_slug``). When supplied,
+            ``persist_digest`` consumes it instead of re-resolving from the raw tags
+            — so the "resolve once" invariant holds and ``segment_resolution_conflict``
+            is not logged a second time per story (issue #61). ``None`` (direct
+            callers) falls back to resolving from ``interest_segment_lookup``.
 
     Returns:
         A :class:`PersistResult` listing every created row id + storage path.
@@ -328,10 +337,14 @@ def persist_digest(
     resolved_story_id = story_id or f"sp3-{story.canonical_story_id}"[:255]
     # Reason: both gates run FIRST, before any insert or upload, so a rejection never
     # leaves half a story behind — segment then headline, the same order write_phase
-    # uses, so the two paths report the same reason for a story failing both.
-    segment_slug = _resolve_segment_slug(
-        story_interest_tags, interest_segment_lookup, story_id=resolved_story_id
-    )
+    # uses, so the two paths report the same reason for a story failing both. When the
+    # orchestrator already resolved the segment ONCE (write_phase → segment_slug), we
+    # consume it here rather than re-resolving; a direct caller (e2e fixture, script)
+    # that has not pre-resolved falls back to the tag lookup (issue #61).
+    if segment_slug is None:
+        segment_slug = _resolve_segment_slug(
+            story_interest_tags, interest_segment_lookup, story_id=resolved_story_id
+        )
     reject_unpublishable_headline(story, story_id=resolved_story_id)
 
     # Reason: confirm both anchors render (audit only; non-fatal).

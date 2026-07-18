@@ -590,6 +590,34 @@ def canonical_segment_root(raw_segment: str | None) -> str | None:
     return folded if folded in _VALID_SEGMENT_SLUGS else None
 
 
+def _segment_pick_order(
+    resolved_pair: tuple[StoryInterestTag, str],
+) -> tuple[int, float, str]:
+    """Total, input-order-independent ordering key for a resolved ``(tag, root)`` pair.
+
+    Closest match first (lowest ``story_interest_match_depth``), then highest
+    ``story_interest_relevance`` (a missing score sorts last), then the resolved root
+    itself as a final tie-break. The root component is what makes the winner
+    deterministic: two equal-depth, equal-relevance tags under different roots resolve
+    to the SAME winner regardless of incoming list order — so the ``chosen_segment``
+    named in ``segment_resolution_conflict`` is genuinely deterministic (issue #61).
+
+    Args:
+        resolved_pair: A ``(tag, root)`` pair — the story interest tag and the
+            canonical 8-root segment it resolved to.
+
+    Returns:
+        A ``(match_depth, -relevance-or-inf, root)`` sort key (ascending).
+    """
+    tag, root = resolved_pair
+    relevance = tag.story_interest_relevance
+    return (
+        tag.story_interest_match_depth,
+        -relevance if relevance is not None else float("inf"),
+        root,
+    )
+
+
 def resolve_segment_from_tags(
     story_interest_tags: list[StoryInterestTag],
     interest_segment_lookup: dict[str, str] | None,
@@ -629,19 +657,17 @@ def resolve_segment_from_tags(
         True
     """
     # Reason: closest match first — a leaf (depth 0) is more specific than an
-    # ancestor (depth 1/2), so it best characterizes the story's segment. sorted()
-    # is stable, so tags tied on depth keep their incoming order.
-    resolved_roots = [
-        root
-        for tag in sorted(
-            story_interest_tags, key=lambda t: t.story_interest_match_depth
-        )
-        if (
-            root := canonical_segment_root(
-                (interest_segment_lookup or {}).get(tag.story_interest_interest_id)
-            )
-        )
+    # ancestor (depth 1/2), so it best characterizes the story's segment. Ties on
+    # depth break on relevance, then on the resolved root itself, so the winner is
+    # a total function of the tags, NOT of their incoming list order (issue #61).
+    lookup = interest_segment_lookup or {}
+    resolved_pairs = [
+        (tag, root)
+        for tag in story_interest_tags
+        if (root := canonical_segment_root(lookup.get(tag.story_interest_interest_id)))
     ]
+    resolved_pairs.sort(key=_segment_pick_order)
+    resolved_roots = [root for _, root in resolved_pairs]
 
     if not resolved_roots:
         logger.error(
@@ -665,8 +691,10 @@ def resolve_segment_from_tags(
     winning_root = resolved_roots[0]
     distinct_roots = set(resolved_roots)
     if len(distinct_roots) > 1:
-        # Reason: the pick is still deterministic (lowest depth wins), but a story
-        # whose tags straddle two roots is a tagging signal worth surfacing per batch.
+        # Reason: the pick is deterministic (the total _segment_pick_order key —
+        # depth, then relevance, then root — makes the winner a function of the tags,
+        # not their order), but a story whose tags straddle two roots is a tagging
+        # signal worth surfacing per batch.
         logger.warning(
             "segment_resolution_conflict",
             story_id=story_interest_tags[0].story_interest_story_id,
