@@ -146,7 +146,17 @@ export function RebuildFeedFlow({ onClose }: RebuildFeedFlowProps) {
   }, [onClose]);
 
   return (
-    <div data-testid="rebuild-flow" className="absolute inset-0 z-[70] flex flex-col bg-background text-text-primary">
+    <div
+      data-testid="rebuild-flow"
+      className="absolute inset-0 z-[70] flex flex-col bg-background text-text-primary"
+      style={{
+        // Reason: with viewport-fit=cover the overlay extends under the Dynamic Island /
+        // home indicator on iOS; pad by the real insets so the header row and the
+        // interview composer never clip behind them (same pattern as OnboardingFlow).
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
       {phase === "interview" ? (
         <>
           <div className="flex items-center justify-between px-6 pt-4">
