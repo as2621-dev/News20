@@ -6,8 +6,10 @@ in-memory pipeline models (``CanonicalStory``, ``DigestScript``,
 ``CaptionTrack``, ``StoryInterestTag``) into the exact column dicts the Supabase
 tables expect (``reference/supabase-schema.md``). No I/O lives here — the
 writer (``persist.py``) calls these to build payloads and then inserts/uploads.
-(The one exception: ``resolve_segment_from_tags`` emits structured logs on its
-reject/conflict paths — a rejection that nobody can see is the RC1 bug again.)
+(Two exceptions, both pre-write rejection gates rather than row builders, and both
+here so the orchestrator and the writer share ONE copy: ``resolve_segment_from_tags``
+and ``reject_unpublishable_headline``. Each emits structured logs on its reject path
+— a rejection that nobody can see is the RC1/RC4 bug again.)
 
 TRUST DERIVATION — FLAGGED DEVIATION (Rule 12)
 ----------------------------------------------
@@ -28,7 +30,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agents.ingestion.dedup import normalize_url
+from agents.ingestion.dedup import is_source_origin_domain, normalize_url
 from agents.ingestion.models import CanonicalStory, StoryInterestTag
 from agents.pipeline.categories import SLUG_TO_CATEGORY, TOPIC_CATEGORIES
 from agents.pipeline.models import (
@@ -40,6 +42,8 @@ from agents.pipeline.models import (
     SecondAnalytic,
 )
 from agents.pipeline.stages.forced_alignment import CaptionTrack
+from agents.shared.exceptions import HeadlineQualityError
+from agents.shared.headline_quality import headline_rejection_reason
 from agents.shared.logger import get_logger
 from agents.voice.gemini_tts import VOICE_MAP_GEMINI
 
@@ -674,6 +678,57 @@ def resolve_segment_from_tags(
             ),
         )
     return winning_root
+
+
+def reject_unpublishable_headline(
+    story: CanonicalStory, story_id: str | None = None
+) -> None:
+    """Drop a story whose title is a masthead or a fragment (PRD decision 6).
+
+    The published headline is whatever ``canonical_title`` holds by the time the
+    story reaches persist, and GDELT's ``<PAGE_TITLE>`` is a masthead often enough
+    that "Language Magazine" shipped as a reel headline (RC4). There is deliberately
+    no fallback title: an unpublishable one is rejected, loudly, and the batch's
+    other stories are unaffected.
+
+    Followed-source stories (YouTube/X) are EXEMPT, as they are from the produce gate
+    and the poster gate: their title is the creator's own video/theme title, not a
+    scraped ``<PAGE_TITLE>``, and the user explicitly asked for that source — a short
+    upload title is not the junk this gate exists to catch.
+
+    Args:
+        story: The story carrying the title that would be published.
+        story_id: The persisted ``stories.story_id`` when known — the identifier an
+            operator greps for. Defaults to the canonical id.
+
+    Raises:
+        HeadlineQualityError: When the title is not a publishable headline.
+
+    Example:
+        >>> reject_unpublishable_headline(story)  # doctest: +SKIP
+    """
+    if is_source_origin_domain(story.canonical_primary_outlet_domain):
+        return
+    rejection_reason = headline_rejection_reason(
+        story.canonical_title,
+        story.canonical_primary_outlet_name,
+        story.canonical_primary_outlet_domain,
+    )
+    if rejection_reason is None:
+        return
+    error = HeadlineQualityError(
+        story_id=story_id or story.canonical_story_id,
+        rejection_reason=rejection_reason,
+    )
+    logger.error(
+        "headline_rejected",
+        story_id=story_id or story.canonical_story_id,
+        headline=story.canonical_title,
+        outlet_name=story.canonical_primary_outlet_name,
+        rejection_reason=rejection_reason,
+        fix_suggestion=error.fix_suggestion,
+    )
+    raise error
 
 
 def build_story_source_rows(

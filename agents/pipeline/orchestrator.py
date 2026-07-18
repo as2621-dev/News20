@@ -47,7 +47,10 @@ from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import CoverageReport, DigestScript, WritePhaseResult
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
-from agents.pipeline.persist_helpers import resolve_segment_from_tags
+from agents.pipeline.persist_helpers import (
+    reject_unpublishable_headline,
+    resolve_segment_from_tags,
+)
 from agents.pipeline.poster_gate import poster_generation_disabled
 from agents.pipeline.stages.coverage_gdelt import build_coverage_report
 from agents.pipeline.stages.detail_enrichment import (
@@ -67,7 +70,11 @@ from agents.pipeline.stages.forced_alignment import (
 from agents.pipeline.stages.editorial import run_editorial_rewrite
 from agents.pipeline.stages.scripting import run_single_source_scripting
 from agents.pipeline.stages.verification import run_single_source_verification
-from agents.shared.exceptions import SegmentResolutionError, VerificationHaltError
+from agents.shared.exceptions import (
+    HeadlineQualityError,
+    SegmentResolutionError,
+    VerificationHaltError,
+)
 from agents.shared.logger import get_logger
 from agents.voice.audio import assemble_episode
 from agents.voice.gemini_tts import GeminiTTSClient, render_full_dialogue
@@ -495,6 +502,11 @@ async def write_phase(
     )
     if segment_slug is None:
         raise SegmentResolutionError(story_id=story.canonical_story_id)
+    # Reason: with no rewrite to rescue it, a masthead/fragment source title can only
+    # end up as the published headline — reject it here, before any LLM spend. With
+    # the rewrite on, the story gets its chance and is re-checked after (below).
+    if not enable_editorial_rewrite:
+        reject_unpublishable_headline(story, story_id=story_id)
     logger.info(
         "write_phase_started",
         story_id=story.canonical_story_id,
@@ -538,6 +550,11 @@ async def write_phase(
                     "canonical_body_text": rewrite.body,
                 }
             )
+        # Reason: fail CLOSED (PRD decision 6). The fallback above is only safe when
+        # the title it falls back to is itself publishable — when the rewrite failed
+        # on a masthead source title, falling back republishes the masthead, which is
+        # exactly how the "Language Magazine" reel shipped.
+        reject_unpublishable_headline(editorial_story, story_id=story_id)
 
     return WritePhaseResult(
         canonical_story_id=story.canonical_story_id,
@@ -738,6 +755,15 @@ async def orchestrate_story(
             published=False,
             skip_reason="segment_unresolved",
         )
+    except HeadlineQualityError:
+        # Reason: same shape as the segment rejection — already logged in full, so
+        # here it only becomes its own non-published outcome (never conflated with a
+        # verification halt or a stage failure).
+        return OrchestratorResult(
+            story_id=story.canonical_story_id,
+            published=False,
+            skip_reason="headline_rejected",
+        )
     if write_result is None:
         return OrchestratorResult(
             story_id=story.canonical_story_id,
@@ -745,18 +771,28 @@ async def orchestrate_story(
             skip_reason="verification_halt",
         )
 
-    return await render_phase(
-        write_result,
-        tts_client,
-        supabase_client,
-        llm_client=llm_client,
-        poster_genai_client=poster_genai_client,
-        poster_builder=poster_builder,
-        enable_detail_enrichment=enable_detail_enrichment,
-        interest_segment_lookup=interest_segment_lookup,
-        outlets_lookup=outlets_lookup,
-        gdelt_adapter=gdelt_adapter,
-    )
+    try:
+        return await render_phase(
+            write_result,
+            tts_client,
+            supabase_client,
+            llm_client=llm_client,
+            poster_genai_client=poster_genai_client,
+            poster_builder=poster_builder,
+            enable_detail_enrichment=enable_detail_enrichment,
+            interest_segment_lookup=interest_segment_lookup,
+            outlets_lookup=outlets_lookup,
+            gdelt_adapter=gdelt_adapter,
+        )
+    except HeadlineQualityError:
+        # Reason: persist re-gates the headline as the last line of defence, so the
+        # rejection can also surface here (after a render). Same non-published
+        # outcome — a caller must never see it as a stage failure.
+        return OrchestratorResult(
+            story_id=story.canonical_story_id,
+            published=False,
+            skip_reason="headline_rejected",
+        )
 
 
 class ActiveUserFeedInputs(BaseModel):

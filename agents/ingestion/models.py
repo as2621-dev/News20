@@ -254,7 +254,9 @@ class CanonicalStory(BaseModel):
 
     Attributes:
         canonical_story_id: Provisional deterministic story id (stable per cluster).
-        canonical_title: Representative headline (the earliest member's title).
+        canonical_title: Representative headline (the best-titled member's — a
+            masthead/fragment title loses to a publishable one; see
+            ``agents.shared.headline_quality``).
         canonical_url: Representative article URL.
         canonical_normalized_url: Normalized representative URL (the cluster key).
         canonical_published_utc: Earliest publication time across the cluster.

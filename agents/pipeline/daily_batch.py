@@ -67,7 +67,7 @@ from agents.pipeline.x_theme_production import (
     filter_placeable_theme_candidates,
     gather_x_theme_candidates,
 )
-from agents.shared.exceptions import SegmentResolutionError
+from agents.shared.exceptions import HeadlineQualityError, SegmentResolutionError
 from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
 from agents.voice.gemini_tts import GeminiTTSClient
@@ -714,6 +714,19 @@ async def _produce_story_pool(
                     fix_suggestion=exc.fix_suggestion,
                 )
                 return None
+            except HeadlineQualityError as exc:
+                # Reason: same reason as the segment arm above — the batch calls
+                # write_phase directly, so without this a dropped masthead is
+                # reported as a script/verify failure and the real, actionable
+                # signal (how many stories the headline gate cost us) is lost.
+                logger.error(
+                    "produce_write_headline_rejected",
+                    story_id=story.canonical_story_id,
+                    rejection_reason=exc.rejection_reason,
+                    error_message=str(exc),
+                    fix_suggestion=exc.fix_suggestion,
+                )
+                return None
             except Exception as exc:  # noqa: BLE001 — one bad write never aborts the batch
                 logger.error(
                     "produce_write_failed",
@@ -747,6 +760,18 @@ async def _produce_story_pool(
                     outlets_lookup=outlets_lookup,
                     gdelt_adapter=gdelt_adapter,
                 )
+            except HeadlineQualityError as exc:
+                # Reason: persist re-gates the headline, so a rejection can land in
+                # the RENDER half too. Without this arm it reads as a render failure
+                # and the headline-gate cost of the batch is undercounted.
+                logger.error(
+                    "produce_render_headline_rejected",
+                    story_id=write_result.canonical_story_id,
+                    rejection_reason=exc.rejection_reason,
+                    error_message=str(exc),
+                    fix_suggestion=exc.fix_suggestion,
+                )
+                return None
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "produce_render_failed",

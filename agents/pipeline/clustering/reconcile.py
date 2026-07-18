@@ -47,6 +47,7 @@ from agents.pipeline.clustering.cluster_store import load_active_clusters
 from agents.pipeline.clustering.continuity import persist_run
 from agents.pipeline.clustering.engine_models import ClusterInput, ClusterRun
 from agents.pipeline.clustering.online_clusterer import cluster_candidates
+from agents.shared.headline_quality import is_publishable_headline
 from agents.pipeline.categories import FeedCategory, category_for_slug
 from agents.pipeline.importance.story_importance import score_clusters
 from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
@@ -390,13 +391,22 @@ def _collapse_stories(
 def _pick_representative_index(
     stories: list[CanonicalStory], indices: list[int], shared_id: str
 ) -> int:
-    """The group member to keep: the id-matching one, else earliest published then id."""
-    for index in indices:
-        if stories[index].canonical_story_id == shared_id:
-            return index
+    """The group member to keep: best-titled, then the id-matching one, then earliest.
+
+    Title quality leads for the same reason it does in ``StoryClusterer`` (PRD decision
+    6): the kept member's title is the published headline, and the persist gate DROPS
+    an unpublishable one — so preferring a masthead-titled member here would turn a
+    merge into story loss when the group held a usable headline.
+    """
     return min(
         indices,
         key=lambda index: (
+            not is_publishable_headline(
+                stories[index].canonical_title,
+                stories[index].canonical_primary_outlet_name,
+                stories[index].canonical_primary_outlet_domain,
+            ),
+            stories[index].canonical_story_id != shared_id,
             _as_utc(stories[index].canonical_published_utc),
             stories[index].canonical_story_id,
         ),

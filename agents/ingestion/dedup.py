@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import hashlib
 import re
+from datetime import datetime
 from difflib import SequenceMatcher
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from agents.ingestion.models import CandidateStory, CanonicalStory
+from agents.shared.headline_quality import is_publishable_headline
 from agents.shared.logger import get_logger
 
 logger = get_logger(__name__)
@@ -182,12 +184,46 @@ class _StoryCluster:
         self.members.append(candidate)
 
     @property
+    def title_match_anchor(self) -> CandidateStory:
+        """The member whose title later candidates are fuzzy-matched against.
+
+        First-seen, so it never moves: membership must not depend on which member
+        currently wins ``representative`` (that would make clustering a function of
+        title quality, which is a different decision entirely).
+        """
+        return self.members[0]
+
+    @property
     def representative(self) -> CandidateStory:
-        """The earliest-published member (ties broken by first-seen order)."""
+        """The best-titled member (ties broken by earliest published, then first-seen).
+
+        Title quality leads because the representative's title becomes the published
+        headline: GDELT's ``<PAGE_TITLE>`` is a masthead often enough that the
+        earliest-published member alone was how "Language Magazine" reached a reel
+        (PRD RC4). Publication time still decides among equally publishable titles,
+        so an ordinary cluster picks exactly what it always did.
+        """
         return min(
             self.members,
-            key=lambda member: member.candidate_published_utc,
+            key=lambda member: (
+                not is_publishable_headline(
+                    member.candidate_title,
+                    member.candidate_outlet_name,
+                    member.candidate_outlet_domain,
+                ),
+                member.candidate_published_utc,
+            ),
         )
+
+    @property
+    def earliest_published_utc(self) -> datetime:
+        """When this event was first reported across the cluster.
+
+        Read separately from ``representative`` so the freshness gate, the ranking
+        recency component, and ``story_first_reported_utc`` stay anchored to the
+        event — a better-titled member filed hours later must not make it look new.
+        """
+        return min(member.candidate_published_utc for member in self.members)
 
 
 class StoryClusterer:
@@ -263,13 +299,13 @@ class StoryClusterer:
         # --- Strategy 2: fuzzy title match against each cluster's representative ---
         for cluster in clusters:
             similarity = compute_title_similarity(
-                candidate.candidate_title, cluster.representative.candidate_title
+                candidate.candidate_title, cluster.title_match_anchor.candidate_title
             )
             if similarity >= self.title_threshold:
                 logger.debug(
                     "story_cluster_title_match",
                     title_a=candidate.candidate_title[:120],
-                    title_b=cluster.representative.candidate_title[:120],
+                    title_b=cluster.title_match_anchor.candidate_title[:120],
                     similarity_score=round(similarity, 4),
                 )
                 return cluster
@@ -326,7 +362,7 @@ class StoryClusterer:
             canonical_title=representative.candidate_title,
             canonical_url=representative.candidate_url,
             canonical_normalized_url=normalized,
-            canonical_published_utc=representative.candidate_published_utc,
+            canonical_published_utc=cluster.earliest_published_utc,
             canonical_primary_outlet_domain=representative.candidate_outlet_domain,
             canonical_primary_outlet_name=representative.candidate_outlet_name
             or representative.candidate_outlet_domain,

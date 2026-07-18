@@ -51,6 +51,7 @@ from agents.pipeline.persist_helpers import (
     build_suggested_question_rows,
     derive_blindspot_lean,
     derive_coverage_counts,
+    reject_unpublishable_headline,
     resolve_segment_from_tags,
     script_speaker_order,
 )
@@ -315,6 +316,9 @@ def persist_digest(
         PipelineStageError: When a required insert/upload fails.
         SegmentResolutionError: When the story resolves to no canonical segment root
             — raised before the first insert, so nothing is half-written.
+        HeadlineQualityError: When the story's title is a masthead or a fragment —
+            likewise raised before the first insert. ``persist_digest`` is callable
+            directly (e2e fixtures, scripts), so the gate has to hold here too.
 
     Example:
         >>> result = persist_digest(client, story, script, track, b"...", 55000, tags)  # doctest: +SKIP
@@ -322,11 +326,13 @@ def persist_digest(
         True
     """
     resolved_story_id = story_id or f"sp3-{story.canonical_story_id}"[:255]
-    # Reason: resolve FIRST — an unclassifiable story raises here, before any insert
-    # or upload, so a rejection never leaves half a story behind.
+    # Reason: both gates run FIRST, before any insert or upload, so a rejection never
+    # leaves half a story behind — segment then headline, the same order write_phase
+    # uses, so the two paths report the same reason for a story failing both.
     segment_slug = _resolve_segment_slug(
         story_interest_tags, interest_segment_lookup, story_id=resolved_story_id
     )
+    reject_unpublishable_headline(story, story_id=resolved_story_id)
 
     # Reason: confirm both anchors render (audit only; non-fatal).
     speaker_order = script_speaker_order(script)

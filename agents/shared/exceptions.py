@@ -174,6 +174,42 @@ class SegmentResolutionError(PipelineStageError):
         )
 
 
+class HeadlineQualityError(PipelineStageError):
+    """Raised when a story's final title is not a publishable headline.
+
+    The rewrite used to fail *open* — on any failure the original source title was
+    republished, which is how a GDELT masthead ("Language Magazine") became a reel
+    headline (PRD RC4). A story whose best available title is a masthead or a
+    fragment is dropped instead. The orchestrator catches this to skip the story
+    (``skip_reason="headline_rejected"``); the batch's other stories are unaffected.
+
+    Attributes:
+        story_id: The story that was dropped.
+        rejection_reason: The machine-readable reason from
+            ``agents.shared.headline_quality.headline_rejection_reason``.
+
+    Example:
+        >>> raise HeadlineQualityError(story_id="cand-lang-001",
+        ...     rejection_reason="title_equals_outlet")
+    """
+
+    def __init__(
+        self,
+        story_id: str,
+        rejection_reason: str,
+        fix_suggestion: str = "No cluster member offered a publishable headline and the "
+        "editorial rewrite did not produce one. Confirm the source article has a body "
+        "worth rewriting; a masthead-only GDELT item is correctly dropped",
+    ) -> None:
+        self.story_id = story_id
+        self.rejection_reason = rejection_reason
+        super().__init__(
+            stage="headline_quality",
+            message=f"story {story_id!r} has no publishable headline ({rejection_reason})",
+            fix_suggestion=fix_suggestion,
+        )
+
+
 class IngestionError(VoiceAgentError):
     """Base exception for the news ingestion stage.
 
