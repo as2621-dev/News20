@@ -70,3 +70,34 @@ that KILLS the class (vs. hand-adding the 4 missing entries):
 - Advisory (same file, same shape, no live drift yet):
   `ENTITY_ROOT_TO_PINNED_KEY` is still a hand-listed identity map over the
   same 8 keys — derive it the same way if it's ever touched.
+
+## #44 follow-up — deleting a default is a caller-contract change (b0623f8)
+
+Same class, second instance: `persist_helpers.resolve_segment_from_tags` returned
+`"wildcard"` when nothing resolved, so a stale 5-set silently mislabelled every
+ai/business/environment/politics/arts story (0 of 67 correct in the prod 07-07
+batch). Turning it into `str | None` is easy; the cost is entirely at the callers.
+
+- **The default's real consumers are the call sites that never had a signal.**
+  Deleting it doesn't just change an error path — it *rejects* every caller that
+  was riding the fallback. Here that was source-axis (YouTube/X) and X-theme
+  reels, produced with an empty `story_interest_tags` list (`daily_batch.py`
+  merge points, `scripts/produce_source_reels.py`, the SP3 e2e harness). None of
+  them appear in a grep for the changed function — they surface only by asking
+  "who reaches this with no input?" Filed as #61 rather than expanding the slice.
+- **Tests that rode the default must be re-pointed, or they pass for the wrong
+  reason.** A `pytest.raises(PipelineStageError)` test asserting an *insert*
+  failure stayed green because the new `SegmentResolutionError` subclasses it and
+  fired first. Green-after-a-contract-change is not evidence.
+- **Reject at every boundary the function is callable from, and log distinctly at
+  each.** The nightly batch calls `write_phase` directly (never
+  `orchestrate_story`), so its generic `except Exception` reported segment
+  rejections as `produce_write_failed` / "Script/verify failed" — re-creating the
+  conflation the guard existed to prevent, one layer up.
+- **Fold legacy values, don't validate against them.** Retired enum values
+  (`markets`, `wildcard`) still arrive from old rows: map them through
+  `SLUG_TO_CATEGORY` and never emit them. Do NOT reuse `category_for_slug` for
+  this — its `arts` catch-all is right for the LAST resolver and poisonous here.
+- **Prove a drift test can fail.** Both new twin tests were mutation-checked
+  (add `"markets"` to `SegmentKey`; set `FEED_SLOT_BUDGET = 26`) before shipping.
+  A pinning test nobody has seen fail is a decoration.
