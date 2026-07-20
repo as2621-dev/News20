@@ -11,6 +11,7 @@ resilience (one source failure does not abort the batch).
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from structlog.testing import capture_logs
@@ -1165,3 +1166,136 @@ class TestBackboneRegressionGuard:
         assert result.failed_categories == []
         assert result.under_filled_categories == []
         assert result.total_candidates_fetched == 5  # 2 + 2 + 1 domain candidates
+
+
+# --------------------------------------------------------------------------- #
+# Semantic relevance key wiring (issue #51) — the two-key lock, end-to-end
+# through the real ingest path. The lexical key stamps the matched interest
+# inside BigQuery (proven in test_interest_lexical.py); here we prove that when
+# the SEMANTIC key rejects a stamped (story, interest) pair, that story no longer
+# fills the interest's slot — and that a bypass or an embedding outage behaves as
+# the contract demands. The embed_texts boundary is mocked (no Gemini, no cost).
+# --------------------------------------------------------------------------- #
+_SEMANTIC_EMBED_TARGET = "agents.ingestion.interest_semantic.embed_texts"
+
+
+def _reject_embed_mock() -> AsyncMock:
+    """Embed the story and its interest ORTHOGONALLY so the pair fails the key.
+
+    The Arsenal STORY text contains 'win'; the interest text ('Arsenal Arsenal FC')
+    does not — so they map to orthogonal unit vectors (cosine 0 < threshold).
+    """
+
+    def _embed(texts: list[str], **_kwargs) -> list[list[float]]:
+        return [[1.0, 0.0] if "win" in text.lower() else [0.0, 1.0] for text in texts]
+
+    return AsyncMock(side_effect=_embed)
+
+
+def _accept_embed_mock() -> AsyncMock:
+    """Embed every text to the same direction so every pair clears the key (cosine 1)."""
+    return AsyncMock(side_effect=lambda texts, **_kwargs: [[1.0, 0.0] for _ in texts])
+
+
+def _arsenal_interest_ids(result, interest_ids) -> set[str]:
+    """The interest ids the ingest tagged onto the Arsenal story."""
+    arsenal_story = next(
+        s
+        for s in result.canonical_stories
+        if "cnn.com" in s.covering_outlets or "bbc.com" in s.covering_outlets
+    )
+    return {
+        tag.story_interest_interest_id
+        for tag in result.story_interest_tags
+        if tag.story_interest_story_id == arsenal_story.canonical_story_id
+    }
+
+
+class TestSemanticRelevanceKeyWiring:
+    """Slice #51: the semantic key gates slot-filling in the real ingest path."""
+
+    @pytest.mark.asyncio
+    async def test_semantic_reject_drops_all_climbed_tags_for_the_story(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (criterion 1, fails-if-bypassed): with the key ON and the story embedding
+        DISSIMILAR to its matched interest, the story must fill NO slot — not the leaf,
+        and CRUCIALLY not the climbed parent/grandparent category slots either (filtering
+        at the matched-id source is what drops the whole ladder). If a future change
+        bypassed the semantic key, the Arsenal tags would reappear and this test fails."""
+        with patch(_SEMANTIC_EMBED_TARGET, _reject_embed_mock()):
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"]],
+                interest_nodes,
+                _FakeAdapter(),
+                llm_client=object(),
+                enable_semantic_relevance_key=True,
+            )
+        assert _arsenal_interest_ids(result, interest_ids) == set()
+
+    @pytest.mark.asyncio
+    async def test_semantic_accept_keeps_the_slot(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (criterion 3): the key discriminates — when the story IS embedding-similar
+        to its interest, the full ancestor ladder (leaf/parent/grandparent) is retained."""
+        with patch(_SEMANTIC_EMBED_TARGET, _accept_embed_mock()):
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"]],
+                interest_nodes,
+                _FakeAdapter(),
+                llm_client=object(),
+                enable_semantic_relevance_key=True,
+            )
+        assert _arsenal_interest_ids(result, interest_ids) == {
+            interest_ids["arsenal"],
+            interest_ids["soccer"],
+            interest_ids["sport"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_key_off_leaves_lexical_admission_untouched(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY: the gate is the ONLY thing that removed the tags in the reject test —
+        with the key OFF (the default, test-stable path) the lexically-admitted Arsenal
+        tags are all present, so the reject test cannot be a false positive."""
+        result = await ingest_active_interests(
+            [interest_ids["arsenal"]],
+            interest_nodes,
+            _FakeAdapter(),
+            enable_semantic_relevance_key=False,
+        )
+        assert _arsenal_interest_ids(result, interest_ids) == {
+            interest_ids["arsenal"],
+            interest_ids["soccer"],
+            interest_ids["sport"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_embedding_outage_falls_back_to_strict_lexical(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (criterion 4): an embedding failure mid-batch must NOT fail open and must
+        NOT drop the run — it falls back to strict lexical (the Arsenal tags survive) and
+        logs loud with a fix_suggestion so the skipped paid tightening is visible."""
+        failing = AsyncMock(side_effect=RuntimeError("gemini 429"))
+        with patch(_SEMANTIC_EMBED_TARGET, failing), capture_logs() as logs:
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"]],
+                interest_nodes,
+                _FakeAdapter(),
+                llm_client=object(),
+                enable_semantic_relevance_key=True,
+            )
+        assert _arsenal_interest_ids(result, interest_ids) == {
+            interest_ids["arsenal"],
+            interest_ids["soccer"],
+            interest_ids["sport"],
+        }
+        assert any(
+            entry.get("log_level") == "error"
+            and entry.get("event") == "semantic_relevance_embed_failed"
+            and "fix_suggestion" in entry
+            for entry in logs
+        )

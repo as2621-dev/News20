@@ -25,12 +25,14 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.ancestor_tagging import merge_story_tags
 from agents.ingestion.anchor_scalpel import run_anchor_scalpel
 from agents.ingestion.authority_domains import domains_for_category
 from agents.ingestion.dedup import StoryClusterer, normalize_url
+from agents.ingestion.interest_semantic import apply_semantic_relevance_key
 from agents.ingestion.models import (
     ActiveInterest,
     CanonicalStory,
@@ -278,6 +280,8 @@ async def ingest_active_interests(
     extract_bodies: bool = True,
     resolve_existing_story_ids: Callable[[list[str]], dict[str, str]] | None = None,
     doc_scalpel_adapter: BaseNewsAdapter | None = None,
+    llm_client: Any | None = None,
+    enable_semantic_relevance_key: bool = False,
 ) -> IngestionResult:
     """Run one interest-keyed ingestion batch → a deduped, tagged story pool.
 
@@ -300,6 +304,17 @@ async def ingest_active_interests(
             aliased REUSES that ``story_id`` (so produce-once + don't-repeat hold
             across days) and SKIPS body extraction (it's already produced). ``None``
             keeps the function pure (no DB) — the unit-test/fixture path.
+        llm_client: The shared ``LLMClient`` (its genai client is reused for the semantic
+            relevance key's embeddings). Required when ``enable_semantic_relevance_key``.
+        enable_semantic_relevance_key: When True (issue #51), the SEMANTIC half of the
+            two-key relevance lock runs BEFORE ancestor tagging — each story's
+            ``canonical_matched_interest_ids`` is narrowed to the matched interests whose
+            embedding similarity clears the threshold (closes the RC3 false positives the
+            lexical key alone cannot, e.g. the zoning/'data center' case). Filtering here,
+            at the matched-id source, drops the bogus leaf AND its climbed category tags in
+            one move. On embedding failure it falls back to strict lexical (ids intact,
+            loud log). Default False so the pure/fixture path stays byte-stable; the live
+            entry point opts in via ``ENABLE_SEMANTIC_RELEVANCE_KEY``.
 
     Returns:
         An IngestionResult with the canonical pool, story_interest tag payloads,
@@ -439,6 +454,17 @@ async def ingest_active_interests(
                 continue
             enriched = await adapter.extract_body(representative)
             story.canonical_body_text = enriched.candidate_body_text
+
+    # --- Semantic relevance key (issue #51): narrow each story's matched interests to
+    # those it is embedding-similar to, BEFORE ancestor tagging climbs from that list.
+    # The SEMANTIC half of the two-key lock — the lexical key already stamped these ids
+    # inside BigQuery; this drops the ones that clear lexical but are off-topic (the
+    # zoning/'data center' RC3 case). Filtering at the source drops the bogus leaf AND its
+    # climbed category tags. Fails safe to strict lexical (ids intact) on embedding outage.
+    if enable_semantic_relevance_key and llm_client is not None and canonical_stories:
+        await apply_semantic_relevance_key(
+            canonical_stories, interest_nodes, llm_client=llm_client
+        )
 
     # --- Tag each canonical story into story_interests payloads ---
     # The category-determining tag is THEME-derived (M2 SP3): each story's

@@ -32,6 +32,12 @@ SAFETY (this run costs real paid Gemini calls):
     semantic same-event reconcile before the produce gate: paid gemini-embedding-001
     calls, one reel per real-world event, authority-weighted cluster importance in
     the ranker. Set ``0`` for the byte-for-byte legacy path (no embedding spend).
+  * ``ENABLE_SEMANTIC_RELEVANCE_KEY`` (default 1 — ON in production, issue #51) runs the
+    SEMANTIC half of the two-key relevance lock during niche ingestion: a story keeps a
+    lexically-matched interest only when its embedding similarity clears the threshold
+    (closes the zoning/'data center' RC3 false positive the lexical key alone admits).
+    Paid gemini-embedding-001 (one batched call/run, N+M embeddings); on failure it falls
+    back to strict lexical (never fail-open). Set ``0`` for lexical-only admission.
   * ``DISABLE_POSTER_GEN`` (default unset — posters ON) is the poster kill switch
     (issue #32): set ``1`` and NO image client is constructed — no inline posters,
     and ``scripts/fill_batch_posters.py`` refuses to run. Stories, audio and
@@ -548,6 +554,13 @@ async def _run() -> int:
             adapter=niche_adapter,
             since_utc=since,
             resolve_existing_story_ids=resolver,
+            llm_client=llm_client,
+            # Reason (issue #51): the SEMANTIC half of the two-key relevance lock defaults
+            # ON in the live path — a story keeps a matched interest only when its embedding
+            # similarity clears the threshold (closes the zoning/'data center' RC3 case the
+            # lexical key alone admits). Paid gemini-embedding-001 (one batched call/run,
+            # N+M embeddings). Set ENABLE_SEMANTIC_RELEVANCE_KEY=0 for lexical-only admission.
+            enable_semantic_relevance_key=os.environ.get("ENABLE_SEMANTIC_RELEVANCE_KEY", "1") == "1",
         )
         stories = result.canonical_stories
         tags = result.story_interest_tags
