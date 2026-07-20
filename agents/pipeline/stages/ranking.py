@@ -48,6 +48,9 @@ from agents.pipeline.categories import (
     category_for_slug,
     empty_category_buckets,
 )
+from agents.pipeline.importance.story_importance import (
+    normalize_importance_within_category as _normalize_importance_within_category,
+)
 from agents.pipeline.produce_gate import (
     compute_freshness_score,
     compute_importance_score,
@@ -82,6 +85,20 @@ DEPTH_MATCH_BY_DEPTH: dict[int, float] = {0: 1.0, 1: 0.6, 2: 0.3}
 # for a story to be "good enough" to fill a slot and to STOP the fallback climb.
 # Single config constant; first-draft, confirmed at the SP4 2-user manual run.
 DEFAULT_SCORE_THRESHOLD = 0.20
+
+# Reason: the importance ADMISSION FLOOR (feed-quality reset WS-B, PRD RC2 second half).
+# The Score is affinity-dominant by design (α=0.5), so a top-weight interest match reaches
+# (Affinity 1.0 × DepthMatch 1.0)·0.5 = 0.5 — well past the 0.20 threshold — even when the
+# story has NO importance corroboration. That is exactly how single-outlet local notices
+# reached the founder's AI slots (RC2). This floor makes admission require IMPORTANCE, not
+# affinity alone: a candidate is admissible only when its importance clears this bar AS WELL
+# AS its Score clearing T. Set ABOVE a single-outlet raw importance (1/12 ≈ 0.083) and BELOW
+# a two-outlet one (2/12 ≈ 0.167), so it COMPLEMENTS the notability gate's "≥2 distinct
+# outlets OR authority" corroboration cut rather than duplicating it. When the importance
+# term is within-category-normalized (see ``normalize_candidate_importance_within_category``)
+# the same bar means "above the category's importance tail". Single config source — the α/β/γ
+# weights and T live here too; never scatter this constant.
+MIN_ADMISSION_IMPORTANCE = 0.12
 
 # Reason: EntityBonus weight (phase-5a SP2). An ADDITIVE term on the Score for a
 # story whose title matches a followed entity — a Nvidia follower sees Nvidia
@@ -557,6 +574,101 @@ def compute_story_score(
     return score, depth_match, importance, freshness
 
 
+# ---------------------------------------------------------------------------------------
+# Ranking floor (feed-quality reset WS-B, PRD RC2 second half) — admission needs importance
+# ---------------------------------------------------------------------------------------
+
+
+def candidate_clears_ranking_floor(
+    candidate_score: float,
+    candidate_importance: float,
+    *,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
+    min_importance: float = MIN_ADMISSION_IMPORTANCE,
+) -> bool:
+    """True when a candidate clears BOTH the Score threshold AND the importance floor.
+
+    The RC2 fix (``plans/prd.md`` root cause RC2, second half): admission must require
+    importance, not affinity alone. The Score is affinity-dominant (α=0.5), so a top-weight
+    interest match clears ``score_threshold`` (0.20) on affinity alone — a maximal
+    ``(Affinity 1.0 × DepthMatch 1.0)·0.5 = 0.5`` — even with zero importance corroboration.
+    Requiring ``candidate_importance >= min_importance`` AS WELL means:
+
+      - a story with MAXIMAL affinity but FLOOR importance is NOT admitted (the leak that
+        put single-outlet local notices in the founder's AI slots); yet
+      - a genuinely important story (high importance) with only MODEST affinity still is —
+        its importance term both lifts the Score past ``T`` and clears the floor.
+
+    Pass the story's WITHIN-CATEGORY-NORMALIZED importance (see
+    :func:`normalize_candidate_importance_within_category`) so the floor is comparable across
+    categories of different pool sizes; the raw/E1 importance is an acceptable coarser input
+    at the per-interest climb-stop where no category grouping exists.
+
+    Args:
+        candidate_score: The candidate's final per-user Score.
+        candidate_importance: The candidate's importance term (0–1; normalized when available).
+        score_threshold: ``T`` — the "good enough" Score bar.
+        min_importance: The importance admission floor.
+
+    Returns:
+        True only when ``candidate_score >= score_threshold`` and
+        ``candidate_importance >= min_importance``.
+
+    Example:
+        >>> candidate_clears_ranking_floor(0.5, 0.05)  # affinity alone, no importance
+        False
+        >>> candidate_clears_ranking_floor(0.5, 0.5)
+        True
+    """
+    return candidate_score >= score_threshold and candidate_importance >= min_importance
+
+
+def normalize_candidate_importance_within_category(
+    candidates_by_category: dict[FeedCategory, list[ScoredCandidate]],
+) -> dict[str, float]:
+    """Min-max normalize each candidate's importance WITHIN its feed category.
+
+    An importance floor is only meaningful if importance is COMPARABLE across categories
+    (``plans/prd.md`` RC2, second half — "within-category importance normalization"). A
+    category with 3 candidates and one with 60 carry raw/E1 importance on different effective
+    scales; a single fixed floor on raw importance would then be lenient in one category and
+    harsh in another, so a thin-pool category's leader could be suppressed below a big-pool
+    category's tail purely because of pool size. This maps each candidate's importance to
+    ``[0, 1]`` INDEPENDENTLY within its own category, so the floor applies identically
+    everywhere and pool size does not decide admission.
+
+    Delegates the min-max plus the degenerate-case handling to
+    :func:`agents.pipeline.importance.story_importance.normalize_importance_within_category`
+    (Rule 3/7 — one source of truth for the normalization and the single-member neutral),
+    treating each candidate as a ``(story_id, category, importance)`` member of its category:
+
+      - a single-candidate category (min == max) → a documented NEUTRAL mid-value: no
+        divide-by-zero, and no spurious inflation of the lone story to top importance;
+      - an all-equal category → the same neutral mid;
+      - an empty input / empty categories → an empty result (no crash).
+
+    Each story appears in exactly one category bucket (SP2 collapses to one best candidate
+    per story), so the returned ids never collide.
+
+    Args:
+        candidates_by_category: ``{feed_category: [ScoredCandidate, ...]}`` — the classified
+            per-category candidate buckets.
+
+    Returns:
+        ``{story_id: normalized_importance_in_[0, 1]}``.
+
+    Example:
+        >>> # See tests/agents/pipeline/test_ranking_floor.py for the pool-size-comparability
+        >>> # and single-candidate-neutral assertions against this function.
+    """
+    triples: list[tuple[str, str, float]] = [
+        (candidate.story_id, category, candidate.importance)
+        for category, candidates in candidates_by_category.items()
+        for candidate in candidates
+    ]
+    return _normalize_importance_within_category(triples)
+
+
 def _index_tags_by_story(
     story_interest_tags: list[StoryInterestTag],
 ) -> dict[str, dict[str, int]]:
@@ -731,7 +843,13 @@ def generate_fallback_candidates(
             "fallback_strict_leaf_only",
             interest_id=leaf_id,
             candidate_count=len(leaf_scored),
-            qualifying=sum(1 for c in leaf_scored if c.score >= score_threshold),
+            qualifying=sum(
+                1
+                for c in leaf_scored
+                if candidate_clears_ranking_floor(
+                    c.score, c.importance, score_threshold=score_threshold
+                )
+            ),
         )
         return leaf_scored
 
@@ -751,7 +869,16 @@ def generate_fallback_candidates(
         if fallback_depth == 0:
             leaf_level_scored = node_scored
 
-        qualifying = [c for c in node_scored if c.score >= score_threshold]
+        # Reason (RC2): "good enough to STOP broadening" now needs importance, not affinity
+        # alone — a below-floor single-outlet leaf story clears T on affinity but must not
+        # halt the climb, so the generator broadens toward genuinely notable coverage.
+        qualifying = [
+            c
+            for c in node_scored
+            if candidate_clears_ranking_floor(
+                c.score, c.importance, score_threshold=score_threshold
+            )
+        ]
         if qualifying:
             logger.info(
                 "fallback_resolved",
@@ -1016,6 +1143,7 @@ def score_and_classify_for_user(
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     cluster_importance_by_story: dict[str, float] | None = None,
     category_override_by_story: dict[str, FeedCategory] | None = None,
+    min_admission_importance: float = MIN_ADMISSION_IMPORTANCE,
 ) -> dict[FeedCategory, list[ScoredCandidate]]:
     """Score (entity-aware) + classify a user's candidates into the 8 categories.
 
@@ -1059,10 +1187,19 @@ def score_and_classify_for_user(
             its representative's fetching category, never a flipped one. Scores are
             UNTOUCHED — only the bucket changes. Empty/None → classification exactly
             as before.
+        min_admission_importance: The ranking floor (WS-B, RC2 second half). After
+            classification each candidate's importance is normalized WITHIN its category,
+            then a candidate that would be admitted on its affinity-dominant Score
+            (``score >= score_threshold``) but whose within-category importance is below
+            this bar is DROPPED — affinity alone can no longer fill a slot. Candidates
+            below ``T`` are left untouched (the allocator drops them by Score anyway), so
+            this changes only the RC2 leak. Pass ``0.0`` to disable the floor (score-only
+            behaviour).
 
     Returns:
         ``{feed_category: [ScoredCandidate, ...]}`` — all 8 keys; topic buckets
-        descending by (entity-aware) score.
+        descending by (entity-aware) score, with affinity-only-below-importance
+        candidates floored out.
 
     Example:
         >>> # See tests/agents/pipeline/test_ranking.py for the happy / false-positive
@@ -1107,10 +1244,43 @@ def score_and_classify_for_user(
         )
         buckets[category].append(classified)
 
-    # Reason: keep each topic bucket descending by the entity-aware score so the
-    # SP3 allocator fills a category's slots from its strongest candidates first.
+    # ── Ranking floor (WS-B, RC2 second half): admission needs importance, not affinity ──
+    # Reason: the Score is affinity-dominant (α=0.5), so a top-weight interest match clears
+    # T on affinity alone with zero importance — the leak that put single-outlet local
+    # notices AHEAD of real news in the founder's AI slots ("junk fills the very slots the
+    # user cares most about"). Normalize each candidate's importance WITHIN its category (so
+    # the floor is comparable across categories of very different pool sizes), then DEMOTE —
+    # not drop — the candidates that clear T on Score but not the importance floor: they sort
+    # BELOW every floor-clearing candidate in their bucket. A floor-clearing story therefore
+    # always wins a contested slot, yet a thin category still fills its trailing slots rather
+    # than leaving them empty (the notability gate, WS-B's hard cut, already removed true
+    # single-outlet junk upstream). A story with maximal affinity and floor importance can no
+    # longer DISPLACE an importance-bearing one, which is the RC2 harm.
+    normalized_importance = normalize_candidate_importance_within_category(buckets)
+
+    def _clears_floor(candidate: ScoredCandidate) -> bool:
+        return candidate_clears_ranking_floor(
+            candidate.score,
+            normalized_importance.get(candidate.story_id, candidate.importance),
+            score_threshold=score_threshold,
+            min_importance=min_admission_importance,
+        )
+
+    demoted_count = sum(
+        1
+        for category_candidates in buckets.values()
+        for candidate in category_candidates
+        if candidate.score >= score_threshold and not _clears_floor(candidate)
+    )
+
+    # Reason: primary key = clears-the-floor (importance-bearing news first), secondary =
+    # entity-aware score. A stable two-level sort keeps the strongest floor-clearing
+    # candidate at the top for the allocator while pushing affinity-only-below-floor ones to
+    # the tail (they fill last, never displace real news).
     for category_candidates in buckets.values():
-        category_candidates.sort(key=lambda c: c.score, reverse=True)
+        category_candidates.sort(
+            key=lambda c: (_clears_floor(c), c.score), reverse=True
+        )
 
     logger.info(
         "score_and_classify_for_user_completed",
@@ -1118,5 +1288,12 @@ def score_and_classify_for_user(
         followed_entity_count=len(followed_entities),
         classified_story_count=len(best_by_story),
         entity_boosted_count=entity_boosted,
+        demoted_below_importance_floor_count=demoted_count,
+        min_admission_importance=min_admission_importance,
+        fix_suggestion=(
+            "Candidates that cleared the affinity-dominant Score but not the importance "
+            "floor were demoted below floor-clearing news (RC2). If they still surface, "
+            "raise coverage for that interest or tune MIN_ADMISSION_IMPORTANCE."
+        ),
     )
     return buckets
