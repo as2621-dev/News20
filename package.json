@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:ios": "next build && cap sync ios",
+    "build:ios": "tsx scripts/ios/buildIos.ts",
     "start": "next start",
     "lint": "biome check .",
     "test": "vitest run",

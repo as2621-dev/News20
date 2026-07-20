@@ -36,7 +36,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from agents.ingestion.dedup import normalize_url
-from agents.pipeline.clustering.cluster_store import add_cluster_members, upsert_cluster
+from agents.pipeline.clustering.cluster_store import upsert_cluster_members, upsert_clusters
 from agents.pipeline.clustering.engine_models import ClusterRun
 from agents.shared.logger import get_logger
 
@@ -150,16 +150,15 @@ def resolve_cluster_story_ids(
 
 
 def persist_run(client: Any, run: ClusterRun) -> None:
-    """Persist a clustering run: upsert each cluster, then add its member rows.
+    """Persist a clustering run: ONE batched upsert per table (clusters, then members).
 
-    For every cluster in ``run.clusters`` this calls ``cluster_store.upsert_cluster``
-    (rolling the centroid / counts / ``last_seen`` forward idempotently), then groups
-    ``run.members`` by ``cluster_id`` and calls ``cluster_store.add_cluster_members``
-    once per cluster (a single batched member upsert per cluster). The supabase client
-    is INJECTED (mocked in tests — no real DB).
-
-    A cluster with no members in this run (it should not happen, but is defended) still
-    gets its row upserted; ``add_cluster_members`` is a no-op on an empty list.
+    Batched — NOT a per-cluster loop of round-trips — so a mid-loop failure can no
+    longer commit an order-dependent SUBSET of the run's clusters to ``story_clusters``
+    while the in-memory result is discarded (issue #34 review-panel finding). Either the
+    whole cluster batch lands or none of it does; likewise the member batch. Cluster
+    rows go first so member rows always FK to an existing cluster. Both upserts are
+    idempotent, so a re-run of the same batch rewrites the same rows. The supabase
+    client is INJECTED (mocked in tests — no real DB).
 
     Args:
         client: A service-role supabase client (injected; mocked in tests).
@@ -168,13 +167,8 @@ def persist_run(client: Any, run: ClusterRun) -> None:
     Example:
         >>> persist_run(client, run)  # doctest: +SKIP
     """
-    members_by_cluster: dict[str, list] = {}
-    for member in run.members:
-        members_by_cluster.setdefault(member.cluster_id, []).append(member)
-
-    for cluster in run.clusters:
-        upsert_cluster(client, cluster)
-        add_cluster_members(client, cluster.cluster_id, members_by_cluster.get(cluster.cluster_id, []))
+    upsert_clusters(client, run.clusters)
+    upsert_cluster_members(client, run.members)
 
     logger.info(
         "persist_run_completed",

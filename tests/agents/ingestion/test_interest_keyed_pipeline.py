@@ -11,8 +11,10 @@ resilience (one source failure does not abort the batch).
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from structlog.testing import capture_logs
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.adapters.gdelt_bigquery import GdeltBigQueryAdapter
@@ -93,7 +95,12 @@ class TestBuildActiveInterestSet:
     def test_dedups_skips_no_query_and_unknown(
         self, interest_nodes, interest_ids
     ) -> None:
-        """Duplicates collapse; query-less + unknown interests are skipped."""
+        """Duplicates collapse; query-less + unknown interests are skipped AND counted.
+
+        WHY: the skip counts are the fail-loud contract (issue #36) — a queryless
+        followed interest that vanished without a count is exactly the silent
+        empty-section bug this seam exists to prevent.
+        """
         followed = [
             interest_ids["arsenal"],
             interest_ids["arsenal"],  # duplicate across users
@@ -102,9 +109,27 @@ class TestBuildActiveInterestSet:
             interest_ids["markets"],
             "ghost-interest",  # not in taxonomy → skipped
         ]
-        active = build_active_interest_set(followed, interest_nodes)
-        slugs = [a.interest_slug for a in active]
+        interest_set = build_active_interest_set(followed, interest_nodes)
+        slugs = [a.interest_slug for a in interest_set.active_interests]
         assert slugs == ["markets", "sport.soccer.arsenal"]  # sorted by slug, deduped
+        assert interest_set.skipped_queryless_count == 2  # soccer + sport
+
+    def test_queryless_skip_emits_warning_with_fix_suggestion(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY: a queryless followed interest produces NOTHING for its follower —
+        that is a data bug and must surface at WARNING (not debug) with a
+        fix_suggestion, or the 2026-06-16 feed collapse repeats invisibly."""
+        followed = [interest_ids["arsenal"], interest_ids["soccer"]]
+        with capture_logs() as logs:
+            build_active_interest_set(followed, interest_nodes)
+        skips = [log for log in logs if log["event"] == "queryless_interest_skipped"]
+        assert len(skips) == 1
+        assert skips[0]["log_level"] == "warning"
+        assert skips[0]["interest_id"] == interest_ids["soccer"]
+        assert skips[0]["interest_slug"] == "sport.soccer"
+        assert skips[0]["interest_name"] == "Soccer"
+        assert "backfill_queryless_interests" in skips[0]["fix_suggestion"]
 
 
 class TestIngestActiveInterests:
@@ -133,13 +158,18 @@ class TestIngestActiveInterests:
         assert arsenal_story.covering_outlets == ["bbc.com", "cnn.com"]
         assert arsenal_story.canonical_body_text is not None  # extracted
 
-        # Arsenal story → 3 tags (self/parent/grandparent); Markets → 1 tag.
+        # Arsenal story → 3 keyword tags (self/parent/grandparent). Keyword tags are
+        # shifted +1 UNCONDITIONALLY (clamped at the schema max 2) so DepthMatch
+        # scoring is uniform whether or not a theme tag exists (issue #35 panel
+        # finding: a conditional shift boosted theme-miss stories over theme-matched
+        # ones from the same interest). No themes here → no depth-0 theme tag, so
+        # the shifted leaf (depth 1) is the lowest tag and still wins categorization.
         tags_by_story: dict[str, list[int]] = {}
         for tag in result.story_interest_tags:
             tags_by_story.setdefault(tag.story_interest_story_id, []).append(
                 tag.story_interest_match_depth
             )
-        assert sorted(tags_by_story[arsenal_story.canonical_story_id]) == [0, 1, 2]
+        assert sorted(tags_by_story[arsenal_story.canonical_story_id]) == [1, 2, 2]
 
     @pytest.mark.asyncio
     async def test_one_source_failure_does_not_abort_batch(
@@ -171,6 +201,43 @@ class TestIngestActiveInterests:
         )
         assert adapter.extract_calls == 0
         assert result.canonical_stories[0].canonical_body_text is None
+
+    @pytest.mark.asyncio
+    async def test_batch_summary_reports_explicit_zero_queryless(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (issue #36): the summary must carry skipped_queryless_interests=0
+        EXPLICITLY on a clean run — the field's absence must never be the only
+        evidence that nothing was skipped."""
+        with capture_logs() as logs:
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"], interest_ids["markets"]],
+                interest_nodes,
+                _FakeAdapter(),
+            )
+        assert result.skipped_queryless_interests == 0
+        summary = next(
+            log for log in logs if log["event"] == "interest_keyed_ingestion_completed"
+        )
+        assert summary["skipped_queryless_interests"] == 0
+
+    @pytest.mark.asyncio
+    async def test_batch_summary_counts_queryless_followed_interest(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (issue #36): a queryless followed interest must show up in the batch
+        summary count (result + summary log), so an empty section is a visible bug."""
+        with capture_logs() as logs:
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"], interest_ids["soccer"]],  # soccer: no query
+                interest_nodes,
+                _FakeAdapter(),
+            )
+        assert result.skipped_queryless_interests == 1
+        summary = next(
+            log for log in logs if log["event"] == "interest_keyed_ingestion_completed"
+        )
+        assert summary["skipped_queryless_interests"] == 1
 
 
 class _UrlIdAdapter(BaseNewsAdapter):
@@ -315,8 +382,10 @@ class TestCatalogWindowDefaultLookback:
 
         assert adapter.received_since_utc is not None
         # since == now − 1 day, computed at call time; bound it by the call window.
-        assert (before - timedelta(days=1)) <= adapter.received_since_utc <= (
-            after - timedelta(days=1)
+        assert (
+            (before - timedelta(days=1))
+            <= adapter.received_since_utc
+            <= (after - timedelta(days=1))
         )
 
     @pytest.mark.asyncio
@@ -626,16 +695,19 @@ def _m2_interest_nodes() -> dict[str, InterestNode]:
 class _ThemedAdapter(BaseNewsAdapter):
     """A fake whose one story carries the given V2Themes (set on the candidate).
 
-    The query is the geopolitics-leaf query (so the story is keyword-matched to a
-    geopolitics interest — the bug's mis-match) but the candidate's themes are
-    whatever the test injects, so the theme-vs-keyword contest is exercisable.
+    The query defaults to the geopolitics-leaf query (so the story is keyword-
+    matched to a geopolitics interest — the bug's mis-match) but the candidate's
+    themes are whatever the test injects, so the theme-vs-keyword contest is
+    exercisable. Passing ``query`` retargets the fetch at any other leaf (the
+    issue #35 table-driven precedence harness).
     """
 
-    def __init__(self, themes: list[str]) -> None:
+    def __init__(self, themes: list[str], query: str = "Russia sanctions") -> None:
         self.themes = themes
+        self.query = query
 
     async def search(self, search_query, since_utc, **kwargs):
-        if search_query != "Russia sanctions":
+        if search_query != self.query:
             return []
         return [
             CandidateStory(
@@ -700,9 +772,10 @@ class TestThemeDerivedCategoryTagging:
         assert depth_by_interest[_GEO_LEAF_ID] == 1
 
     @pytest.mark.asyncio
-    async def test_no_theme_falls_back_to_default_and_batch_completes(self) -> None:
-        """A story with NO themes falls back to DEFAULT_CATEGORY (arts) and the batch
-        still completes (fail-loud-per-cell, never a batch abort)."""
+    async def test_no_theme_falls_back_to_fetching_interest_root(self) -> None:
+        """Issue #35: a story with NO themes is categorized by the interest that
+        FETCHED it (its root), never the arts default — and the batch still
+        completes (fail-loud-per-cell, never a batch abort)."""
         nodes = _m2_interest_nodes()
         adapter = _ThemedAdapter(themes=[])  # no V2Themes on the candidate
 
@@ -711,20 +784,97 @@ class TestThemeDerivedCategoryTagging:
         assert len(result.canonical_stories) == 1  # batch completed, not aborted
         story_id = result.canonical_stories[0].canonical_story_id
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
-        # DEFAULT_CATEGORY == "arts" (categories.py) — the long-tail fallback.
-        assert assign_category(story_id, tags_by_story, nodes) == "arts"
+        # The geopolitics leaf fetched it → geopolitics, NOT the old arts default.
+        assert assign_category(story_id, tags_by_story, nodes) == "geopolitics"
 
     @pytest.mark.asyncio
-    async def test_unknown_theme_falls_back_not_keyword(self) -> None:
-        """An UNRECOGNIZED theme (not in the whitelist) falls back to DEFAULT, it does
-        NOT silently revert to the keyword-inherited geopolitics category."""
+    async def test_unmatched_theme_falls_back_to_fetching_interest_root(self) -> None:
+        """Issue #35: an UNRECOGNIZED theme (not in the whitelist) carries no
+        category signal — the fetching interest's root wins, never arts."""
         nodes = _m2_interest_nodes()
         adapter = _ThemedAdapter(themes=["WB_9999_NONSENSE_UNMAPPED"])
 
         result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
         story_id = result.canonical_stories[0].canonical_story_id
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
-        assert assign_category(story_id, tags_by_story, nodes) == "arts"
+        assert assign_category(story_id, tags_by_story, nodes) == "geopolitics"
+
+
+class TestFetchingInterestPrecedence:
+    """Issue #35, table-driven: when NO whitelisted theme matched, the FETCHING
+    interest's root is authoritative — a tech-fetched story is tech, a sport-fetched
+    story is sport, NEVER the arts default. These tests FAIL under the old
+    arts-at-depth-0 behavior (the theme tag used to override the keyword tags)."""
+
+    @pytest.mark.parametrize(
+        ("root_slug", "leaf_slug"),
+        [
+            ("tech", "tech.semiconductors"),  # the issue's named happy path
+            ("ai", "ai.interpretability"),
+            ("business", "business.equities"),
+            ("sport", "sport.cricket.ipl"),
+            ("environment", "environment.climate-policy"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "themes",
+        [
+            [],  # zero themes at all
+            ["WB_9999_NONSENSE_UNMAPPED", "TAX_WEAPONS_FAKE"],  # only unmatched codes
+        ],
+        ids=["no-themes", "unmatched-themes"],
+    )
+    @pytest.mark.asyncio
+    async def test_fetching_interest_root_wins_without_theme_match(
+        self, root_slug: str, leaf_slug: str, themes: list[str]
+    ) -> None:
+        nodes = _m2_interest_nodes()
+        leaf_id = f"leaf-{leaf_slug}"
+        nodes[leaf_id] = InterestNode(
+            interest_id=leaf_id,
+            parent_interest_id=_ROOT_IDS_M2[root_slug],
+            interest_slug=leaf_slug,
+            interest_label=leaf_slug,
+            depth_level=1,
+            interest_search_query=f"query {leaf_slug}",
+        )
+        adapter = _ThemedAdapter(themes=themes, query=f"query {leaf_slug}")
+
+        result = await ingest_active_interests([leaf_id], nodes, adapter)
+
+        assert len(result.canonical_stories) == 1
+        story_id = result.canonical_stories[0].canonical_story_id
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        got = assign_category(story_id, tags_by_story, nodes)
+        # None of the parametrized roots is arts, so this also proves "never the
+        # arts default" for every row.
+        assert got == root_slug, (
+            f"story fetched by a {root_slug}-root interest with unmatched themes "
+            f"must categorize {root_slug}, got {got!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_whitelisted_theme_still_beats_fetching_interest(self) -> None:
+        """Precedence guard: an ACTUAL whitelist match still wins over the fetching
+        interest (existing behavior preserved — the flip only covers no-match)."""
+        nodes = _m2_interest_nodes()
+        leaf_id = "leaf-tech.semiconductors"
+        nodes[leaf_id] = InterestNode(
+            interest_id=leaf_id,
+            parent_interest_id=_ROOT_IDS_M2["tech"],
+            interest_slug="tech.semiconductors",
+            interest_label="Semiconductors",
+            depth_level=1,
+            interest_search_query="query tech.semiconductors",
+        )
+        adapter = _ThemedAdapter(
+            themes=["SPORT", "WB_1953_SPORTS"], query="query tech.semiconductors"
+        )
+
+        result = await ingest_active_interests([leaf_id], nodes, adapter)
+        story_id = result.canonical_stories[0].canonical_story_id
+        tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        assert assign_category(story_id, tags_by_story, nodes) == "sport"
 
 
 class _MultiThemedGkgAdapter(BaseNewsAdapter):
@@ -780,7 +930,8 @@ class TestThemeCategoryEndToEnd:
     @pytest.mark.asyncio
     async def test_gkg_batch_themes_drive_category_end_to_end(self) -> None:
         """Two stories from the batched GKG path: a business-themed one categorizes
-        business; a no-theme one falls back to arts — in a SINGLE batch run."""
+        business; a no-theme one falls back to its FETCHING interest's root
+        (geopolitics — issue #35, never arts) — in a SINGLE batch run."""
         nodes = _m2_interest_nodes()
         adapter = _MultiThemedGkgAdapter(
             rows=[
@@ -790,7 +941,7 @@ class TestThemeCategoryEndToEnd:
                     _GEO_LEAF_ID,
                     ["ECON_STOCKMARKET", "ECON_BANKRUPTCY"],
                 ),
-                # genuinely no themes → fallback
+                # genuinely no themes → the fetching interest's root owns category
                 ("https://reuters.com/none", _GEO_LEAF_ID, []),
             ]
         )
@@ -805,9 +956,11 @@ class TestThemeCategoryEndToEnd:
             )
             for s in result.canonical_stories
         }
-        by_url = {s.canonical_url: s.canonical_story_id for s in result.canonical_stories}
+        by_url = {
+            s.canonical_url: s.canonical_story_id for s in result.canonical_stories
+        }
         assert cats[by_url["https://reuters.com/biz"]] == "business"
-        assert cats[by_url["https://reuters.com/none"]] == "arts"
+        assert cats[by_url["https://reuters.com/none"]] == "geopolitics"
 
 
 def _param(job_config, name):
@@ -892,9 +1045,7 @@ class TestBigQueryNicheSeamIntegration:
         # struct-array param (proves the batch, not two separate queries).
         term_slugs = {
             struct.struct_values["interest_slug"]
-            for struct in _param(
-                client.captured["job_config"], "interest_terms"
-            ).values
+            for struct in _param(client.captured["job_config"], "interest_terms").values
         }
         assert term_slugs == {"sport.soccer.arsenal", "tech.semiconductors"}
         # The in-SQL per-interest cap is bound (one noisy niche cannot flood the pool).
@@ -906,9 +1057,11 @@ class TestBigQueryNicheSeamIntegration:
             (t.story_interest_interest_id, t.story_interest_match_depth)
             for t in result.story_interest_tags
         }
-        # Leaf-matched tags (depth 0) exist for both followed interests → node + depth.
-        assert ("int-arsenal", 0) in tags_by_interest
-        assert ("int-chips", 0) in tags_by_interest
+        # Leaf-matched tags exist for both followed interests → node + depth. Leaf
+        # tags land at depth 1 (issue #35: keyword tags are shifted +1 uniformly so
+        # a depth-0 theme tag — when a whitelisted theme matches — always wins).
+        assert ("int-arsenal", 1) in tags_by_interest
+        assert ("int-chips", 1) in tags_by_interest
 
     @pytest.mark.asyncio
     async def test_zero_match_niche_yields_no_candidates_no_error(
@@ -1002,9 +1155,7 @@ class TestBackboneRegressionGuard:
 
         # Exact per-category outlet snapshot (the fetch is domain-scoped, deterministic).
         outlets_by_category = {
-            category: sorted(
-                s.canonical_primary_outlet_domain for s in stories
-            )
+            category: sorted(s.canonical_primary_outlet_domain for s in stories)
             for category, stories in result.canonical_stories_by_category.items()
         }
         assert outlets_by_category == {
@@ -1015,3 +1166,136 @@ class TestBackboneRegressionGuard:
         assert result.failed_categories == []
         assert result.under_filled_categories == []
         assert result.total_candidates_fetched == 5  # 2 + 2 + 1 domain candidates
+
+
+# --------------------------------------------------------------------------- #
+# Semantic relevance key wiring (issue #51) — the two-key lock, end-to-end
+# through the real ingest path. The lexical key stamps the matched interest
+# inside BigQuery (proven in test_interest_lexical.py); here we prove that when
+# the SEMANTIC key rejects a stamped (story, interest) pair, that story no longer
+# fills the interest's slot — and that a bypass or an embedding outage behaves as
+# the contract demands. The embed_texts boundary is mocked (no Gemini, no cost).
+# --------------------------------------------------------------------------- #
+_SEMANTIC_EMBED_TARGET = "agents.ingestion.interest_semantic.embed_texts"
+
+
+def _reject_embed_mock() -> AsyncMock:
+    """Embed the story and its interest ORTHOGONALLY so the pair fails the key.
+
+    The Arsenal STORY text contains 'win'; the interest text ('Arsenal Arsenal FC')
+    does not — so they map to orthogonal unit vectors (cosine 0 < threshold).
+    """
+
+    def _embed(texts: list[str], **_kwargs) -> list[list[float]]:
+        return [[1.0, 0.0] if "win" in text.lower() else [0.0, 1.0] for text in texts]
+
+    return AsyncMock(side_effect=_embed)
+
+
+def _accept_embed_mock() -> AsyncMock:
+    """Embed every text to the same direction so every pair clears the key (cosine 1)."""
+    return AsyncMock(side_effect=lambda texts, **_kwargs: [[1.0, 0.0] for _ in texts])
+
+
+def _arsenal_interest_ids(result, interest_ids) -> set[str]:
+    """The interest ids the ingest tagged onto the Arsenal story."""
+    arsenal_story = next(
+        s
+        for s in result.canonical_stories
+        if "cnn.com" in s.covering_outlets or "bbc.com" in s.covering_outlets
+    )
+    return {
+        tag.story_interest_interest_id
+        for tag in result.story_interest_tags
+        if tag.story_interest_story_id == arsenal_story.canonical_story_id
+    }
+
+
+class TestSemanticRelevanceKeyWiring:
+    """Slice #51: the semantic key gates slot-filling in the real ingest path."""
+
+    @pytest.mark.asyncio
+    async def test_semantic_reject_drops_all_climbed_tags_for_the_story(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (criterion 1, fails-if-bypassed): with the key ON and the story embedding
+        DISSIMILAR to its matched interest, the story must fill NO slot — not the leaf,
+        and CRUCIALLY not the climbed parent/grandparent category slots either (filtering
+        at the matched-id source is what drops the whole ladder). If a future change
+        bypassed the semantic key, the Arsenal tags would reappear and this test fails."""
+        with patch(_SEMANTIC_EMBED_TARGET, _reject_embed_mock()):
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"]],
+                interest_nodes,
+                _FakeAdapter(),
+                llm_client=object(),
+                enable_semantic_relevance_key=True,
+            )
+        assert _arsenal_interest_ids(result, interest_ids) == set()
+
+    @pytest.mark.asyncio
+    async def test_semantic_accept_keeps_the_slot(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (criterion 3): the key discriminates — when the story IS embedding-similar
+        to its interest, the full ancestor ladder (leaf/parent/grandparent) is retained."""
+        with patch(_SEMANTIC_EMBED_TARGET, _accept_embed_mock()):
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"]],
+                interest_nodes,
+                _FakeAdapter(),
+                llm_client=object(),
+                enable_semantic_relevance_key=True,
+            )
+        assert _arsenal_interest_ids(result, interest_ids) == {
+            interest_ids["arsenal"],
+            interest_ids["soccer"],
+            interest_ids["sport"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_key_off_leaves_lexical_admission_untouched(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY: the gate is the ONLY thing that removed the tags in the reject test —
+        with the key OFF (the default, test-stable path) the lexically-admitted Arsenal
+        tags are all present, so the reject test cannot be a false positive."""
+        result = await ingest_active_interests(
+            [interest_ids["arsenal"]],
+            interest_nodes,
+            _FakeAdapter(),
+            enable_semantic_relevance_key=False,
+        )
+        assert _arsenal_interest_ids(result, interest_ids) == {
+            interest_ids["arsenal"],
+            interest_ids["soccer"],
+            interest_ids["sport"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_embedding_outage_falls_back_to_strict_lexical(
+        self, interest_nodes, interest_ids
+    ) -> None:
+        """WHY (criterion 4): an embedding failure mid-batch must NOT fail open and must
+        NOT drop the run — it falls back to strict lexical (the Arsenal tags survive) and
+        logs loud with a fix_suggestion so the skipped paid tightening is visible."""
+        failing = AsyncMock(side_effect=RuntimeError("gemini 429"))
+        with patch(_SEMANTIC_EMBED_TARGET, failing), capture_logs() as logs:
+            result = await ingest_active_interests(
+                [interest_ids["arsenal"]],
+                interest_nodes,
+                _FakeAdapter(),
+                llm_client=object(),
+                enable_semantic_relevance_key=True,
+            )
+        assert _arsenal_interest_ids(result, interest_ids) == {
+            interest_ids["arsenal"],
+            interest_ids["soccer"],
+            interest_ids["sport"],
+        }
+        assert any(
+            entry.get("log_level") == "error"
+            and entry.get("event") == "semantic_relevance_embed_failed"
+            and "fix_suggestion" in entry
+            for entry in logs
+        )

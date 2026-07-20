@@ -21,7 +21,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FEED_TOTAL } from "@/lib/reel/feedBriefing";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { AnchorSpeaker, CaptionSentence, SegmentKey, Story, WordToken } from "@/types/feed";
+import type {
+  AnchorSpeaker,
+  CaptionSentence,
+  SegmentKey,
+  Story,
+  WordToken,
+  XThemeAttribution,
+  XThemeRung,
+} from "@/types/feed";
+
+/** The valid X theme rungs (slice #24). Twin of the Python `RUNG_*` constants. */
+const X_THEME_RUNGS: readonly XThemeRung[] = ["theme", "second_theme", "roundup"];
+
+/**
+ * Coerce a raw `feed_x_theme_rung` column value to a known {@link XThemeRung}, or
+ * `null`. An unknown/legacy value reads as `null` (no theme treatment) rather than
+ * leaking an unmodelled string into the UI — honest-degradation over trust.
+ */
+function normalizeXThemeRung(raw: string | null): XThemeRung | null {
+  return raw !== null && (X_THEME_RUNGS as readonly string[]).includes(raw) ? (raw as XThemeRung) : null;
+}
 
 /**
  * PostgREST embedded select: a story with its segment accent, its current digest,
@@ -182,6 +202,47 @@ export async function getFeed(client: SupabaseClient = getSupabaseBrowserClient(
   return (data ?? []).slice(0, FEED_TOTAL).map(mapStoryRow);
 }
 
+/**
+ * Find the user's most recent `daily_feeds` date strictly BEFORE `beforeDate`.
+ *
+ * The "briefing being prepared" fallback seam: when today's assembly has not run
+ * yet, the reel replays the freshest prior briefing instead of dead-ending. RLS
+ * scopes the read to the authed user, so this can only ever see the user's own days.
+ *
+ * @param userId - The authed `users.user_id` (= `auth.uid()`).
+ * @param beforeDate - Exclusive upper bound (ISO `YYYY-MM-DD`), normally today.
+ * @param client - Optional Supabase client (injected in tests).
+ * @returns The latest earlier `feed_date` (ISO `YYYY-MM-DD`), or `null` when the
+ *   user has no earlier briefing at all.
+ * @throws If the query itself fails (not when it is merely empty).
+ *
+ * @example
+ * const lastDate = await getLatestFeedDate(session.user.id, "2026-07-07");
+ * // → "2026-07-06" (or null for a brand-new user)
+ */
+export async function getLatestFeedDate(
+  userId: string,
+  beforeDate: string,
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<string | null> {
+  const { data, error } = await client
+    .from("daily_feeds")
+    .select("feed_date")
+    .eq("feed_user_id", userId)
+    .lt("feed_date", beforeDate)
+    .order("feed_date", { ascending: false })
+    .limit(1)
+    .returns<{ feed_date: string }[]>();
+
+  if (error) {
+    throw new Error(
+      `Failed to look up the latest feed date from Supabase: ${error.message}. ` +
+        "fix_suggestion: confirm daily_feeds RLS allows the authed SELECT.",
+    );
+  }
+  return data?.[0]?.feed_date ?? null;
+}
+
 /** A `daily_feeds` row with its embedded story (the same {@link StoryRow} shape). */
 interface DailyFeedRow {
   feed_position: number;
@@ -194,6 +255,9 @@ interface DailyFeedRow {
   feed_section_label: string | null;
   feed_section_interest_id: string | null;
   feed_fallback_source_level: number | null;
+  /** FSR #24 X theme metadata (migration 0032). NULL on every non-X-theme slot. */
+  feed_x_theme_rung: string | null;
+  feed_x_theme_attribution: XThemeAttribution | null;
   /**
    * The matched interest's display label, embedded via the
    * `feed_matched_interest_id` FK (`interests` is public-read). Object in
@@ -238,6 +302,7 @@ export async function getDailyFeed(
       // level it was filled from ("…here's Cricket") with zero client-side inference.
       `feed_position,feed_slot_kind,feed_matched_interest_id,feed_section_label,` +
         `feed_section_interest_id,feed_fallback_source_level,` +
+        `feed_x_theme_rung,feed_x_theme_attribution,` +
         `matched_interest:interests!feed_matched_interest_id(interest_label),` +
         `stories!inner(${FEED_SELECT})`,
     )
@@ -276,6 +341,11 @@ export async function getDailyFeed(
       feed_section_label: row.feed_section_label ?? null,
       feed_section_interest_id: row.feed_section_interest_id ?? null,
       feed_fallback_source_level: row.feed_fallback_source_level ?? 0,
+      // Reason (FSR #24): carry the X theme rung + attribution so the reel chip renders
+      // the honest theme label + handle credit. Additive + null-safe: a non-X-theme row
+      // (every legacy row) reads as (null, null) — no theme treatment.
+      feed_x_theme_rung: normalizeXThemeRung(row.feed_x_theme_rung),
+      feed_x_theme_attribution: row.feed_x_theme_attribution ?? null,
     };
   });
 }

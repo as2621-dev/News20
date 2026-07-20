@@ -28,6 +28,20 @@ SAFETY (this run costs real paid Gemini calls):
     user's true allocation by ``feed_assembly``. Pair with ``MAX_PRODUCE=0`` — a low
     overall ceiling trims the pool back down and negates the headroom (the preflight
     warns when this happens). Set ``1.0`` for the old 1×-demand behaviour.
+  * ``ENABLE_SEMANTIC_CLUSTERING`` (default 1 — ON in production, issue #34) runs the
+    semantic same-event reconcile before the produce gate: paid gemini-embedding-001
+    calls, one reel per real-world event, authority-weighted cluster importance in
+    the ranker. Set ``0`` for the byte-for-byte legacy path (no embedding spend).
+  * ``ENABLE_SEMANTIC_RELEVANCE_KEY`` (default 1 — ON in production, issue #51) runs the
+    SEMANTIC half of the two-key relevance lock during niche ingestion: a story keeps a
+    lexically-matched interest only when its embedding similarity clears the threshold
+    (closes the zoning/'data center' RC3 false positive the lexical key alone admits).
+    Paid gemini-embedding-001 (one batched call/run, N+M embeddings); on failure it falls
+    back to strict lexical (never fail-open). Set ``0`` for lexical-only admission.
+  * ``DISABLE_POSTER_GEN`` (default unset — posters ON) is the poster kill switch
+    (issue #32): set ``1`` and NO image client is constructed — no inline posters,
+    and ``scripts/fill_batch_posters.py`` refuses to run. Stories, audio and
+    captions are unchanged; source reels keep their free supplied-image posters.
   * ``LOOKBACK_DAYS`` (default 1) bounds GDELT recency.
   * ``INGEST_SOURCE`` (default ``bigquery``) — niche ingestion runs through the
     unthrottled GDELT BigQuery dataset (one batched SQL for ALL active interests;
@@ -49,6 +63,7 @@ Run (paid, full scale):
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -83,6 +98,7 @@ from agents.pipeline.produce_caps import (  # noqa: E402
 )
 from agents.pipeline.llm_clients import LLMClient  # noqa: E402
 from agents.pipeline.persist_helpers import load_outlets_lookup  # noqa: E402
+from agents.pipeline.poster_gate import poster_generation_disabled  # noqa: E402
 from agents.shared.logger import get_logger  # noqa: E402
 from agents.voice.gemini_tts import GeminiTTSClient  # noqa: E402
 
@@ -360,6 +376,12 @@ async def _run() -> int:
     load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 
     paid = os.environ.get("RUN_LIVE_BATCH") == "1"
+    # Reason (founder rule 2026-07-19, shortlist-first): reel production is the
+    # expensive tail (script LLM → TTS → poster), so the live entry DEFAULTS to
+    # halting at story selection and dumping the would-produce shortlist for
+    # founder review. Producing a real batch now requires the explicit opt-out
+    # SHORTLIST_ONLY=0 — reels are made only after the founder approves a list.
+    shortlist_only = os.environ.get("SHORTLIST_ONLY", "1") == "1"
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
     produce_cap_headroom = float(os.environ.get("PRODUCE_CAP_HEADROOM", "2.0"))
     lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
@@ -515,11 +537,20 @@ async def _run() -> int:
     # posters.py) then generates all posters in one async batch job (50% cheaper)
     # and updates the rows. Any other value keeps the proven synchronous poster path.
     poster_mode = os.environ.get("POSTER_MODE", "sync").strip().lower()
+    # Reason (issue #32 kill switch): DISABLE_POSTER_GEN=1 skips constructing the
+    # image client entirely — no inline posters AND the Batch-API filler refuses to
+    # run, so image-model spend is impossible. Source reels keep supplied images.
+    poster_killed = poster_generation_disabled()
     poster_client = (
-        None if poster_mode == "batch" else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        None
+        if poster_killed or poster_mode == "batch"
+        else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     )
-    print(f"  poster mode ................... {poster_mode}"
-          f"{' (inline posters OFF — fill via Batch API after)' if poster_mode == 'batch' else ''}")
+    if poster_killed:
+        print("  poster mode ................... DISABLED (DISABLE_POSTER_GEN kill switch — zero image calls)")
+    else:
+        print(f"  poster mode ................... {poster_mode}"
+              f"{' (inline posters OFF — fill via Batch API after)' if poster_mode == 'batch' else ''}")
     resolver = build_story_id_resolver(supabase)
     since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
@@ -530,6 +561,13 @@ async def _run() -> int:
             adapter=niche_adapter,
             since_utc=since,
             resolve_existing_story_ids=resolver,
+            llm_client=llm_client,
+            # Reason (issue #51): the SEMANTIC half of the two-key relevance lock defaults
+            # ON in the live path — a story keeps a matched interest only when its embedding
+            # similarity clears the threshold (closes the zoning/'data center' RC3 case the
+            # lexical key alone admits). Paid gemini-embedding-001 (one batched call/run,
+            # N+M embeddings). Set ENABLE_SEMANTIC_RELEVANCE_KEY=0 for lexical-only admission.
+            enable_semantic_relevance_key=os.environ.get("ENABLE_SEMANTIC_RELEVANCE_KEY", "1") == "1",
         )
         stories = result.canonical_stories
         tags = result.story_interest_tags
@@ -556,7 +594,13 @@ async def _run() -> int:
             supabase, active_user_ids
         )
 
-    print("\n--- PAID RUN (live GDELT ingest → produce + enrich → allocate) ---")
+    if shortlist_only:
+        print(
+            "\n--- SHORTLIST-ONLY RUN (ingest → gates → selection; ZERO production"
+            " credits — set SHORTLIST_ONLY=0 to produce after founder approval) ---"
+        )
+    else:
+        print("\n--- PAID RUN (live GDELT ingest → produce + enrich → allocate) ---")
     result = await run_daily_pipeline(
         target_date=target,
         supabase_client=supabase,
@@ -569,10 +613,27 @@ async def _run() -> int:
         produce_cap_headroom=produce_cap_headroom,
         enable_detail_enrichment=True,
         enable_editorial_rewrite=True,
+        # Reason: semantic same-event reconciliation (collapses "two reels, one event"
+        # duplicates onto one story id) defaults ON in production (issue #34 spend-go)
+        # — paid gemini-embedding-001 calls. Set ENABLE_SEMANTIC_CLUSTERING=0 to fall
+        # back to the byte-for-byte legacy path.
+        enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING", "1") == "1",
+        # Reason (issue #48): the notability hard cut defaults ON in the live path — a
+        # candidate reaches production only with ≥2 distinct editorial outlets OR an
+        # authority-tier outlet (syndication of one wire item counts as zero), thin
+        # niches relax + stamp rather than starve. Set ENABLE_NOTABILITY_GATE=0 to fall
+        # back to the pre-gate admission (the RC2 behaviour) for a diagnostic run.
+        enable_notability_gate=os.environ.get("ENABLE_NOTABILITY_GATE", "1") == "1",
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=census_adapter,
         source_stories_by_user=source_stories_by_user,
+        # Reason (slice #31): RUN_X_THEMES=1 wires the X theme-of-the-day reels —
+        # followed-cluster join → today's shared x_cluster_sweeps.themes → one reel
+        # per (cluster, theme) produced this run → honest ladder x slots. Off by
+        # default (mirrors RUN_SOURCES): the interest-only batch is unchanged.
+        enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
+        shortlist_only=shortlist_only,
     )
 
     print(
@@ -581,6 +642,37 @@ async def _run() -> int:
         f"skipped_by_gate={result.skipped_by_gate_count} "
         f"feeds_written={result.feeds.feeds_written if result.feeds else 0}"
     )
+
+    # ── SHORTLIST REVIEW DUMP — print + persist, then exit before the DoD
+    # readback (nothing was produced or written, so those checks don't apply). ──
+    if shortlist_only:
+        by_category: dict[str, list[Any]] = {}
+        for entry in result.shortlist:
+            by_category.setdefault(entry.shortlist_category, []).append(entry)
+        print(f"\n--- SHORTLIST FOR REVIEW ({len(result.shortlist)} stories) ---")
+        for category_name in sorted(by_category):
+            print(f"\n[{category_name}] ({len(by_category[category_name])})")
+            for entry in by_category[category_name]:
+                interests = ", ".join(entry.shortlist_matched_interest_slugs) or "-"
+                print(
+                    f"  {entry.shortlist_outlet_count:>3} outlets | {interests} | "
+                    f"{entry.shortlist_headline[:90]}"
+                )
+        shortlist_dir = os.path.join(_REPO_ROOT, ".agents", "shortlists")
+        os.makedirs(shortlist_dir, exist_ok=True)
+        shortlist_path = os.path.join(
+            shortlist_dir, f"{result.feed_date}-shortlist.json"
+        )
+        with open(shortlist_path, "w", encoding="utf-8") as shortlist_file:
+            json.dump(
+                [entry.model_dump() for entry in result.shortlist],
+                shortlist_file,
+                indent=2,
+                ensure_ascii=False,
+            )
+        print(f"\nshortlist saved: {shortlist_path}")
+        print("APPROVE the list, then re-run with SHORTLIST_ONLY=0 to produce reels.")
+        return 0
 
     # ── DoD READBACK ──────────────────────────────────────────────────────────
     feeds = (

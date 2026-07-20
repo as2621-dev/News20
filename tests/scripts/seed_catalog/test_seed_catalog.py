@@ -17,8 +17,10 @@ DoD (phase file SP3 / Rule 9 — tests encode WHY):
     an overlapping source spans both archetype files. WHY: a mis-tagged source is
     invisible to (or mis-placed by) the persona-filtered browse in 5c.
 
-All external services (YouTube / iTunes / Wikipedia HTTP, Supabase) are mocked at
-the boundary (CLAUDE.md) — the suite runs fully offline with no keys.
+All external services are mocked at the boundary (CLAUDE.md) — the suite runs
+fully offline with no keys. YouTube resolves KEYLESS via yt-dlp, so it is mocked
+at the yt-dlp EXTRACTOR seam (``youtube_extractor``), not the httpx boundary; the
+iTunes / Wikipedia / unavatar axes are still mocked at their httpx boundary.
 """
 
 from __future__ import annotations
@@ -30,9 +32,35 @@ import pytest
 
 from scripts.seed_catalog import seed_catalog
 from scripts.seed_catalog.itunes_resolve import PodcastMeta
-from scripts.seed_catalog.youtube_resolve import ChannelMeta
+from scripts.seed_catalog.youtube_resolve import _channel_meta_from_info
 
 # ── Fakes (boundary mocks) ────────────────────────────────────────────────────
+
+
+def fake_youtube_extractor(url: str) -> dict[str, Any]:
+    """A deterministic stand-in for the yt-dlp channel extractor.
+
+    Derives a yt-dlp-shaped ``info`` dict from the channel-page URL so a handle
+    maps to a stable ``UC-…`` channel id + thumbnail (mirrors the real field
+    mapping: channel_id / channel / uploader_id / channel_follower_count /
+    thumbnails). Handles both ``…/@handle`` and ``…/channel/UC…`` URLs.
+    """
+    handle = url.rsplit("/@", 1)[-1] if "/@" in url else url.rsplit("/", 1)[-1]
+    return {
+        "channel_id": f"UC-{handle}",
+        "channel": f"{handle} (channel)",
+        "uploader_id": f"@{handle}",
+        "description": "desc",
+        "channel_follower_count": 123456,
+        "thumbnails": [
+            {"url": f"https://yt.test/{handle}.jpg", "width": 800, "height": 800}
+        ],
+    }
+
+
+def miss_youtube_extractor(url: str) -> None:
+    """A yt-dlp extractor that misses every handle (dead/renamed → clean miss)."""
+    return None
 
 
 class FakeResponse:
@@ -50,11 +78,11 @@ class FakeResponse:
 
 
 class FakeHttpClient:
-    """Routes ``.get`` to canned JSON by URL — covers YouTube, iTunes, Wikipedia.
+    """Routes ``.get`` to canned JSON by URL — covers iTunes / Wikipedia / unavatar.
 
-    Each YouTube/iTunes call echoes back a deterministic resolved object derived
-    from the request params, so a handle/term maps to a stable external_id and
-    thumbnail (the DoD's "handle resolves to a real external_id + thumbnail").
+    Each iTunes call echoes back a deterministic resolved object derived from the
+    request params, so a term maps to a stable external_id and artwork. (YouTube is
+    NOT here — it resolves keyless via the injected ``youtube_extractor`` seam.)
     """
 
     def __init__(self) -> None:
@@ -68,8 +96,6 @@ class FakeHttpClient:
         follow_redirects: bool = False,
     ):
         self.calls.append(url)
-        if "youtube" in url:
-            return self._youtube(params or {})
         if "itunes" in url:
             return self._itunes(params or {})
         if "wikipedia" in url:
@@ -83,28 +109,6 @@ class FakeHttpClient:
         # cached avatar; the resolver hot-links the URL on a verified image, so
         # the image content-type drives the ≥90% coverage path.
         return FakeResponse(200, b"", headers={"content-type": "image/jpeg"})
-
-    def _youtube(self, params: dict[str, Any]) -> FakeResponse:
-        handle = params.get("forHandle") or params.get("id") or "unknown"
-        return FakeResponse(
-            200,
-            {
-                "items": [
-                    {
-                        "id": f"UC-{handle}",
-                        "snippet": {
-                            "title": f"{handle} (channel)",
-                            "customUrl": f"@{handle}",
-                            "description": "desc",
-                            "thumbnails": {
-                                "high": {"url": f"https://yt.test/{handle}.jpg"}
-                            },
-                        },
-                        "statistics": {"subscriberCount": "123456"},
-                    }
-                ]
-            },
-        )
 
     def _itunes(self, params: dict[str, Any]) -> FakeResponse:
         term = params.get("term") or "unknown"
@@ -201,7 +205,7 @@ def _run(
         seed_catalog.run_seed(
             supabase_client=supabase,
             http_client=http,  # type: ignore[arg-type]
-            youtube_api_key="TEST-KEY",
+            youtube_extractor=fake_youtube_extractor,
         )
     )
 
@@ -418,18 +422,18 @@ def test_x_accounts_resolve_avatar_via_unavatar(
 
 
 def test_unresolved_channel_is_skipped_not_fatal(supabase: FakeSupabaseClient) -> None:
-    """WHY: one dead handle must not abort the whole batch (Rule 12 — fail per row)."""
+    """WHY: one dead handle must not abort the whole batch (Rule 12 — fail per row).
 
-    class MissHttpClient(FakeHttpClient):
-        def _youtube(self, params: dict[str, Any]) -> FakeResponse:
-            return FakeResponse(200, {"items": []})  # every channel misses
-
-    miss = MissHttpClient()
+    A dead / renamed handle 404s inside yt-dlp → ``DownloadError`` → the extractor
+    returns None (a clean miss). Every channel missing must still complete the run
+    with zero upserts and the misses counted — never a raised exception, never a
+    guessed row.
+    """
     summary = asyncio.run(
         seed_catalog.run_seed(
             supabase_client=supabase,
-            http_client=miss,  # type: ignore[arg-type]
-            youtube_api_key="TEST-KEY",
+            http_client=FakeHttpClient(),  # type: ignore[arg-type]
+            youtube_extractor=miss_youtube_extractor,
             type_filter="channels",
         )
     )
@@ -460,7 +464,7 @@ def test_dry_run_resolves_but_writes_nothing(http: FakeHttpClient) -> None:
         seed_catalog.run_seed(
             supabase_client=None,
             http_client=http,  # type: ignore[arg-type]
-            youtube_api_key="TEST-KEY",
+            youtube_extractor=fake_youtube_extractor,
             dry_run=True,
         )
     )
@@ -471,15 +475,56 @@ def test_dry_run_resolves_but_writes_nothing(http: FakeHttpClient) -> None:
 # ── Resolver unit sanity (Pydantic mapping) ───────────────────────────────────
 
 
-def test_channel_meta_maps_api_item() -> None:
-    """WHY: a field-mapping regression silently corrupts every channel row."""
-    meta = ChannelMeta(
-        channel_id="UC123",
-        title="T",
-        thumbnail_url="https://x/y.jpg",
-        subscriber_count=10,
+def test_channel_meta_maps_ytdlp_info() -> None:
+    """WHY: a field-mapping regression silently corrupts every channel row.
+
+    Maps a yt-dlp ``info`` dict through the exact keyless field contract:
+    channel_id / channel / uploader_id(@-stripped) / channel_follower_count /
+    highest-res thumbnail.
+    """
+    meta = _channel_meta_from_info(
+        {
+            "channel_id": "UC123",
+            "channel": "Andrej Karpathy",
+            "uploader_id": "@AndrejKarpathy",
+            "description": "blurb",
+            "channel_follower_count": 1_530_000,
+            "thumbnails": [
+                {"url": "https://x/small.jpg", "width": 88, "height": 88},
+                {"url": "https://x/big.jpg", "width": 800, "height": 800},
+            ],
+        }
     )
+    assert meta is not None
     assert meta.channel_id == "UC123"
+    assert meta.title == "Andrej Karpathy"
+    assert meta.handle == "AndrejKarpathy"  # leading @ stripped
+    assert meta.subscriber_count == 1_530_000
+    assert meta.thumbnail_url == "https://x/big.jpg"  # highest-res wins
+
+
+def test_channel_meta_none_when_no_channel_id() -> None:
+    """WHY: a page that resolves but is not a channel (no UC… id) is a MISS.
+
+    Without ``channel_id`` there is no stable ``external_id`` (the 0009 unique key),
+    so the row must be dropped rather than seeded under a fabricated identity.
+    """
+    assert _channel_meta_from_info({"channel": "no id here"}) is None
+
+
+def test_resolve_channel_returns_none_on_dead_handle() -> None:
+    """WHY: a dead / renamed handle (yt-dlp DownloadError) → excluded, not guessed.
+
+    The resolver's injected extractor returns None for a dead handle (the real
+    extractor turns yt-dlp's ``DownloadError`` into that None). ``resolve_channel``
+    must surface None — never a fabricated ChannelMeta.
+    """
+    from scripts.seed_catalog.youtube_resolve import resolve_channel
+
+    result = asyncio.run(
+        resolve_channel(handle="@definitely-dead", extractor=lambda url: None)
+    )
+    assert result is None
 
 
 def test_podcast_meta_external_id_is_itunes_prefixed() -> None:

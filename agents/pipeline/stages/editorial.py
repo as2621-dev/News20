@@ -10,9 +10,11 @@ ORIGINAL source, so paraphrasing here never weakens the audio's grounding. The
 returned headline/body replace ``story.canonical_title`` + ``canonical_body_text``
 for the poster concept and the persisted feed headline + ``detail_chunks`` body.
 
-Best-effort: on ANY failure the function returns ``None`` and the caller keeps the
-original source headline + body (Rule 12 — fail safe, logged loudly). Mocked at the
-``LLMClient`` boundary in tests — no live call, no cost.
+Best-effort: on ANY failure — including a rewrite that comes back as an unpublishable
+headline — the function returns ``None`` and the caller falls back to the original
+source headline + body, or DROPS the story when that original is itself unpublishable
+(Rule 12 — fail closed on the headline, logged loudly). Mocked at the ``LLMClient``
+boundary in tests — no live call, no cost.
 
 Input:  a ``CanonicalStory`` (post-verification) + an ``LLMClient``
 Output: an ``EditorialRewrite`` (rewritten headline + body), or ``None`` on failure
@@ -28,6 +30,7 @@ from agents.ingestion.models import CanonicalStory
 from agents.pipeline.json_utils import extract_json_from_llm_response
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.prompts import EDITORIAL_REWRITE_PROMPT
+from agents.shared.headline_quality import headline_rejection_reason
 from agents.shared.logger import get_logger
 
 logger = get_logger("pipeline.stages.editorial")
@@ -112,6 +115,29 @@ async def run_editorial_rewrite(story: CanonicalStory, llm_client: LLMClient) ->
         # question style the prompt forbids; strip it (keep the statement).
         headline = headline.rstrip("? ").strip() or headline
 
+        # Reason: the rewrite is just another headline source, so it faces the same
+        # gate (PRD decision 6). A model that echoes a masthead source title must not
+        # ride through on "the rewrite succeeded" — the caller falls back or drops.
+        rejection_reason = headline_rejection_reason(
+            headline,
+            story.canonical_primary_outlet_name,
+            story.canonical_primary_outlet_domain,
+        )
+        if rejection_reason is not None:
+            logger.error(
+                "editorial_rewrite_rejected",
+                story_id=story.canonical_story_id,
+                headline=headline,
+                rejection_reason=rejection_reason,
+                fix_suggestion=(
+                    "Rewritten headline is not publishable (masthead or fragment); "
+                    "discarded so the caller falls back to the source headline or "
+                    "drops the story. Check the source article body is substantive "
+                    "enough for the rewrite prompt to work from."
+                ),
+            )
+            return None
+
         rewrite = EditorialRewrite(headline=headline, body=body)
         logger.info(
             "editorial_rewrite_completed",
@@ -127,6 +153,8 @@ async def run_editorial_rewrite(story: CanonicalStory, llm_client: LLMClient) ->
             story_id=story.canonical_story_id,
             error_type=type(exc).__name__,
             error_message=str(exc),
-            fix_suggestion="Keeping the original source headline + body for this story.",
+            fix_suggestion="Falling back to the original source headline + body; the "
+            "story is dropped instead if that headline is itself unpublishable "
+            "(a headline_rejected event follows).",
         )
         return None

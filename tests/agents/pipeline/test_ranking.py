@@ -14,11 +14,13 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline import daily_batch
+from agents.pipeline.stages import ranking as ranking_module
 from agents.pipeline.stages.ranking import (
     AFFINITY_WEIGHT,
     DEPTH_MATCH_BY_DEPTH,
@@ -588,6 +590,101 @@ class TestAssignCategory:
         """Edge: an untagged story classifies to the default, never raising."""
         assert assign_category("missing", {}, {}) == "arts"
 
+    def test_no_tags_fallback_is_loud_never_silent(self, monkeypatch) -> None:
+        """Issue #35: the no-tag arts fallback is a DEFINED, LOGGED fallback.
+
+        WHY: a beyond-bubble story with no fetching interest and no matched theme
+        must never silently land in arts — the fallback warns with the story id and
+        a fix_suggestion so the gap is operator-visible (deduped: once per story).
+        """
+        fake_logger = MagicMock()
+        monkeypatch.setattr(ranking_module, "logger", fake_logger)
+        ranking_module._warn_category_fallback_no_tags_once.cache_clear()
+
+        assert assign_category("orphan-story", {}, {}) == "arts"
+
+        fake_logger.warning.assert_called_once()
+        event = fake_logger.warning.call_args.args[0]
+        kwargs = fake_logger.warning.call_args.kwargs
+        assert event == "category_fallback_no_tags"
+        assert kwargs["story_id"] == "orphan-story"
+        assert "fix_suggestion" in kwargs
+
+        # WHY deduped: assign_category runs O(users × call-sites) per story per
+        # batch — the second identical call must NOT add a second log line.
+        assert assign_category("orphan-story", {}, {}) == "arts"
+        fake_logger.warning.assert_called_once()
+
+    def test_same_depth_cross_root_conflict_is_logged(self, monkeypatch) -> None:
+        """Issue #35 edge: two fetching interests under DIFFERENT roots, same depth.
+
+        WHY: the existing lowest-depth rule (slug tiebreak at equal depth) decides —
+        but a cross-root contest is information the operator needs, so it is logged
+        as a structured conflict event with contenders + winner (once per contest).
+        """
+        fake_logger = MagicMock()
+        monkeypatch.setattr(ranking_module, "logger", fake_logger)
+        ranking_module._log_category_conflict_once.cache_clear()
+
+        nodes = {
+            "int-nvda": InterestNode(
+                interest_id="int-nvda",
+                parent_interest_id=None,
+                interest_slug="tech.semiconductors",
+                interest_label="Semiconductors",
+            ),
+            "int-ipl": InterestNode(
+                interest_id="int-ipl",
+                parent_interest_id=None,
+                interest_slug="sport.cricket.ipl",
+                interest_label="IPL",
+            ),
+        }
+        tags_by_story = {"s1": {"int-nvda": 0, "int-ipl": 0}}
+
+        # Slug tiebreak at equal depth: 'sport.cricket.ipl' < 'tech.semiconductors'.
+        assert assign_category("s1", tags_by_story, nodes) == "sport"
+
+        fake_logger.info.assert_called_once()
+        event = fake_logger.info.call_args.args[0]
+        kwargs = fake_logger.info.call_args.kwargs
+        assert event == "category_conflict_lowest_depth_won"
+        assert kwargs["story_id"] == "s1"
+        assert kwargs["winner_category"] == "sport"
+        assert set(kwargs["contender_categories"]) == {"sport", "tech"}
+
+        # WHY deduped: the same contest re-classified for another user/call-site
+        # must NOT add a second conflict line (panel finding: O(users × pool)).
+        assert assign_category("s1", tags_by_story, nodes) == "sport"
+        fake_logger.info.assert_called_once()
+
+    def test_single_root_at_lowest_depth_logs_no_conflict(self, monkeypatch) -> None:
+        """A depth-decided contest (leaf sport vs grandparent world) is the DESIGNED
+        precedence, not a conflict — no conflict event fires."""
+        fake_logger = MagicMock()
+        monkeypatch.setattr(ranking_module, "logger", fake_logger)
+
+        nodes = {
+            "int-cricket": InterestNode(
+                interest_id="int-cricket",
+                parent_interest_id=None,
+                interest_slug="sport.cricket.india",
+                interest_label="India",
+            ),
+            "int-world": InterestNode(
+                interest_id="int-world",
+                parent_interest_id=None,
+                interest_slug="world",
+                interest_label="World",
+            ),
+        }
+        assert (
+            assign_category("s1", {"s1": {"int-cricket": 0, "int-world": 2}}, nodes)
+            == "sport"
+        )
+        fake_logger.info.assert_not_called()
+        fake_logger.warning.assert_not_called()
+
 
 class TestScoreAndClassifyReturnsAllTenKeys:
     """The SP3 handoff contract — all 10 keys, source buckets empty (no breaking)."""
@@ -832,7 +929,9 @@ class TestImportanceWeightFlip:
     _BIG_AFFINITY, _BIG_DEPTH = 0.5, 1  # parent match (DepthMatch 0.6)
     _MINOR_AFFINITY, _MINOR_DEPTH = 1.0, 0  # leaf match (DepthMatch 1.0)
 
-    def _score_at_beta(self, terms: tuple[float, float, float, float], beta: float) -> float:
+    def _score_at_beta(
+        self, terms: tuple[float, float, float, float], beta: float
+    ) -> float:
         """Reconstruct the Score at an arbitrary β from the (score, depth, imp, fresh)."""
         _score, depth_match, importance, freshness = terms
         affinity = self._affinity  # set by the caller for the term being rebuilt
@@ -846,13 +945,18 @@ class TestImportanceWeightFlip:
         story = _story("x", outlet_count=1, published=_NOW)
         self._affinity = affinity
         return affinity, compute_story_score(
-            affinity=affinity, match_depth=depth, story=story, now_utc=_NOW,
+            affinity=affinity,
+            match_depth=depth,
+            story=story,
+            now_utc=_NOW,
             cluster_importance=e1,
         )
 
     def test_minor_wins_at_old_beta_big_wins_at_new_beta(self) -> None:
         """The known minor-vs-major ordering flips between β=0.3 (old) and β=0.45 (new)."""
-        big_aff, big_terms = self._terms(self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1)
+        big_aff, big_terms = self._terms(
+            self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1
+        )
         minor_aff, minor_terms = self._terms(
             self._MINOR_AFFINITY, self._MINOR_DEPTH, self._MINOR_E1
         )
@@ -862,7 +966,9 @@ class TestImportanceWeightFlip:
         big_old = self._score_at_beta(big_terms, 0.3)
         self._affinity = minor_aff
         minor_old = self._score_at_beta(minor_terms, 0.3)
-        assert minor_old > big_old, "at old β=0.3 the minor story should still win (bug)"
+        assert minor_old > big_old, (
+            "at old β=0.3 the minor story should still win (bug)"
+        )
 
         # NEW β=0.45: the genuinely BIG story wins — the bug is fixed.
         self._affinity = big_aff
@@ -881,7 +987,9 @@ class TestImportanceWeightFlip:
             f"IMPORTANCE_WEIGHT={IMPORTANCE_WEIGHT} regressed below the pinned 0.45 — "
             "the big-story-beats-minor flip would break"
         )
-        big_aff, big_terms = self._terms(self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1)
+        big_aff, big_terms = self._terms(
+            self._BIG_AFFINITY, self._BIG_DEPTH, self._BIG_E1
+        )
         minor_aff, minor_terms = self._terms(
             self._MINOR_AFFINITY, self._MINOR_DEPTH, self._MINOR_E1
         )
@@ -980,4 +1088,113 @@ class TestClusterImportanceThreadsThroughScorer:
             interest_nodes=self._NODES,
             now_utc=_NOW,
         )
-        assert buckets["business"][0].importance == pytest.approx(0.5)  # 6/12, unchanged
+        assert buckets["business"][0].importance == pytest.approx(
+            0.5
+        )  # 6/12, unchanged
+
+
+class TestCategoryOverrideEnforcement:
+    """Issue #34 remainder: reconcile's category pin rides an explicit override seam.
+
+    WHY: a cross-category semantic merge must never flip the surviving story into a
+    category contradicting its fetching interest — and enforcement must never ride a
+    ``story_interest_match_depth`` mutation, because that field is the ranker's
+    DepthMatch input persisted verbatim to ``story_interests`` (review-panel HIGH).
+    These tests pin both halves: the category is actually enforced, and a follower of
+    the "losing" interest scores field-for-field identically.
+    """
+
+    _SPORT_ID = "int-sport"
+    _GEO_ID = "int-geo"
+
+    def _nodes(self) -> dict[str, InterestNode]:
+        return {
+            self._SPORT_ID: InterestNode(
+                interest_id=self._SPORT_ID,
+                interest_slug="sport.football",
+                interest_label="Football",
+            ),
+            self._GEO_ID: InterestNode(
+                interest_id=self._GEO_ID,
+                interest_slug="geopolitics.mena",
+                interest_label="MENA",
+            ),
+        }
+
+    def test_override_pins_category_over_lower_depth_foreign_tag(self) -> None:
+        """The pinned category wins outright; unpinned stories keep the depth rule.
+
+        WHY: without the seam the absorbed member's depth-0 geopolitics tag flips
+        the merged sport story into geopolitics — the exact #34 criterion-4 failure.
+        """
+        tags_by_story = {"merged-1": {self._SPORT_ID: 1, self._GEO_ID: 0}}
+        nodes = self._nodes()
+        # Normal rule: the lower-depth foreign tag wins (the flip the pin prevents).
+        assert assign_category("merged-1", tags_by_story, nodes) == "geopolitics"
+        # Enforced: the reconcile pin wins, skipping the depth/slug rule.
+        assert (
+            assign_category("merged-1", tags_by_story, nodes, {"merged-1": "sport"})
+            == "sport"
+        )
+        # A story absent from the map is untouched by someone else's override.
+        assert (
+            assign_category("merged-1", tags_by_story, nodes, {"other": "arts"})
+            == "geopolitics"
+        )
+
+    def test_pin_rebuckets_story_without_perturbing_losing_followers_score(self) -> None:
+        """A follower of the LOSING (geopolitics) interest scores IDENTICALLY with the
+        pin on — only the bucket moves.
+
+        WHY (review-panel HIGH): the guard must never steer categories via a depth
+        clamp — this follower's DepthMatch reads the same persisted depth either way.
+        If any score term drifts when the pin is applied, the guard is corrupting
+        personalization to win the category contest.
+        """
+        user = [
+            UserProfileInterest(profile_interest_id=self._GEO_ID, profile_weight=3.0)
+        ]
+        nodes = self._nodes()
+        story = _story("merged-1", 6)
+        tags = [
+            StoryInterestTag(
+                story_interest_story_id="merged-1",
+                story_interest_interest_id=self._SPORT_ID,
+                story_interest_match_depth=1,
+            ),
+            StoryInterestTag(
+                story_interest_story_id="merged-1",
+                story_interest_interest_id=self._GEO_ID,
+                story_interest_match_depth=0,
+            ),
+        ]
+        baseline = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[],
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+        )
+        pinned = score_and_classify_for_user(
+            profile_interests=user,
+            followed_entities=[],
+            stories=[story],
+            story_interest_tags=tags,
+            interest_nodes=nodes,
+            now_utc=_NOW,
+            category_override_by_story={"merged-1": "sport"},
+        )
+
+        base = baseline["geopolitics"][0]
+        pin = pinned["sport"][0]
+        # ENFORCEMENT: the bucket moved to the pinned category — and only the bucket.
+        assert baseline["sport"] == []
+        assert pinned["geopolitics"] == []
+        assert pin.feed_category == "sport"
+        # Field-for-field score parity for the losing interest's follower.
+        assert pin.score == base.score
+        assert pin.affinity == base.affinity
+        assert pin.depth_match == base.depth_match
+        assert pin.importance == base.importance
+        assert pin.freshness == base.freshness

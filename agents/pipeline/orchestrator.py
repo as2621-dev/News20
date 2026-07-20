@@ -42,17 +42,22 @@ from agents.pipeline.feed_assembly import (
     write_daily_feed,
 )
 from agents.pipeline.niche_allocation import NicheAllocationRow
+from agents.pipeline.x_theme_ladder import XThemeReelCandidate
 from agents.pipeline.detail_templates import detail_category_for_segment
 from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import CoverageReport, DigestScript, WritePhaseResult
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
-from agents.pipeline.persist_helpers import resolve_segment_from_tags
+from agents.pipeline.persist_helpers import (
+    reject_unpublishable_headline,
+    resolve_segment_from_tags,
+)
+from agents.pipeline.poster_gate import poster_generation_disabled
 from agents.pipeline.stages.coverage_gdelt import build_coverage_report
 from agents.pipeline.stages.detail_enrichment import (
     DetailEnrichment,
     run_detail_enrichment,
 )
-from agents.pipeline.categories import CategoryAllocation
+from agents.pipeline.categories import CategoryAllocation, FeedCategory
 from agents.pipeline.stages.ranking import FollowedEntity, UserProfileInterest
 from agents.pipeline.stages.acoustic_alignment import acoustically_align_turn_windows
 from agents.pipeline.stages.forced_alignment import (
@@ -65,7 +70,11 @@ from agents.pipeline.stages.forced_alignment import (
 from agents.pipeline.stages.editorial import run_editorial_rewrite
 from agents.pipeline.stages.scripting import run_single_source_scripting
 from agents.pipeline.stages.verification import run_single_source_verification
-from agents.shared.exceptions import VerificationHaltError
+from agents.shared.exceptions import (
+    HeadlineQualityError,
+    SegmentResolutionError,
+    VerificationHaltError,
+)
 from agents.shared.logger import get_logger
 from agents.voice.audio import assemble_episode
 from agents.voice.gemini_tts import GeminiTTSClient, render_full_dialogue
@@ -310,6 +319,14 @@ def generate_poster_bytes(
     Returns:
         The graded poster PNG bytes, or None when disabled/failed.
     """
+    # Reason (issue #32 kill switch): DISABLE_POSTER_GEN must stop ALL image-model
+    # spend even if an entry point constructed and injected a client — forcing the
+    # client to None here (the single choke point every production path funnels
+    # through) reuses the proven None-handling below. The FREE supplied-image path
+    # for source-origin stories never touches the client, so it keeps working.
+    if poster_generation_disabled():
+        poster_genai_client = None
+
     # Reason (Phase 5d SP4): a source-origin story (followed YouTube channel / X
     # account — recognised purely by its youtube.com / x.com outlet domain) carries
     # its own image (video thumbnail / tweet screenshot) on
@@ -471,6 +488,11 @@ async def write_phase(
     Returns:
         A :class:`WritePhaseResult`, or ``None`` when verification HALTs (the story
         is ungrounded vs its single source and must never publish).
+
+    Raises:
+        SegmentResolutionError: When the story resolves to no canonical segment root.
+            Raised BEFORE any LLM call, so a story that can never be filed honestly
+            costs nothing to reject.
     """
     # Reason: resolve the segment ONCE — both detail stages + persist must agree
     # (the second-analytic kind, coverage mode, and stored story_segment_slug all
@@ -478,6 +500,13 @@ async def write_phase(
     segment_slug = resolve_segment_from_tags(
         story_interest_tags, interest_segment_lookup
     )
+    if segment_slug is None:
+        raise SegmentResolutionError(story_id=story.canonical_story_id)
+    # Reason: with no rewrite to rescue it, a masthead/fragment source title can only
+    # end up as the published headline — reject it here, before any LLM spend. With
+    # the rewrite on, the story gets its chance and is re-checked after (below).
+    if not enable_editorial_rewrite:
+        reject_unpublishable_headline(story, story_id=story_id)
     logger.info(
         "write_phase_started",
         story_id=story.canonical_story_id,
@@ -521,6 +550,11 @@ async def write_phase(
                     "canonical_body_text": rewrite.body,
                 }
             )
+        # Reason: fail CLOSED (PRD decision 6). The fallback above is only safe when
+        # the title it falls back to is itself publishable — when the rewrite failed
+        # on a masthead source title, falling back republishes the masthead, which is
+        # exactly how the "Language Magazine" reel shipped.
+        reject_unpublishable_headline(editorial_story, story_id=story_id)
 
     return WritePhaseResult(
         canonical_story_id=story.canonical_story_id,
@@ -543,7 +577,6 @@ async def render_phase(
     poster_genai_client: Any | None = None,
     poster_builder: Any | None = None,
     enable_detail_enrichment: bool = False,
-    interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: GdeltDocAdapter | None = None,
 ) -> OrchestratorResult:
@@ -563,12 +596,16 @@ async def render_phase(
         poster_genai_client: ``google.genai`` client (None to skip posters).
         poster_builder: Optional poster-builder override (tests inject a stub).
         enable_detail_enrichment: Phase 2c gate (grounded enrichment + GDELT census).
-        interest_segment_lookup: ``{interest_id: segment_slug}`` (persist lookup).
         outlets_lookup: ``{outlet_domain: bias_lean}`` (GDELT census).
         gdelt_adapter: The SHARED ``GdeltDocAdapter`` (None skips the GDELT census).
 
     Returns:
         An :class:`OrchestratorResult` with ``published=True`` once persisted.
+
+    Note:
+        RENDER does NOT take an ``interest_segment_lookup`` — the segment is
+        resolved ONCE in ``write_phase`` and travels on ``write_result.segment_slug``.
+        Persist consumes that, so render has nothing to re-resolve (issue #61).
     """
     start_time = time.monotonic()
     script = write_result.script
@@ -624,7 +661,9 @@ async def render_phase(
         story_id=write_result.story_id,
         enrichment=enrichment,
         coverage_report=coverage_report,
-        interest_segment_lookup=interest_segment_lookup,
+        # Reason: the segment resolved ONCE in write_phase — persist consumes it
+        # instead of re-resolving from the raw tags (issue #61).
+        segment_slug=write_result.segment_slug,
     )
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
@@ -701,16 +740,35 @@ async def orchestrate_story(
         >>> result.published
         True
     """
-    write_result = await write_phase(
-        story,
-        story_interest_tags,
-        llm_client,
-        story_id=story_id,
-        suggested_questions=suggested_questions,
-        enable_editorial_rewrite=enable_editorial_rewrite,
-        interest_segment_lookup=interest_segment_lookup,
-        pool_index=pool_index,
-    )
+    try:
+        write_result = await write_phase(
+            story,
+            story_interest_tags,
+            llm_client,
+            story_id=story_id,
+            suggested_questions=suggested_questions,
+            enable_editorial_rewrite=enable_editorial_rewrite,
+            interest_segment_lookup=interest_segment_lookup,
+            pool_index=pool_index,
+        )
+    except SegmentResolutionError:
+        # Reason: the rejection is already logged in full (with fix_suggestion) by
+        # the resolver; here it only has to become a distinct, non-published outcome
+        # so it is never conflated with a verification halt.
+        return OrchestratorResult(
+            story_id=story.canonical_story_id,
+            published=False,
+            skip_reason="segment_unresolved",
+        )
+    except HeadlineQualityError:
+        # Reason: same shape as the segment rejection — already logged in full, so
+        # here it only becomes its own non-published outcome (never conflated with a
+        # verification halt or a stage failure).
+        return OrchestratorResult(
+            story_id=story.canonical_story_id,
+            published=False,
+            skip_reason="headline_rejected",
+        )
     if write_result is None:
         return OrchestratorResult(
             story_id=story.canonical_story_id,
@@ -718,18 +776,27 @@ async def orchestrate_story(
             skip_reason="verification_halt",
         )
 
-    return await render_phase(
-        write_result,
-        tts_client,
-        supabase_client,
-        llm_client=llm_client,
-        poster_genai_client=poster_genai_client,
-        poster_builder=poster_builder,
-        enable_detail_enrichment=enable_detail_enrichment,
-        interest_segment_lookup=interest_segment_lookup,
-        outlets_lookup=outlets_lookup,
-        gdelt_adapter=gdelt_adapter,
-    )
+    try:
+        return await render_phase(
+            write_result,
+            tts_client,
+            supabase_client,
+            llm_client=llm_client,
+            poster_genai_client=poster_genai_client,
+            poster_builder=poster_builder,
+            enable_detail_enrichment=enable_detail_enrichment,
+            outlets_lookup=outlets_lookup,
+            gdelt_adapter=gdelt_adapter,
+        )
+    except HeadlineQualityError:
+        # Reason: persist re-gates the headline as the last line of defence, so the
+        # rejection can also surface here (after a render). Same non-published
+        # outcome — a caller must never see it as a stage failure.
+        return OrchestratorResult(
+            story_id=story.canonical_story_id,
+            published=False,
+            skip_reason="headline_rejected",
+        )
 
 
 class ActiveUserFeedInputs(BaseModel):
@@ -828,7 +895,9 @@ def assemble_daily_feeds(
     supabase_client: Any,
     now_utc: Any = None,
     source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
+    x_theme_candidates_by_user: dict[str, list[XThemeReelCandidate]] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> DailyFeedsBatchResult:
     """Assemble + persist a per-user ``daily_feeds`` feed for every active user.
 
@@ -857,12 +926,24 @@ def assemble_daily_feeds(
             user's followed YouTube/X reels produced this run, used to fill their
             ``youtube``/``x`` source slots (phase-5d). ``None`` → no source slots
             (every source budget soft-rolls into topics, the legacy behaviour).
+        x_theme_candidates_by_user: ``{user_id: [produced X theme reels]}`` — the user's
+            followed clusters' theme-of-the-day reels (slice #24). Eligibility is per
+            user (slice #31): a user PRESENT in the dict gets the honest theme ladder
+            for their ``x`` slots (theme → second theme → roundup, rung-stamped; an
+            EMPTY list rolls their x slots to the news floor), while a user ABSENT
+            from the dict keeps the legacy source-stories x fill. ``None`` → the
+            legacy x fill for everyone (no theme ladder).
         cluster_importance_by_story: ``{story_id: cluster_importance}`` — the E1
             within-category-normalized importance (FSR-M3) for clustered stories,
             SHARED across users (importance is intrinsic, not per-user). Threaded into
             each user's ``assemble_user_feed`` so a clustered story's Importance term is
             its authority-weighted E1 score; un-clustered stories fall back to the raw
             outlet count (Rule 3 — additive). ``None`` → the pre-M3 raw-importance feed.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile stage's
+            enforced category pins for cross-category merged stories (issue #34), SHARED
+            across users (a story's category is intrinsic). Threaded into each user's
+            assembly so classification can never flip a merged story away from its
+            fetching interest's category. ``None`` → classification exactly as before.
 
     Returns:
         A :class:`DailyFeedsBatchResult` summarizing writes/skips per user.
@@ -913,7 +994,17 @@ def assemble_daily_feeds(
             source_stories=(
                 (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
             ),
+            x_theme_candidates=(
+                None
+                if x_theme_candidates_by_user is None
+                # Reason (slice #31): eligibility is PER USER — a user present in the
+                # dict follows >= 1 X cluster and gets the honest ladder (even with an
+                # empty list → x slots roll to the news floor); a user ABSENT from the
+                # dict follows no X cluster and keeps the legacy source-stories x fill.
+                else x_theme_candidates_by_user.get(user_inputs.active_user_id)
+            ),
             cluster_importance_by_story=cluster_importance_by_story,
+            category_override_by_story=category_override_by_story,
             mute_terms=user_inputs.mute_terms,
             now_utc=now_utc,
         )

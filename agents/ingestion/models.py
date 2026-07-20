@@ -254,7 +254,9 @@ class CanonicalStory(BaseModel):
 
     Attributes:
         canonical_story_id: Provisional deterministic story id (stable per cluster).
-        canonical_title: Representative headline (the earliest member's title).
+        canonical_title: Representative headline (the best-titled member's — a
+            masthead/fragment title loses to a publishable one; see
+            ``agents.shared.headline_quality``).
         canonical_url: Representative article URL.
         canonical_normalized_url: Normalized representative URL (the cluster key).
         canonical_published_utc: Earliest publication time across the cluster.
@@ -382,6 +384,8 @@ class IngestionResult(BaseModel):
         story_interest_tags: All `story_interests` row payloads (leaf + ancestors).
         active_interests: The active-interest set that was ingested.
         total_candidates_fetched: Raw candidate count before dedup (for monitoring).
+        skipped_queryless_interests: Followed interests skipped for a missing/empty
+            ``interest_search_query`` (explicit 0 when none — issue #36 fail-loud).
 
     Example:
         >>> result = IngestionResult(
@@ -406,4 +410,10 @@ class IngestionResult(BaseModel):
     )
     total_candidates_fetched: int = Field(
         default=0, ge=0, description="Raw candidate count before dedup (monitoring)"
+    )
+    skipped_queryless_interests: int = Field(
+        default=0,
+        ge=0,
+        description="Followed interests skipped for a missing/empty "
+        "interest_search_query — explicit 0 when none (issue #36 fail-loud)",
     )

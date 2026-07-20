@@ -54,6 +54,14 @@ export interface QuestionAnswer {
   answer_citations: AnswerCitation[];
   /** `true` → render the grounded bubble + chips; `false` → render the refusal card only. */
   answer_is_grounded: boolean;
+  /**
+   * CLIENT-ONLY (issue #40): `true` when the REQUEST itself failed (network
+   * error, non-200, malformed body) — i.e. the worker's verdict never reached
+   * us. Never sent by the server (its refusals omit this). Drives the
+   * retryable error state in the ask sheet; a server refusal must NOT be
+   * retry-styled (retrying a genuine "can't answer from source" is pointless).
+   */
+  answer_request_failed?: boolean;
 }
 
 /**

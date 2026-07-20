@@ -9,6 +9,9 @@
  * **Thread model (Bug 3).** The sheet holds the FULL conversation: every
  * completed turn renders as a question bubble + answer bubble (or refusal
  * card), with the in-flight question + typing dots appended while thinking.
+ * A question whose REQUEST failed (issue #40 — `answer_request_failed`) stays
+ * visible with a retryable error card instead of wiping or faking a refusal;
+ * failed turns are in-session only (never persisted).
  * Each ask ships the recent prior turns to the worker
  * (`askQuestion(..., conversation_turns)`) so follow-ups like "what about its
  * margins?" resolve against the thread, not in isolation.
@@ -30,6 +33,7 @@
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
+import { useBottomAnchoredScroll } from "@/lib/chat/useBottomAnchoredScroll";
 import { logger } from "@/lib/logger";
 import { askQuestion } from "@/lib/qa/askQuestion";
 import { loadQaThreadForStory, saveQaThreadForStory } from "@/lib/qa/qaHistoryStore";
@@ -97,11 +101,14 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
     () => loadQaThreadForStory(story.digest_id)?.draft_question_text ?? "",
   );
   const [pendingQuestionText, setPendingQuestionText] = useState<string | null>(null);
+  // A question whose REQUEST failed (issue #40): stays visible with a retry
+  // affordance instead of entering the thread as a fake refusal. In-session
+  // only — never persisted (a reopened sheet shows completed turns only).
+  const [failedQuestionText, setFailedQuestionText] = useState<string | null>(null);
   const followupInputRef = useRef<HTMLInputElement>(null);
-  const threadEndRef = useRef<HTMLDivElement>(null);
 
   const isThinking = pendingQuestionText !== null;
-  const hasThread = completedTurns.length > 0 || isThinking;
+  const hasThread = completedTurns.length > 0 || isThinking || failedQuestionText !== null;
   const lastCompletedTurn = completedTurns.length > 0 ? completedTurns[completedTurns.length - 1] : null;
 
   // Persist the latest thread + draft once on unmount (sheet close / story
@@ -117,14 +124,13 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
     };
   }, [story.digest_id]);
 
-  // Keep the newest bubbles in view as the thread grows.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on thread growth only.
-  useEffect(() => {
-    // Reason: guarded — scrollIntoView is missing in jsdom (tests) and some WebViews.
-    if (typeof threadEndRef.current?.scrollIntoView === "function") {
-      threadEndRef.current.scrollIntoView({ block: "end" });
-    }
-  }, [completedTurns.length, pendingQuestionText]);
+  // Keep the newest bubbles in view as the thread grows — but never yank a
+  // user who scrolled up to reread (issue #40 chat contract).
+  const { scrollContainerRef, handleScroll } = useBottomAnchoredScroll<HTMLDivElement>([
+    completedTurns.length,
+    pendingQuestionText,
+    failedQuestionText,
+  ]);
 
   /** Run a question through grounded Q&A and append the completed turn. */
   async function runAsk(question_text: string): Promise<void> {
@@ -135,6 +141,7 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
       turn_count: completedTurns.length,
     });
     setPendingQuestionText(question_text);
+    setFailedQuestionText(null);
 
     let answer: CompletedQaTurn["answer"];
     try {
@@ -142,21 +149,29 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
       logger.info(answer.answer_is_grounded ? "type_ask_answered" : "type_ask_refusal", {
         story_id,
         answer_is_grounded: answer.answer_is_grounded,
+        answer_request_failed: answer.answer_request_failed === true,
         citation_count: answer.answer_citations.length,
       });
     } catch (error: unknown) {
-      // askQuestion already degrades to a safe refusal — this guard is belt-and-suspenders.
+      // askQuestion already degrades to a safe refusal, so this branch is
+      // unreachable by contract — degrade straight to the retryable failed
+      // state instead of duplicating the refusal payload here (review).
       logger.error("type_ask_unexpected_error", {
         story_id,
         error_message: error instanceof Error ? error.message : "Unknown error",
         fix_suggestion: "askQuestion should never reject — check askQuestion.ts for the safe refusal fallback.",
       });
-      answer = {
-        answer_text:
-          "I can only answer from this story’s source — that isn’t available right now. Try a suggested question, or ask again in a moment.",
-        answer_citations: [],
-        answer_is_grounded: false,
-      };
+      setFailedQuestionText(question_text);
+      setPendingQuestionText(null);
+      return;
+    }
+
+    // A REQUEST failure is retryable, not a turn (issue #40): keep the question
+    // visible with a retry affordance; never enter it into the persisted thread.
+    if (answer.answer_request_failed === true) {
+      setFailedQuestionText(question_text);
+      setPendingQuestionText(null);
+      return;
     }
 
     setCompletedTurns((previousTurns) => {
@@ -181,6 +196,14 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
     void runAsk(trimmed);
   }
 
+  /** Retry the failed question (review LOW): guarded against double-click double-asks. */
+  function retryFailedQuestion(): void {
+    if (failedQuestionText === null || isThinking) {
+      return;
+    }
+    void runAsk(failedQuestionText);
+  }
+
   /** Handle the main composer form submit. */
   function handleComposerSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -201,11 +224,27 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
       {/* ── BODY: EMPTY (suggested questions) or the full THREAD ── */}
       {hasThread ? (
         <div className="sheet-body">
-          <div className="thread">
+          <div className="thread" ref={scrollContainerRef} onScroll={handleScroll}>
             {completedTurns.map((turn, turnIndex) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: append-only thread; index IS the turn identity.
               <CompletedTurnRows key={turnIndex} turn={turn} />
             ))}
+            {failedQuestionText !== null && !isThinking ? (
+              <>
+                <div className="row-q">
+                  <div className="bub-q">{failedQuestionText}</div>
+                </div>
+                <div className="row-a">
+                  <div className="ask-error">
+                    <div className="rl">ANSWER DIDN&rsquo;T ARRIVE</div>
+                    <p>That didn&rsquo;t go through. Your question is still here.</p>
+                    <button type="button" className="ask-error-retry" onClick={retryFailedQuestion}>
+                      Try again
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
             {isThinking ? (
               <>
                 <div className="row-q">
@@ -220,7 +259,6 @@ export function AskSheetType({ story, onOpenArticle }: AskSheetTypeProps) {
                 </div>
               </>
             ) : null}
-            <div ref={threadEndRef} />
           </div>
         </div>
       ) : (

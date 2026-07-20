@@ -1,7 +1,7 @@
 """Gemini embedding adapter for the online clusterer (Milestone M3a, Sub-phase 1).
 
 Vectorizes story text into L2-normalized 768-d embeddings using Gemini's
-``text-embedding-004`` model. The adapter REUSES the existing
+``gemini-embedding-001`` model (768-d via ``output_dimensionality``). The adapter REUSES the existing
 ``agents.pipeline.llm_clients.LLMClient`` — its lazily-built ``google.genai``
 client and its ``_retry_with_backoff`` wrapper — so there is exactly one genai
 client in the pipeline and one retry policy (CLAUDE.md Rule 2 / Rule 3; phase
@@ -43,9 +43,14 @@ if TYPE_CHECKING:
 
 logger = get_logger("pipeline.clustering.embeddings")
 
-# Reason: text-embedding-004 emits stable 768-d vectors (phase spec §3, owner-
-# approved). Pinned as the default so the migration's vector(768) column matches.
-DEFAULT_EMBEDDING_MODEL = "text-embedding-004"
+# Reason: gemini-embedding-001 is the current GA embedding model on the Gemini API
+# (the older text-embedding-004/-005 ids now 404 on v1beta). It defaults to 3072-d
+# but accepts output_dimensionality — pinned to 768 (below) so the migration's
+# vector(768) column and the persisted cluster centroids still match. Non-3072
+# outputs are NOT pre-normalized by the model, but embed_texts L2-normalizes every
+# vector (see _parse_embed_response), so cosine == dot product still holds.
+DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
+DEFAULT_EMBEDDING_DIM = 768
 DEFAULT_BATCH_SIZE = 100
 
 
@@ -70,8 +75,8 @@ async def embed_texts(
         llm_client: The shared ``LLMClient`` whose ``_get_gemini_client`` and
             ``_retry_with_backoff`` are reused. Injected so tests can mock the
             genai boundary.
-        model: The Gemini embedding model id (defaults to ``text-embedding-004``,
-            768-d).
+        model: The Gemini embedding model id (defaults to ``gemini-embedding-001``,
+            pinned to 768-d via ``output_dimensionality``).
         batch_size: Maximum number of texts per ``embed_content`` call.
 
     Returns:
@@ -106,8 +111,18 @@ async def embed_texts(
         async def _call(batch_to_embed: list[str] = batch) -> Any:
             # Reason: reuse the LLMClient's lazily-built genai client + its async
             # embed surface — do NOT construct a second client (phase spec §14).
+            # output_dimensionality pins gemini-embedding-001 (default 3072-d) to
+            # the 768-d the vector(768) column + centroid math expect.
+            from google.genai import types as genai_types
+
             client = llm_client._get_gemini_client()
-            return await client.aio.models.embed_content(model=model, contents=batch_to_embed)
+            return await client.aio.models.embed_content(
+                model=model,
+                contents=batch_to_embed,
+                config=genai_types.EmbedContentConfig(
+                    output_dimensionality=DEFAULT_EMBEDDING_DIM
+                ),
+            )
 
         try:
             response = await llm_client._retry_with_backoff("gemini_embed", _call)

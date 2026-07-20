@@ -17,6 +17,7 @@
  */
 
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { SourceAvatarImage } from "@/components/blip/library/SourceAvatarImage";
 import { AddInterestOverlay, AddSourceSearch } from "@/components/blip/library/SourcesAddControls";
 import { formatSubscriberCount } from "@/components/blip/reel/SettingsLayer";
 import { getUserInterests, type UserInterestChip } from "@/lib/interests";
@@ -211,12 +212,7 @@ export function SourcesScreen() {
                 return (
                   <div className="follow-row" key={source.source_id}>
                     <div className="av sq">
-                      {source.thumbnail_url ? (
-                        // biome-ignore lint/performance/noImgElement: small remote avatar in a static export; next/image is inappropriate here.
-                        <img src={source.thumbnail_url} alt="" />
-                      ) : (
-                        <span className="mono">{source.source_name.charAt(0).toUpperCase()}</span>
-                      )}
+                      <SourceAvatarImage thumbnail_url={source.thumbnail_url} source_name={source.source_name} />
                       <span className="pbadge">
                         <Glyph id={axis.glyph} />
                       </span>

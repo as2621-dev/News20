@@ -387,6 +387,13 @@ async def test_category_skip_offer_turn_is_deterministic_and_no_llm() -> None:
     labels = [b.bubble_label for b in response.bubbles]
     assert CATEGORY_SKIP_ACCEPT_LABEL in labels
     assert CATEGORY_SKIP_DECLINE_LABEL in labels
+    # The ACCEPT must be a tappable OPTION, not a skip-kind bubble. The engine registers the
+    # accept only when its LABEL rides in bubbles_tapped (_tapped_label), but the chat client
+    # renders a skip-kind bubble as its "skip → empty answer" affordance, which strips the label
+    # and makes the accept unreachable in-UI (slice #18 acceptance criterion: skip fast-forward
+    # must work in-UI). A regression back to bubble_kind="skip" here re-breaks it.
+    accept = next(b for b in response.bubbles if b.bubble_label == CATEGORY_SKIP_ACCEPT_LABEL)
+    assert accept.bubble_kind == "option"
 
 
 @pytest.mark.asyncio

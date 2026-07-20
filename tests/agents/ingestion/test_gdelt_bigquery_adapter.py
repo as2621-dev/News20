@@ -20,6 +20,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from structlog.testing import capture_logs
 
 from agents.ingestion.adapters.gdelt_bigquery import (
     _BATCH_SQL,
@@ -29,6 +30,7 @@ from agents.ingestion.adapters.gdelt_bigquery import (
     recall_terms,
 )
 from agents.ingestion.dedup import StoryClusterer
+from agents.ingestion.models import ActiveInterest
 from agents.shared.exceptions import AdapterFetchError
 
 _SINCE = datetime(2026, 5, 30, 12, 30, 0, tzinfo=timezone.utc)
@@ -173,13 +175,19 @@ class TestRowsToCandidates:
         """A NULL V2Themes yields [] (the no-theme story must not crash ingest)."""
         adapter = GdeltBigQueryAdapter()
         rows = [make_bq_row("https://x.com/a", "T", "x.com", v2_themes=None)]
-        assert adapter._rows_to_candidates(rows, stamp_interest=True)[0].candidate_themes == []
+        assert (
+            adapter._rows_to_candidates(rows, stamp_interest=True)[0].candidate_themes
+            == []
+        )
 
     def test_v2_themes_empty_string_yields_empty_list(self, make_bq_row) -> None:
         """An empty-string V2Themes yields [] (same fail-safe as NULL)."""
         adapter = GdeltBigQueryAdapter()
         rows = [make_bq_row("https://x.com/a", "T", "x.com", v2_themes="")]
-        assert adapter._rows_to_candidates(rows, stamp_interest=True)[0].candidate_themes == []
+        assert (
+            adapter._rows_to_candidates(rows, stamp_interest=True)[0].candidate_themes
+            == []
+        )
 
 
 class TestBatchSqlIncludesThemes:
@@ -323,7 +331,9 @@ class TestSearchActiveInterests:
             ActiveInterest(
                 interest_id=interest_ids["arsenal"],
                 interest_slug="sport.soccer.arsenal",
-                interest_search_query="Arsenal FC news Premier League",
+                # Reason: comma-joined anchor PHRASES (the seeder/interview convention) —
+                # 'FC'/'news' are stopwords, so this yields 3 phrase anchors.
+                interest_search_query="Arsenal, Premier League, Emirates Stadium",
             )
         ]
 
@@ -332,8 +342,15 @@ class TestSearchActiveInterests:
         assert len(cands) == 1
         assert cands[0].candidate_matched_interest_id == interest_ids["arsenal"]
         job_config = client.captured["job_config"]
-        # 3 anchor terms (arsenal, premier, league) → 3 structs
-        assert len(_param(job_config, "interest_terms").values) == 3
+        # 3 phrase anchors (arsenal, premier league, emirates stadium) → 3 structs
+        structs = _param(job_config, "interest_terms").values
+        assert len(structs) == 3
+        # each struct carries the lexical-key fields the SQL twin evaluates
+        terms_by_regex = {s.struct_values["term"]: s.struct_values for s in structs}
+        assert r"\barsenal\b" in terms_by_regex
+        assert r"\bpremier\s+league\b" in terms_by_regex  # phrase, not two words
+        # none of these are short/ambiguous, so none require a title match
+        assert all(sv["requires_title"] is False for sv in terms_by_regex.values())
         assert _param(job_config, "per_interest_limit").value == 75
         # since_partition floored to midnight UTC of since's day
         assert _param(job_config, "since_partition").value == datetime(
@@ -489,3 +506,170 @@ class TestSearchRecallPath:
         adapter = GdeltBigQueryAdapter(client=client)
         assert await adapter.search("the and for", _SINCE) == []
         assert client.query.call_count == 0
+
+
+class TestLexicalKeyWiring:
+    """The lexical key (slice #50) wired into the batched path — the SQL⇄Python twin.
+
+    These prove the SQL admission gate is the twin of ``interest_lexical`` (behaviour
+    tested in ``test_interest_lexical.py``): the JOIN evaluates the same predicate,
+    the structs carry the phrase regex + ``requires_title`` flag, banned standalone
+    generics never reach the query, and the term-hygiene gap is surfaced (criterion 5).
+    """
+
+    def test_sql_join_predicate_mirrors_evaluator(self) -> None:
+        """WHY: the SQL cannot run offline, so its equivalence to
+        ``evaluate_anchor_match`` rests on this predicate string. The JOIN must gate on
+        the haystack AND require the title for a ``requires_title`` anchor — drop either
+        clause and the lexical key silently regresses to bag-of-words admission."""
+        assert "REGEXP_CONTAINS(b.hay, t.term)" in _BATCH_SQL
+        assert (
+            "AND (NOT t.requires_title OR REGEXP_CONTAINS(b.title_hay, t.term))"
+            in _BATCH_SQL
+        )
+
+    @pytest.mark.asyncio
+    async def test_phrase_anchor_builds_contiguous_regex_struct(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """WHY: 'data center' must reach BigQuery as ONE contiguous-phrase regex, not
+        two independent word terms — the difference between rejecting and admitting the
+        zoning-lawsuit false positive class."""
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://x.com/a", "T", "x.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="dc",
+                interest_slug="tech.data-center-buildout",
+                interest_search_query="data center buildout",
+            )
+        ]
+
+        await adapter.search_active_interests(active, _SINCE)
+
+        structs = _param(client.captured["job_config"], "interest_terms").values
+        assert len(structs) == 1
+        assert structs[0].struct_values["term"] == r"\bdata\s+center\s+buildout\b"
+        assert structs[0].struct_values["requires_title"] is False
+
+    @pytest.mark.asyncio
+    async def test_short_anchor_struct_requires_title(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """WHY: the ``requires_title`` flag is what the SQL twin reads to gate a
+        short/ambiguous anchor to a title match — it must be True on the struct."""
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://x.com/a", "T", "x.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="cric",
+                interest_slug="sport.cricket.ipl",
+                interest_search_query="india cricket, ipl",
+            )
+        ]
+
+        await adapter.search_active_interests(active, _SINCE)
+
+        structs = _param(client.captured["job_config"], "interest_terms").values
+        flags = {
+            s.struct_values["term"]: s.struct_values["requires_title"] for s in structs
+        }
+        assert flags[r"\bindia\s+cricket\b"] is False  # phrase → haystack ok
+        assert flags[r"\bipl\b"] is True  # short → title required
+
+    @pytest.mark.asyncio
+    async def test_banned_only_interest_skipped_logs_hygiene_gap_no_query(
+        self, make_fake_bq_client
+    ) -> None:
+        """WHY (criterion 5): an interest built only from banned generics can match
+        NOTHING. It must be skipped with a structured ``interest_term_hygiene_gap``
+        warning naming the banned anchors + a fix_suggestion — never silently
+        unmatchable — and must not waste a BigQuery query."""
+        client = make_fake_bq_client(rows=[])
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="bad",
+                interest_slug="ai.foundation",
+                interest_search_query="foundation, trust",
+            )
+        ]
+
+        with capture_logs() as logs:
+            result = await adapter.search_active_interests(active, _SINCE)
+
+        assert result == []
+        assert client.query.call_count == 0  # no term predicates → no wasted query
+        gaps = [log for log in logs if log["event"] == "interest_term_hygiene_gap"]
+        assert len(gaps) == 1
+        assert gaps[0]["log_level"] == "warning"
+        assert gaps[0]["interest_slug"] == "ai.foundation"
+        assert gaps[0]["banned_anchors"] == ["foundation", "trust"]
+        assert gaps[0]["usable_anchors"] == 0
+        assert "fix_suggestion" in gaps[0]
+
+    @pytest.mark.asyncio
+    async def test_all_short_interest_enqueues_but_logs_hygiene_gap(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """WHY (criterion 5): an interest whose only anchors are short/ambiguous is
+        usable (title-only) but fragile — it is still enqueued (a term IS sent) AND the
+        hygiene gap is surfaced so the anchor set can be strengthened."""
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://x.com/a", "T", "x.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="short",
+                interest_slug="markets.oil",
+                interest_search_query="oil, gas",
+            )
+        ]
+
+        with capture_logs() as logs:
+            await adapter.search_active_interests(active, _SINCE)
+
+        # the interest is NOT skipped — its short anchors are still queried
+        assert client.query.call_count == 1
+        structs = _param(client.captured["job_config"], "interest_terms").values
+        assert len(structs) == 2
+        assert all(s.struct_values["requires_title"] is True for s in structs)
+        gaps = [log for log in logs if log["event"] == "interest_term_hygiene_gap"]
+        assert len(gaps) == 1
+        assert gaps[0]["interest_slug"] == "markets.oil"
+        assert gaps[0]["strong_anchors"] == 0
+        assert "fix_suggestion" in gaps[0]
+
+    @pytest.mark.asyncio
+    async def test_healthy_interest_logs_no_hygiene_gap(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """WHY: no false alarms — a well-formed interest with a specific admit-alone
+        anchor must NOT emit the hygiene warning (Rule 12 cuts both ways: loud on real
+        gaps, silent when healthy)."""
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://x.com/a", "T", "x.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="ai",
+                interest_slug="ai.foundation-models",
+                interest_search_query="foundation models, artificial intelligence",
+            )
+        ]
+
+        with capture_logs() as logs:
+            await adapter.search_active_interests(active, _SINCE)
+
+        assert not [log for log in logs if log["event"] == "interest_term_hygiene_gap"]
+        structs = _param(client.captured["job_config"], "interest_terms").values
+        # 'foundation' alone banned, but 'foundation models' phrase kept
+        terms = {s.struct_values["term"] for s in structs}
+        assert r"\bfoundation\s+models\b" in terms
+        assert r"\bfoundation\b" not in terms

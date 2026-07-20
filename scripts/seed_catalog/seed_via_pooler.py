@@ -28,7 +28,7 @@ Usage
     .venv/bin/python -m scripts.seed_catalog.seed_via_pooler --type podcasts --all-archetypes
 
 Env (from .env, never logged): ``SUPABASE_DB_URL`` (percent-encoded session
-pooler), ``YOUTUBE_API_KEY`` (only needed for ``--type channels``).
+pooler). YouTube resolves KEYLESS via yt-dlp — no ``YOUTUBE_API_KEY`` needed.
 """
 
 from __future__ import annotations
@@ -233,13 +233,8 @@ async def _run(args: argparse.Namespace) -> None:
             await _selftest(conn)
             return
 
-        youtube_api_key = (os.environ.get("YOUTUBE_API_KEY") or "").strip()
-        if args.type in (None, "channels") and not youtube_api_key:
-            raise RuntimeError(
-                "YOUTUBE_API_KEY required for channels. "
-                "fix_suggestion: export it, or pass --type podcasts/x/personalities."
-            )
-        # Pace iTunes under its per-IP rate limit for podcast seeds (mirrors the CLI).
+        # YouTube resolves KEYLESS via yt-dlp (no API-key gate). The other axes
+        # use httpx. Pace iTunes under its per-IP rate limit for podcast seeds.
         if args.type in (None, "podcasts"):
             itunes_resolve.set_pace_interval(itunes_resolve.BULK_REQUEST_INTERVAL_SECONDS)
 
@@ -260,7 +255,6 @@ async def _run(args: argparse.Namespace) -> None:
                 summary = await run_seed(
                     supabase_client=client,
                     http_client=http_client,
-                    youtube_api_key=youtube_api_key,
                     type_filter=args.type,
                     archetype_filter=archetype,
                 )

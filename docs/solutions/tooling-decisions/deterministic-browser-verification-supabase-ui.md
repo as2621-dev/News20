@@ -24,6 +24,23 @@ be browser-verified against a scripted Supabase data state.
 - The playbook §3 installer URL 404s. Working path: `uvx browser-use` (Python CLI,
   heredoc of Python with pre-imported helpers: `goto_url`, `js(...)`,
   `capture_screenshot(path)`).
+- **CLI 3.0 (confirmed 2026-07-18, harness 0.1.5+) removed the preset subcommands.**
+  `browser-use --json state`, `click <n>`, `input <n> <text>`, `screenshot --full` and the
+  rest now error out with a migration notice. The ONLY interface is raw Python piped on
+  stdin; output is whatever you `print()`. The playbook §3 cheat-sheet is stale — ignore it
+  and use the heredoc form:
+  ```bash
+  uvx browser-use <<'PY'
+  goto_url("http://localhost:3122/"); wait_for_load()
+  wait_for_element('[data-story-index="0"]')
+  print(js("""(() => { /* return a JSON string */ })()"""))
+  print(capture_screenshot("/abs/path/shot.png"))
+  PY
+  ```
+  Helpers: `new_tab`, `goto_url`, `page_info`, `capture_screenshot`, `click_at_xy`,
+  `type_text`, `fill_input`, `press_key`, `scroll`, `js`, `cdp`, `wait_for_load`,
+  `wait_for_element`, `list_tabs`, `switch_tab`, `close_tab`. Full reference:
+  `browser-use skill show`; health check is now `browser-use --doctor` (not `doctor`).
 - It attaches to a *running* browser via CDP. Launch puppeteer's own Chrome-for-Testing
   headless with `--remote-debugging-port=9222 --window-size=390,900` (portrait, or the
   phone-shell chrome is cropped out of screenshots), read `webSocketDebuggerUrl` from

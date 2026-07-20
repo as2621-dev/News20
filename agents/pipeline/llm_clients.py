@@ -47,10 +47,11 @@ DEFAULT_MAX_RETRIES = 3
 DEFAULT_BACKOFF_BASE_SECONDS = 2.0
 DEFAULT_TIMEOUT_SECONDS = 60
 
-# Reason: News20 SP2 text generation pins Gemini 2.5 Flash — the donor's proven
-# scripting/verification model. (The TTS pin `gemini-2.5-flash-preview-tts` in
-# reference/stack-notes.md is a different model used by SP3's reused M0 TTS.)
-DEFAULT_GEMINI_TEXT_MODEL = "gemini-2.5-flash"
+# Reason: gemini-2.5-flash 404s ("no longer available to new users") on the
+# 2026-07-18 replacement API-key project; 3.5 Flash is the current stable pin.
+# (The TTS pin `gemini-2.5-flash-preview-tts` in reference/stack-notes.md is a
+# different model used by SP3's reused M0 TTS — still available, unchanged.)
+DEFAULT_GEMINI_TEXT_MODEL = "gemini-3.5-flash"
 
 
 @dataclass(frozen=True)

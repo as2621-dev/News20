@@ -227,3 +227,57 @@ describe("computeSectionChips (FSR slice #8 row-metadata section headers)", () =
     expect(chips[0].chip_label).toBe(`${longLabel} — 1`);
   });
 });
+
+describe("computeSectionChips — X theme reels (FSR slice #24)", () => {
+  it("labels the theme-of-the-day rung and credits the attributed handles", () => {
+    const stories: Story[] = [
+      makeStory({
+        digest_id: "xtheme-1",
+        feed_slot_kind: "source",
+        feed_x_theme_rung: "theme",
+        feed_x_theme_attribution: {
+          theme_summary: "AI launch reactions",
+          supporting_handles: ["alice", "@bob"],
+          supporting_tweet_urls: ["https://x.com/alice/status/1"],
+        },
+      }),
+    ];
+
+    const chips = computeSectionChips(stories);
+
+    // The rung IS visible (theme-of-the-day header) and the handles are credited.
+    expect(chips[0].chip_label).toBe("Theme of the day on X");
+    expect(chips[0].fallback_label).toBe("via @alice, @bob");
+  });
+
+  it("labels a roundup rung honestly as a quieter day — never as the theme-of-the-day", () => {
+    const stories: Story[] = [
+      makeStory({
+        digest_id: "xroundup-1",
+        feed_slot_kind: "source",
+        feed_x_theme_rung: "roundup",
+        feed_x_theme_attribution: {
+          theme_summary: "a • b",
+          supporting_handles: ["carol"],
+          supporting_tweet_urls: [],
+        },
+      }),
+    ];
+
+    const chips = computeSectionChips(stories);
+
+    expect(chips[0].chip_label).toBe("Roundup of takes");
+    // A lower rung says so — it must not read as the theme-of-the-day (honesty AC).
+    expect(chips[0].fallback_label).toBe("A quieter day on X — a roundup of takes via @carol");
+  });
+
+  it("does not label a news-floor X slot (no rung) as a theme", () => {
+    // A quiet-day X slot that fell to news carries no rung → normal category chip.
+    const stories: Story[] = [makeStory({ digest_id: "news-1", feed_x_theme_rung: null })];
+
+    const chips = computeSectionChips(stories);
+
+    expect(chips[0].chip_label).toBe("Sport");
+    expect(chips[0].fallback_label).toBeNull();
+  });
+});

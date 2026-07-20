@@ -324,5 +324,94 @@ def test_ceiling_zero_is_noop():
     assert len(kept) == 3
 
 
+
+
+# ── Issue #34 remainder: reconcile's category pin at the caps call sites ─────────
+
+
+def test_category_override_pins_merged_story_for_cap_bucketing():
+    """Issue #34: reconcile's pin routes a cross-category merged story into its
+    representative's fetching category for the per-category cap.
+
+    WHY: the merged story's absorbed member left a lower-depth foreign tag (sport,
+    depth 0) that would normally win ``assign_category`` — so a business-only cap
+    would silently drop the business-fetched story. The pin must bucket it business.
+    """
+    story = _story("s-merged")
+    tags = [
+        StoryInterestTag(
+            story_interest_story_id="s-merged",
+            story_interest_interest_id="i-sport",
+            story_interest_match_depth=0,
+        ),
+        StoryInterestTag(
+            story_interest_story_id="s-merged",
+            story_interest_interest_id="i-markets",
+            story_interest_match_depth=1,
+        ),
+    ]
+    decisions = [_decision("s-merged", 0.9)]
+
+    # Without the pin the foreign depth-0 sport tag wins → sport has no cap → dropped.
+    kept_plain = cap_stories_per_category(
+        [story], decisions, tags, _INTEREST_NODES, {"business": 1}, default_cap=1
+    )
+    assert kept_plain == []
+    # With the pin the story buckets into business and survives the business cap.
+    kept_pinned = cap_stories_per_category(
+        [story],
+        decisions,
+        tags,
+        _INTEREST_NODES,
+        {"business": 1},
+        default_cap=1,
+        category_override_by_story={"s-merged": "business"},
+    )
+    assert [s.canonical_story_id for s in kept_pinned] == ["s-merged"]
+
+
+def test_category_override_pins_merged_story_for_ceiling_round_robin():
+    """Issue #34: the overall ceiling's round-robin sees the pinned category too.
+
+    WHY: with both stories bucketed sport the higher-importance plain story wins the
+    single ceiling slot; pinning the merged story to business gives each category one
+    round-robin turn and business (alphabetically first) leads — the pin must reach
+    ``enforce_overall_ceiling``'s classifier, not only the per-category cap's.
+    """
+    merged = _story("s-merged")  # fetched by business, absorbed a sport tag
+    plain = _story("s-plain")
+    tags = [
+        StoryInterestTag(
+            story_interest_story_id="s-merged",
+            story_interest_interest_id="i-sport",
+            story_interest_match_depth=0,
+        ),
+        StoryInterestTag(
+            story_interest_story_id="s-merged",
+            story_interest_interest_id="i-markets",
+            story_interest_match_depth=1,
+        ),
+        _tag("s-plain", "i-sport"),
+    ]
+    decisions = [_decision("s-merged", 0.1), _decision("s-plain", 0.9)]
+
+    # Without the pin both classify sport → the higher-importance plain story wins.
+    kept_plain = enforce_overall_ceiling(
+        [merged, plain], decisions, tags, _INTEREST_NODES, max_total=1
+    )
+    assert [s.canonical_story_id for s in kept_plain] == ["s-plain"]
+    # With the pin the merged story owns the business bucket, and business leads the
+    # deterministic category round-robin → it takes the single slot.
+    kept_pinned = enforce_overall_ceiling(
+        [merged, plain],
+        decisions,
+        tags,
+        _INTEREST_NODES,
+        max_total=1,
+        category_override_by_story={"s-merged": "business"},
+    )
+    assert [s.canonical_story_id for s in kept_pinned] == ["s-merged"]
+
+
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__, "-v"]))

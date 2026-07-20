@@ -11,14 +11,21 @@ Pure functions / pure data — no DB, no LLM, no clock.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+from typing import get_args
+
 from agents.pipeline.categories import (
     DEFAULT_CATEGORY,
     DEFAULT_FEED_ALLOCATION,
+    SLUG_TO_CATEGORY,
     SOURCE_CATEGORIES,
     TOPIC_CATEGORIES,
+    FeedCategory,
     category_for_slug,
     empty_category_buckets,
 )
+from agents.pipeline.niche_allocation import FEED_SLOT_BUDGET
 
 # The canonical roots SP3 locks: 8 topic roots + 2 source axes = 10 keys total.
 _EIGHT_ROOTS: tuple[str, ...] = (
@@ -128,3 +135,181 @@ class TestKeyCompleteness:
         buckets = empty_category_buckets()
         assert frozenset(buckets.keys()) == _ALL_TEN_KEYS
         assert all(bucket_items == [] for bucket_items in buckets.values())
+
+
+class TestTypescriptTwinDrift:
+    """Automated Python ↔ TS twin drift check (issue #35, 2026-06-17 precedent).
+
+    WHY: on 2026-06-17 the backend ``SLUG_TO_CATEGORY`` drifted from the TS twin
+    (``src/lib/feedBuckets.ts`` was missing ai/politics/environment parity) and AI
+    feeds silently collapsed into culture/markets (fixed in f58cdc4 by eyeball).
+    These tests parse the CHECKED-IN TS source, so any future divergence between
+    the Python taxonomy and the frontend twin fails CI instead of waiting for a
+    human to notice mis-bucketed feeds. Regex-on-source is deliberately the least
+    brittle mechanism available here: pytest cannot execute TS, and both literals
+    are plain data blocks pinned by these very tests.
+    """
+
+    _FEED_BUCKETS_TS = (
+        Path(__file__).resolve().parents[3] / "src" / "lib" / "feedBuckets.ts"
+    )
+    _ARCHETYPE_MATCH_TS = (
+        Path(__file__).resolve().parents[3] / "src" / "lib" / "archetypeMatch.ts"
+    )
+    _FEED_TYPES_TS = (
+        Path(__file__).resolve().parents[3] / "src" / "types" / "feed.ts"
+    )
+
+    def _ts_source(self, ts_path: Path | None = None) -> str:
+        ts_file = ts_path if ts_path is not None else self._FEED_BUCKETS_TS
+        assert ts_file.is_file(), (
+            f"TS twin missing at {ts_file} — if the file moved, update this drift check"
+        )
+        return ts_file.read_text(encoding="utf-8")
+
+    def _ts_block(self, source: str, marker: str) -> str:
+        """Extract the literal block that starts at ``marker`` (up to the closing ``;``).
+
+        Comments are stripped FIRST (``/* … */`` then ``// …``) so (a) a ``;``
+        inside a comment cannot truncate the block and (b) commented-out entries
+        are never parsed as live data (review-panel finding: a disabled
+        ``// ["sport", 3],`` line must not keep the twin test green).
+        """
+        source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        source = re.sub(r"//.*$", "", source, flags=re.MULTILINE)
+        start = source.index(marker)
+        return source[start : source.index(";", start)]
+
+    def test_design_bucket_ids_match_feed_category_literal(self) -> None:
+        """The TS ``DesignBucketId`` union == the Python ``FeedCategory`` Literal."""
+        block = self._ts_block(self._ts_source(), "export type DesignBucketId")
+        ts_ids = set(re.findall(r'"([a-z_]+)"', block))
+        py_ids = set(get_args(FeedCategory))
+        assert ts_ids == py_ids, (
+            f"DesignBucketId (TS) != FeedCategory (Py): "
+            f"TS-only={sorted(ts_ids - py_ids)} Py-only={sorted(py_ids - ts_ids)}"
+        )
+
+    def test_picker_roots_all_present_in_slug_to_category(self) -> None:
+        """Every TS picker root maps identically in Python ``SLUG_TO_CATEGORY``.
+
+        This is EXACTLY the 2026-06-17 drift: SLUG_TO_CATEGORY missing
+        ai/politics/environment while the TS twin carried them.
+        """
+        block = self._ts_block(
+            self._ts_source(), "export const PICKER_ROOT_TO_CATEGORY_BUCKET"
+        )
+        ts_roots = dict(
+            re.findall(r'^\s*([a-z_]+):\s*"([a-z_]+)"', block, re.MULTILINE)
+        )
+        # BOTH directions + completeness: a partial regex parse or a root missing
+        # from EITHER side fails loudly (review-panel finding: a subset parse would
+        # otherwise vacuously pass).
+        assert set(ts_roots) == set(TOPIC_CATEGORIES), (
+            f"PICKER_ROOT_TO_CATEGORY_BUCKET keys != the 8 topic roots: "
+            f"TS-only={sorted(set(ts_roots) - set(TOPIC_CATEGORIES))} "
+            f"Py-only={sorted(set(TOPIC_CATEGORIES) - set(ts_roots))}"
+        )
+        for root_slug, bucket_id in ts_roots.items():
+            assert root_slug in SLUG_TO_CATEGORY, (
+                f"TS picker root {root_slug!r} missing from Python SLUG_TO_CATEGORY "
+                "(the 2026-06-17 drift class — add it)"
+            )
+            assert SLUG_TO_CATEGORY[root_slug] == bucket_id, (
+                f"root {root_slug!r}: TS maps to {bucket_id!r} but Python maps to "
+                f"{SLUG_TO_CATEGORY[root_slug]!r}"
+            )
+
+    def test_archetype_category_keys_match_topic_roots(self) -> None:
+        """TS ``ARCHETYPE_CATEGORY_KEYS`` == the 8 Python ``TOPIC_CATEGORIES`` roots.
+
+        WHY (issue #43): ``src/lib/interestVector.ts`` DERIVES the identity
+        entries of ``INTEREST_ROOT_TO_PINNED_KEY`` from ``ARCHETYPE_CATEGORY_KEYS``
+        (post-SP3 the picker roots ARE the pinned archetype keys), so the whole
+        interest-vector roll-up hangs off that literal. If it drifts from the
+        Python taxonomy roots, follows rooted at the divergent root are silently
+        dropped from the vector — the Thirty-tab phantom-block regression. The
+        TS-side identity check lives in ``tests/lib/interestVector.test.ts``; this
+        test pins the cross-language half of the chain.
+        """
+        block = self._ts_block(
+            self._ts_source(self._ARCHETYPE_MATCH_TS),
+            "export const ARCHETYPE_CATEGORY_KEYS",
+        )
+        ts_keys = set(re.findall(r'"([a-z_]+)"', block))
+        assert ts_keys == set(TOPIC_CATEGORIES), (
+            f"ARCHETYPE_CATEGORY_KEYS (TS) != TOPIC_CATEGORIES (Py): "
+            f"TS-only={sorted(ts_keys - set(TOPIC_CATEGORIES))} "
+            f"Py-only={sorted(set(TOPIC_CATEGORIES) - ts_keys)}"
+        )
+
+    def test_segment_key_union_matches_the_eight_topic_roots(self) -> None:
+        """TS ``SegmentKey`` (``src/types/feed.ts``) == Python ``TOPIC_CATEGORIES``.
+
+        WHY (issue #44 / PRD RC1): this is the twin that ACTUALLY broke. ``SegmentKey``
+        carried the correct 8 roots while the Python persist path validated against a
+        stale 5-set ``{geopolitics, markets, tech, sport, wildcard}``, so the reel chip
+        asked for a root the pipeline could not write — 0 of 67 stories in the prod
+        07-07 batch persisted under ai/business/arts. The legacy folds (``markets``,
+        ``wildcard``) are retained-unused in the Postgres enum and must appear in
+        NEITHER side's live set.
+        """
+        block = self._ts_block(
+            self._ts_source(self._FEED_TYPES_TS), "export type SegmentKey"
+        )
+        ts_segments = set(re.findall(r'"([a-z_]+)"', block))
+        assert ts_segments, "failed to parse SegmentKey from src/types/feed.ts"
+        assert ts_segments == set(TOPIC_CATEGORIES), (
+            f"SegmentKey (TS) != TOPIC_CATEGORIES (Py): "
+            f"TS-only={sorted(ts_segments - set(TOPIC_CATEGORIES))} "
+            f"Py-only={sorted(set(TOPIC_CATEGORIES) - ts_segments)}"
+        )
+        assert not ts_segments & {"markets", "wildcard"}, (
+            "a retired legacy slug is live in SegmentKey again"
+        )
+
+    def test_allocation_total_agrees_across_all_three_twins(self) -> None:
+        """The 30-slot budget is identical in all THREE allocation twins.
+
+        WHY (PRD decision 2): the brief counted two twins and missed
+        ``categories.DEFAULT_FEED_ALLOCATION``; with only the TS pair pinned, the
+        twins desync at 26 vs 30 and "Build your 30" silently under-fills. The
+        niche allocator is the third — it budgets sections against ``FEED_SLOT_BUDGET``
+        while filling them from ``DEFAULT_FEED_ALLOCATION``, so a drift between those
+        two strands the difference as unfilled slots.
+        """
+        block = self._ts_block(
+            self._ts_source(), "export const DEFAULT_ALLOCATION_SEGMENTS"
+        )
+        ts_total = sum(
+            int(count)
+            for _, count in re.findall(r'\[\s*"([a-z_]+)"\s*,\s*(\d+)\s*\]', block)
+        )
+        assert ts_total, "failed to parse DEFAULT_ALLOCATION_SEGMENTS from TS"
+        declared_total = int(
+            re.search(
+                r"export const ALLOCATION_TOTAL\s*=\s*(\d+)", self._ts_source()
+            ).group(1)
+        )
+        assert ts_total == declared_total == sum(DEFAULT_FEED_ALLOCATION.values()) == FEED_SLOT_BUDGET, (
+            f"allocation totals drifted: DEFAULT_ALLOCATION_SEGMENTS(TS)={ts_total} "
+            f"ALLOCATION_TOTAL(TS)={declared_total} "
+            f"DEFAULT_FEED_ALLOCATION(Py)={sum(DEFAULT_FEED_ALLOCATION.values())} "
+            f"FEED_SLOT_BUDGET(niche)={FEED_SLOT_BUDGET}"
+        )
+
+    def test_default_allocation_twin_matches_ordered(self) -> None:
+        """``DEFAULT_ALLOCATION_SEGMENTS`` (TS) == ``DEFAULT_FEED_ALLOCATION`` (Py),
+        same keys, counts AND order (both sides document the order as meaningful)."""
+        block = self._ts_block(
+            self._ts_source(), "export const DEFAULT_ALLOCATION_SEGMENTS"
+        )
+        ts_segments = [
+            (key, int(count))
+            for key, count in re.findall(r'\[\s*"([a-z_]+)"\s*,\s*(\d+)\s*\]', block)
+        ]
+        assert ts_segments, "failed to parse DEFAULT_ALLOCATION_SEGMENTS from TS"
+        py_segments = list(DEFAULT_FEED_ALLOCATION.items())
+        assert ts_segments == py_segments, (
+            f"allocation twins drifted: TS={ts_segments} Py={py_segments}"
+        )

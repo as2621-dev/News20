@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RebuildFeedFlow } from "@/components/blip/library/RebuildFeedFlow";
 import { ic } from "@/components/blip/reel/icons";
+import { BUILD_STAMP } from "@/lib/buildStamp";
 import { logger } from "@/lib/logger";
 import { getProfileDisplayName, PROFILE_DISPLAY_NAME_MAX_LENGTH, saveProfileDisplayName } from "@/lib/profile";
 import { getCurrentSession, signOut } from "@/lib/supabase/auth";
@@ -305,7 +306,9 @@ export function SettingsLayer({ onClose }: SettingsLayerProps) {
           <button type="button" onClick={handleSignOut} disabled={isSigningOut}>
             {isSigningOut ? "Signing out…" : "Sign out"}
           </button>
-          <span className="set-ver">blip {packageJson.version}</span>
+          <span className="set-ver">
+            blip {packageJson.version} · {BUILD_STAMP}
+          </span>
         </div>
         {signOutError !== null ? <p className="set-stubnote">{signOutError}</p> : null}
 

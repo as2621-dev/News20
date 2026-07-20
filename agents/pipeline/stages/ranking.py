@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -46,6 +47,9 @@ from agents.pipeline.categories import (
     FeedCategory,
     category_for_slug,
     empty_category_buckets,
+)
+from agents.pipeline.importance.story_importance import (
+    normalize_importance_within_category as _normalize_importance_within_category,
 )
 from agents.pipeline.produce_gate import (
     compute_freshness_score,
@@ -81,6 +85,20 @@ DEPTH_MATCH_BY_DEPTH: dict[int, float] = {0: 1.0, 1: 0.6, 2: 0.3}
 # for a story to be "good enough" to fill a slot and to STOP the fallback climb.
 # Single config constant; first-draft, confirmed at the SP4 2-user manual run.
 DEFAULT_SCORE_THRESHOLD = 0.20
+
+# Reason: the importance ADMISSION FLOOR (feed-quality reset WS-B, PRD RC2 second half).
+# The Score is affinity-dominant by design (α=0.5), so a top-weight interest match reaches
+# (Affinity 1.0 × DepthMatch 1.0)·0.5 = 0.5 — well past the 0.20 threshold — even when the
+# story has NO importance corroboration. That is exactly how single-outlet local notices
+# reached the founder's AI slots (RC2). This floor makes admission require IMPORTANCE, not
+# affinity alone: a candidate is admissible only when its importance clears this bar AS WELL
+# AS its Score clearing T. Set ABOVE a single-outlet raw importance (1/12 ≈ 0.083) and BELOW
+# a two-outlet one (2/12 ≈ 0.167), so it COMPLEMENTS the notability gate's "≥2 distinct
+# outlets OR authority" corroboration cut rather than duplicating it. When the importance
+# term is within-category-normalized (see ``normalize_candidate_importance_within_category``)
+# the same bar means "above the category's importance tail". Single config source — the α/β/γ
+# weights and T live here too; never scatter this constant.
+MIN_ADMISSION_IMPORTANCE = 0.12
 
 # Reason: EntityBonus weight (phase-5a SP2). An ADDITIVE term on the Score for a
 # story whose title matches a followed entity — a Nvidia follower sees Nvidia
@@ -556,6 +574,101 @@ def compute_story_score(
     return score, depth_match, importance, freshness
 
 
+# ---------------------------------------------------------------------------------------
+# Ranking floor (feed-quality reset WS-B, PRD RC2 second half) — admission needs importance
+# ---------------------------------------------------------------------------------------
+
+
+def candidate_clears_ranking_floor(
+    candidate_score: float,
+    candidate_importance: float,
+    *,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
+    min_importance: float = MIN_ADMISSION_IMPORTANCE,
+) -> bool:
+    """True when a candidate clears BOTH the Score threshold AND the importance floor.
+
+    The RC2 fix (``plans/prd.md`` root cause RC2, second half): admission must require
+    importance, not affinity alone. The Score is affinity-dominant (α=0.5), so a top-weight
+    interest match clears ``score_threshold`` (0.20) on affinity alone — a maximal
+    ``(Affinity 1.0 × DepthMatch 1.0)·0.5 = 0.5`` — even with zero importance corroboration.
+    Requiring ``candidate_importance >= min_importance`` AS WELL means:
+
+      - a story with MAXIMAL affinity but FLOOR importance is NOT admitted (the leak that
+        put single-outlet local notices in the founder's AI slots); yet
+      - a genuinely important story (high importance) with only MODEST affinity still is —
+        its importance term both lifts the Score past ``T`` and clears the floor.
+
+    Pass the story's WITHIN-CATEGORY-NORMALIZED importance (see
+    :func:`normalize_candidate_importance_within_category`) so the floor is comparable across
+    categories of different pool sizes; the raw/E1 importance is an acceptable coarser input
+    at the per-interest climb-stop where no category grouping exists.
+
+    Args:
+        candidate_score: The candidate's final per-user Score.
+        candidate_importance: The candidate's importance term (0–1; normalized when available).
+        score_threshold: ``T`` — the "good enough" Score bar.
+        min_importance: The importance admission floor.
+
+    Returns:
+        True only when ``candidate_score >= score_threshold`` and
+        ``candidate_importance >= min_importance``.
+
+    Example:
+        >>> candidate_clears_ranking_floor(0.5, 0.05)  # affinity alone, no importance
+        False
+        >>> candidate_clears_ranking_floor(0.5, 0.5)
+        True
+    """
+    return candidate_score >= score_threshold and candidate_importance >= min_importance
+
+
+def normalize_candidate_importance_within_category(
+    candidates_by_category: dict[FeedCategory, list[ScoredCandidate]],
+) -> dict[str, float]:
+    """Min-max normalize each candidate's importance WITHIN its feed category.
+
+    An importance floor is only meaningful if importance is COMPARABLE across categories
+    (``plans/prd.md`` RC2, second half — "within-category importance normalization"). A
+    category with 3 candidates and one with 60 carry raw/E1 importance on different effective
+    scales; a single fixed floor on raw importance would then be lenient in one category and
+    harsh in another, so a thin-pool category's leader could be suppressed below a big-pool
+    category's tail purely because of pool size. This maps each candidate's importance to
+    ``[0, 1]`` INDEPENDENTLY within its own category, so the floor applies identically
+    everywhere and pool size does not decide admission.
+
+    Delegates the min-max plus the degenerate-case handling to
+    :func:`agents.pipeline.importance.story_importance.normalize_importance_within_category`
+    (Rule 3/7 — one source of truth for the normalization and the single-member neutral),
+    treating each candidate as a ``(story_id, category, importance)`` member of its category:
+
+      - a single-candidate category (min == max) → a documented NEUTRAL mid-value: no
+        divide-by-zero, and no spurious inflation of the lone story to top importance;
+      - an all-equal category → the same neutral mid;
+      - an empty input / empty categories → an empty result (no crash).
+
+    Each story appears in exactly one category bucket (SP2 collapses to one best candidate
+    per story), so the returned ids never collide.
+
+    Args:
+        candidates_by_category: ``{feed_category: [ScoredCandidate, ...]}`` — the classified
+            per-category candidate buckets.
+
+    Returns:
+        ``{story_id: normalized_importance_in_[0, 1]}``.
+
+    Example:
+        >>> # See tests/agents/pipeline/test_ranking_floor.py for the pool-size-comparability
+        >>> # and single-candidate-neutral assertions against this function.
+    """
+    triples: list[tuple[str, str, float]] = [
+        (candidate.story_id, category, candidate.importance)
+        for category, candidates in candidates_by_category.items()
+        for candidate in candidates
+    ]
+    return _normalize_importance_within_category(triples)
+
+
 def _index_tags_by_story(
     story_interest_tags: list[StoryInterestTag],
 ) -> dict[str, dict[str, int]]:
@@ -730,7 +843,13 @@ def generate_fallback_candidates(
             "fallback_strict_leaf_only",
             interest_id=leaf_id,
             candidate_count=len(leaf_scored),
-            qualifying=sum(1 for c in leaf_scored if c.score >= score_threshold),
+            qualifying=sum(
+                1
+                for c in leaf_scored
+                if candidate_clears_ranking_floor(
+                    c.score, c.importance, score_threshold=score_threshold
+                )
+            ),
         )
         return leaf_scored
 
@@ -750,7 +869,16 @@ def generate_fallback_candidates(
         if fallback_depth == 0:
             leaf_level_scored = node_scored
 
-        qualifying = [c for c in node_scored if c.score >= score_threshold]
+        # Reason (RC2): "good enough to STOP broadening" now needs importance, not affinity
+        # alone — a below-floor single-outlet leaf story clears T on affinity but must not
+        # halt the climb, so the generator broadens toward genuinely notable coverage.
+        qualifying = [
+            c
+            for c in node_scored
+            if candidate_clears_ranking_floor(
+                c.score, c.importance, score_threshold=score_threshold
+            )
+        ]
         if qualifying:
             logger.info(
                 "fallback_resolved",
@@ -840,6 +968,7 @@ def assign_category(
     story_id: str,
     tags_by_story: dict[str, dict[str, int]],
     interest_nodes: dict[str, InterestNode],
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> FeedCategory:
     """Classify a story into exactly ONE best-fit screen category (phase-5a SP2).
 
@@ -860,7 +989,15 @@ def assign_category(
          :func:`agents.pipeline.categories.category_for_slug`.
 
     A story with NO resolvable tag (no tags, or none of its tags' interests are in
-    the taxonomy) falls back to :data:`DEFAULT_CATEGORY` so it is never dropped.
+    the taxonomy) falls back to :data:`DEFAULT_CATEGORY` so it is never dropped —
+    LOGGED, never silent (issue #35: e.g. a beyond-bubble story with no fetching
+    interest and no matched theme must be operator-visible, not quietly arts).
+
+    When several tags at the same lowest depth resolve to DIFFERENT categories (a
+    story fetched by two interests under different roots), the slug tiebreak decides
+    and a structured ``category_conflict_lowest_depth_won`` event records the
+    contenders + winner (issue #35: the conflict is resolved deterministically but
+    must be visible).
 
     Args:
         story_id: The canonical story id to classify.
@@ -868,6 +1005,11 @@ def assign_category(
             :func:`_index_tags_by_story`).
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup (resolves
             an interest id to its slug).
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins for cross-category merged stories (issue
+            #34). Checked FIRST: a story in the map returns its pinned category and
+            skips the depth/slug rule entirely. Stories absent from the map (and a
+            ``None``/empty map) classify exactly as before — the seam is additive.
 
     Returns:
         The single best-fit :data:`FeedCategory` for the story.
@@ -876,6 +1018,14 @@ def assign_category(
         >>> # See tests/agents/pipeline/test_ranking.py: a Nvidia earnings story
         >>> # tagged on a markets-rooted interest classifies into 'markets'.
     """
+    # Reason: issue #34 — a cross-category semantic merge pins the surviving story to
+    # its representative's fetching-interest category via this explicit override seam
+    # (NEVER by mutating story_interest_match_depth, which is the ranker's DepthMatch
+    # input persisted verbatim to story_interests).
+    if category_override_by_story:
+        override_category = category_override_by_story.get(story_id)
+        if override_category is not None:
+            return override_category
     story_tags = tags_by_story.get(story_id) or {}
     # Reason: consider only tags whose interest resolves to a slug in the taxonomy —
     # an orphan tag (interest absent from interest_nodes) cannot be categorized.
@@ -885,12 +1035,84 @@ def assign_category(
         if interest_id in interest_nodes
     ]
     if not resolvable:
+        _warn_category_fallback_no_tags_once(story_id)
         return DEFAULT_CATEGORY
     # Lowest match_depth first (leaf < parent < grandparent); tiebreak by slug.
-    _best_interest_id, _best_depth, best_slug = min(
+    _best_interest_id, best_depth, best_slug = min(
         resolvable, key=lambda item: (item[1], item[2])
     )
-    return category_for_slug(best_slug)
+    winner_category = category_for_slug(best_slug)
+    # Reason: issue #35 — a same-lowest-depth contest across DIFFERENT roots (e.g. a
+    # story fetched by two interests under different roots) is decided by the slug
+    # tiebreak; log the resolved conflict so cross-root ambiguity stays visible.
+    # Depth-decided contests are the designed precedence, not a conflict — no log.
+    # Guarded on >1 tag: a single resolvable tag can never conflict.
+    if len(resolvable) > 1:
+        contender_categories = {
+            category_for_slug(slug)
+            for _interest_id, depth, slug in resolvable
+            if depth == best_depth
+        }
+        if len(contender_categories) > 1:
+            _log_category_conflict_once(
+                story_id,
+                best_depth,
+                tuple(sorted(contender_categories)),
+                winner_category,
+                best_slug,
+            )
+    return winner_category
+
+
+@lru_cache(maxsize=4096)
+def _warn_category_fallback_no_tags_once(story_id: str) -> None:
+    """Warn ONCE per story that the arts fallback fired (issue #35: never silent).
+
+    ``assign_category`` is a pure per-story classification but is called O(users ×
+    call-sites) per batch (ranking classify, produce caps, reconcile, per-user
+    beyond-bubble assembly) — an un-deduped warning would repeat thousands of times
+    and drown the signal it exists to surface (review-panel finding). ``lru_cache``
+    keyed on the story id bounds it to one line per story (and per process; a story
+    id is stable across days by design, so a re-run stays quiet too).
+    """
+    # Reason: issue #35 — the arts fallback is DEFINED but never silent: a story
+    # with no fetching interest and no matched theme is an ingestion gap the
+    # operator must see, not a quiet arts bucket.
+    logger.warning(
+        "category_fallback_no_tags",
+        story_id=story_id,
+        fallback_category=DEFAULT_CATEGORY,
+        fix_suggestion=(
+            "Story has no resolvable story_interests tag — it cannot be "
+            "categorized and falls back to the arts catch-all. Check that its "
+            "fetching interest was tagged (interest_keyed_pipeline) or extend "
+            "THEME_CATEGORY_WHITELIST for its themes."
+        ),
+    )
+
+
+@lru_cache(maxsize=4096)
+def _log_category_conflict_once(
+    story_id: str,
+    match_depth: int,
+    contender_categories: tuple[FeedCategory, ...],
+    winner_category: FeedCategory,
+    winner_slug: str,
+) -> None:
+    """Log a resolved cross-root category conflict ONCE per distinct contest.
+
+    Same dedup rationale as :func:`_warn_category_fallback_no_tags_once` — the
+    contest outcome is deterministic per story, so repeating it per user/call-site
+    adds volume, not information.
+    """
+    logger.info(
+        "category_conflict_lowest_depth_won",
+        story_id=story_id,
+        match_depth=match_depth,
+        contender_categories=list(contender_categories),
+        winner_category=winner_category,
+        winner_slug=winner_slug,
+    )
 
 
 def _best_candidate_per_story(
@@ -920,6 +1142,8 @@ def score_and_classify_for_user(
     now_utc: datetime | None = None,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
+    min_admission_importance: float = MIN_ADMISSION_IMPORTANCE,
 ) -> dict[FeedCategory, list[ScoredCandidate]]:
     """Score (entity-aware) + classify a user's candidates into the 8 categories.
 
@@ -957,10 +1181,25 @@ def score_and_classify_for_user(
             its authority-weighted E1 score instead of the raw outlet count; a story
             absent from the map (un-clustered) is scored exactly as before (Rule 3 —
             additive seam). Empty/None → byte-identical to the pre-M3 behaviour.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to
+            :func:`assign_category` so a cross-category merged story classifies into
+            its representative's fetching category, never a flipped one. Scores are
+            UNTOUCHED — only the bucket changes. Empty/None → classification exactly
+            as before.
+        min_admission_importance: The ranking floor (WS-B, RC2 second half). After
+            classification each candidate's importance is normalized WITHIN its category,
+            then a candidate that would be admitted on its affinity-dominant Score
+            (``score >= score_threshold``) but whose within-category importance is below
+            this bar is DROPPED — affinity alone can no longer fill a slot. Candidates
+            below ``T`` are left untouched (the allocator drops them by Score anyway), so
+            this changes only the RC2 leak. Pass ``0.0`` to disable the floor (score-only
+            behaviour).
 
     Returns:
         ``{feed_category: [ScoredCandidate, ...]}`` — all 8 keys; topic buckets
-        descending by (entity-aware) score.
+        descending by (entity-aware) score, with affinity-only-below-importance
+        candidates floored out.
 
     Example:
         >>> # See tests/agents/pipeline/test_ranking.py for the happy / false-positive
@@ -992,7 +1231,9 @@ def score_and_classify_for_user(
         )
         if bonus > 0.0:
             entity_boosted += 1
-        category = assign_category(story_id, tags_by_story, interest_nodes)
+        category = assign_category(
+            story_id, tags_by_story, interest_nodes, category_override_by_story
+        )
         classified = candidate.model_copy(
             update={
                 "score": candidate.score + bonus,
@@ -1003,10 +1244,43 @@ def score_and_classify_for_user(
         )
         buckets[category].append(classified)
 
-    # Reason: keep each topic bucket descending by the entity-aware score so the
-    # SP3 allocator fills a category's slots from its strongest candidates first.
+    # ── Ranking floor (WS-B, RC2 second half): admission needs importance, not affinity ──
+    # Reason: the Score is affinity-dominant (α=0.5), so a top-weight interest match clears
+    # T on affinity alone with zero importance — the leak that put single-outlet local
+    # notices AHEAD of real news in the founder's AI slots ("junk fills the very slots the
+    # user cares most about"). Normalize each candidate's importance WITHIN its category (so
+    # the floor is comparable across categories of very different pool sizes), then DEMOTE —
+    # not drop — the candidates that clear T on Score but not the importance floor: they sort
+    # BELOW every floor-clearing candidate in their bucket. A floor-clearing story therefore
+    # always wins a contested slot, yet a thin category still fills its trailing slots rather
+    # than leaving them empty (the notability gate, WS-B's hard cut, already removed true
+    # single-outlet junk upstream). A story with maximal affinity and floor importance can no
+    # longer DISPLACE an importance-bearing one, which is the RC2 harm.
+    normalized_importance = normalize_candidate_importance_within_category(buckets)
+
+    def _clears_floor(candidate: ScoredCandidate) -> bool:
+        return candidate_clears_ranking_floor(
+            candidate.score,
+            normalized_importance.get(candidate.story_id, candidate.importance),
+            score_threshold=score_threshold,
+            min_importance=min_admission_importance,
+        )
+
+    demoted_count = sum(
+        1
+        for category_candidates in buckets.values()
+        for candidate in category_candidates
+        if candidate.score >= score_threshold and not _clears_floor(candidate)
+    )
+
+    # Reason: primary key = clears-the-floor (importance-bearing news first), secondary =
+    # entity-aware score. A stable two-level sort keeps the strongest floor-clearing
+    # candidate at the top for the allocator while pushing affinity-only-below-floor ones to
+    # the tail (they fill last, never displace real news).
     for category_candidates in buckets.values():
-        category_candidates.sort(key=lambda c: c.score, reverse=True)
+        category_candidates.sort(
+            key=lambda c: (_clears_floor(c), c.score), reverse=True
+        )
 
     logger.info(
         "score_and_classify_for_user_completed",
@@ -1014,5 +1288,12 @@ def score_and_classify_for_user(
         followed_entity_count=len(followed_entities),
         classified_story_count=len(best_by_story),
         entity_boosted_count=entity_boosted,
+        demoted_below_importance_floor_count=demoted_count,
+        min_admission_importance=min_admission_importance,
+        fix_suggestion=(
+            "Candidates that cleared the affinity-dominant Score but not the importance "
+            "floor were demoted below floor-clearing news (RC2). If they still surface, "
+            "raise coverage for that interest or tune MIN_ADMISSION_IMPORTANCE."
+        ),
     )
     return buckets

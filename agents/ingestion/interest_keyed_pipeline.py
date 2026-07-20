@@ -25,12 +25,14 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.ancestor_tagging import merge_story_tags
 from agents.ingestion.anchor_scalpel import run_anchor_scalpel
 from agents.ingestion.authority_domains import domains_for_category
 from agents.ingestion.dedup import StoryClusterer, normalize_url
+from agents.ingestion.interest_semantic import apply_semantic_relevance_key
 from agents.ingestion.models import (
     ActiveInterest,
     CanonicalStory,
@@ -78,9 +80,12 @@ def _build_theme_root_tag(
     (its GDELT ``V2Themes``), NOT from which keyword query surfaced it. This:
 
       1. resolves the story's aggregated ``canonical_themes`` to one
-         :data:`FeedCategory` via :func:`category_for_themes` (fail-loud: an
-         empty/unknown theme list falls back to ``DEFAULT_CATEGORY`` with a warning,
-         it never raises — one bad story does not abort the batch),
+         :data:`FeedCategory` via :func:`category_for_themes` (``None`` when NO
+         whitelisted theme matched — issue #35: an unmatched theme list carries no
+         category signal, so no theme tag is emitted and the FETCHING interest's
+         root stays authoritative via its own lowest-depth keyword tag; the old
+         behavior stamped the arts default at depth 0 here, mis-bucketing every
+         unmatched story into arts),
       2. maps that category to its depth-0 ROOT interest slug via
          :func:`root_interest_slug_for_category` (identity for the 8 topic roots;
          ``None`` for the source axes youtube/x, which never apply to news), and
@@ -90,13 +95,20 @@ def _build_theme_root_tag(
     ``assign_category`` picks the lowest-``match_depth`` tag, and the caller shifts
     keyword tags to depth >= 1 so the theme tag strictly wins (no keyword-inherited
     category, even when the keyword query matched a different root — the M2 bug).
+    The theme tag may only win when a whitelisted theme ACTUALLY matched.
 
-    Returns ``None`` (no theme tag) only when the category's root interest node is
-    absent from the taxonomy map — a fail-loud signal that migration 0023's root
-    nodes were not loaded; the caller then leaves the keyword tags at their natural
-    depth so the story is still categorizable (degraded, not dropped).
+    Returns ``None`` (no theme tag) when there is no theme-derived category signal
+    (no whitelist match), or when the category's root interest node is absent from
+    the taxonomy map — a fail-loud signal that migration 0023's root nodes were not
+    loaded. In both cases the keyword tags (shifted uniformly by the caller) still
+    categorize the story via the fetching interest's root (degraded, not dropped).
     """
     category = category_for_themes(story.canonical_themes)
+    if category is None:
+        # Reason: issue #35 — no whitelisted theme matched, so the themes carry no
+        # category signal. Emit NO theme tag: the keyword tags keep natural depth
+        # and the fetching interest's root wins categorization (never arts-default).
+        return None
     root_slug = root_interest_slug_for_category(category)
     if root_slug is None:
         # Reason: youtube/x have no interest node — but news categories never resolve
@@ -147,17 +159,33 @@ class TrustedOutletResult:
     total_candidates_fetched: int = 0
 
 
+@dataclass
+class ActiveInterestSet:
+    """The distinct ingestible active interests + fail-loud skip bookkeeping.
+
+    Attributes:
+        active_interests: The distinct, ingestible active interests (by slug).
+        skipped_queryless_count: Followed interests skipped for a missing/empty
+            ``interest_search_query`` (issue #36 — each is also WARNING-logged).
+    """
+
+    active_interests: list[ActiveInterest]
+    skipped_queryless_count: int = 0
+
+
 def build_active_interest_set(
     followed_interest_ids: Iterable[str],
     interest_nodes: dict[str, InterestNode],
-) -> list[ActiveInterest]:
+) -> ActiveInterestSet:
     """Build the distinct active-interest set — followed interests with a query.
 
     The active-interest set is the *unit of ingestion*: the distinct union of all
     users' followed interest nodes (``user_interest_profile.profile_interest_id``)
     that carry a non-empty ``interest_search_query``. A followed interest with no
-    query (or unknown to the taxonomy) is skipped with a warning — it cannot be
-    ingested, but it does not abort the batch.
+    query (or unknown to the taxonomy) is skipped with a WARNING — it cannot be
+    ingested, but it does not abort the batch. The skip counts ride back on the
+    result so the batch summary can report them explicitly (issue #36: an empty
+    section must be a visible bug, never a silent one).
 
     Args:
         followed_interest_ids: All users' followed interest ids (may contain
@@ -165,7 +193,7 @@ def build_active_interest_set(
         interest_nodes: Taxonomy map ``interest_id -> InterestNode``.
 
     Returns:
-        The distinct, ingestible active interests (deterministic order: by slug).
+        The active-interest set (deterministic order: by slug) + skip counts.
 
     Raises:
         IngestionError: If ``followed_interest_ids`` is empty — there are no user
@@ -205,10 +233,17 @@ def build_active_interest_set(
         query = (node.interest_search_query or "").strip()
         if not query:
             skipped_no_query += 1
-            logger.debug(
-                "active_interest_no_search_query",
+            # Reason: a followed interest with no query produces NOTHING for its
+            # follower — that is a data bug, not routine noise, so it must be loud
+            # (issue #36; the old debug-level line hid the 2026-06-16 feed collapse).
+            logger.warning(
+                "queryless_interest_skipped",
                 interest_id=interest_id,
                 interest_slug=node.interest_slug,
+                interest_name=node.interest_label,
+                fix_suggestion="Followed interest has no interest_search_query so it "
+                "ingests nothing — run scripts/seed_catalog/backfill_queryless_interests.py "
+                "(dry-run first, then --live) to backfill it",
             )
             continue
 
@@ -226,10 +261,13 @@ def build_active_interest_set(
         followed_total=len(all_ids),
         distinct_followed=len(seen),
         active_interests=len(active),
-        skipped_no_query=skipped_no_query,
+        skipped_queryless_interests=skipped_no_query,
         skipped_unknown=skipped_unknown,
     )
-    return active
+    return ActiveInterestSet(
+        active_interests=active,
+        skipped_queryless_count=skipped_no_query,
+    )
 
 
 async def ingest_active_interests(
@@ -242,6 +280,8 @@ async def ingest_active_interests(
     extract_bodies: bool = True,
     resolve_existing_story_ids: Callable[[list[str]], dict[str, str]] | None = None,
     doc_scalpel_adapter: BaseNewsAdapter | None = None,
+    llm_client: Any | None = None,
+    enable_semantic_relevance_key: bool = False,
 ) -> IngestionResult:
     """Run one interest-keyed ingestion batch → a deduped, tagged story pool.
 
@@ -264,6 +304,17 @@ async def ingest_active_interests(
             aliased REUSES that ``story_id`` (so produce-once + don't-repeat hold
             across days) and SKIPS body extraction (it's already produced). ``None``
             keeps the function pure (no DB) — the unit-test/fixture path.
+        llm_client: The shared ``LLMClient`` (its genai client is reused for the semantic
+            relevance key's embeddings). Required when ``enable_semantic_relevance_key``.
+        enable_semantic_relevance_key: When True (issue #51), the SEMANTIC half of the
+            two-key relevance lock runs BEFORE ancestor tagging — each story's
+            ``canonical_matched_interest_ids`` is narrowed to the matched interests whose
+            embedding similarity clears the threshold (closes the RC3 false positives the
+            lexical key alone cannot, e.g. the zoning/'data center' case). Filtering here,
+            at the matched-id source, drops the bogus leaf AND its climbed category tags in
+            one move. On embedding failure it falls back to strict lexical (ids intact,
+            loud log). Default False so the pure/fixture path stays byte-stable; the live
+            entry point opts in via ``ENABLE_SEMANTIC_RELEVANCE_KEY``.
 
     Returns:
         An IngestionResult with the canonical pool, story_interest tag payloads,
@@ -282,7 +333,8 @@ async def ingest_active_interests(
         datetime.now(timezone.utc) - timedelta(days=_DEFAULT_LOOKBACK_DAYS)
     )
 
-    active = build_active_interest_set(followed_interest_ids, interest_nodes)
+    interest_set = build_active_interest_set(followed_interest_ids, interest_nodes)
+    active = interest_set.active_interests
 
     # --- Fan out searches; stamp each candidate's matched interest ---
     # Adapters exposing search_active_interests (e.g. GdeltBigQueryAdapter) ingest
@@ -403,16 +455,29 @@ async def ingest_active_interests(
             enriched = await adapter.extract_body(representative)
             story.canonical_body_text = enriched.candidate_body_text
 
+    # --- Semantic relevance key (issue #51): narrow each story's matched interests to
+    # those it is embedding-similar to, BEFORE ancestor tagging climbs from that list.
+    # The SEMANTIC half of the two-key lock — the lexical key already stamped these ids
+    # inside BigQuery; this drops the ones that clear lexical but are off-topic (the
+    # zoning/'data center' RC3 case). Filtering at the source drops the bogus leaf AND its
+    # climbed category tags. Fails safe to strict lexical (ids intact) on embedding outage.
+    if enable_semantic_relevance_key and llm_client is not None and canonical_stories:
+        await apply_semantic_relevance_key(
+            canonical_stories, interest_nodes, llm_client=llm_client
+        )
+
     # --- Tag each canonical story into story_interests payloads ---
     # The category-determining tag is THEME-derived (M2 SP3): each story's
     # aggregated V2Themes resolve to a category whose depth-0 ROOT interest gets a
     # depth-0 tag — the authoritative lowest-depth signal assign_category reads. The
     # keyword-matched ancestor tags still ride along for scoring/affinity (DepthMatch
-    # + fallback climb) but are shifted to depth >= 1 so the theme tag strictly wins
-    # the category contest (so a retail story that matched a geopolitics keyword is
-    # categorized by its business themes, not the keyword — the M2 bug). When a story
-    # has no resolvable theme root the keyword tags keep their natural depth so it is
-    # still categorizable (degraded, never dropped).
+    # + fallback climb) but are shifted to depth >= 1 UNCONDITIONALLY — whether or
+    # not a theme tag exists — so (a) a present theme tag strictly wins the category
+    # contest (the M2 bug fix), (b) an absent theme tag (issue #35: no whitelist
+    # match) leaves the fetching interest's shifted-leaf tag as the lowest-depth
+    # winner, and (c) DepthMatch scoring stays UNIFORM across theme-matched and
+    # theme-miss stories (a conditional shift would systematically boost the stories
+    # the pipeline understands least — the review-panel finding).
     root_id_by_slug = {
         node.interest_slug: interest_id
         for interest_id, node in interest_nodes.items()
@@ -426,17 +491,18 @@ async def ingest_active_interests(
             story.canonical_matched_interest_ids,
             interest_nodes,
         )
-        if theme_tag is None:
-            # No resolvable theme root → keyword tags own categorization (natural depth).
-            story_interest_tags.extend(keyword_tags)
-            continue
-        # Theme tag owns depth 0; shift keyword tags down so they never out-rank it
-        # (clamped at the schema max so a grandparent stays depth 2, not 3). A keyword
-        # tag that collides with the theme-root interest is dropped in favour of the
-        # depth-0 theme tag (same interest, the more authoritative depth wins).
-        story_interest_tags.append(theme_tag)
+        if theme_tag is not None:
+            story_interest_tags.append(theme_tag)
+        # Shift keyword tags down (clamped at the schema max so a grandparent stays
+        # depth 2, not 3). A keyword tag that collides with the theme-root interest
+        # is dropped in favour of the depth-0 theme tag (same interest, the more
+        # authoritative depth wins).
         for tag in keyword_tags:
-            if tag.story_interest_interest_id == theme_tag.story_interest_interest_id:
+            if (
+                theme_tag is not None
+                and tag.story_interest_interest_id
+                == theme_tag.story_interest_interest_id
+            ):
                 continue
             story_interest_tags.append(
                 tag.model_copy(
@@ -452,6 +518,9 @@ async def ingest_active_interests(
         "interest_keyed_ingestion_completed",
         active_interests=len(active),
         failed_interests=failed_interests,
+        # Reason: explicit even when 0 — issue #36's contract is that the field's
+        # ABSENCE is never mistaken for "no skips" (Rule 12: fail loud).
+        skipped_queryless_interests=interest_set.skipped_queryless_count,
         total_candidates=total_candidates,
         canonical_stories=len(canonical_stories),
         reused_existing_story_ids=len(already_persisted_ids),
@@ -462,6 +531,7 @@ async def ingest_active_interests(
         story_interest_tags=story_interest_tags,
         active_interests=active,
         total_candidates_fetched=total_candidates,
+        skipped_queryless_interests=interest_set.skipped_queryless_count,
     )
 
 

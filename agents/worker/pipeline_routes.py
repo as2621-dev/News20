@@ -382,6 +382,7 @@ async def _run_daily(
         )
         from agents.pipeline.llm_clients import LLMClient
         from agents.pipeline.persist_helpers import load_outlets_lookup
+        from agents.pipeline.poster_gate import poster_generation_disabled
         from agents.voice.gemini_tts import GeminiTTSClient
 
         supabase = _build_service_role_supabase()
@@ -464,7 +465,13 @@ async def _run_daily(
 
         llm_client = LLMClient()
         tts_client = GeminiTTSClient()
-        poster_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        # Reason (issue #32 kill switch): DISABLE_POSTER_GEN=1 must make image-model
+        # spend impossible — skip constructing the image client entirely. Source
+        # reels keep their free supplied-image posters; news reels persist posterless
+        # (the reel renders the category wash).
+        poster_client = (
+            None if poster_generation_disabled() else genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        )
 
         result = await run_daily_pipeline(
             target_date=target_date,
@@ -482,9 +489,19 @@ async def _run_daily(
             # it touches. Fail-open (a judge error leaves reels unchanged) and
             # self-reverting (an ungrounded rewrite reverts), so it is safe on.
             enable_batch_review=True,
+            # Reason: same-event reconciliation (one reel per real-world event) defaults
+            # ON in production (issue #34 spend-go) so authority-weighted cluster
+            # importance reaches the ranker. Set ENABLE_SEMANTIC_CLUSTERING=0 to fall
+            # back to the byte-for-byte legacy path (no paid embeddings).
+            enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING", "1") == "1",
             interest_segment_lookup=interest_segment_lookup,
             outlets_lookup=outlets_lookup,
             gdelt_adapter=census_adapter,
+            # Reason (slice #31): RUN_X_THEMES=1 wires the X theme-of-the-day reels
+            # (followed-cluster join → shared x_cluster_sweeps.themes → produced theme
+            # reels → honest ladder x slots). Off by default, same gate as the
+            # run_live_batch entry point — one flag, both entry points.
+            enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
         )
         logger.info(
             "pipeline_daily_run_completed",
@@ -594,6 +611,15 @@ def _load_ready_story_pool(
     from ``stories`` rather than re-clustering — the heavy body/source fields are not
     needed for allocation.
 
+    Rows persisted BEFORE the write-time headline gate (slice #45) can still carry a
+    masthead / fragment title, so every rebuilt story is re-checked against
+    :func:`~agents.shared.headline_quality.is_publishable_headline` here — this is the
+    one production path that puts an already-persisted row back into a feed, and the
+    predicate is deliberately the SAME one the write gate uses (no second copy of the
+    rule). A rejected story is skipped, which shrinks the pool rather than shortening
+    it dishonestly: the docstring contract above already says a partial pool yields a
+    shorter feed, and a reel with no news in it is worse than a missing slot.
+
     Args:
         supabase_client: Service-role Supabase client.
 
@@ -603,6 +629,10 @@ def _load_ready_story_pool(
         ready (the caller returns ``allocated_count=0`` — not an error).
     """
     from agents.ingestion.models import CanonicalStory, StoryInterestTag
+    from agents.shared.persisted_headline_gate import (
+        load_source_origin_story_ids,
+        persisted_headline_rejection_reason,
+    )
 
     # Reason: a story is ready ONLY when its current digest carries audio AND a
     # poster — the reel can render it. The partial unique index guarantees at most
@@ -641,9 +671,26 @@ def _load_ready_story_pool(
         or []
     )
 
+    source_origin_ids = load_source_origin_story_ids(supabase_client, ready_story_ids)
+
     stories: list[CanonicalStory] = []
     for row in story_rows:
         story_id = str(row["story_id"])
+        headline = str(row.get("story_headline") or "")
+        outlet_name = row.get("story_primary_outlet_name")
+        rejection_reason = persisted_headline_rejection_reason(row, source_origin_ids)
+        if rejection_reason is not None:
+            logger.warning(
+                "ready_pool_story_skipped_unpublishable_headline",
+                story_id=story_id,
+                rejection_reason=rejection_reason,
+                fix_suggestion=(
+                    "Row predates the write-time headline gate; run "
+                    "scripts/retire_unpublishable_headlines.py --apply to retire its "
+                    "current digest so it stops loading."
+                ),
+            )
+            continue
         published_raw = str(row.get("story_first_reported_utc") or "")
         try:
             published_utc = datetime.fromisoformat(published_raw.replace("Z", "+00:00"))
@@ -651,12 +698,11 @@ def _load_ready_story_pool(
             # Reason: a malformed/absent timestamp must not drop a ready story —
             # fall back to "now" so it still scores (lowest-impact Freshness default).
             published_utc = datetime.now(timezone.utc)
-        outlet_name = row.get("story_primary_outlet_name")
         synthetic_url = f"https://news20.app/{story_id}"
         stories.append(
             CanonicalStory(
                 canonical_story_id=story_id,
-                canonical_title=str(row.get("story_headline") or story_id),
+                canonical_title=headline,
                 canonical_url=synthetic_url,
                 canonical_normalized_url=synthetic_url,
                 canonical_published_utc=published_utc,
@@ -667,6 +713,22 @@ def _load_ready_story_pool(
                 story_outlet_count=int(row.get("story_outlet_count") or 0),
                 member_candidate_ids=[story_id],
             )
+        )
+
+    skipped_count = len(story_rows) - len(stories)
+    if skipped_count:
+        # Reason: the per-row warnings say WHICH stories went; this says how much pool
+        # is left. A feed is only as long as the pool, so a run that skips its way under
+        # 30 placeable stories has to be visible as one number, not reconstructed by
+        # counting warnings.
+        logger.warning(
+            "ready_pool_shrunk_by_headline_gate",
+            skipped_count=skipped_count,
+            pool_size=len(stories),
+            fix_suggestion=(
+                "Run scripts/retire_unpublishable_headlines.py to see the offending "
+                "rows; a pool under 30 yields a short feed."
+            ),
         )
 
     tag_rows = (

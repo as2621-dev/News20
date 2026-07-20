@@ -51,7 +51,7 @@ logger = get_logger("pipeline.produce_dedup")
 # Reason: a single LLM judge over today's whole produce shortlist (tens of
 # stories) is cheap relative to the generation it prevents; pin the same proven
 # text model the other SP2 stages use.
-DEDUP_JUDGE_MODEL = "gemini-2.5-flash"
+DEDUP_JUDGE_MODEL = "gemini-3.5-flash"
 
 # Reason: low temperature — this is a near-deterministic clustering judgment, not
 # creative writing.

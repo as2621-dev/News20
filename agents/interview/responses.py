@@ -123,9 +123,13 @@ def category_skip_offer_response(
 ) -> InterviewTurnResponse:
     """The deterministic category-skip offer (spec §5): skip this topic, or see options."""
     label = ROOT_LABEL_BY_SLUG.get(active_root or "", active_root or "this topic")
+    # Both are OPTIONs (not a skip-kind bubble): the engine registers the accept only when its
+    # LABEL rides in ``bubbles_tapped`` (``_tapped_label`` in phases.py). A skip-kind bubble is
+    # rendered by the client as its "skip → empty answer" affordance, which would strip the label
+    # and make the accept unreachable — so the accept must be a tappable option matched by label.
     bubbles = [
         InterviewBubble(bubble_label=CATEGORY_SKIP_DECLINE_LABEL, bubble_kind="option"),
-        InterviewBubble(bubble_label=CATEGORY_SKIP_ACCEPT_LABEL, bubble_kind="skip"),
+        InterviewBubble(bubble_label=CATEGORY_SKIP_ACCEPT_LABEL, bubble_kind="option"),
     ]
     return question_response(
         f"No rush on {label} — want to see a few options, or skip it for now?",
@@ -139,9 +143,12 @@ def build_feed_offer_response(
     turn_index: int, start_time: float
 ) -> InterviewTurnResponse:
     """The deterministic 'just build my feed' offer after two categories skipped (spec §5)."""
+    # Both OPTIONs (see category_skip_offer_response): the accept is registered by LABEL match in
+    # bubbles_tapped, so it must be a tappable option, not a skip-kind bubble the client would
+    # render as an empty-answer skip (which would strip the label and make build-my-feed unreachable).
     bubbles = [
         InterviewBubble(bubble_label=BUILD_FEED_DECLINE_LABEL, bubble_kind="option"),
-        InterviewBubble(bubble_label=BUILD_FEED_ACCEPT_LABEL, bubble_kind="skip"),
+        InterviewBubble(bubble_label=BUILD_FEED_ACCEPT_LABEL, bubble_kind="option"),
     ]
     return question_response(
         "Want me to just build your feed from what you've picked so far? "

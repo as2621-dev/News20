@@ -181,6 +181,56 @@ def _story_cluster_to_row(cluster: StoryCluster) -> dict[str, Any]:
     }
 
 
+def upsert_clusters(client, clusters: "list[StoryCluster]") -> None:
+    """Batch-upsert rolling clusters into ``story_clusters`` in ONE call.
+
+    One ``.upsert`` of all cluster rows (no per-cluster round-trip) so a mid-batch
+    failure cannot commit a partial, order-dependent subset of a run's clusters
+    (issue #34 review-panel finding). A no-op on an empty list (no DB call).
+
+    Args:
+        client: A service-role supabase client (injected; mocked in tests).
+        clusters: The clusters to persist; ``[]`` is a no-op.
+
+    Example:
+        >>> upsert_clusters(client, run.clusters)  # doctest: +SKIP
+    """
+    if not clusters:
+        return
+    rows = [_story_cluster_to_row(cluster) for cluster in clusters]
+    client.table("story_clusters").upsert(rows).execute()
+    logger.info("upsert_clusters_completed", cluster_count=len(rows))
+
+
+def upsert_cluster_members(client, members: "list[ClusterMember]") -> None:
+    """Batch-upsert member rows for a WHOLE run in ONE call (issue #34 atomicity).
+
+    Unlike :func:`add_cluster_members` (one cluster's members, id overridden), each row
+    keeps the ``cluster_id`` it carries — the run's members span many clusters. A no-op
+    on an empty list.
+
+    Args:
+        client: A service-role supabase client (injected; mocked in tests).
+        members: The members to persist across all clusters; ``[]`` is a no-op.
+
+    Example:
+        >>> upsert_cluster_members(client, run.members)  # doctest: +SKIP
+    """
+    if not members:
+        return
+    rows = [
+        {
+            "cluster_id": member.cluster_id,
+            "member_url": member.member_url,
+            "member_outlet": member.member_outlet,
+            "member_seen_utc": member.member_seen_utc.isoformat(),
+        }
+        for member in members
+    ]
+    client.table("story_cluster_members").upsert(rows).execute()
+    logger.info("upsert_cluster_members_completed", member_count=len(rows))
+
+
 def upsert_cluster(client, cluster: StoryCluster) -> None:
     """Upsert one rolling cluster into ``story_clusters``.
 

@@ -10,7 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * so the suite drives the state machine WITHOUT the real interview UI.
  *
  * Rule 9 — WHY (each fails on a real regression):
- *   - Persistence must fire EXACTLY once and ONLY on terminal confirm (no half-profiles).
+ *   - The ONE terminal persist (`persistOnboardingTerminal`) must fire EXACTLY once and ONLY on the
+ *     closing-arc confirm (no half-profiles; interests + mutes + allocation + deferred land together).
  *   - Onboarding-gate invariant (2026-06-30): `user_onboarded_at` (markOnboardingComplete)
  *     must NEVER be stamped by the interview stage — only at the true flow end.
  *   - A persist FAILURE must return to the interview (retryable) and NOT clear the
@@ -21,8 +22,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { clearInterviewSession } from "@/lib/interview/session";
-import { persistInterviewInterests } from "@/lib/interviewProfile";
 import { markOnboardingComplete } from "@/lib/onboardingProfile";
+import { persistOnboardingTerminal } from "@/lib/onboardingTerminal";
 import { getCurrentSession } from "@/lib/supabase/auth";
 
 vi.mock("next/navigation", () => ({
@@ -49,16 +50,16 @@ vi.mock("@/lib/onboardingProfile", () => ({
   markSourceOnboardingComplete: vi.fn(),
 }));
 
-vi.mock("@/lib/interviewProfile", () => ({
-  persistInterviewInterests: vi.fn(),
-  persistMuteTerms: vi.fn().mockResolvedValue({ persisted_mute_count: 0 }),
+vi.mock("@/lib/onboardingTerminal", () => ({
+  persistOnboardingTerminal: vi.fn(),
 }));
 
 vi.mock("@/lib/interview/session", () => ({
   clearInterviewSession: vi.fn(),
 }));
 
-// The interview stage: a single button that confirms a fixed terminal payload.
+// The interview stage: a single button that confirms a fixed terminal payload INCLUDING the
+// client-computed budget split (the real chat emits `top_split` from its closing-arc budget card).
 const CONFIRM_PAYLOAD = {
   micro_interests: [
     {
@@ -70,6 +71,15 @@ const CONFIRM_PAYLOAD = {
     },
   ],
   roots_only_fallback: false,
+  top_split: { news: 20, youtube: 7, x: 3 },
+};
+
+/** A successful `persistOnboardingTerminal` result shape (the four sub-writes' outcomes). */
+const TERMINAL_OK = {
+  interests: { minted_interest_count: 1, rejected_interests: [] },
+  mutes: { persisted_mute_count: 0 },
+  allocation: { persisted_count: 10 },
+  deferred: { persisted_deferred_count: 0 },
 };
 vi.mock("@/components/onboarding/InterviewChat", () => ({
   InterviewChat: ({ onComplete }: { onComplete: (payload: unknown) => void }) => (
@@ -80,12 +90,17 @@ vi.mock("@/components/onboarding/InterviewChat", () => ({
 }));
 vi.mock("@/components/onboarding/EmailSignIn", () => ({ EmailSignIn: () => <div data-testid="email-signin" /> }));
 vi.mock("@/components/sources/SourceClusterScreen", () => ({
-  SourceClusterScreen: () => <div data-testid="source-cluster" />,
+  SourceClusterScreen: ({ onDone }: { onDone: () => void }) => (
+    <div data-testid="source-cluster">
+      <button type="button" data-testid="source-done" onClick={onDone}>
+        source done
+      </button>
+    </div>
+  ),
 }));
-vi.mock("@/components/onboarding/BuildYour30", () => ({ BuildYour30: () => <div data-testid="build-your-30" /> }));
 
 const mockGetCurrentSession = vi.mocked(getCurrentSession);
-const mockPersist = vi.mocked(persistInterviewInterests);
+const mockPersist = vi.mocked(persistOnboardingTerminal);
 const mockMarkOnboardingComplete = vi.mocked(markOnboardingComplete);
 const mockClearSession = vi.mocked(clearInterviewSession);
 
@@ -132,8 +147,8 @@ async function clickConfirm(): Promise<void> {
 }
 
 describe("OnboardingFlow — interview persist handoff (Rule 9)", () => {
-  it("persists once on confirm, advances to sources, and NEVER stamps the onboarding gate", async () => {
-    mockPersist.mockResolvedValue({ minted_interest_count: 1, rejected_interests: [] });
+  it("runs the ONE terminal persist on the closing-arc confirm (sources absorbed in-chat, #20)", async () => {
+    mockPersist.mockResolvedValue(TERMINAL_OK as unknown as Awaited<ReturnType<typeof persistOnboardingTerminal>>);
 
     await reachInterview();
     // Persistence must NOT have fired merely by reaching the interview.
@@ -141,13 +156,27 @@ describe("OnboardingFlow — interview persist handoff (Rule 9)", () => {
 
     await clickConfirm();
 
+    // Interests + mutes + allocation + deferred + in-chat source follows land in ONE call.
     expect(mockPersist).toHaveBeenCalledTimes(1);
     expect(mockPersist).toHaveBeenCalledWith("user-1", CONFIRM_PAYLOAD);
-    expect(container.querySelector("[data-testid='source-cluster']")).not.toBeNull();
-    // Onboarding-gate invariant: the interview stage must never stamp user_onboarded_at.
-    expect(mockMarkOnboardingComplete).not.toHaveBeenCalled();
+    // The standalone source/cluster step is gone — the chat's pickers are the source surface.
+    expect(container.querySelector("[data-testid='source-cluster']")).toBeNull();
     // Success clears the resumable transcript.
     expect(mockClearSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("stamps the onboarding gate at the true flow end — the end of the chat (#20) — AC7", async () => {
+    mockPersist.mockResolvedValue(TERMINAL_OK as unknown as Awaited<ReturnType<typeof persistOnboardingTerminal>>);
+
+    await reachInterview();
+    // Before the closing-arc confirm, the gate must not be stamped (2026-06-30 gate rule).
+    expect(mockMarkOnboardingComplete).not.toHaveBeenCalled();
+
+    await clickConfirm();
+
+    // The chat (which now absorbs source picking) is the true flow end → stamp fires exactly once.
+    expect(mockMarkOnboardingComplete).toHaveBeenCalledTimes(1);
+    expect(mockMarkOnboardingComplete).toHaveBeenCalledWith("user-1");
   });
 
   it("on a persist failure, returns to the interview without stamping or clearing the transcript", async () => {

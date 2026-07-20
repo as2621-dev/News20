@@ -4,10 +4,12 @@
  * RebuildFeedFlow — the "Rebuild my feed" entry point (issue #9, PRD stories #18/#19).
  * Launched from the Settings tab ({@link import("../reel/SettingsLayer").SettingsLayer}),
  * it re-runs the SAME chat interview an onboarding user gets ({@link InterviewChat},
- * `forceRestart` so a stale transcript never resumes) and, on terminal confirm,
- * REPLACES the user's interest profile via `persistInterviewInterests` with
- * `replace_existing: true` — old and new profiles never blend; the next daily
- * allocation/feed builds from the new micro-interest rows.
+ * `forceRestart` so a stale transcript never resumes) — including its closing-arc budget
+ * card — and, on the "Build my 30" confirm, REPLACES the whole profile via the ONE
+ * terminal persist ({@link import("@/lib/onboardingTerminal").persistOnboardingTerminal})
+ * with `replace_existing: true`: interests + mutes + budget-card allocation + deferred skips
+ * all clean-replace so old and new profiles never blend; the next daily allocation/feed
+ * builds from the new rows.
  *
  * Invariants (issue #9 acceptance criteria):
  *  - Persistence fires ONLY on a terminal confirm carrying at least one interest.
@@ -30,8 +32,9 @@
 import { useCallback, useRef, useState } from "react";
 import { InterviewChat } from "@/components/onboarding/InterviewChat";
 import { clearInterviewSession } from "@/lib/interview/session";
-import { persistInterviewInterests, persistMuteTerms, REPLACE_PARTIAL_ERROR_NAME } from "@/lib/interviewProfile";
+import { REPLACE_PARTIAL_ERROR_NAME } from "@/lib/interviewProfile";
 import { logger } from "@/lib/logger";
+import { persistOnboardingTerminal } from "@/lib/onboardingTerminal";
 import { getCurrentSession } from "@/lib/supabase/auth";
 import type { InterviewTerminalPayload } from "@/types/interview";
 
@@ -78,17 +81,19 @@ export function RebuildFeedFlow({ onClose }: RebuildFeedFlowProps) {
       if (!session) {
         throw new Error("Your session expired — sign in again to rebuild your feed.");
       }
-      const result = await persistInterviewInterests(session.user.id, payload, { replace_existing: true });
-      // Clean-replace the SKIP-TUNE mutes too (issue #17 AC #5): the mute set ends EQUAL to
-      // this re-interview's list — no orphaned mutes linger from the prior run.
-      await persistMuteTerms(session.user.id, payload.mute_terms ?? [], { replace_existing: true });
+      // ONE terminal persist with clean-replace: interests + mutes + the budget-card allocation +
+      // deferred skips all end EQUAL to this re-interview's terminal list — no orphaned rows linger
+      // from the prior profile (interests destructive-last; mutes/deferred delete-first; allocation
+      // always clean-replaces the coarse blocks while sparing the #12 niche/section rows).
+      const result = await persistOnboardingTerminal(session.user.id, payload, { replace_existing: true });
       // The profile is replaced — the cached transcript is stale.
       clearInterviewSession();
       logger.info("rebuild_feed_completed", {
-        minted_interest_count: result.minted_interest_count,
-        rejected_count: result.rejected_interests.length,
+        minted_interest_count: result.interests.minted_interest_count,
+        rejected_count: result.interests.rejected_interests.length,
+        allocation_persisted_count: result.allocation.persisted_count,
       });
-      setRejectedCount(result.rejected_interests.length);
+      setRejectedCount(result.interests.rejected_interests.length);
       setOutcome("replaced");
       setPhase("done");
     } catch (error) {
@@ -141,7 +146,17 @@ export function RebuildFeedFlow({ onClose }: RebuildFeedFlowProps) {
   }, [onClose]);
 
   return (
-    <div data-testid="rebuild-flow" className="absolute inset-0 z-[70] flex flex-col bg-background text-text-primary">
+    <div
+      data-testid="rebuild-flow"
+      className="absolute inset-0 z-[70] flex flex-col bg-background text-text-primary"
+      style={{
+        // Reason: with viewport-fit=cover the overlay extends under the Dynamic Island /
+        // home indicator on iOS; pad by the real insets so the header row and the
+        // interview composer never clip behind them (same pattern as OnboardingFlow).
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
       {phase === "interview" ? (
         <>
           <div className="flex items-center justify-between px-6 pt-4">

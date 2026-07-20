@@ -6,6 +6,10 @@ in-memory pipeline models (``CanonicalStory``, ``DigestScript``,
 ``CaptionTrack``, ``StoryInterestTag``) into the exact column dicts the Supabase
 tables expect (``reference/supabase-schema.md``). No I/O lives here — the
 writer (``persist.py``) calls these to build payloads and then inserts/uploads.
+(Two exceptions, both pre-write rejection gates rather than row builders, and both
+here so the orchestrator and the writer share ONE copy: ``resolve_segment_from_tags``
+and ``reject_unpublishable_headline``. Each emits structured logs on its reject path
+— a rejection that nobody can see is the RC1/RC4 bug again.)
 
 TRUST DERIVATION — FLAGGED DEVIATION (Rule 12)
 ----------------------------------------------
@@ -26,8 +30,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from agents.ingestion.dedup import normalize_url
+from agents.ingestion.dedup import is_source_origin_domain, normalize_url
 from agents.ingestion.models import CanonicalStory, StoryInterestTag
+from agents.pipeline.categories import SLUG_TO_CATEGORY, TOPIC_CATEGORIES
 from agents.pipeline.models import (
     CoverageReport,
     DetailKeyPoint,
@@ -37,14 +42,19 @@ from agents.pipeline.models import (
     SecondAnalytic,
 )
 from agents.pipeline.stages.forced_alignment import CaptionTrack
+from agents.shared.exceptions import HeadlineQualityError
+from agents.shared.headline_quality import headline_rejection_reason
+from agents.shared.logger import get_logger
 from agents.voice.gemini_tts import VOICE_MAP_GEMINI
 
-# Reason: the catch-all editorial segment when no matched interest resolves to a
-# concrete one — mirrors persist.DEFAULT_SEGMENT_SLUG (segment_slug enum).
-_DEFAULT_SEGMENT_SLUG = "wildcard"
-_VALID_SEGMENT_SLUGS = frozenset(
-    {"geopolitics", "markets", "tech", "sport", "wildcard"}
-)
+logger = get_logger(__name__)
+
+# Reason: the ONLY segment slugs this pipeline may emit — the canonical 8-root
+# taxonomy, imported (not re-listed) so it cannot drift from categories.py the way
+# the old hand-written 5-set did. There is deliberately NO default: a story whose
+# segment does not resolve is rejected by the caller, never filed under a junk
+# label (PRD decision 1 — the RC1 bug class).
+_VALID_SEGMENT_SLUGS: frozenset[str] = frozenset(TOPIC_CATEGORIES)
 
 # Reason: the static AllSides/Ad Fontes outlet→bias lookup (reference/
 # integrations.md: one-time static table, NOT a per-story API call). Keyed by
@@ -544,46 +554,209 @@ def build_detail_key_point_rows(
     ]
 
 
+def canonical_segment_root(raw_segment: str | None) -> str | None:
+    """Fold one raw ``interests.interest_segment_slug`` value onto a canonical root.
+
+    The Postgres ``segment_slug`` enum retains the legacy values (``markets``,
+    ``wildcard``) for reversibility, and interest rows may carry a dotted leaf slug,
+    so a raw lookup value is not necessarily one of the 8 roots. Legacy and dotted
+    values are folded via :data:`SLUG_TO_CATEGORY`; anything unrecognised returns
+    ``None`` so it is skipped rather than defaulted.
+
+    Reason: :func:`category_for_slug` is deliberately NOT used here — its ``arts``
+    catch-all is the right answer for the LAST resolver in the chain but poisonous
+    at this layer, where it would dress an unclassifiable slug up as a real segment
+    (the RC1 bug class).
+
+    Args:
+        raw_segment: A raw segment/interest slug, or None.
+
+    Returns:
+        A member of the canonical 8-root taxonomy, or None when unmappable.
+
+    Example:
+        >>> canonical_segment_root("markets")
+        'business'
+        >>> canonical_segment_root("business.equities.semis")
+        'business'
+        >>> canonical_segment_root("zzz-unknown") is None
+        True
+    """
+    if not raw_segment:
+        return None
+    if raw_segment in _VALID_SEGMENT_SLUGS:
+        return raw_segment
+    folded = SLUG_TO_CATEGORY.get(raw_segment.split(".", 1)[0])
+    return folded if folded in _VALID_SEGMENT_SLUGS else None
+
+
+def _segment_pick_order(
+    resolved_pair: tuple[StoryInterestTag, str],
+) -> tuple[int, float, str]:
+    """Total, input-order-independent ordering key for a resolved ``(tag, root)`` pair.
+
+    Closest match first (lowest ``story_interest_match_depth``), then highest
+    ``story_interest_relevance`` (a missing score sorts last), then the resolved root
+    itself as a final tie-break. The root component is what makes the winner
+    deterministic: two equal-depth, equal-relevance tags under different roots resolve
+    to the SAME winner regardless of incoming list order — so the ``chosen_segment``
+    named in ``segment_resolution_conflict`` is genuinely deterministic (issue #61).
+
+    Args:
+        resolved_pair: A ``(tag, root)`` pair — the story interest tag and the
+            canonical 8-root segment it resolved to.
+
+    Returns:
+        A ``(match_depth, -relevance-or-inf, root)`` sort key (ascending).
+    """
+    tag, root = resolved_pair
+    relevance = tag.story_interest_relevance
+    return (
+        tag.story_interest_match_depth,
+        -relevance if relevance is not None else float("inf"),
+        root,
+    )
+
+
 def resolve_segment_from_tags(
     story_interest_tags: list[StoryInterestTag],
     interest_segment_lookup: dict[str, str] | None,
-) -> str:
+) -> str | None:
     """Resolve a story's ``story_segment_slug`` from its best-matched interest.
 
     The second-analytic kind + coverage mode are chosen deterministically from the
     segment (Decisions #2/#3), so the segment must reflect the interest the story
     most-closely serves. We pick the lowest ``story_interest_match_depth`` tag (the
-    leaf / closest match) whose interest resolves to a valid segment in the
+    leaf / closest match) whose interest resolves to a canonical root in the
     injected ``interest_segment_lookup`` (``{interest_id: segment_slug}`` built once
     per batch from the ``interests`` table, where depth-0 rows carry the segment and
-    leaves inherit their root's). Falls back to ``wildcard`` when nothing resolves.
+    leaves inherit their root's).
+
+    **There is no default.** When nothing resolves the story is unclassifiable and
+    this returns ``None`` with a loud structured log — callers must reject it rather
+    than persist it under a junk label (PRD decision 1). The previous ``wildcard``
+    default silently mislabelled every ai/business/environment/politics/arts story
+    in prod (RC1).
 
     Args:
         story_interest_tags: The story's ``story_interests`` tags (interest_id +
             relative match depth).
         interest_segment_lookup: ``{interest_id: segment_slug}`` (injected; None or
-            empty → wildcard).
+            empty → unresolvable).
 
     Returns:
-        A valid ``segment_slug`` enum value (``wildcard`` when unresolved).
+        A canonical 8-root ``segment_slug``, or ``None`` when the story cannot be
+        classified and must be rejected.
 
     Example:
         >>> tags = [StoryInterestTag(story_interest_story_id="s1",
         ...     story_interest_interest_id="int-world", story_interest_match_depth=0)]
         >>> resolve_segment_from_tags(tags, {"int-world": "geopolitics"})
         'geopolitics'
-        >>> resolve_segment_from_tags(tags, {})
-        'wildcard'
+        >>> resolve_segment_from_tags(tags, {}) is None
+        True
     """
-    if not interest_segment_lookup:
-        return _DEFAULT_SEGMENT_SLUG
     # Reason: closest match first — a leaf (depth 0) is more specific than an
-    # ancestor (depth 1/2), so it best characterizes the story's segment.
-    for tag in sorted(story_interest_tags, key=lambda t: t.story_interest_match_depth):
-        segment = interest_segment_lookup.get(tag.story_interest_interest_id)
-        if segment in _VALID_SEGMENT_SLUGS:
-            return segment
-    return _DEFAULT_SEGMENT_SLUG
+    # ancestor (depth 1/2), so it best characterizes the story's segment. Ties on
+    # depth break on relevance, then on the resolved root itself, so the winner is
+    # a total function of the tags, NOT of their incoming list order (issue #61).
+    lookup = interest_segment_lookup or {}
+    resolved_pairs = [
+        (tag, root)
+        for tag in story_interest_tags
+        if (root := canonical_segment_root(lookup.get(tag.story_interest_interest_id)))
+    ]
+    resolved_pairs.sort(key=_segment_pick_order)
+    resolved_roots = [root for _, root in resolved_pairs]
+
+    if not resolved_roots:
+        logger.error(
+            "segment_resolution_failed",
+            story_id=(
+                story_interest_tags[0].story_interest_story_id
+                if story_interest_tags
+                else None
+            ),
+            interest_tag_count=len(story_interest_tags),
+            lookup_size=len(interest_segment_lookup or {}),
+            fix_suggestion=(
+                "Story rejected: no interest tag resolved to one of the 8 canonical "
+                "segment roots. Check that the story's interests rows carry an "
+                "interest_segment_slug (or inherit one from an ancestor) and that "
+                "the batch built interest_segment_lookup from the interests table."
+            ),
+        )
+        return None
+
+    winning_root = resolved_roots[0]
+    distinct_roots = set(resolved_roots)
+    if len(distinct_roots) > 1:
+        # Reason: the pick is deterministic (the total _segment_pick_order key —
+        # depth, then relevance, then root — makes the winner a function of the tags,
+        # not their order), but a story whose tags straddle two roots is a tagging
+        # signal worth surfacing per batch.
+        logger.warning(
+            "segment_resolution_conflict",
+            story_id=story_interest_tags[0].story_interest_story_id,
+            chosen_segment=winning_root,
+            candidate_segments=sorted(distinct_roots),
+            fix_suggestion=(
+                "Story's interest tags resolve to multiple roots; the lowest "
+                "match-depth tag won. Review the interest taxonomy if this recurs."
+            ),
+        )
+    return winning_root
+
+
+def reject_unpublishable_headline(
+    story: CanonicalStory, story_id: str | None = None
+) -> None:
+    """Drop a story whose title is a masthead or a fragment (PRD decision 6).
+
+    The published headline is whatever ``canonical_title`` holds by the time the
+    story reaches persist, and GDELT's ``<PAGE_TITLE>`` is a masthead often enough
+    that "Language Magazine" shipped as a reel headline (RC4). There is deliberately
+    no fallback title: an unpublishable one is rejected, loudly, and the batch's
+    other stories are unaffected.
+
+    Followed-source stories (YouTube/X) are EXEMPT, as they are from the produce gate
+    and the poster gate: their title is the creator's own video/theme title, not a
+    scraped ``<PAGE_TITLE>``, and the user explicitly asked for that source — a short
+    upload title is not the junk this gate exists to catch.
+
+    Args:
+        story: The story carrying the title that would be published.
+        story_id: The persisted ``stories.story_id`` when known — the identifier an
+            operator greps for. Defaults to the canonical id.
+
+    Raises:
+        HeadlineQualityError: When the title is not a publishable headline.
+
+    Example:
+        >>> reject_unpublishable_headline(story)  # doctest: +SKIP
+    """
+    if is_source_origin_domain(story.canonical_primary_outlet_domain):
+        return
+    rejection_reason = headline_rejection_reason(
+        story.canonical_title,
+        story.canonical_primary_outlet_name,
+        story.canonical_primary_outlet_domain,
+    )
+    if rejection_reason is None:
+        return
+    error = HeadlineQualityError(
+        story_id=story_id or story.canonical_story_id,
+        rejection_reason=rejection_reason,
+    )
+    logger.error(
+        "headline_rejected",
+        story_id=story_id or story.canonical_story_id,
+        headline=story.canonical_title,
+        outlet_name=story.canonical_primary_outlet_name,
+        rejection_reason=rejection_reason,
+        fix_suggestion=error.fix_suggestion,
+    )
+    raise error
 
 
 def build_story_source_rows(

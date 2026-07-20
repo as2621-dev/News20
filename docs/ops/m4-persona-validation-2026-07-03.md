@@ -238,9 +238,95 @@ requested 2026-07-03 exactly as a real user did before midnight. Verified
 | criterion | state |
 |---|---|
 | 3 personas interview → batch → feed rendering | DONE for day 1 — all 3 personas: interview, allocation, paid batch, feed rendered in-browser (disclosed shims: `user_onboarded_at` routing stamp, walkthrough clock pin) |
-| Hit rate vs ≥60% over ≥3 real days | IN PROGRESS — day 1 of 3 complete: 55.6% overall (founder 66.7 / cricket 66.7 / chip 33.3); clock started |
+| Hit rate vs ≥60% over ≥3 real days | IN PROGRESS — day 2 of 3 complete: **day-2 100.0% overall** (founder 100 / cricket 100 / chip 100), up from day-1 55.6%. See "Day-2 census — 2026-07-07" below; still needs a 3rd pull-day before go/no-go |
 | Tuning pass documented w/ before/after | DONE — interview slug normalization; all 3 personas re-run (0/3 roots-only after, was 2/3) |
 | Honest-fallback + beyond-bubble seen in the wild | DONE — screenshots in `docs/ops/evidence/m4-day1/`; fallback labels + beyond-bubble verified for all 3 personas |
 | Watch-items baselined | DONE — taps 4–5, wall 5.2–13.4 s, <$0.01 LLM/onboarding |
 | Silently-skipped steps called out | DONE — see "Honest deviations", the resume section's disclosed shims, + this table |
-| Go/no-go recorded | PENDING — needs days 2–3 (batches on 2026-07-04 and 2026-07-05, finishing before UTC midnight); earliest read-off 2026-07-05 after that day's census |
+| Go/no-go recorded | PENDING — day 2 of 3 done (07-07); needs one more successful pull-day before the go/no-go read-off. No verdict yet |
+
+---
+
+# Day-2 census — 2026-07-07
+
+Second real pull-day of the ≥3-day go/no-go clock (day 1 was the 07-03/04 straddle run).
+Today's production batch (`feed_date=2026-07-07`) had **already run** when this measurement
+began — no batch was launched here, no paid Gemini/BigQuery spend. It finished
+**14:26:35 UTC**, comfortably before UTC midnight, so — unlike day 1 — it did **not**
+straddle midnight and the census needs no half-day reconciliation
+(`docs/solutions/operational-gotchas/batch-straddling-utc-midnight-splits-pull-day.md`).
+Batch produced 67 stories, wrote feeds for 10 users; all 3 personas got **30/30 rows**
+with no manual DB surgery. Batch log:
+`scratchpad/live_batch_2026-07-07.log`.
+
+## Direct-niche hit rate — the go/no-go metric (census, same method as day 1)
+
+Measured exactly as day 1: for each persona, the fraction of their 3 followed
+micro-interests that drew **≥1 direct `story_interests` tag** on the pull-day, via
+`scripts/coverage_census.py --start-date 2026-07-07 --end-date 2026-07-07`. Machine JSON
+archived at `docs/ops/evidence/m4-day2/census-day2.json` (written locally; per the day-2
+task scope only this report file is committed).
+
+| persona | direct-niche hits (per-niche tag counts) | day-2 rate | day-1 rate |
+|---|---|---|---|
+| founder | ai.foundation-models: 8, tech.developer-tools: 4, business.venture-capital: 1 | **3/3 (100%)** | 2/3 (66.7%) |
+| cricket | sport.cricket.world-cup: 6, sport.cricket.india-team: 4, sport.cricket.ipl: 3 | **3/3 (100%)** | 2/3 (66.7%) |
+| chip | geopolitics.chip-export-controls: 4, tech.semiconductors.nvidia: 4, tech.semiconductors.tsmc: 3 | **3/3 (100%)** | 1/3 (33.3%) |
+| **overall** | 9 of 9 niches drew ≥1 direct hit | **100.0% vs 60% → PASS** | 55.6% |
+
+**Day-1 → day-2 movement: 55.6% → 100.0% (+44.4 pts).** Every niche that was DRY on day 1
+(venture-capital, ipl, nvidia, tsmc) drew direct hits today; no niche regressed. This is
+one strong day, not a verdict — the go/no-go still needs a 3rd real pull-day, and one
+outlier day (either direction) should not be over-read.
+
+## Slot-fill composition — a separate, lower number (recorded, not conflated) (Rule 12)
+
+The census above asks "does each niche section draw ≥1 direct story into the pool?"
+(the ≥60% metric). A **different** question — "what fraction of the 30 rendered slots
+are direct-leaf fills?" — reads `daily_feeds.feed_fallback_source_level` per persona and
+gives a much lower number, so it is reported separately, NOT blended into the headline:
+
+| persona | direct-leaf (L0) | climbed (L≥1) | beyond-bubble | source | direct-of-30 |
+|---|---|---|---|---|---|
+| founder | 11 | 10 | 9 | 0 | 36.7% |
+| cricket | 9 | 8 | 13 | 0 | 30.0% |
+| chip | 3 | 18 | 9 | 0 | 10.0% |
+| **overall** | 23 | 36 | 31 | 0 | **25.6% (23/90)** |
+
+Reconciliation: a niche can pass the census (≥1 direct tag exists pool-wide) yet still see
+its **section climb** for most of its slot budget, because the leaf-tagged stories that
+survive into *this persona's* ranked candidate set (after cross-section dedup) are fewer
+than the section's slot budget — so the ladder honestly climbs for the remainder. This is
+under-fill of the leaf, **not breakage**: every climbed slot carries a correct
+ancestor-named fallback label (cited below), and personas are still full at 30/30. It is a
+flag for the day-3 **tuning read** (per-interest caps / section budgets vs available
+leaf-tagged supply), consistent with the multi-niche produce-cap defect recorded on day 1.
+No tuning pass is performed on day 2 per scope.
+
+## Edge coverage in the wild — cited from the persisted 2026-07-07 `daily_feeds` rows
+
+These are the exact rows the section renderer (slice #8, screenshot-verified in-browser on
+day 1) consumes; day-2 edge coverage is evidenced from the persisted feed rows rather than
+a fresh browser capture.
+
+- **Honest fallback, level 1 (parent climb):** founder `Venture capital` section
+  (`business.venture-capital`) filled from `business` at positions 9–14 — renders as
+  "Nothing new in Venture capital … here's Business & Markets."
+- **Honest fallback, level 2 (grandparent climb):** chip `TSMC` section
+  (`tech.semiconductors.tsmc`) filled from `tech` at positions 6–8; cricket
+  `Cricket World Cup` section (`sport.cricket.world-cup`) filled from `sport` at
+  positions 14–17. Both are full two-level climbs with the leaf-named header preserved.
+- **Beyond your bubble** renders for all 3 personas (founder positions 22–30 = 9 slots,
+  cricket 18–30 = 13 slots, chip 22–30 = 9 slots), `feed_section_label='Beyond your bubble'`.
+
+## Residual / honesty notes (day 2)
+
+- **Census checklist not updated.** `docs/ops/coverage-census-day1-2026-07-03.md` still
+  shows the "2nd successful batch day" box unchecked; the day-2 task scope committed only
+  this report file, so that checklist was intentionally left untouched — flagged here so it
+  is not silently stale.
+- **Days 07-04/05/06 had no persona pull-day** in this measurement window (the census reads
+  07-07 as the 2nd counted day after the 07-03 day-1 run). Day 3 is the next successful
+  persona batch.
+- **No browser walkthrough re-run on day 2** (not in scope); render path was screenshot-
+  verified day 1 and the underlying rows are cited above.

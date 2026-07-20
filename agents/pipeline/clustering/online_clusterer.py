@@ -89,6 +89,7 @@ async def cluster_candidates(
     mint_cluster_id: Callable[[], str],
     tau_assign: float = DEFAULT_TAU_ASSIGN,
     window_hours: int = DEFAULT_WINDOW_HOURS,
+    block_by_category: bool = True,
 ) -> ClusterRun:
     """Cluster a batch of candidate articles into rolling story clusters.
 
@@ -115,6 +116,13 @@ async def cluster_candidates(
         tau_assign: Cosine join threshold (default :data:`DEFAULT_TAU_ASSIGN`, 0.75).
         window_hours: Time-window half-width for blocking (default
             :data:`DEFAULT_WINDOW_HOURS`, 48; edge inclusive).
+        block_by_category: When True (default) the block is narrowed to clusters of
+            the SAME provisional category (spec §2C perf narrowing). When False the
+            category filter is dropped and blocking is purely the time window — so two
+            same-event candidates that were tagged into DIFFERENT categories (e.g. a
+            football match mis-tagged ``geopolitics`` vs ``sport``) can still merge on
+            the cosine gate. The centroid cosine ``tau_assign`` remains the true
+            same-event decision either way; this only widens what it is allowed to see.
 
     Returns:
         A :class:`ClusterRun` whose ``clusters`` holds every cluster created OR updated
@@ -182,7 +190,7 @@ async def cluster_candidates(
             active_clusters,
             candidate_published_utc=representative.input_published_utc,
             window_hours=window_hours,
-            category=representative.input_provisional_category,
+            category=representative.input_provisional_category if block_by_category else None,
         )
         matched_cluster, score = best_match(rep_embedding, block)
 
@@ -433,6 +441,7 @@ async def run_and_persist(
     resolve_existing_story_ids: Callable[[list[str]], dict[str, str]],
     tau_assign: float = DEFAULT_TAU_ASSIGN,
     window_hours: int = DEFAULT_WINDOW_HOURS,
+    block_by_category: bool = True,
 ) -> tuple[ClusterRun, dict[str, str]]:
     """Run the clusterer, bridge cross-day story ids, and persist — the M3c entry point.
 
@@ -459,6 +468,9 @@ async def run_and_persist(
         tau_assign: Cosine join threshold (default :data:`DEFAULT_TAU_ASSIGN`, 0.75).
         window_hours: Time-window half-width for blocking (default
             :data:`DEFAULT_WINDOW_HOURS`, 48).
+        block_by_category: Forwarded to :func:`cluster_candidates` — False drops the
+            same-category blocking filter so cross-category same-event merges are
+            possible (see that function's docstring).
 
     Returns:
         A ``(run, cluster_story_ids)`` tuple: the :class:`ClusterRun` and the
@@ -476,6 +488,7 @@ async def run_and_persist(
         mint_cluster_id=mint_cluster_id,
         tau_assign=tau_assign,
         window_hours=window_hours,
+        block_by_category=block_by_category,
     )
     cluster_story_ids = resolve_cluster_story_ids(
         run,

@@ -34,6 +34,7 @@ from agents.pipeline.persist import _resolve_segment_slug, persist_digest
 from agents.pipeline.persist_helpers import resolve_segment_from_tags
 from agents.pipeline.stages.detail_enrichment import DetailEnrichment
 from agents.pipeline.stages.forced_alignment import align_transcript_to_audio
+from agents.shared.exceptions import SegmentResolutionError
 
 _NOW = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -136,6 +137,12 @@ def story_interest_tags() -> list[StoryInterestTag]:
     ]
 
 
+# Reason: the per-batch lookup persist needs to resolve a segment. Injected by every
+# persist test because resolution is now MANDATORY — with no lookup the story is
+# rejected outright (there is no ``wildcard`` default left to ride on).
+_SEGMENT_LOOKUP: dict[str, str] = {"int-world": "geopolitics"}
+
+
 @pytest.fixture
 def enrichment() -> DetailEnrichment:
     """A grounded enrichment with TWO analytic panels (slots 0+1), 5 key points."""
@@ -207,18 +214,28 @@ def _make_track(story: CanonicalStory):
 
 
 class TestResolveSegmentSlug:
-    """The SP3 stub always returned wildcard; SP4 must resolve the real segment."""
+    """The SP3 stub always returned wildcard; the segment must now be real or absent.
+
+    The full resolver contract (all 8 roots, legacy folds, conflicts, rejection)
+    lives in ``test_segment_resolution.py``; these pin the PERSIST boundary — that
+    an unclassifiable story never reaches a table.
+    """
 
     def test_geopolitics_story_resolves_non_wildcard(self, story_interest_tags) -> None:
         """A world-matched story resolves to geopolitics (NOT wildcard) — Rule 9."""
         lookup = {"int-world": "geopolitics"}
-        assert _resolve_segment_slug(story_interest_tags, lookup) == "geopolitics"
-        assert _resolve_segment_slug(story_interest_tags, lookup) != "wildcard"
+        resolved = _resolve_segment_slug(story_interest_tags, lookup, story_id="s1")
+        assert resolved == "geopolitics"
 
-    def test_no_lookup_falls_back_to_wildcard(self, story_interest_tags) -> None:
-        """No injected lookup → wildcard (the safe catch-all)."""
-        assert _resolve_segment_slug(story_interest_tags, None) == "wildcard"
-        assert _resolve_segment_slug(story_interest_tags, {}) == "wildcard"
+    def test_no_lookup_raises_rather_than_defaulting(self, story_interest_tags) -> None:
+        """No injected lookup → fail loud at the persist boundary, never ``wildcard``.
+
+        persist_digest is callable directly (e2e fixtures, scripts), so the guard
+        cannot live only in the orchestrator.
+        """
+        for empty_lookup in (None, {}):
+            with pytest.raises(SegmentResolutionError, match="s1"):
+                _resolve_segment_slug(story_interest_tags, empty_lookup, story_id="s1")
 
     def test_closest_match_depth_wins(self) -> None:
         """The lowest-match-depth (leaf) tag characterizes the segment."""
@@ -235,8 +252,28 @@ class TestResolveSegmentSlug:
             ),
         ]
         lookup = {"int-sport": "sport", "int-markets": "markets"}
-        # The depth-0 markets tag is closest → markets, not sport.
-        assert resolve_segment_from_tags(tags, lookup) == "markets"
+        # The depth-0 tag is closest, and legacy ``markets`` folds to business —
+        # the legacy slug must never be written back out.
+        assert resolve_segment_from_tags(tags, lookup) == "business"
+
+    def test_persist_digest_rejects_an_unclassifiable_story(
+        self, canonical_story, digest_script, story_interest_tags, enrichment
+    ) -> None:
+        """No segment → nothing is written at all (Rule 12: no partial junk row)."""
+        client = FakeSupabaseClient()
+        with pytest.raises(SegmentResolutionError):
+            persist_digest(
+                supabase_client=client,
+                story=canonical_story,
+                script=digest_script,
+                caption_track=_make_track(canonical_story),
+                audio_bytes=b"audio",
+                audio_duration_ms=5000,
+                story_interest_tags=story_interest_tags,
+                enrichment=enrichment,
+                interest_segment_lookup={},
+            )
+        assert client.captured_inserts == {}
 
 
 class TestPersistDetailAnalytics:
@@ -254,9 +291,9 @@ class TestPersistDetailAnalytics:
             audio_bytes=b"FAKE-MP3",
             audio_duration_ms=55000,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             story_id="FIXTURE-SP4-iran",
             enrichment=enrichment,
-            interest_segment_lookup={"int-world": "geopolitics"},
         )
         inserts = client.captured_inserts
 
@@ -319,6 +356,7 @@ class TestPersistDetailAnalytics:
             audio_bytes=b"FAKE",
             audio_duration_ms=46000,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             story_id="FIXTURE-SP4-noenrich",
         )
         inserts = client.captured_inserts
@@ -351,6 +389,7 @@ class TestPersistDetailAnalytics:
             audio_bytes=b"FAKE",
             audio_duration_ms=55000,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             story_id="FIXTURE-SP4-reach",
             enrichment=enrichment,
             coverage_report=report,
@@ -396,10 +435,10 @@ class TestPersistDetailAnalytics:
             audio_bytes=b"FAKE",
             audio_duration_ms=55000,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             story_id="FIXTURE-SP4-breaking",
             enrichment=enrichment,
             coverage_report=report,
-            interest_segment_lookup={"int-world": "geopolitics"},
         )
         story_row = client.captured_inserts["stories"][0]
         # KEEP: the velocity signal is still computed + persisted.

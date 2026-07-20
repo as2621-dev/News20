@@ -43,7 +43,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ResolvedFollowSet } from "@/lib/clusterSelection";
 import { logger } from "@/lib/logger";
-import { followPersonality, followSource } from "@/lib/sources";
+import { followPersonality, followSource, requireAuthedUserId } from "@/lib/sources";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ContentSource, Personality } from "@/types/source";
 
@@ -58,6 +58,8 @@ const PERSONALITIES_TABLE = "personalities";
 
 /** The `content_sources` table name (migration 0009). */
 const CONTENT_SOURCES_TABLE = "content_sources";
+/** Owner-scoped user→cluster follow refs (migration 0033). */
+const USER_SOURCE_CLUSTERS_TABLE = "user_source_clusters";
 
 /**
  * The no-dup match is axis-specific (mirrors the Python resolver's `_YOUTUBE_AXIS`
@@ -68,7 +70,8 @@ const YOUTUBE_AXIS = "youtube_channel";
 const X_AXIS = "x_account";
 
 /** The `source_clusters` column projection (every field {@link ClusterRow} reads). */
-const CLUSTER_COLUMNS = "cluster_id,cluster_slug,cluster_label,cluster_category,cluster_sort_order,is_curated";
+const CLUSTER_COLUMNS =
+  "cluster_id,cluster_slug,cluster_label,cluster_category,cluster_sort_order,is_curated,cluster_subniche,cluster_description";
 
 /** The `source_cluster_members` column projection. */
 const CLUSTER_MEMBER_COLUMNS = "cluster_id,source_id,personality_id,member_sort_order";
@@ -91,6 +94,10 @@ export interface ClusterRow {
   cluster_category: string;
   cluster_sort_order: number;
   is_curated: boolean;
+  /** `cluster_subniche` (migration 0028) — the sub-niche this cluster covers. Optional (older rows null). */
+  cluster_subniche?: string | null;
+  /** `cluster_description` (migration 0028) — one-line editorial gloss. Optional (older rows null). */
+  cluster_description?: string | null;
 }
 
 /**
@@ -118,11 +125,21 @@ export interface ResolvedClusterMember {
 
 /** A cluster with its ordered, deduped, no-dup-honored members. Mirrors `ResolvedCluster`. */
 export interface ResolvedCluster {
+  /**
+   * `source_clusters.cluster_id` — carried so a cluster FOLLOW can write the
+   * `user_source_clusters` cluster ref (slice #20). OPTIONAL only so existing test
+   * fixtures that predate it still compile; the resolver ALWAYS populates it.
+   */
+  cluster_id?: string;
   cluster_slug: string;
   cluster_label: string;
   /** One of the 8 topic roots. */
   cluster_category: string;
   cluster_sort_order: number;
+  /** The cluster's sub-niche (migration 0028), for the in-chat picker card. Optional. */
+  cluster_subniche?: string | null;
+  /** One-line editorial gloss (migration 0028), for the in-chat picker card. Optional. */
+  cluster_description?: string | null;
   /** Non-empty — empty clusters are NOT emitted (rule d). */
   members: ResolvedClusterMember[];
 }
@@ -257,10 +274,13 @@ export function resolveCategoryClusters(
     // drop a cluster left empty after all skips/dedup — never surfaced.
     if (renderedMembers.length > 0) {
       resolved.push({
+        cluster_id: cluster.cluster_id,
         cluster_slug: cluster.cluster_slug,
         cluster_label: cluster.cluster_label,
         cluster_category: cluster.cluster_category,
         cluster_sort_order: cluster.cluster_sort_order,
+        cluster_subniche: cluster.cluster_subniche ?? null,
+        cluster_description: cluster.cluster_description ?? null,
         members: renderedMembers,
       });
     }
@@ -434,6 +454,64 @@ export async function commitClusterFollowSet(
     personalities_followed: followSet.personalities.length,
   });
   return { sources_followed: followSet.sources.length, personalities_followed: followSet.personalities.length };
+}
+
+/**
+ * Write the per-user CLUSTER REFS (slice #20) — one `user_source_clusters` row per
+ * followed cluster (migration 0033), so the shared once-daily X sweep can schedule
+ * "which clusters have a follower" and theme reels can attribute back to the cluster.
+ * This is DISTINCT from {@link commitClusterFollowSet}, which expands a cluster into
+ * its individual member follows; a cluster follow needs BOTH (the member rows AND the
+ * cluster ref).
+ *
+ * Idempotent: upserts on the `(user_id, cluster_id)` PK, so a re-commit of the same
+ * set is a no-op. An EMPTY list writes nothing and does not error (the zero-cluster
+ * path — those X slots default to news). Duplicate ids are deduped before the write.
+ *
+ * @param clusterIds - `source_clusters.cluster_id`s the user followed as clusters.
+ * @param client - Optional Supabase client (injected in tests; defaults to the browser client).
+ * @returns The number of distinct cluster refs written.
+ * @throws If the upsert fails (surfaced — Rule 12); the upsert is idempotent so a retry is safe.
+ *
+ * @example
+ * await commitUserClusterFollows(["cl-1", "cl-2"]);
+ */
+export async function commitUserClusterFollows(
+  clusterIds: readonly string[],
+  client: SupabaseClient = getSupabaseBrowserClient(),
+): Promise<{ clusters_followed: number }> {
+  const distinctClusterIds = [...new Set(clusterIds)];
+  if (distinctClusterIds.length === 0) {
+    return { clusters_followed: 0 };
+  }
+
+  const authedUserId = await requireAuthedUserId(client);
+  logger.info("commit_user_cluster_follows_started", {
+    user_id: authedUserId,
+    cluster_count: distinctClusterIds.length,
+  });
+
+  const rows = distinctClusterIds.map((clusterId) => ({
+    user_id: authedUserId,
+    cluster_id: clusterId,
+    added_via: "onboarding_chat",
+  }));
+  const { error } = await client.from(USER_SOURCE_CLUSTERS_TABLE).upsert(rows, { onConflict: "user_id,cluster_id" });
+  if (error) {
+    logger.error("commit_user_cluster_follows_failed", {
+      cluster_count: distinctClusterIds.length,
+      error_message: error.message,
+      fix_suggestion:
+        "Confirm migration 0033 applied and the user_source_clusters_owner_all RLS policy allows the authed upsert.",
+    });
+    throw new Error(
+      `Failed to write ${distinctClusterIds.length} cluster ref(s): ${error.message}. ` +
+        "fix_suggestion: confirm migration 0033 applied and user_source_clusters allows the authed upsert.",
+    );
+  }
+
+  logger.info("commit_user_cluster_follows_completed", { clusters_followed: distinctClusterIds.length });
+  return { clusters_followed: distinctClusterIds.length };
 }
 
 /** Surface a catalog read failure loudly (Rule 12) — never swallow into an empty result. */

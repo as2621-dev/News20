@@ -27,6 +27,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.ingestion.x_theme_reel import TweetScreenshotRenderer
 from agents.memory.session_processor import ProfileUpdateResult, run_profile_update_job
 from agents.pipeline.categories import (
     CATEGORY_FLOOR,
@@ -34,6 +35,7 @@ from agents.pipeline.categories import (
     CategoryAllocation,
     FeedCategory,
 )
+from agents.pipeline.clustering.reconcile import reconcile_story_ids_via_clustering
 from agents.pipeline.demand import compute_pool_target
 from agents.pipeline.feed_assembly import ScoredCandidate
 from agents.pipeline.niche_allocation import NicheAllocationRow
@@ -51,7 +53,9 @@ from agents.pipeline.produce_caps import (
     compute_category_produce_caps,
     enforce_overall_ceiling,
 )
+from agents.pipeline.notability_gate import apply_notability_gate
 from agents.pipeline.produce_dedup import dedupe_produce_shortlist
+from agents.pipeline.shortlist import ShortlistEntry, build_produce_shortlist
 from agents.pipeline.produce_gate import select_stories_to_produce
 from agents.pipeline.stages.batch_review import review_reel_pool
 from agents.pipeline.stages.ranking import (
@@ -59,6 +63,13 @@ from agents.pipeline.stages.ranking import (
     FollowedEntity,
     UserProfileInterest,
 )
+from agents.pipeline.x_theme_ladder import XThemeReelCandidate
+from agents.pipeline.x_theme_production import (
+    XThemeGatherResult,
+    filter_placeable_theme_candidates,
+    gather_x_theme_candidates,
+)
+from agents.shared.exceptions import HeadlineQualityError, SegmentResolutionError
 from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
 from agents.voice.gemini_tts import GeminiTTSClient
@@ -116,6 +127,9 @@ class DailyPipelineResult(BaseModel):
             set (max-over-users × BUFFER, floored). Observe-only in M2 — emitted
             for M3 (targeted ingest) to consume; does NOT change which reels are
             produced this run.
+        shortlist: The would-be-produced review list (founder rule 2026-07-19,
+            shortlist-first). Populated ONLY when the run halts with
+            ``shortlist_only=True``; empty on a producing run.
 
     Example:
         >>> # See tests/agents/pipeline/test_daily_batch.py for the staged asserts.
@@ -131,6 +145,10 @@ class DailyPipelineResult(BaseModel):
     pool_target: list[PoolTargetCell] = Field(
         default_factory=list,
         description="M2 shared-pool shopping list (observe-only; M3 consumes it)",
+    )
+    shortlist: list[ShortlistEntry] = Field(
+        default_factory=list,
+        description="Would-produce review list (set only when shortlist_only halts)",
     )
 
 
@@ -353,9 +371,7 @@ def _load_category_allocation(
     return allocation_by_user
 
 
-def _load_mute_terms(
-    supabase_client: Any, user_ids: list[str]
-) -> dict[str, list[str]]:
+def _load_mute_terms(supabase_client: Any, user_ids: list[str]) -> dict[str, list[str]]:
     """Load every active user's ``user_mute_terms`` in ONE query (FSR #17).
 
     The SKIP-TUNE mute terms the assembler hard-filters on (migration 0029). One ``.in_()``
@@ -670,9 +686,11 @@ async def _produce_story_pool(
     builds from whatever produced). Order is preserved.
 
     The Phase 2c detail-enrichment lookups (``enable_detail_enrichment`` +
-    ``interest_segment_lookup`` / ``outlets_lookup`` / ``gdelt_adapter``) are passed
-    straight through to the render phase — injected so the batch is
-    enrichment-capable without this module reading the DB itself.
+    ``outlets_lookup`` / ``gdelt_adapter``) are passed straight through to the render
+    phase — injected so the batch is enrichment-capable without this module reading
+    the DB itself. ``interest_segment_lookup`` goes to the WRITE phase only, which
+    resolves the segment ONCE onto ``WritePhaseResult.segment_slug``; render consumes
+    that rather than re-resolving (issue #61).
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     tags_by_story: dict[str, list[StoryInterestTag]] = {}
@@ -694,6 +712,32 @@ async def _produce_story_pool(
                     interest_segment_lookup=interest_segment_lookup,
                     pool_index=pool_index,
                 )
+            except SegmentResolutionError as exc:
+                # Reason: the nightly batch calls write_phase DIRECTLY (never
+                # orchestrate_story), so without this arm a segment rejection is
+                # swallowed by the generic handler below and reported as a
+                # script/verify failure — the exact conflation this guard exists to
+                # prevent. Distinct event, and the resolver's own fix_suggestion.
+                logger.error(
+                    "produce_write_segment_unresolved",
+                    story_id=story.canonical_story_id,
+                    error_message=str(exc),
+                    fix_suggestion=exc.fix_suggestion,
+                )
+                return None
+            except HeadlineQualityError as exc:
+                # Reason: same reason as the segment arm above — the batch calls
+                # write_phase directly, so without this a dropped masthead is
+                # reported as a script/verify failure and the real, actionable
+                # signal (how many stories the headline gate cost us) is lost.
+                logger.error(
+                    "produce_write_headline_rejected",
+                    story_id=story.canonical_story_id,
+                    rejection_reason=exc.rejection_reason,
+                    error_message=str(exc),
+                    fix_suggestion=exc.fix_suggestion,
+                )
+                return None
             except Exception as exc:  # noqa: BLE001 — one bad write never aborts the batch
                 logger.error(
                     "produce_write_failed",
@@ -723,10 +767,21 @@ async def _produce_story_pool(
                     llm_client=llm_client,
                     poster_genai_client=poster_genai_client,
                     enable_detail_enrichment=enable_detail_enrichment,
-                    interest_segment_lookup=interest_segment_lookup,
                     outlets_lookup=outlets_lookup,
                     gdelt_adapter=gdelt_adapter,
                 )
+            except HeadlineQualityError as exc:
+                # Reason: persist re-gates the headline, so a rejection can land in
+                # the RENDER half too. Without this arm it reads as a render failure
+                # and the headline-gate cost of the batch is undercounted.
+                logger.error(
+                    "produce_render_headline_rejected",
+                    story_id=write_result.canonical_story_id,
+                    rejection_reason=exc.rejection_reason,
+                    error_message=str(exc),
+                    fix_suggestion=exc.fix_suggestion,
+                )
+                return None
             except Exception as exc:  # noqa: BLE001
                 logger.error(
                     "produce_render_failed",
@@ -766,10 +821,15 @@ async def run_daily_pipeline(
     enable_editorial_rewrite: bool = False,
     enable_produce_dedup: bool = True,
     enable_batch_review: bool = False,
+    enable_semantic_clustering: bool = False,
+    enable_notability_gate: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
     source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
+    enable_x_theme_reels: bool = False,
+    tweet_screenshot_renderer: TweetScreenshotRenderer | None = None,
+    shortlist_only: bool = False,
 ) -> DailyPipelineResult:
     """Run the full daily personalized-feed batch end-to-end (stages A–E).
 
@@ -818,9 +878,34 @@ async def run_daily_pipeline(
             scaffolding (openers/reactions/handoffs), re-verifying any reel it
             touches. Fail-open. Defaults False so the legacy produce path is byte-
             for-byte unchanged until the pass is verified.
+        enable_semantic_clustering: When True, the deduped candidate pool is run
+            through the M3a/M3b online semantic clusterer BEFORE the produce gate so
+            two candidates about the SAME real-world event (that ingestion's
+            URL+0.85-title dedup missed — e.g. two reworded headlines for one match)
+            collapse onto one shared ``story_id``. Downstream produce-once + the
+            ``feed_assembly`` exact-id dedup then guarantee one reel per event, and the
+            clusters' E1 importance feeds the assembler's Importance term. Adds one paid
+            Gemini ``gemini-embedding-001`` call per near-dup representative. Defaults
+            False so the legacy path costs nothing and is byte-for-byte unchanged until
+            a caller opts in (production entry points default it ON via
+            ``ENABLE_SEMANTIC_CLUSTERING``, issue #34). A reconcile failure mid-run
+            falls back to the un-reconciled pool for the WHOLE run — loud, never a
+            half-reconciled feed.
+        enable_notability_gate: When True (issue #48), the deduped/reconciled pool passes
+            the notability hard cut (``notability_gate.apply_notability_gate``) BEFORE the
+            produce-once gate: a candidate reaches production only with ≥2 distinct
+            editorial outlets OR an authority-tier outlet — a syndication burst of one
+            wire item across many distributors counts as zero corroborating outlets and is
+            dropped. A thin leaf niche relaxes to the single-outlet rule (stamped
+            ``relaxed``) rather than starving. Followed-source (YouTube/X) stories are
+            exempt. The batch emits candidates-surviving-per-niche as structured JSON.
+            Fails LOUD if the authority config is unavailable (never a silent open gate).
+            Defaults False so the legacy path is byte-for-byte unchanged until a caller
+            opts in (the live entry point defaults it ON via ``ENABLE_NOTABILITY_GATE``).
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
             story's ``story_segment_slug`` (and the enrichment's analytic kind /
-            coverage mode). Injected per batch; ``None`` → ``wildcard`` fallback.
+            coverage mode). Injected per batch; a story that resolves to no
+            canonical segment root is rejected and skipped, never defaulted.
         outlets_lookup: ``{outlet_domain: bias_lean}`` for the GDELT coverage
             census (with ``gdelt_adapter``); ``None`` skips the census.
         gdelt_adapter: The SHARED ``GdeltDocAdapter`` (honors the throttle) for the
@@ -832,6 +917,26 @@ async def run_daily_pipeline(
             poster stage uses their thumbnail, not Nano Banana), and the produced
             subset is handed to ``assemble_daily_feeds`` to fill each user's
             ``youtube``/``x`` source slots. ``None`` → the legacy interest-only batch.
+        enable_x_theme_reels: Slice #31 gate (``RUN_X_THEMES`` at the entry points).
+            When True, each active user's followed X clusters are joined
+            (``user_content_sources → source_cluster_members → source_clusters``),
+            today's shared ``x_cluster_sweeps.themes`` are read, ONE theme reel story
+            per (cluster, theme) is produced IN THIS RUN (deterministic id — a re-run
+            reuses the same ``stories`` row via the produce-once digest gate), and the
+            FK-guarded ``x_theme_candidates_by_user`` is handed to
+            ``assemble_daily_feeds`` so eligible users' ``x`` slots fill via the
+            honest theme ladder (rung + attribution stamped). Users following no X
+            cluster keep the legacy x fill. A gather failure degrades LOUDLY to the
+            legacy fill for the whole run. Defaults False — zero behaviour change.
+        tweet_screenshot_renderer: Optional ``(tweet_url) -> path|None`` seam for the
+            theme reels' top-tweet screenshot (mocked in tests; the real Playwright
+            renderer when ``None``). Only read when ``enable_x_theme_reels`` is True.
+        shortlist_only: Founder rule 2026-07-19 (shortlist-first, credit frugality).
+            When True the run HALTS after the full selection pipeline (ingest →
+            gates → dedup → caps → merges) and returns the would-produce list on
+            ``result.shortlist`` — the paid write/render phases and the feed
+            assembly never run, so zero production credits are spent and no
+            ``daily_feeds`` rows are written. Defaults False (producing run).
 
     Returns:
         A :class:`DailyPipelineResult` summarizing every stage.
@@ -847,12 +952,85 @@ async def run_daily_pipeline(
     # ── Stage B — ingest + dedup + ancestor-tag (injected) ────────────────────
     stories, story_interest_tags = await ingest_fn()
 
+    # ── Stage B.5 — semantic same-event reconciliation (FSR-M3, gated) ────────
+    # Collapse candidates about the SAME real-world event that ingestion's
+    # URL+0.85-title dedup left as separate ``story_id`` s (the "two reels, one
+    # event" bug) onto ONE shared id, BEFORE the gate/caps/assembly all key on it.
+    # Also produces the shared cluster-importance map (closes the FSR-M3 residual).
+    # Gated OFF by default — no Gemini spend, no behaviour change — until a caller
+    # opts in (see ``enable_semantic_clustering``).
+    cluster_importance_by_story: dict[str, float] | None = None
+    category_override_by_story: dict[str, FeedCategory] | None = None
+    if enable_semantic_clustering:
+        try:
+            reconciled = await reconcile_story_ids_via_clustering(
+                stories,
+                story_interest_tags,
+                supabase_client=supabase_client,
+                llm_client=llm_client,
+                interest_nodes=interest_nodes,
+                resolve_existing_story_ids=build_story_id_resolver(supabase_client),
+                now_utc=now,
+            )
+        except Exception as reconcile_error:
+            # Reason: a mid-batch embedding/DB failure must degrade the WHOLE run to
+            # the legacy un-clustered pool — reconcile's outputs are all-or-nothing, so
+            # a half-embedded batch never leaks a half-reconciled feed. The paid dedup
+            # upgrade is lost for this run; the nightly batch itself must not be.
+            logger.error(
+                "semantic_reconcile_failed_run_fallback",
+                error_type=type(reconcile_error).__name__,
+                error_message=str(reconcile_error),
+                candidate_count=len(stories),
+                fix_suggestion=(
+                    "Semantic reconcile failed mid-run; the batch fell back to the "
+                    "legacy un-clustered pool (raw outlet-count importance). The "
+                    "same-event collapse is PERMANENTLY skipped for this batch's "
+                    "candidates — once they are produced un-merged, produce-once "
+                    "keeps the duplicates. Fix Gemini embedding availability/quota "
+                    "(gemini-embedding-001) or story_clusters DB access BEFORE the "
+                    "next batch."
+                ),
+            )
+        else:
+            stories = reconciled.reconciled_stories
+            story_interest_tags = reconciled.reconciled_tags
+            cluster_importance_by_story = reconciled.cluster_importance_by_story
+            # Reason: issue #34 — a cross-category merge's enforced category pin rides
+            # this map to every assign_category call site (caps, ceiling, assembly) so
+            # the merge can never flip the surviving story's category (never via a
+            # story_interest_match_depth mutation, which ranking persists verbatim).
+            category_override_by_story = reconciled.category_override_by_story
+
+    # ── Stage B.9 — notability hard cut (issue #48, gated) ────────────────────
+    # Reason (PRD RC2): nothing reaches production unless it is plausibly news —
+    # ≥2 distinct editorial outlets OR an authority-tier outlet, with a thin-niche
+    # relaxation (stamped) so a legitimately thin leaf niche does not starve. A
+    # syndication burst of one wire item counts as zero corroborating outlets and is
+    # dropped. Runs BEFORE the produce-once gate so cost is only ever spent on news.
+    # ``stories`` is left intact (candidate_story_count = the full ingested pool);
+    # only the produce path narrows to the notable subset. Fails LOUD on missing config.
+    producible_stories = stories
+    if enable_notability_gate:
+        notability_result = apply_notability_gate(stories, story_interest_tags)
+        notable_ids = set(notability_result.notable_story_ids)
+        producible_stories = [
+            story for story in stories if story.canonical_story_id in notable_ids
+        ]
+        logger.info(
+            "notability_gate_applied",
+            candidate_pool=len(stories),
+            notable=len(producible_stories),
+            rejected=len(stories) - len(producible_stories),
+            relaxed_niche_count=len(notability_result.relaxed_niche_ids),
+        )
+
     # ── Stage C — produce-once gate, then bounded paid fan-out ────────────────
     has_current_digest = _load_has_current_digest(
-        supabase_client, [s.canonical_story_id for s in stories]
+        supabase_client, [s.canonical_story_id for s in producible_stories]
     )
     to_produce, _decisions = select_stories_to_produce(
-        stories, story_interest_tags, has_current_digest, now_utc=now
+        producible_stories, story_interest_tags, has_current_digest, now_utc=now
     )
     gated_count = len(to_produce)
 
@@ -884,6 +1062,7 @@ async def run_daily_pipeline(
         interest_nodes,
         caps,
         default_cap=DEFAULT_PER_CATEGORY_CAP,
+        category_override_by_story=category_override_by_story,
     )
     if max_total_productions and max_total_productions > 0:
         to_produce = enforce_overall_ceiling(
@@ -892,6 +1071,7 @@ async def run_daily_pipeline(
             story_interest_tags,
             interest_nodes,
             max_total_productions,
+            category_override_by_story=category_override_by_story,
         )
     capped_count = gated_count - len(to_produce)
 
@@ -961,6 +1141,89 @@ async def run_daily_pipeline(
             source_to_produce=len(source_to_produce),
         )
 
+    # ── X theme-of-the-day merge (slice #31) — join each active user's followed X
+    # clusters, read today's SHARED x_cluster_sweeps.themes, and merge ONE reel
+    # story per (cluster, theme) into the produce pool, EXEMPT from the gate + caps
+    # (mirrors the source-origin merge above; deterministic ids + the current-digest
+    # skip keep a same-day re-run from re-paying). The theme stories are produced IN
+    # THIS RUN because daily_feeds only fills from same-run stories. ──
+    x_theme_gather: XThemeGatherResult | None = None
+    x_theme_already_produced: dict[str, bool] = {}
+    if enable_x_theme_reels:
+        try:
+            x_theme_gather = await gather_x_theme_candidates(
+                supabase_client,
+                active_user_ids,
+                target_date,
+                screenshot_renderer=tweet_screenshot_renderer,
+            )
+        except Exception as gather_error:  # noqa: BLE001 — never kill the nightly batch
+            # Reason: a cluster-join/sweep-read failure must not abort the whole
+            # nightly batch — degrade to the legacy x fill (candidates stay None so
+            # NO user is switched into ladder mode with an empty list) and log loud.
+            logger.error(
+                "x_theme_gather_failed_run_fallback",
+                error_type=type(gather_error).__name__,
+                error_message=str(gather_error),
+                fix_suggestion="X theme gather failed; this run falls back to the "
+                "legacy source-stories x fill (no theme ladder). Check "
+                "user_content_sources/source_cluster_members/source_clusters/"
+                "x_cluster_sweeps access before the next batch.",
+            )
+            x_theme_gather = None
+        if x_theme_gather is not None and x_theme_gather.theme_stories:
+            x_theme_already_produced = _load_has_current_digest(
+                supabase_client,
+                [s.canonical_story_id for s in x_theme_gather.theme_stories],
+            )
+            pool_ids = {s.canonical_story_id for s in to_produce}
+            theme_to_produce = [
+                s
+                for s in x_theme_gather.theme_stories
+                if not x_theme_already_produced.get(s.canonical_story_id)
+                and s.canonical_story_id not in pool_ids
+            ]
+            to_produce = to_produce + theme_to_produce
+            logger.info(
+                "run_daily_pipeline_x_theme_merge",
+                theme_stories=len(x_theme_gather.theme_stories),
+                theme_to_produce=len(theme_to_produce),
+                eligible_user_count=len(x_theme_gather.candidates_by_user),
+            )
+
+    # ── SHORTLIST-ONLY halt (founder rule 2026-07-19, shortlist-first) ────────
+    # Reason: production (script LLM → TTS → poster) is the expensive tail of the
+    # batch. Halting HERE — after every gate, dedup, cap and merge — surfaces the
+    # exact would-produce pool for founder review at zero production cost. The
+    # review list must be exactly what production would receive, so this sits
+    # immediately above _produce_story_pool and nothing may slip between them.
+    if shortlist_only:
+        shortlist_entries = build_produce_shortlist(
+            to_produce,
+            story_interest_tags,
+            interest_nodes,
+            category_override_by_story,
+        )
+        logger.info(
+            "shortlist_only_halt",
+            feed_date=target_date.isoformat(),
+            candidate_story_count=len(stories),
+            shortlist_count=len(shortlist_entries),
+            skipped_by_gate_count=len(stories) - gated_count,
+            capped_count=capped_count,
+        )
+        return DailyPipelineResult(
+            feed_date=target_date.isoformat(),
+            profile_update=profile_update,
+            candidate_story_count=len(stories),
+            produced_story_count=0,
+            skipped_by_gate_count=len(stories) - gated_count,
+            capped_count=capped_count,
+            feeds=None,
+            pool_target=pool_target_cells,
+            shortlist=shortlist_entries,
+        )
+
     produced_stories = await _produce_story_pool(
         stories_to_produce=to_produce,
         story_interest_tags=story_interest_tags,
@@ -981,28 +1244,18 @@ async def run_daily_pipeline(
     active_user_inputs = load_active_user_inputs(
         supabase_client, target_date, exploration_by_user
     )
-    # ── FSR-M3 cluster-importance bridge (RESIDUAL — see note) ────────────────
-    # The assembly seam is wired: ``assemble_daily_feeds`` accepts a SHARED
-    # ``cluster_importance_by_story`` map and threads it through ``assemble_user_feed`` →
-    # ``score_and_classify_for_user`` → ``compute_story_score(cluster_importance=…)`` so a
-    # clustered story's Importance term is its authority-weighted, within-category-
-    # normalized E1 score (``agents/pipeline/importance/story_importance.score_clusters``),
-    # falling back to the raw outlet count for un-clustered stories (Rule 3, additive).
+    # ── FSR-M3 cluster-importance bridge ──────────────────────────────────────
+    # The assembly seam threads a SHARED ``cluster_importance_by_story`` map through
+    # ``assemble_daily_feeds`` → ``assemble_user_feed`` → ``score_and_classify_for_user`` →
+    # ``compute_story_score(cluster_importance=…)`` so a clustered story's Importance term
+    # is its authority-weighted, within-category-normalized E1 score
+    # (``agents/pipeline/importance/story_importance.score_clusters``), falling back to the
+    # raw outlet count for un-clustered stories (Rule 3, additive).
     #
-    # RESIDUAL (NOT closed this phase — surfaced, not faked, Rule 12): the SOURCE of that
-    # map is not yet produced in this batch. The shared-pool ONLINE clusterer
-    # (``agents/pipeline/clustering/online_clusterer.cluster_candidates`` → ``StoryCluster``
-    # rows + the ``story_clusters`` table, M3a/M3b) is NOT called anywhere in
-    # ``run_daily_pipeline`` today — ingestion uses the simpler URL+title
-    # ``StoryClusterer`` (``agents/ingestion/dedup``) that produces ``CanonicalStory`` with
-    # NO ``cluster_id``. Closing this requires, post-clustering: (1) call ``score_clusters``
-    # on the clustered batch and persist via ``cluster_store.upsert``; (2) bridge each
-    # cluster's ``cluster_importance`` onto the candidate at the ``cluster_id ↔ story_id``
-    # seam (``build_story_id_resolver`` / ``story_url_aliases``) to build the map below. That
-    # wiring (embeddings + blocking + continuity persistence) is an entangled, paid-Gemini
-    # change beyond M6b's surgical scope — tracked as a LIVE-pipeline residual. Until then
-    # the map is ``None`` and the un-clustered raw-importance fallback is used (no fake).
-    cluster_importance_by_story: dict[str, float] | None = None
+    # The SOURCE of that map is produced upstream in Stage B.5 by
+    # ``reconcile_story_ids_via_clustering`` when ``enable_semantic_clustering`` is on
+    # (``cluster_importance_by_story`` was set there). When the flag is off it stays
+    # ``None`` and the un-clustered raw-importance fallback is used (no fake).
     # Reason: a source slot can be filled by a source story produced THIS run or one
     # that already had a current digest (persisted, placeable). Restrict each user's
     # source pool to those placeable ids so a verification halt never leaves a
@@ -1023,6 +1276,19 @@ async def run_daily_pipeline(
             ]
             for user_id, user_source_stories in source_stories_by_user.items()
         }
+    # ── X theme FK guard (slice #31, residual R3) — keep only candidates whose reel
+    # story is placeable (produced this run, or already carrying a current digest) so
+    # a verification/render halt can never fail a user's batched daily_feeds insert.
+    # Eligible users are kept even at zero candidates (honest ladder → news floor).
+    x_theme_candidates_by_user: dict[str, list[XThemeReelCandidate]] | None = None
+    if x_theme_gather is not None:
+        placeable_theme_ids = {s.canonical_story_id for s in produced_stories}
+        placeable_theme_ids |= {
+            story_id for story_id, has in x_theme_already_produced.items() if has
+        }
+        x_theme_candidates_by_user = filter_placeable_theme_candidates(
+            x_theme_gather.candidates_by_user, placeable_theme_ids
+        )
     feeds = assemble_daily_feeds(
         target_date=target_date,
         active_user_inputs=active_user_inputs,
@@ -1032,7 +1298,9 @@ async def run_daily_pipeline(
         supabase_client=supabase_client,
         now_utc=now,
         source_stories_by_user=produced_source_by_user,
+        x_theme_candidates_by_user=x_theme_candidates_by_user,
         cluster_importance_by_story=cluster_importance_by_story,
+        category_override_by_story=category_override_by_story,
     )
 
     logger.info(

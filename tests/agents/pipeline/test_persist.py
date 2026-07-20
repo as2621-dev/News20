@@ -153,6 +153,13 @@ def story_interest_tags() -> list[StoryInterestTag]:
     ]
 
 
+# Reason: the per-batch lookup persist needs to resolve a segment. Injected by every
+# persist test because resolution is now MANDATORY — with no lookup the story is
+# rejected outright (there is no ``wildcard`` default left to ride on), which would
+# make the insert-failure test below pass for the wrong reason.
+_SEGMENT_LOOKUP: dict[str, str] = {"int-arsenal": "sport", "int-soccer": "sport"}
+
+
 class TestCaptionMappingLossless:
     """The caption-JSON → caption_sentences mapping must lose nothing (DoD)."""
 
@@ -324,6 +331,7 @@ class TestPersistColumnMapping:
             audio_bytes=b"FAKE-MP3-BYTES",
             audio_duration_ms=55000,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             poster_bytes=b"FAKE-PNG-BYTES",
             suggested_questions=["What happened?"],
             story_id="FIXTURE-SP3-test",
@@ -396,6 +404,7 @@ class TestPersistColumnMapping:
             audio_bytes=b"FAKE",
             audio_duration_ms=46000,
             story_interest_tags=story_interest_tags,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
             poster_bytes=None,
             story_id="FIXTURE-SP3-nopost",
         )
@@ -436,6 +445,7 @@ class TestPersistColumnMapping:
                 audio_bytes=b"FAKE",
                 audio_duration_ms=46000,
                 story_interest_tags=story_interest_tags,
+                interest_segment_lookup=_SEGMENT_LOOKUP,
                 story_id="FIXTURE-SP3-fail",
             )
 

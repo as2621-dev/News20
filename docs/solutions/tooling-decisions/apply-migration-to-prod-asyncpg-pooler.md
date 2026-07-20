@@ -46,3 +46,11 @@ nothing` makes re-running a no-op. Then verify against `information_schema.colum
 
 **Gotcha:** run the script with `PYTHONPATH=<repo root>` if it imports `agents.*` — a script
 executed by absolute path puts its own dir (e.g. the scratchpad) on `sys.path[0]`, not the repo.
+
+**Drift keeps recurring — verify before flag-flips (2026-07-07, slice #31):** a slice can
+ship code + tests for a table whose migration never reached prod (`0031_x_cluster_sweeps`
+was unapplied drift from #23 even though the LATER `0032` WAS applied — recorded versions
+are not contiguous). Before wiring/enabling any feature that reads a recent table, check
+`information_schema.tables` on prod first; apply ONLY your slice's expand-only migration
+(leave foreign slices' drift — 0030/0033 at the time — for their owners, per the
+concurrent-agents convention) and record it.

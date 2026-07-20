@@ -16,12 +16,17 @@ Two phases mirror ``BaseNewsAdapter``:
   • ``search()`` — single-query convenience (ABC contract; also the path the
     Phase-2c coverage census reuses). Interest-agnostic: the pipeline stamps.
 
-**Matching (precision + relevance ranking).** An interest's free-text
-``interest_search_query`` is tokenized into *anchor terms* (dropping stopwords and
-content-free event words). A GKG row matches an interest if its
+**Matching (the lexical key + relevance ranking).** An interest's free-text
+``interest_search_query`` is a comma-joined list of anchor *phrases*; each becomes
+one contiguous-phrase anchor via ``interest_lexical.derive_anchor_specs`` (banned
+standalone generics dropped, short/ambiguous anchors flagged ``requires_title``).
+A GKG row matches an interest when its
 ``title + V2Persons + V2Organizations + V2Locations`` haystack contains ANY anchor
-term (word-boundary regex). To suppress broad-term noise WITHOUT hard exclusions,
-each interest's matches are ranked by the **number of distinct anchor terms matched**
+phrase (word-boundary regex) AND — for a ``requires_title`` anchor — the title
+contains it too. This is the lexical half of the two-key relevance lock (RC3); the
+semantic half (embedding similarity) is slice #51. To suppress broad-term noise
+WITHOUT hard exclusions, each interest's matches are ranked by the
+**number of distinct anchor terms matched**
 (then recency) and capped to the top ``per_interest_limit`` (default 75, mirroring
 the DOC ``maxrecords``). So for "India cricket … BCCI", an India+cricket article
 (2 terms) outranks an India-politics article (1 term), and the cap bounds the pool
@@ -197,12 +202,17 @@ def _parse_v2_themes(v2_themes: Any) -> list[str]:
 
 
 # Reason: one parameterized query — interest terms arrive as a STRUCT array
-# (@interest_terms, one row per (interest, term)), so the SQL is fixed and
-# injection-safe regardless of interest count. A row matches an interest if ANY
-# term hits its entity+title haystack; matches are GROUPed per (article, interest)
-# to count distinct matched terms. Ranking puts TITLE matches first
-# (title_match_count) — a term in the headline means the story is *about* the
-# interest, vs an incidental body/entity-tag mention (which made multi-country
+# (@interest_terms, one row per (interest, anchor)), so the SQL is fixed and
+# injection-safe regardless of interest count. Each anchor is a PHRASE regex
+# (``\bdata\s+center\b`` — contiguous, not a bag of words) carrying a
+# ``requires_title`` flag; both are built by ``interest_lexical.derive_anchor_specs``
+# (the lexical key — RC3). A row matches an interest when ANY anchor hits its
+# entity+title haystack AND, for a short/ambiguous anchor (``requires_title``), also
+# hits the title — the JOIN predicate below is the SQL half of the twin mirrored by
+# ``interest_lexical.evaluate_anchor_match``. Matches are GROUPed per
+# (article, interest) to count distinct matched anchors. Ranking puts TITLE matches
+# first (title_match_count) — an anchor in the headline means the story is *about*
+# the interest, vs an incidental body/entity-tag mention (which made multi-country
 # roundups outrank focused stories) — then total match_count, then recency.
 _BATCH_SQL = r"""
 WITH raw AS (
@@ -238,6 +248,7 @@ matched AS (
   FROM base AS b
   JOIN UNNEST(@interest_terms) AS t
     ON REGEXP_CONTAINS(b.hay, t.term)
+   AND (NOT t.requires_title OR REGEXP_CONTAINS(b.title_hay, t.term))
   GROUP BY b.url, b.outlet, b.gkg_date, b.sharing_image, b.title, b.v2_themes,
            t.interest_id, t.interest_slug
 ),
@@ -369,11 +380,15 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
         tokens = recall_terms(search_query)
         if not tokens:
             return []
-        terms = [
+        # Reason: the recall/census path stays deliberately broad — single-word terms,
+        # event words kept, no title gate — so ``requires_title`` is uniformly False.
+        # It still carries the field so every struct in @interest_terms is homogeneous.
+        terms: list[dict[str, Any]] = [
             {
                 "interest_id": "__query__",
                 "interest_slug": "__query__",
                 "term": _term_regex(t),
+                "requires_title": False,
             }
             for t in tokens
         ]
@@ -411,24 +426,59 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
         Raises:
             AdapterFetchError: On any BigQuery error (caller treats as batch failure).
         """
-        terms: list[dict[str, str]] = []
+        # Reason: function-local import breaks the one-directional cycle — interest_lexical
+        # imports the shared tokenizer/stopword sets from THIS module at load time, so we
+        # pull derive_anchor_specs back in only at call time.
+        from agents.ingestion.interest_lexical import derive_anchor_specs
+
+        terms: list[dict[str, Any]] = []
         used_interests = 0
         for interest in active_interests:
-            tokens = match_terms(interest.interest_search_query)
-            if not tokens:
-                logger.warning(
-                    "gdelt_bq_interest_no_terms",
-                    interest_slug=interest.interest_slug,
-                    fix_suggestion="interest_search_query had no usable terms; skipped this run",
-                )
+            derivation = derive_anchor_specs(interest.interest_search_query)
+            specs = derivation.specs
+            if not specs:
+                if derivation.banned_anchors:
+                    # Term-hygiene gap (criterion 5): every anchor is a banned standalone
+                    # generic, so the interest can match NOTHING — surface it, never a
+                    # silent unmatchable interest (Rule 12).
+                    logger.warning(
+                        "interest_term_hygiene_gap",
+                        interest_slug=interest.interest_slug,
+                        banned_anchors=derivation.banned_anchors,
+                        usable_anchors=0,
+                        fix_suggestion="Every anchor for this interest is a banned "
+                        "standalone generic (never admits alone) — add a specific "
+                        "multi-word or entity anchor to interest_search_query",
+                    )
+                else:
+                    logger.warning(
+                        "gdelt_bq_interest_no_terms",
+                        interest_slug=interest.interest_slug,
+                        fix_suggestion="interest_search_query had no usable terms; skipped this run",
+                    )
                 continue
+            if derivation.has_hygiene_gap:
+                # Term-hygiene gap (criterion 5): the interest still has anchors but every
+                # usable one is short/ambiguous (title-only), so it can match nothing on
+                # the story body/entities — surface it while still enqueuing the anchors.
+                logger.warning(
+                    "interest_term_hygiene_gap",
+                    interest_slug=interest.interest_slug,
+                    banned_anchors=derivation.banned_anchors,
+                    usable_anchors=len(specs),
+                    strong_anchors=0,
+                    fix_suggestion="Every usable anchor is short/ambiguous and only "
+                    "matches in the title — add a specific multi-word or entity anchor "
+                    "so this interest can match on the story body/entities too",
+                )
             used_interests += 1
-            for token in tokens:
+            for spec in specs:
                 terms.append(
                     {
                         "interest_id": interest.interest_id,
                         "interest_slug": interest.interest_slug,
-                        "term": _term_regex(token),
+                        "term": spec.anchor_regex,
+                        "requires_title": spec.requires_title,
                     }
                 )
         if not terms:
@@ -509,9 +559,7 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
         """
         # Reason: the curated domains arrive lowercase (SP1) but lowercase again
         # defensively so the @domains array always matches LOWER(SourceCommonName).
-        lowered_domains = (
-            [d.lower() for d in domains] if domains else None
-        )
+        lowered_domains = [d.lower() for d in domains] if domains else None
         sql = _batch_sql_with_domains(lowered_domains)
         since = (
             since_utc if since_utc.tzinfo else since_utc.replace(tzinfo=timezone.utc)
@@ -536,13 +584,16 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                         "interest_slug", "STRING", t["interest_slug"]
                     ),
                     bigquery.ScalarQueryParameter("term", "STRING", t["term"]),
+                    # Reason: the lexical key — a short/ambiguous anchor only counts on
+                    # a title match (the JOIN's ``NOT t.requires_title OR ...`` clause).
+                    bigquery.ScalarQueryParameter(
+                        "requires_title", "BOOL", t["requires_title"]
+                    ),
                 )
                 for t in terms
             ]
             query_parameters = [
-                bigquery.ArrayQueryParameter(
-                    "interest_terms", "STRUCT", term_structs
-                ),
+                bigquery.ArrayQueryParameter("interest_terms", "STRUCT", term_structs),
                 bigquery.ScalarQueryParameter(
                     "since_partition", "TIMESTAMP", since_partition
                 ),
@@ -551,16 +602,16 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                     "per_interest_limit", "INT64", per_interest_limit
                 ),
                 bigquery.ScalarQueryParameter(
-                    "max_rows", "INT64", max_rows if max_rows is not None else self.max_rows
+                    "max_rows",
+                    "INT64",
+                    max_rows if max_rows is not None else self.max_rows,
                 ),
             ]
             # Reason: bind the @domains array only when the predicate is present, so
             # the no-domains job config is byte-identical to today's (additive path).
             if lowered_domains:
                 query_parameters.append(
-                    bigquery.ArrayQueryParameter(
-                        "domains", "STRING", lowered_domains
-                    )
+                    bigquery.ArrayQueryParameter("domains", "STRING", lowered_domains)
                 )
             job_config = bigquery.QueryJobConfig(query_parameters=query_parameters)
             job = self._get_client().query(sql, job_config=job_config)

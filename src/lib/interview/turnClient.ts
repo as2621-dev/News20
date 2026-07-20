@@ -18,15 +18,21 @@
 
 import { logger } from "@/lib/logger";
 import { getCurrentSession } from "@/lib/supabase/auth";
-import type {
-  InterviewBubble,
-  InterviewBubbleKind,
-  InterviewExchange,
-  InterviewTurn,
-  TerminalAnglePreference,
-  TerminalMicroInterest,
-  TerminalMuteTerm,
+import {
+  INTERVIEW_DEFERRAL_KINDS,
+  type InterviewBubble,
+  type InterviewBubbleKind,
+  type InterviewDeferralKind,
+  type InterviewDeferredQuestion,
+  type InterviewExchange,
+  type InterviewTurn,
+  type TerminalAnglePreference,
+  type TerminalMicroInterest,
+  type TerminalMuteTerm,
 } from "@/types/interview";
+
+/** The deferral kinds the worker may send — the runtime allow-list, derived from the single seed (Rule 7). */
+const DEFERRAL_KINDS: ReadonlySet<string> = new Set(INTERVIEW_DEFERRAL_KINDS);
 
 /**
  * Resolve the worker base URL. Empty string (the default) makes the request a
@@ -116,6 +122,32 @@ function parseMuteTerm(raw: unknown): TerminalMuteTerm | null {
   return { mute_category: candidate.mute_category, mute_term: candidate.mute_term };
 }
 
+/**
+ * Narrow one raw deferred-question record to an {@link InterviewDeferredQuestion}, defensively
+ * per-field (mirrors {@link parseMuteTerm}). A record with an unknown `deferral_kind` or a
+ * non-string `question_text` is dropped (returns `null`) — never a malformed record persisted.
+ * Nullable `root_slug`/`subniche_label` coerce a non-string to `null`.
+ */
+function parseDeferredQuestion(raw: unknown): InterviewDeferredQuestion | null {
+  if (typeof raw !== "object" || raw === null) {
+    return null;
+  }
+  const candidate = raw as Record<string, unknown>;
+  const kind = candidate.deferral_kind;
+  if (typeof kind !== "string" || !DEFERRAL_KINDS.has(kind as InterviewDeferralKind)) {
+    return null;
+  }
+  if (typeof candidate.question_text !== "string") {
+    return null;
+  }
+  return {
+    deferral_kind: kind as InterviewDeferralKind,
+    question_text: candidate.question_text,
+    root_slug: typeof candidate.root_slug === "string" ? candidate.root_slug : null,
+    subniche_label: typeof candidate.subniche_label === "string" ? candidate.subniche_label : null,
+  };
+}
+
 /** Narrow one raw ANGLE-TUNE preference to a {@link TerminalAnglePreference} (both fields required, non-empty). */
 function parseAnglePreference(raw: unknown): TerminalAnglePreference | null {
   if (typeof raw !== "object" || raw === null) {
@@ -165,6 +197,7 @@ function parseTurn(body: unknown): InterviewTurn | null {
       const rawInterests = Array.isArray(candidate.micro_interests) ? candidate.micro_interests : [];
       const rawMutes = Array.isArray(candidate.mute_terms) ? candidate.mute_terms : [];
       const rawAngles = Array.isArray(candidate.angle_preferences) ? candidate.angle_preferences : [];
+      const rawDeferred = Array.isArray(candidate.deferred_questions) ? candidate.deferred_questions : [];
       return {
         response_kind: "terminal",
         turn_index: turnIndex,
@@ -176,6 +209,11 @@ function parseTurn(body: unknown): InterviewTurn | null {
         angle_preferences: rawAngles
           .map(parseAnglePreference)
           .filter((angle): angle is TerminalAnglePreference => angle !== null),
+        // `deferred_questions` is narrowed off the worker body (spec §5/§6); `top_split` is NOT —
+        // it is client-computed in the chat's closing arc, so it never comes from the worker turn.
+        deferred_questions: rawDeferred
+          .map(parseDeferredQuestion)
+          .filter((deferred): deferred is InterviewDeferredQuestion => deferred !== null),
       };
     }
     case "retry": {

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { mapToArchetype } from "@/lib/archetypeMatch";
+import { ARCHETYPE_CATEGORY_KEYS, mapToArchetype } from "@/lib/archetypeMatch";
+import { categoryBucketsFromInterestVector } from "@/lib/feedBuckets";
 import { ENTITY_ROOT_TO_PINNED_KEY, INTEREST_ROOT_TO_PINNED_KEY, rollUpInterestVector } from "@/lib/interestVector";
 import type { Archetype } from "@/types/source";
 
@@ -204,6 +205,49 @@ describe("rollUpInterestVector (DB → 8-pinned-key vector)", () => {
     expect(vector).toEqual({ ai: 3.0, sport: 1.0, geopolitics: 1.0, environment: 1.0, arts: 2.0 });
   });
 
+  it.each([
+    ["ai", "ai.business.startups"],
+    ["politics", "politics.elections.us"],
+    ["environment", "environment.climate-policy"],
+    ["arts", "arts.cinema"],
+  ] as const)("scores a profile follow rooted at the post-SP3 root %s (issue #43 regression)", async (pinnedKey, interestSlug) => {
+    // WHY: since migrations 0023/0024 the canonical profile slugs are rooted at
+    // the 8 picker roots directly (ai.*, politics.*, environment.*, arts.*).
+    // Dropping them zeroed those vector dimensions, and the Thirty tab then
+    // reported "no backing" for categories the user genuinely follows.
+    const { client } = makeRollUpClient({
+      user: { id: AUTHED_USER_ID },
+      profileRows: [{ profile_weight: 2.5, interests: { interest_slug: interestSlug } }],
+      entityRows: [],
+    });
+
+    const vector = await rollUpInterestVector(client);
+
+    expect(vector).toEqual({ [pinnedKey]: 2.5 });
+  });
+
+  it("post-SP3-rooted follows flow through to categoryBucketsFromInterestVector backing (Thirty tab)", async () => {
+    // WHY: the user-visible symptom of issue #43 — the integration seam the Thirty
+    // tab actually runs (rollUpInterestVector → categoryBucketsFromInterestVector).
+    // A follow rooted at ai/politics/environment/arts MUST report backing, or the
+    // screen treats the block as a phantom and hides/blocks it.
+    const { client } = makeRollUpClient({
+      user: { id: AUTHED_USER_ID },
+      profileRows: [
+        { profile_weight: 1.0, interests: { interest_slug: "ai.business.startups" } },
+        { profile_weight: 1.0, interests: { interest_slug: "politics.elections" } },
+        { profile_weight: 1.0, interests: { interest_slug: "environment.oceans" } },
+        { profile_weight: 1.0, interests: { interest_slug: "arts.cinema.bollywood" } },
+      ],
+      entityRows: [],
+    });
+
+    const vector = await rollUpInterestVector(client);
+    const backedBuckets = categoryBucketsFromInterestVector(vector);
+
+    expect(backedBuckets).toEqual(expect.arrayContaining(["ai", "politics", "environment", "arts"]));
+  });
+
   it("drops an unmapped interest root rather than mis-bucketing it (edge case)", async () => {
     // WHY: an unknown root MUST NOT silently land in a wrong category (a wrong
     // bucket is a miscategorization). It is dropped (and logged), never guessed.
@@ -259,6 +303,19 @@ describe("rollUpInterestVector (DB → 8-pinned-key vector)", () => {
 });
 
 describe("slug → pinned-key mapping tables (completeness)", () => {
+  it("maps every pinned archetype key (= post-SP3 picker root) to ITSELF (drift check, issue #43)", () => {
+    // WHY (the drift class — 2026-06-17 SLUG_TO_CATEGORY incident, then #43 itself):
+    // post-SP3 the 8 picker roots ARE the 8 pinned archetype keys, so every pinned
+    // key MUST be an identity entry here. A missing root silently zeroes that
+    // vector dimension and the Thirty tab reports "no backing" for a real follow.
+    // Looping over ARCHETYPE_CATEGORY_KEYS (the taxonomy source of truth this
+    // module already consumes) makes this fail CI the moment a root goes missing
+    // — including if a legacy alias ever shadows an identity entry.
+    for (const pinnedKey of ARCHETYPE_CATEGORY_KEYS) {
+      expect(INTEREST_ROOT_TO_PINNED_KEY[pinnedKey], `picker root "${pinnedKey}" must map to itself`).toBe(pinnedKey);
+    }
+  });
+
   it("maps every seeded interest root to a valid pinned key", () => {
     // WHY: every depth-0 interest root MUST resolve to a pinned key — a gap is a
     // dropped category (a real interest that never scores its archetype dimension).

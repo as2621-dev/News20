@@ -2016,7 +2016,11 @@ body {
   padding: 0 20px;
 }
 .seg-chip {
-  display: inline-flex;
+  /* RC6: block-level flex so the chip owns its own line above the headline. It was
+     inline-flex, which put it on a shared baseline with the inline-block headline
+     button and made the header read as one run-on sentence. Inside `.art-top`
+     (a flex container) this changes nothing — flex items are blockified anyway. */
+  display: flex;
   align-items: center;
   gap: 7px;
   font-family: "JetBrains Mono", monospace;
@@ -2502,18 +2506,22 @@ body {
   background: #2a2b30;
 }
 
-/* thread */
+/* thread — scrollable chat history (issue #40): short threads sit at the
+   bottom (first-child margin-top:auto), long threads scroll; the pin-to-newest
+   behavior lives in useBottomAnchoredScroll, not CSS. */
 .thread {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 14px;
   padding: 14px 2px 4px;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 14%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 14%);
+}
+.thread > :first-child {
+  margin-top: auto;
 }
 .row-q {
   display: flex;
@@ -2593,6 +2601,43 @@ body {
   font-size: 13.5px;
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.82);
+}
+
+/* ask-error — retryable REQUEST failure (issue #40): monochrome, distinct from
+   the refusal card (which is a server verdict, not retryable). */
+.ask-error {
+  max-width: 92%;
+  padding: 13px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.ask-error .rl {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 6px;
+}
+.ask-error p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.82);
+}
+.ask-error-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: #fff;
+  color: #06080f;
+  border: none;
+  cursor: pointer;
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 .ans-foot {
@@ -2680,20 +2725,37 @@ body {
 .vs-state.live {
   color: #a1a1aa;
 }
+.vs-state.conn {
+  color: #71717a;
+  animation: connPulse 1.4s ease-in-out infinite;
+}
+@keyframes connPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 .vs-state.resp {
   color: #facc15;
 }
+/* vthread — scrollable rolling transcript (issue #40): same chat scroll
+   contract as .thread above. */
 .vthread {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 13px;
   padding: 8px 2px 2px;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 16%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 16%);
+}
+.vthread > :first-child {
+  margin-top: auto;
 }
 .vs-foot {
   flex: none;

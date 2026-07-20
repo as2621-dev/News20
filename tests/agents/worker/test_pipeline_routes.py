@@ -603,9 +603,7 @@ def patched_assemble_mine(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     """
     auth_namespace = SimpleNamespace(
         get_user=MagicMock(
-            return_value=SimpleNamespace(
-                user=SimpleNamespace(id=_TOKEN_USER_ID)
-            )
+            return_value=SimpleNamespace(user=SimpleNamespace(id=_TOKEN_USER_ID))
         )
     )
     fake_auth_client = SimpleNamespace(auth=auth_namespace)
@@ -650,9 +648,7 @@ def test_assemble_mine_with_no_user_in_token_returns_401(
 ) -> None:
     """auth.get_user returns no user → 401 (a token that resolves to nobody)."""
     patched_assemble_mine["get_user"].return_value = SimpleNamespace(user=None)  # type: ignore[attr-defined]
-    response = client.post(
-        _ASSEMBLE_MINE_PATH, json={}, headers=_bearer(_VALID_JWT)
-    )
+    response = client.post(_ASSEMBLE_MINE_PATH, json={}, headers=_bearer(_VALID_JWT))
     assert response.status_code == 401
     patched_assemble_mine["assemble"].assert_not_called()  # type: ignore[attr-defined]
 
@@ -755,3 +751,270 @@ def test_assemble_mine_is_exempt_from_shared_secret_on_real_app(
     """
     response = real_app_client.post(_ASSEMBLE_MINE_PATH, json={})
     assert response.status_code == 401
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Read-side headline gate on the ready pool (slice #62)
+#
+# WHY (Rule 9): slice #45 made the headline gate fail-closed at WRITE time, but
+# rows persisted BEFORE that gate existed are still in ``stories``. This loader is
+# the one production path that resurrects a persisted row into a feed, so without a
+# re-check the 07-07 "Language Magazine" masthead reel keeps being placed forever.
+# The contract these tests encode is *never place an unpublishable headline*, not
+# *call the predicate* — so they assert on the pool the loader returns.
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+# Reason: the ``patched_assemble`` fixture stubs the loader out, so the integration
+# test below needs a handle on the pristine function; captured at import, before any
+# fixture has run.
+_REAL_LOAD_READY_STORY_POOL = pipeline_routes._load_ready_story_pool
+
+
+class _FakeTableQuery:
+    """A chainable stand-in for the supabase-py query builder over fixed rows."""
+
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self._rows = rows
+
+    def select(self, *_args: object, **_kwargs: object) -> "_FakeTableQuery":
+        return self
+
+    def eq(self, *_args: object, **_kwargs: object) -> "_FakeTableQuery":
+        return self
+
+    def in_(self, *_args: object, **_kwargs: object) -> "_FakeTableQuery":
+        return self
+
+    def order(self, *_args: object, **_kwargs: object) -> "_FakeTableQuery":
+        return self
+
+    def range(self, start: int, end: int) -> "_FakeTableQuery":
+        # Reason: real paging semantics, so a loader that fails to advance its offset
+        # (or never terminates) shows up here instead of looping on a full page.
+        self._rows = self._rows[start : end + 1]
+        return self
+
+    def execute(self) -> SimpleNamespace:
+        return SimpleNamespace(data=self._rows)
+
+
+class _FakeSupabase:
+    """Service-role client stand-in returning canned rows per table name."""
+
+    def __init__(self, tables: dict[str, list[dict[str, object]]]) -> None:
+        self._tables = tables
+
+    def table(self, table_name: str) -> _FakeTableQuery:
+        return _FakeTableQuery(self._tables.get(table_name, []))
+
+
+def _ready_pool_client(
+    story_rows: list[dict[str, object]],
+    source_rows: list[dict[str, object]] | None = None,
+) -> _FakeSupabase:
+    """A fake client whose every story row is 'ready' (current digest + audio + poster)."""
+    return _FakeSupabase(
+        {
+            "digests": [
+                {
+                    "digest_story_id": row["story_id"],
+                    "digest_audio_url": "https://cdn.test/a.mp3",
+                    "digest_ambient_poster_url": "https://cdn.test/p.png",
+                }
+                for row in story_rows
+            ],
+            "stories": story_rows,
+            "story_interests": [],
+            "story_sources": source_rows or [],
+        }
+    )
+
+
+_MASTHEAD_ROW: dict[str, object] = {
+    "story_id": "story-masthead",
+    "story_headline": "Language Magazine",
+    "story_primary_outlet_name": "Language Magazine",
+    "story_outlet_count": 3,
+    "story_first_reported_utc": "2026-07-07T09:00:00+00:00",
+}
+_GOOD_ROW: dict[str, object] = {
+    "story_id": "story-good",
+    "story_headline": "Fed holds rates steady",
+    "story_primary_outlet_name": "Reuters",
+    "story_outlet_count": 9,
+    "story_first_reported_utc": "2026-07-07T10:00:00+00:00",
+}
+
+
+def test_ready_pool_excludes_persisted_masthead_headline() -> None:
+    """A persisted story titled with its own outlet is NEVER returned for placement.
+
+    This is the whole point of the slice: the row predates the write-time gate, so
+    the pool is the last place it can be stopped before it reaches a reel.
+    """
+    stories, _tags = pipeline_routes._load_ready_story_pool(
+        _ready_pool_client([_MASTHEAD_ROW, _GOOD_ROW])
+    )
+    assert [s.canonical_story_id for s in stories] == ["story-good"]
+
+
+def test_ready_pool_keeps_legitimate_persisted_headline() -> None:
+    """A real headline is untouched — the gate must not shrink the pool it protects."""
+    stories, _tags = pipeline_routes._load_ready_story_pool(
+        _ready_pool_client([_GOOD_ROW])
+    )
+    assert len(stories) == 1
+    assert stories[0].canonical_title == "Fed holds rates steady"
+
+
+def test_ready_pool_skip_is_observable_with_story_id_and_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The skip names the story_id + rejection reason + a fix_suggestion.
+
+    A silent skip is indistinguishable from a story that was never produced, which
+    is exactly how the masthead reel survived unnoticed for a week.
+    """
+    spy = MagicMock()
+    monkeypatch.setattr(pipeline_routes, "logger", spy)
+    pipeline_routes._load_ready_story_pool(_ready_pool_client([_MASTHEAD_ROW]))
+    per_row = [
+        call
+        for call in spy.warning.call_args_list
+        if call[0][0] == "ready_pool_story_skipped_unpublishable_headline"
+    ]
+    assert len(per_row) == 1
+    assert per_row[0][1]["story_id"] == "story-masthead"
+    assert per_row[0][1]["rejection_reason"] == "title_equals_outlet"
+    assert per_row[0][1]["fix_suggestion"]
+
+
+def test_ready_pool_reports_how_much_pool_the_gate_removed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One aggregate line names the surviving pool size, not just the individual skips.
+
+    A feed is only as long as the pool, so starvation has to be readable as a single
+    number rather than reconstructed by counting per-row warnings.
+    """
+    spy = MagicMock()
+    monkeypatch.setattr(pipeline_routes, "logger", spy)
+    pipeline_routes._load_ready_story_pool(
+        _ready_pool_client([_MASTHEAD_ROW, _GOOD_ROW])
+    )
+    summary = [
+        call
+        for call in spy.warning.call_args_list
+        if call[0][0] == "ready_pool_shrunk_by_headline_gate"
+    ]
+    assert len(summary) == 1
+    assert summary[0][1]["skipped_count"] == 1
+    assert summary[0][1]["pool_size"] == 1
+
+
+def test_ready_pool_logs_no_shrink_summary_when_nothing_is_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A clean pool emits no gate warning at all — the signal stays meaningful."""
+    spy = MagicMock()
+    monkeypatch.setattr(pipeline_routes, "logger", spy)
+    pipeline_routes._load_ready_story_pool(_ready_pool_client([_GOOD_ROW]))
+    assert spy.warning.call_count == 0
+
+
+def test_ready_pool_with_no_ready_stories_returns_empty() -> None:
+    """No current digest at all → empty pool, no raise (caller answers allocated_count=0)."""
+    assert pipeline_routes._load_ready_story_pool(_FakeSupabase({})) == ([], [])
+
+
+def test_ready_pool_skips_row_with_null_headline() -> None:
+    """A NULL headline must be dropped, not backfilled with the story id.
+
+    The pre-slice loader fell back to ``story_id`` as the title, which reads as a
+    UUID in the reel — publishable-looking to a length check, junk to a reader.
+    """
+    null_row = dict(_MASTHEAD_ROW)
+    null_row["story_id"] = "story-null"
+    null_row["story_headline"] = None
+    stories, _tags = pipeline_routes._load_ready_story_pool(
+        _ready_pool_client([null_row])
+    )
+    assert stories == []
+
+
+def test_assemble_endpoint_never_offers_a_masthead_story_to_the_assembler(
+    client: TestClient,
+    patched_assemble: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End-to-end through the REAL loader: the assembler is handed only the good story.
+
+    ``patched_assemble`` normally stubs the loader out; here it is restored so the
+    request runs the real ``stories``/``digests`` read path against a fake client.
+    This is the criterion's "test through the loader" — the gate has to hold on the
+    live seam, not just when the function is called directly.
+    """
+    fake_supabase = _ready_pool_client([_MASTHEAD_ROW, _GOOD_ROW])
+    monkeypatch.setattr(
+        pipeline_routes, "_build_service_role_supabase", lambda: fake_supabase
+    )
+    monkeypatch.setattr(
+        pipeline_routes, "_load_ready_story_pool", _REAL_LOAD_READY_STORY_POOL
+    )
+
+    response = client.post(
+        _ASSEMBLE_PATH, json=_ASSEMBLE_BODY, headers=_auth_header(_EXPECTED_SECRET)
+    )
+    assert response.status_code == 200
+    offered = patched_assemble["assemble"].call_args.kwargs["stories"]  # type: ignore[attr-defined]
+    assert [s.canonical_story_id for s in offered] == ["story-good"]
+
+
+def test_ready_pool_excludes_masthead_matching_the_outlet_domain() -> None:
+    """A multi-word masthead is caught even when the outlet column holds a DOMAIN.
+
+    Prod stores ``story_primary_outlet_name`` as a bare domain for some rows (the 07-07
+    masthead story carries "languagemagazine.com"). A 3-word masthead clears the
+    word-count floor, so the domain labels have to be compared or it ships.
+    """
+    domain_masthead = {
+        "story_id": "story-domain-masthead",
+        "story_headline": "Modern Farmer Magazine",
+        "story_primary_outlet_name": "modernfarmermagazine.com",
+        "story_outlet_count": 2,
+        "story_first_reported_utc": "2026-07-07T09:00:00+00:00",
+    }
+    stories, _tags = pipeline_routes._load_ready_story_pool(
+        _ready_pool_client([domain_masthead, _GOOD_ROW])
+    )
+    assert [s.canonical_story_id for s in stories] == ["story-good"]
+
+
+def test_ready_pool_keeps_followed_source_reel_with_a_short_title() -> None:
+    """A YouTube reel is exempt from the headline gate, as at the produce/write gates.
+
+    The creator wrote that title; it is not a scraped masthead. Dropping it would
+    silently remove a reel the user explicitly subscribed to — and the origin is only
+    visible on ``story_sources``, since ``story_primary_outlet_name`` holds the channel
+    name for these rows.
+    """
+    youtube_row = {
+        "story_id": "story-youtube",
+        "story_headline": "Ferrari",
+        "story_primary_outlet_name": "Donut Media",
+        "story_outlet_count": 1,
+        "story_first_reported_utc": "2026-07-07T09:00:00+00:00",
+    }
+    stories, _tags = pipeline_routes._load_ready_story_pool(
+        _ready_pool_client(
+            [youtube_row, _MASTHEAD_ROW],
+            [
+                {
+                    "source_story_id": "story-youtube",
+                    "source_article_url": "https://www.youtube.com/watch?v=abc123",
+                }
+            ],
+        )
+    )
+    assert [s.canonical_story_id for s in stories] == ["story-youtube"]

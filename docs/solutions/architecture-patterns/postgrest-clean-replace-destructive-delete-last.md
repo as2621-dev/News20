@@ -36,3 +36,31 @@ replace in one transaction (same seam pattern as `mint_interest_ladder`, migrati
 **Test seam:** a thenable fake supabase filter-builder (`then(resolve)` + biome-ignore
 `noThenProperty`) lets vitest capture `delete().eq().not()` chains and assert a
 `writeOrder` log proves the delete is last — see `tests/lib/interviewProfile.test.ts`.
+
+## Extension (#30, 2026-07-05): a SURROGATE-PK subtractive set needs delete-FIRST-when-writing, not upsert
+
+The pattern above assumes the row set has a natural conflict key you can `upsert` on (so a
+first-run re-run is idempotent WITHOUT any delete — cf. `persistMuteTerms` on
+`(user,category,term)`). When the table instead has a **surrogate PK and no natural conflict key**
+(e.g. `user_deferred_questions` — two `category_skip`s differ only by a nullable `root_slug`, so
+there is nothing to dedup on), a bare `insert` is **not idempotent**: a lost-response retry double-
+inserts, leaving the user with 2× the rows. Upsert-first is impossible (no arbiter).
+
+Fix: **delete-first whenever there is anything to write** — `if (replace_existing || rows.length > 0)
+delete().eq(owner); if (rows.length) insert(rows);`. The delete clears any prior/committed rows so
+the insert re-establishes the exact set; a retry re-deletes then re-inserts → converges. An EMPTY
+first-run set skips the delete (a true no-op); an EMPTY replace set deletes only (a valid clear).
+Safe to delete-first only because the set is SUBTRACTIVE (a transient empty window loses no feed
+content). This is the surrogate-PK sibling of the upsert-first rule, not a contradiction of it — pick
+by whether the table has a real conflict key. Seen in `src/lib/interviewProfile.ts::persistDeferredQuestions`.
+
+## Related (#30): largest-remainder split so a coarse allocation sums to N EXACTLY
+
+Turning a coarse axis total (e.g. `news = 20` slots) into per-bucket counts proportional to weights
+must hit the total EXACTLY, or the persisted "Build your 30" no longer sums to 30. Naive
+`round(total·w/Σw)` drifts ±1. Use **largest-remainder (Hamilton)**: floor each exact quota, then
+hand the leftover (`total − Σfloors`, always `0..bucketCount`) one apiece to the largest fractional
+remainders, tie-broken deterministically (weight desc, then canonical order). Guarantees
+`Σcounts === total`. Drop zero-count buckets. Prove it with a fuzz test over ALL partitions of N, not
+a handful of cases (a rounding bug can bite at one specific value). See `src/lib/feedTopSplit.ts` +
+`tests/lib/feedTopSplit.test.ts`.

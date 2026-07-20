@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from agents.ingestion.dedup import normalize_url
 from agents.ingestion.models import CanonicalStory
 from agents.pipeline.clustering.continuity import persist_run, resolve_cluster_story_ids
@@ -179,10 +181,11 @@ def test_resolver_called_once_over_union_of_normalized_urls() -> None:
     assert "https://x.com/a" in calls[0]  # the normalized form, not the raw URL
 
 
-def test_persist_run_upserts_each_cluster_and_adds_its_members() -> None:
-    """(c) persist_run must upsert ONCE per cluster and add EACH cluster's members to
-    story_cluster_members — if a cluster's members went to the wrong cluster (or were
-    dropped) the persisted graph would be wrong. Mocked client: no live DB."""
+def test_persist_run_batches_one_upsert_per_table() -> None:
+    """(c) persist_run must write the WHOLE run in ONE upsert per table (issue #34
+    review-panel HIGH): a per-cluster loop could commit an order-dependent partial
+    subset of clusters when a mid-loop call fails, silently decoupling story_clusters
+    from what actually shipped. Mocked client: no live DB."""
     run = ClusterRun(
         clusters=[_cluster("clu-1"), _cluster("clu-2")],
         members=[
@@ -196,26 +199,57 @@ def test_persist_run_upserts_each_cluster_and_adds_its_members() -> None:
     persist_run(client, run)
 
     cluster_upserts = [p for name, p in client.calls_by_table["story_clusters"] if name == "upsert"]
-    assert len(cluster_upserts) == 2  # one upsert per cluster
-    assert {p["cluster_id"] for p in cluster_upserts} == {"clu-1", "clu-2"}
+    assert len(cluster_upserts) == 1  # ONE batched call, not one per cluster
+    assert {row["cluster_id"] for row in cluster_upserts[0]} == {"clu-1", "clu-2"}
 
     member_upserts = [p for name, p in client.calls_by_table["story_cluster_members"] if name == "upsert"]
-    assert len(member_upserts) == 2  # one batched add per cluster (clu-1, clu-2)
-    rows_by_cluster = {batch[0]["cluster_id"]: batch for batch in member_upserts}
-    assert {row["member_url"] for row in rows_by_cluster["clu-1"]} == {"https://a.com/1", "https://b.com/1"}
-    assert {row["member_url"] for row in rows_by_cluster["clu-2"]} == {"https://c.com/2"}
+    assert len(member_upserts) == 1  # ONE batched call spanning all clusters
+    assert {(row["cluster_id"], row["member_url"]) for row in member_upserts[0]} == {
+        ("clu-1", "https://a.com/1"),
+        ("clu-1", "https://b.com/1"),
+        ("clu-2", "https://c.com/2"),
+    }
+
+
+def test_persist_run_failure_leaves_no_partial_cluster_subset() -> None:
+    """(c2) Issue #34 review-panel pin: when the batched cluster upsert FAILS, the
+    exception propagates (daily_batch's whole-run fallback catches it) and NO member
+    rows are written — there is no order-dependent half-persisted state to clean up.
+    WHY: the old per-cluster loop committed clusters 1..k-1 before cluster k failed."""
+    run = ClusterRun(
+        clusters=[_cluster("clu-1"), _cluster("clu-2")],
+        members=[_member("clu-1", "https://a.com/1", "a.com")],
+    )
+
+    class _FailingQuery(_RecordingQuery):
+        def execute(self):
+            raise RuntimeError("db write failed")
+
+    class _FailingClient(_RecordingClient):
+        def table(self, name: str):
+            calls = self.calls_by_table.setdefault(name, [])
+            if name == "story_clusters":
+                return _FailingQuery(calls)
+            return _RecordingQuery(calls)
+
+    client = _FailingClient()
+    with pytest.raises(RuntimeError, match="db write failed"):
+        persist_run(client, run)
+
+    # The failure happened INSIDE the single batched call - members never touched.
+    assert "story_cluster_members" not in client.calls_by_table
 
 
 def test_persist_run_cluster_without_members_still_upserts() -> None:
     """A cluster carrying no member rows this run still gets its row upserted (defensive)
-    and add_cluster_members is a no-op (no member table call for it)."""
+    and the empty member batch is a no-op (no member table call at all)."""
     run = ClusterRun(clusters=[_cluster("clu-1")], members=[])
     client = _RecordingClient()
 
     persist_run(client, run)
 
     assert len([p for name, p in client.calls_by_table["story_clusters"] if name == "upsert"]) == 1
-    # add_cluster_members([]) is a no-op → the members table is never addressed.
+    # upsert_cluster_members([]) is a no-op -> the members table is never addressed.
     assert "story_cluster_members" not in client.calls_by_table
 
 

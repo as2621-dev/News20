@@ -432,13 +432,15 @@ class TestScalpelToNicheAssemblyEndToEnd:
         )
 
         # The backbone (empty batch) found nothing; the scalpel supplied the story,
-        # tagged to the leaf + ancestors by the ingest ancestor tagger.
+        # tagged to the leaf + ancestors by the ingest ancestor tagger. Leaf tags
+        # land at depth 1 (issue #35: keyword tags are shifted +1 uniformly so a
+        # depth-0 theme tag — when a whitelisted theme matches — always wins).
         assert len(result.canonical_stories) == 1
         leaf_tags = [
             tag
             for tag in result.story_interest_tags
             if tag.story_interest_interest_id == self._VS
-            and tag.story_interest_match_depth == 0
+            and tag.story_interest_match_depth == 1
         ]
         assert leaf_tags, "scalpel story was not leaf-tagged to its interest node"
 

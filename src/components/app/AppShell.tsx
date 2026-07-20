@@ -38,17 +38,15 @@ import { getFollowedSources } from "@/lib/sources";
 import "@/styles/blip-flow.css";
 import "@/styles/blip-library.css";
 
-/** Today's `feed_date` (ISO `YYYY-MM-DD`) — the reel's default day. */
-function todayFeedDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /** Render the reel + the library overlay, switching surfaces from the tab bar. */
 export function AppShell() {
   // Which library surface is open over the reel; null = the reel itself (Today).
   const [activeTab, setActiveTab] = useState<LibraryTab | null>(null);
-  // Which day's briefing the reel is showing — moved by tapping an Archive day.
-  const [reelDate, setReelDate] = useState<string>(todayFeedDate());
+  // Which day's briefing the reel is showing — set ONLY by tapping an Archive day.
+  // null = the default "Today" surface: getReelFeed(undefined) may then fall back to
+  // the user's latest own briefing (32447a5); an explicit date would disable that
+  // fallback and dead-end on "being prepared" whenever today's assembly hasn't run.
+  const [reelDate, setReelDate] = useState<string | null>(null);
   // The user's REAL backing for the "Thirty" tab: the category buckets they follow an interest
   // in (rolled up from topic + entity follows) + the source buckets they follow a source on.
   // Loaded once the Thirty tab first opens so "Build your 30" seeds + offers ONLY backed blocks
@@ -107,7 +105,11 @@ export function AppShell() {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-background">
-      <BlipReel feedDate={reelDate} isLibraryOpen={activeTab !== null} onOpenLibrary={(tab) => setActiveTab(tab)} />
+      <BlipReel
+        feedDate={reelDate ?? undefined}
+        isLibraryOpen={activeTab !== null}
+        onOpenLibrary={(tab) => setActiveTab(tab)}
+      />
 
       {activeTab !== null ? (
         <div className="app-library">

@@ -69,6 +69,11 @@ from agents.pipeline.categories import (
 )
 from agents.pipeline.niche_allocation import BEYOND_BUBBLE_LABEL, NicheAllocationRow
 from agents.pipeline.produce_gate import compute_importance_score
+from agents.pipeline.x_theme_ladder import (
+    XThemeLadderSlot,
+    XThemeReelCandidate,
+    build_x_theme_ladder,
+)
 from agents.pipeline.stages.ranking import (
     DEFAULT_SCORE_THRESHOLD,
     FollowedEntity,
@@ -89,6 +94,26 @@ logger = get_logger("pipeline.feed_assembly")
 # user's per-category slot counts SUM to 30; the allocator's roll-over logic owns
 # totalling to 30 when source categories (youtube/x) are budgeted-but-empty.
 FEED_SLOT_BUDGET = 30  # N = 30 per-user feed budget ("Build your 30")
+
+# Reason (issue #39): the niche-section importance floor — recency must never impersonate
+# importance. A section candidate below this 0–1 importance bar loses the slot even when
+# fresh enough to clear the Score threshold T; the slot climbs the honest ladder (stamped
+# ``feed_fallback_source_level``) or falls through to the importance-ranked beyond-bubble
+# backfill instead. Applies at EVERY ladder rung (leaf/parent/grandparent) so a below-floor
+# story cannot re-enter one level up. Inclusive (``>=`` fills). Scoped to niche-section fill
+# ONLY: source/X-theme slots are follows (not importance-ranked; their synthetic importance
+# is 0.0) and beyond-bubble is already importance-RANKED and must complete the 30 — all
+# exempt. The coarse (roots-only) allocator is untouched (byte-identical regression guard).
+# Value: parity with the produce gate's _DEFAULT_MIN_IMPORTANCE (0.05) — what was worth
+# producing is worth placing, re-checked at assembly (defense in depth for fail-open /
+# auto-exempt produce paths). The discriminating power lives on the E1 cluster-importance
+# path (prod default ON): bottom-of-category noise is floored. Under the clustering-off
+# outlet-count fallback the floor is a degenerate guard only — a 1-outlet story scores
+# 1/12 ≈ 0.083 and PASSES deliberately, because micro-niche scoops are single-outlet by
+# design (the DOC-scalpel contract; see test_anchor_scalpel end-to-end) and raw outlet
+# count cannot tell a scoop from trivia at 1 outlet. First-draft constant — tuned in the
+# M2 validation slice (no config surface).
+NICHE_SECTION_IMPORTANCE_FLOOR = 0.05
 
 # Reason: a mute must match whole words, not substrings — a raw substring "ai" would nuke
 # "Spain"/"rain", and "f1" inside "of10k"; word-boundary matching keeps a mute honest.
@@ -234,6 +259,15 @@ class AllocatedSlot(BaseModel):
         ge=0,
         le=2,
         description="Ladder climb for this section: 0 direct / 1 parent / 2 grandparent",
+    )
+    feed_x_theme_rung: str | None = Field(
+        default=None,
+        description="X theme ladder rung: theme / second_theme / roundup; None otherwise (slice #24)",
+    )
+    feed_x_theme_attribution: dict[str, Any] | None = Field(
+        default=None,
+        description="X theme attribution {theme_summary, supporting_handles, supporting_tweet_urls}; "
+        "None on non-X-theme slots (slice #24)",
     )
 
 
@@ -549,6 +583,7 @@ def assemble_user_feed(
     exploration_candidates_by_interest: Any = None,
     source_stories: list[CanonicalStory] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
     mute_terms: list[str] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
@@ -593,6 +628,10 @@ def assemble_user_feed(
             Importance term is its authority-weighted E1 score. Un-clustered stories
             (absent from the map) fall back to the raw outlet-count importance, so the
             seam is additive (``None``/empty → byte-identical to the pre-M3 feed).
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to the classifier so
+            a cross-category merged story buckets into its representative's fetching
+            category. ``None``/empty → classification exactly as before.
         feed_slot_budget: ``N`` — total feed slots (30).
         score_threshold: ``T`` — the qualifying bar.
         now_utc: Current time for the freshness term (defaults to ``utcnow``).
@@ -633,6 +672,7 @@ def assemble_user_feed(
         now_utc=now_utc,
         score_threshold=score_threshold,
         cluster_importance_by_story=cluster_importance_by_story,
+        category_override_by_story=category_override_by_story,
     )
 
     # ── Layer 1: resolve the per-category budgets + manual sequence ──
@@ -831,6 +871,9 @@ def _fill_niche_section(
 
       1. **Direct fill** — take top-``Score ≥ T`` stories tagged at the leaf
          (``fallback_depth == 0``) — no fallback metadata; the interview's promise kept.
+         Every rung additionally applies the importance floor
+         (:data:`NICHE_SECTION_IMPORTANCE_FLOOR`, issue #39): a fresh-but-below-floor
+         candidate never fills — the slot climbs (stamped) or falls to beyond-bubble.
       2. **One-level climb** — if the section is still short AND not strict, climb to the
          parent (``fallback_depth == 1``), then the grandparent (2), taking only enough to
          top up. Each climbed slot is stamped with its climb level so the UI labels the
@@ -885,8 +928,36 @@ def _fill_niche_section(
             fallback_depth=fallback_depth,
             cluster_importance_by_story=cluster_importance_by_story,
         )
+        # Reason (issue #39): the importance floor — a candidate below the bar never
+        # fills a section slot, even when fresh enough to clear T; the slot climbs the
+        # honest ladder (or falls to beyond-bubble) instead. ``candidate.importance`` is
+        # the E1 cluster importance when clustered and the raw outlet-count fallback when
+        # clustering is off, so the floor degrades transparently with the signal.
+        eligible = [
+            candidate
+            for candidate in node_scored
+            if candidate.importance >= NICHE_SECTION_IMPORTANCE_FLOOR
+        ]
+        floored_qualifying_count = sum(
+            1
+            for candidate in node_scored
+            if candidate.importance < NICHE_SECTION_IMPORTANCE_FLOOR
+            and candidate.score >= score_threshold
+            and candidate.story_id not in used_story_ids
+            and candidate.story_id not in excluded_story_ids
+        )
+        if floored_qualifying_count:
+            logger.info(
+                "niche_section_slot_floored",
+                section_interest_id=section_interest_id,
+                fallback_rung=fallback_depth,
+                floored_candidate_count=floored_qualifying_count,
+                importance_floor=NICHE_SECTION_IMPORTANCE_FLOOR,
+                fix_suggestion="Fresh-but-below-floor candidates yielded the slot to the "
+                "honest ladder; raise coverage for this niche or tune the floor in M2.",
+            )
         taken = _take_top_qualifying(
-            candidates=node_scored,
+            candidates=eligible,
             count=remaining,
             used_story_ids=used_story_ids,
             excluded_story_ids=excluded_story_ids,
@@ -904,6 +975,7 @@ def _beyond_bubble_ranked(
     used_story_ids: set[str],
     excluded_story_ids: set[str],
     cluster_importance_by_story: dict[str, float],
+    category_override_by_story: dict[str, FeedCategory] | None = None,
 ) -> list[tuple[str, float]]:
     """Importance-rank the beyond-bubble backbone: un-lit-root stories, best first.
 
@@ -924,6 +996,8 @@ def _beyond_bubble_ranked(
         used_story_ids: Story ids already placed (excluded here; NOT mutated).
         excluded_story_ids: Prior-feed story ids to never repeat (§3.8).
         cluster_importance_by_story: E1 importance map (falls back to outlet count).
+        category_override_by_story: Reconcile's enforced category pins (issue #34),
+            forwarded to :func:`assign_category`. ``None``/empty → as before.
 
     Returns:
         ``[(story_id, importance), ...]`` descending by importance, then story id
@@ -934,7 +1008,12 @@ def _beyond_bubble_ranked(
         story_id = story.canonical_story_id
         if story_id in used_story_ids or story_id in excluded_story_ids:
             continue
-        if assign_category(story_id, tags_by_story, interest_nodes) not in reserve_roots:
+        if (
+            assign_category(
+                story_id, tags_by_story, interest_nodes, category_override_by_story
+            )
+            not in reserve_roots
+        ):
             continue
         importance = cluster_importance_by_story.get(story_id)
         if importance is None:
@@ -953,7 +1032,9 @@ def assemble_niche_feed(
     followed_entities: list[FollowedEntity] | None = None,
     prior_feed_story_ids: set[str] | None = None,
     source_stories: list[CanonicalStory] | None = None,
+    x_theme_candidates: list[XThemeReelCandidate] | None = None,
     cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
     mute_terms: list[str] | None = None,
     feed_slot_budget: int = FEED_SLOT_BUDGET,
     score_threshold: float = DEFAULT_SCORE_THRESHOLD,
@@ -1000,8 +1081,19 @@ def assemble_niche_feed(
         followed_entities: Forwarded to the coarse delegate only (the niche path does not
             apply the EntityBonus — see the residual note; a follow-on can thread it).
         prior_feed_story_ids: Story ids already shown to this user (§3.8 exclusion).
-        source_stories: This user's PRODUCED followed-source stories (youtube/x).
+        source_stories: This user's PRODUCED followed-source stories (youtube/x). When
+            ``x_theme_candidates`` is provided the ``x`` slots are owned by the theme
+            ladder instead, so pass only youtube reels here (any x reels are ignored for
+            the x budget); ``None``/empty keeps the legacy all-source path.
+        x_theme_candidates: This user's PRODUCED X theme reels (slice #24) from their
+            followed clusters' shared themes. When provided (even empty), the user's
+            ``x`` slots are filled by the honest theme ladder (theme → second theme →
+            roundup), each stamped with its rung + attribution; unfilled x slots roll to
+            the news floor. ``None`` keeps the legacy source-stories x fill.
         cluster_importance_by_story: E1 within-category-normalized importance map.
+        category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
+            stage's enforced category pins (issue #34), forwarded to the coarse
+            delegate and the beyond-bubble classifier. ``None``/empty → as before.
         feed_slot_budget: ``N`` — total feed slots (30).
         score_threshold: ``T`` — the qualifying/climb-stop bar.
         now_utc: Current time for freshness (defaults to ``utcnow``).
@@ -1045,6 +1137,7 @@ def assemble_niche_feed(
             prior_feed_story_ids=excluded,
             source_stories=source_stories,
             cluster_importance_by_story=cluster_importance_by_story,
+            category_override_by_story=category_override_by_story,
             feed_slot_budget=feed_slot_budget,
             score_threshold=score_threshold,
             now_utc=now_utc,
@@ -1085,6 +1178,23 @@ def assemble_niche_feed(
                 source_budgets.get(row.allocation_category, 0)
                 + row.allocation_slot_count
             )
+
+    # ── Pass 1a: X theme ladder (slice #24) — when the caller supplies produced theme
+    # reels, the ``x`` slots are OWNED by the honest ladder (theme → second theme →
+    # roundup), not the generic source fill. Whatever the ladder leaves unfilled (quiet
+    # cluster / budget beyond the roundup) rolls to the news floor via the beyond-bubble
+    # backfill — never padded, never a faked theme (PRD stories #30/#33). ``x`` is then
+    # removed from the source-fill budgets so youtube still fills from source_stories. ──
+    x_theme_slots: list[XThemeLadderSlot] = []
+    if x_theme_candidates is not None:
+        x_theme_slots = build_x_theme_ladder(
+            x_theme_candidates,
+            x_slot_budget=source_budgets.get("x", 0),
+            used_story_ids=used_story_ids,
+            excluded_story_ids=excluded,
+        )
+        source_budgets.pop("x", None)
+
     source_filled_by_category = _fill_source_slots(
         source_stories or [],
         source_budgets,
@@ -1092,7 +1202,9 @@ def assemble_niche_feed(
         excluded_story_ids=excluded,
         guaranteed_cap=total_target,
     )
-    source_filled_total = sum(len(v) for v in source_filled_by_category.values())
+    source_filled_total = (
+        sum(len(v) for v in source_filled_by_category.values()) + len(x_theme_slots)
+    )
 
     # ── Pass 2: niche sections — leaf-first, honest one-level climb, in sequence ──
     niche_capacity = max(total_target - source_filled_total, 0)
@@ -1153,6 +1265,7 @@ def assemble_niche_feed(
             used_story_ids=used_story_ids,
             excluded_story_ids=excluded,
             cluster_importance_by_story=cluster_importance,
+            category_override_by_story=category_override_by_story,
         )
         for story_id, importance in ranked[:beyond_capacity]:
             beyond_fills.append((story_id, importance))
@@ -1169,6 +1282,25 @@ def assemble_niche_feed(
         if row.allocation_category in SOURCE_CATEGORIES:
             if row.allocation_category in emitted_source:
                 continue
+            # X theme reels (slice #24) lead the ``x`` category, each carrying its ladder
+            # rung + attribution so the UI can be honest. Any x budget the ladder did not
+            # fill has already rolled to the news floor (beyond-bubble), so nothing is lost.
+            if row.allocation_category == "x" and x_theme_slots:
+                for theme_slot in x_theme_slots:
+                    if position >= feed_slot_budget:
+                        break
+                    position += 1
+                    slots.append(
+                        AllocatedSlot(
+                            feed_story_id=theme_slot.reel_story_id,
+                            feed_position=position,
+                            feed_score=theme_slot.reel_score,
+                            feed_matched_interest_id=None,
+                            feed_slot_kind=SLOT_KIND_SOURCE,
+                            feed_x_theme_rung=theme_slot.rung,
+                            feed_x_theme_attribution=theme_slot.attribution.model_dump(),
+                        )
+                    )
             for candidate in source_filled_by_category.get(row.allocation_category, []):
                 position += 1
                 slots.append(
@@ -1333,6 +1465,10 @@ def write_daily_feed(
             "feed_section_label": slot.feed_section_label,
             "feed_section_interest_id": slot.feed_section_interest_id,
             "feed_fallback_source_level": slot.feed_fallback_source_level,
+            # FSR slice #24 X theme rung + attribution (migration 0032). Both default to
+            # None on every non-X-theme slot — a news-floor X slot stays honest real news.
+            "feed_x_theme_rung": slot.feed_x_theme_rung,
+            "feed_x_theme_attribution": slot.feed_x_theme_attribution,
         }
         for slot in slots
     ]

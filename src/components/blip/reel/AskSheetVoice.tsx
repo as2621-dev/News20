@@ -16,6 +16,11 @@
  *    straight to `listening` on mount.
  * 2. `listening` — live orb in LISTENING state + spoken-turn transcript thread +
  *    END button. Maps to `status === "connecting" | "live"` (before model audio).
+ *    The thread is the FULL rolling conversation (issue #40): both roles,
+ *    oldest first, partials growing in place, pinned-to-newest unless the user
+ *    scrolled up. It hydrates from / saves to the in-session
+ *    `voiceTranscriptSession` store so switching to the typed sheet and back
+ *    (which unmounts this component) keeps the transcript for the same story.
  * 3. `responding` — orb in RESPONDING state + answer bubble + "Read the full
  *    story" link. Maps to model producing audio/transcript (tracked via
  *    `lastModelTextRef` delta).
@@ -39,8 +44,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ic } from "@/components/blip/reel/icons";
 import { SignalMark } from "@/components/SignalMark";
+import { useBottomAnchoredScroll } from "@/lib/chat/useBottomAnchoredScroll";
 import { logger } from "@/lib/logger";
 import { fetchStoryCorpus } from "@/lib/voice/fetchStoryCorpus";
+import { SPEECH_ACTIVITY_AMPLITUDE_FLOOR } from "@/lib/voice/liveLatency";
 import { getMicPermissionState, requestMicPermission } from "@/lib/voice/micPermission";
 import {
   askAboutStoryDeclaration,
@@ -54,6 +61,11 @@ import {
   buildInNewsSystemInstructionWithCorpus,
 } from "@/lib/voice/storyVoicePrompts";
 import { GEMINI_LIVE_DEFAULT_VOICE, GEMINI_LIVE_JORDAN_VOICE, useGeminiLive } from "@/lib/voice/useGeminiLive";
+import {
+  loadVoiceTranscriptForStory,
+  saveVoiceTranscriptForStory,
+  type VoiceTranscriptTurn,
+} from "@/lib/voice/voiceTranscriptSession";
 import type { Story } from "@/types/feed";
 
 /** `localStorage` key the prototype uses to remember mic grant. */
@@ -61,9 +73,11 @@ const VOICE_GRANTED_KEY = "blip-voice-granted";
 
 /**
  * Input amplitude below this is treated as "the mic is sending silence" —
- * drives the can't-hear-you hint. RMS of real speech sits well above 0.01.
+ * drives the can't-hear-you hint. ONE floor shared with the latency tracker's
+ * speech-end detection (liveLatency.ts) so "this RMS = real speech" can't
+ * silently diverge between the two consumers.
  */
-const SILENT_MIC_AMPLITUDE_FLOOR = 0.01;
+const SILENT_MIC_AMPLITUDE_FLOOR = SPEECH_ACTIVITY_AMPLITUDE_FLOOR;
 
 /** How long (ms) the session may stay silent before the mic hint shows. */
 const SILENT_MIC_HINT_DELAY_MS = 8000;
@@ -94,14 +108,6 @@ function isVoiceCorpusInContextEnabled(): boolean {
  * is producing its answer; `error` = connect failed or hook in error.
  */
 type VoiceViewState = "permission" | "listening" | "responding" | "error";
-
-/** One turn in the spoken thread — user question or model answer. */
-interface VoiceTurn {
-  /** Whether this turn was produced by the user or the model. */
-  role: "user" | "model";
-  /** The transcribed text for this turn (may grow as it streams). */
-  text: string;
-}
 
 export interface AskSheetVoiceProps {
   /** The active story to ground the voice session in. */
@@ -159,18 +165,26 @@ function OrbEl({ is_responding }: { is_responding: boolean }) {
   return <SignalMark size={120} variant="story" responding={is_responding} />;
 }
 
+/** The orb display states: honest CONNECTING before setupComplete (issue #37). */
+type OrbDisplayState = "connecting" | "listening" | "responding";
+
 /**
  * The vs-orb wrapper: orb + state label (prototype `vsOrb(state)`).
  *
- * @param view_state - `"listening"` or `"responding"` to drive classes + label.
+ * `"connecting"` renders a dimmed CONNECTING label — the session is minting a
+ * token / handshaking and can NOT hear the user yet; LISTENING appears only
+ * once the live session is actually ready (issue #37 — PRD story #7).
+ *
+ * @param view_state - `"connecting"`, `"listening"`, or `"responding"`.
  */
-function VsOrb({ view_state }: { view_state: "listening" | "responding" }) {
+function VsOrb({ view_state }: { view_state: OrbDisplayState }) {
   const is_responding = view_state === "responding";
-  const state_label = is_responding ? "RESPONDING" : "LISTENING";
+  const state_label = is_responding ? "RESPONDING" : view_state === "connecting" ? "CONNECTING" : "LISTENING";
+  const state_class = is_responding ? "resp" : view_state === "connecting" ? "conn" : "live";
   return (
     <div className="vs-orb" id="vsOrbWrap">
       <OrbEl is_responding={is_responding} />
-      <div className={`vs-state ${is_responding ? "resp" : "live"}`}>{state_label}</div>
+      <div className={`vs-state ${state_class}`}>{state_label}</div>
     </div>
   );
 }
@@ -221,11 +235,43 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   const [storyCorpus, setStoryCorpus] = useState<string>("");
 
   // Accumulate the spoken turns so we can render the full conversation thread.
-  const [turns, setTurns] = useState<VoiceTurn[]>([]);
+  // Hydrates from the in-session store (issue #40) so switching to the typed
+  // sheet and back — which unmounts this component — keeps the transcript.
+  const [turns, setTurns] = useState<VoiceTranscriptTurn[]>(() => loadVoiceTranscriptForStory(story.digest_id));
+
+  // Persist the thread to the session store as it grows; on a story CHANGE,
+  // rehydrate instead (never save the old story's turns under the new id).
+  // Reason (review): the rehydrate branch is DEFENSIVE dead code in production —
+  // BlipReel keys the ask sheet by story, so a story change remounts this
+  // component and the branch never runs. It only guards a future non-keyed
+  // caller from cross-story contamination; do not build on it.
+  const turnsStoryIdRef = useRef<string>(story.digest_id);
+  useEffect(() => {
+    if (turnsStoryIdRef.current !== story.digest_id) {
+      turnsStoryIdRef.current = story.digest_id;
+      setTurns(loadVoiceTranscriptForStory(story.digest_id));
+      return;
+    }
+    saveVoiceTranscriptForStory(story.digest_id, turns);
+  }, [story.digest_id, turns]);
+
+  // Keep the newest transcript in view as it streams — but never yank a user
+  // who scrolled up to reread (issue #40 chat contract). `turns` gets a new
+  // identity on every delta, so streaming partials keep the pin live.
+  const { scrollContainerRef, handleScroll } = useBottomAnchoredScroll<HTMLDivElement>([turns]);
   // Tracks whether a request is in flight (prevents double-click on CTA).
   const [isRequestingMic, setIsRequestingMic] = useState<boolean>(false);
   // Inline error message when connect fails.
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Session turn boundary (review HIGH): a RESUMED session's first transcript
+  // must start a NEW bubble even when its role matches the hydrated thread's
+  // last turn — the reconnect greeting is a model transcript and would
+  // otherwise be glued onto the previous session's last answer (and that
+  // corrupted bubble is what the session store would persist next). Set at
+  // every session start: startVoiceSession covers mount auto-connect,
+  // enable-mic, the voice-name fallback, and retry (all route through it).
+  const forceNewTurnRef = useRef<boolean>(false);
 
   /**
    * Transcript callback: append/update turns as they stream.
@@ -234,13 +280,18 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
    * A new `model` turn flips to RESPONDING.
    */
   const handleTranscript = useCallback((transcript: { role: "user" | "model"; text: string }): void => {
+    // Reason: read + clear the boundary flag OUTSIDE the updater — StrictMode
+    // double-invokes state updaters, and a ref mutation inside would flip the
+    // second invocation from "new turn" back to "append".
+    const isNewSessionTurn = forceNewTurnRef.current;
+    forceNewTurnRef.current = false;
     setTurns((prev) => {
       const last = prev[prev.length - 1];
       // Reason: Gemini Live streams transcript DELTAS (fragments) for the
       // CURRENT turn — APPEND to the last entry while the role is unchanged so
       // the bubble shows the whole sentence, not just the latest fragment; a
-      // role switch starts a new turn.
-      if (last && last.role === transcript.role) {
+      // role switch (or a session boundary) starts a new turn.
+      if (last && last.role === transcript.role && !isNewSessionTurn) {
         return [...prev.slice(0, -1), { role: transcript.role, text: last.text + transcript.text }];
       }
       return [...prev, { role: transcript.role, text: transcript.text }];
@@ -258,9 +309,18 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   // function, not takes one — memoize the returned async handler by story id.
   const onToolCall = useMemo(() => buildAskAboutStoryHandler(story.digest_id), [story.digest_id]);
 
+  // Whether the current error came from a MIC failure (post-setup). The
+  // voice-name fallback below must not consume it: the hook's mic-error path
+  // disconnects (resetting isSetupComplete) BEFORE status lands on "error", so
+  // the fallback's !isSetupComplete guard alone can't tell a rejected voice
+  // from a dead mic — and a fallback reconnect over a dead mic would burn a
+  // second token and flash a fake LISTENING (review finding).
+  const micErrorOccurredRef = useRef<boolean>(false);
+
   // Mic failure after connect (gotcha 8 surfacing): specific copy + error view —
   // the hook has already disconnected, so the orb never fakes LISTENING.
   const handleMicError = useCallback((): void => {
+    micErrorOccurredRef.current = true;
     setErrorMessage("Couldn’t access your microphone. Check mic permission in Settings, or type your question.");
     setViewState("error");
   }, []);
@@ -319,7 +379,7 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
       )
     : buildInNewsSystemInstruction(story.headline, story.digest_id, LEGACY_TOOL_FORCED_CLAUSE);
 
-  const { status, isSetupComplete, inputAmplitude, connect, disconnect } = useGeminiLive({
+  const { status, isSetupComplete, inputAmplitude, connect, prewarmToken, disconnect } = useGeminiLive({
     systemInstruction,
     tools: [askAboutStoryDeclaration],
     onToolCall,
@@ -336,6 +396,22 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   connectRef.current = connect;
   const disconnectRef = useRef(disconnect);
   disconnectRef.current = disconnect;
+  const prewarmTokenRef = useRef(prewarmToken);
+  prewarmTokenRef.current = prewarmToken;
+
+  // Set BEFORE an intentional disconnect that will immediately reconnect (voice
+  // fallback, retry button) so the closed-status watcher below doesn't misread
+  // the transient "closed" as an unexpected session end.
+  const pendingReconnectRef = useRef<boolean>(false);
+
+  // Pre-warm the ephemeral-token mint the moment the sheet opens (issue #37):
+  // on the permission CTA the mint overlaps the user's read/tap; on the
+  // already-granted path it overlaps the mic-permission check. connect()
+  // consumes the cached token, taking the mint off the critical path.
+  useEffect(() => {
+    logger.info("ask_sheet_voice_token_prewarm_started", { story_id: story.digest_id });
+    prewarmTokenRef.current();
+  }, [story.digest_id]);
 
   /**
    * Open the socket. Called from INSIDE user gesture (enable-mic button) and
@@ -350,12 +426,20 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
       return;
     }
     connectingRef.current = true;
+    // Reason (review HIGH): every session start forces a turn boundary so the
+    // reconnect greeting never merges into the hydrated thread's last bubble.
+    forceNewTurnRef.current = true;
     logger.info("ask_sheet_voice_connecting", {
       story_id: story.digest_id,
     });
     try {
+      // Reason: every call path (mount effect, enable-mic tap, voice fallback,
+      // retry) already put viewState on "listening" — re-setting it HERE after
+      // the await would run even when connect() failed internally (it reports
+      // failure via status, it does not throw), knocking a just-rendered error
+      // view back to "listening" and re-triggering the auto-connect mount
+      // effect: an infinite reconnect loop hammering the token endpoint.
       await connectRef.current();
-      setViewState("listening");
       logger.info("ask_sheet_voice_connected", { story_id: story.digest_id });
     } catch (connect_error: unknown) {
       const error_message = connect_error instanceof Error ? connect_error.message : "Unknown error";
@@ -382,8 +466,14 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     // Voice-name fallback: a pre-setup failure with Jordan's voice may mean the
     // live endpoint rejected the voice — retry ONCE with the safe default.
     // Post-setup errors (e.g. mic failure) never trigger this.
-    if (!hasRetriedFallbackVoiceRef.current && !isSetupComplete && liveVoiceName === GEMINI_LIVE_JORDAN_VOICE) {
+    if (
+      !hasRetriedFallbackVoiceRef.current &&
+      !micErrorOccurredRef.current &&
+      !isSetupComplete &&
+      liveVoiceName === GEMINI_LIVE_JORDAN_VOICE
+    ) {
       hasRetriedFallbackVoiceRef.current = true;
+      pendingReconnectRef.current = true;
       logger.warn("ask_sheet_voice_fallback_voice_retry", {
         story_id: story.digest_id,
         rejected_voice_name: liveVoiceName,
@@ -414,6 +504,64 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
     // Reason: startVoiceSession is stable per story; this effect must run only
     // when the fallback flips the voice name.
   }, [liveVoiceName, startVoiceSession]);
+
+  // Whether the CURRENT session actually reached live — the closed-status
+  // watcher below only treats "closed" as an unexpected session end when a live
+  // session existed. Without this, teardowns of a never-connected hook (e.g.
+  // StrictMode's dev effect-remount calls disconnect() on an idle session,
+  // which still lands on status "closed") would flash a bogus error view.
+  const hasSessionBeenLiveRef = useRef<boolean>(false);
+
+  // The reconnect flag lives until the NEXT session actually starts (status
+  // reaches connecting/live). Clearing it synchronously inside the reconnect
+  // call would race the closed-status watcher below: within one effect flush
+  // the watcher still sees the transient "closed" status but a cleared flag,
+  // and misreads an intentional teardown as an unexpected session end.
+  useEffect(() => {
+    if (status === "connecting") {
+      pendingReconnectRef.current = false;
+      hasSessionBeenLiveRef.current = false;
+    } else if (status === "live") {
+      pendingReconnectRef.current = false;
+      hasSessionBeenLiveRef.current = true;
+    }
+  }, [status]);
+
+  // An UNEXPECTED close of a LIVE session (server goAway, dropped WSS) must not
+  // leave the orb pretending to connect/listen forever — surface the ended
+  // session with a retry (issue #37). Intentional teardowns are excluded: the
+  // END button unmounts the sheet, and reconnect paths (voice fallback, retry)
+  // set pendingReconnectRef first.
+  useEffect(() => {
+    if (status !== "closed" || pendingReconnectRef.current || !hasSessionBeenLiveRef.current) {
+      return;
+    }
+    if (viewState !== "listening" && viewState !== "responding") {
+      return;
+    }
+    logger.warn("ask_sheet_voice_session_closed_unexpectedly", {
+      story_id: story.digest_id,
+      fix_suggestion: "The live socket closed mid-session (goAway / network). Offer retry; check token TTL.",
+    });
+    // Reason (review): release the mic + audio contexts before showing the
+    // ended view — never leave a hot mic behind an error screen. Idempotent.
+    disconnectRef.current();
+    setErrorMessage("The live session ended.");
+    setViewState("error");
+  }, [status, viewState, story.digest_id]);
+
+  /**
+   * RETRY from the error view: tear down whatever is left and flip back to
+   * `listening` — the mount effect below re-verifies mic permission and
+   * reconnects (ONE connect path, no duplicate session).
+   */
+  const handleRetry = useCallback((): void => {
+    logger.info("ask_sheet_voice_retry", { story_id: story.digest_id });
+    setErrorMessage(null);
+    pendingReconnectRef.current = true;
+    disconnectRef.current();
+    setViewState("listening");
+  }, [story.digest_id]);
 
   // Track the session's peak mic amplitude; clear the silent-mic hint the
   // moment real input arrives.
@@ -529,6 +677,9 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   /** END button: disconnect then close the sheet. */
   const handleEnd = useCallback((): void => {
     logger.info("ask_sheet_voice_ended", { story_id: story.digest_id });
+    // Reason: a user-initiated close is not "unexpected" — keep the closed-status
+    // watcher from flashing the error view while the sheet unmounts.
+    pendingReconnectRef.current = true;
     disconnectRef.current();
     onClose();
   }, [story.digest_id, onClose]);
@@ -579,6 +730,15 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
           >
             {errorMessage ?? "Voice isn't available right now."}
           </p>
+          <button
+            type="button"
+            className="v-btn solid"
+            data-testid="voice-retry"
+            style={{ marginTop: 18 }}
+            onClick={handleRetry}
+          >
+            Try again
+          </button>
         </div>
         <VsFoot on_end={handleEnd} />
       </>
@@ -586,16 +746,35 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
   }
 
   // ── STATE: listening / responding ──────────────────────────────────────────
-  // Split the turns into the user's LAST question and the model's last answer
-  // so we can render the prototype's `.row-q` / `.row-a` structure.
-  const last_user_turn = [...turns].reverse().find((t) => t.role === "user") ?? null;
-  const last_model_turn = [...turns].reverse().find((t) => t.role === "model") ?? null;
-  const has_model_answer = last_model_turn !== null;
+  // The FULL rolling thread renders (issue #40) — both roles, oldest first,
+  // partials growing in place; the read-full handoff needs any model answer.
+  const has_model_answer = turns.some((turn) => turn.role === "model");
+
+  // Honest orb state (issue #37): LISTENING may appear ONLY once the live
+  // session is actually ready (`status === "live"` ⇔ setupComplete arrived).
+  // Before that — token mint, WSS handshake, setup — the state is CONNECTING,
+  // so a user who speaks early sees the session is not yet hearing them.
+  const orb_display_state: OrbDisplayState =
+    status !== "live" ? "connecting" : viewState === "responding" ? "responding" : "listening";
 
   return (
     <>
       <div className="sheet-body">
-        <VsOrb view_state={viewState === "responding" ? "responding" : "listening"} />
+        <VsOrb view_state={orb_display_state} />
+        {orb_display_state === "connecting" ? (
+          <p
+            style={{
+              color: "rgba(255,255,255,.55)",
+              fontSize: "12px",
+              lineHeight: 1.45,
+              textAlign: "center",
+              margin: "10px auto 0",
+              maxWidth: "280px",
+            }}
+          >
+            One moment — the mic goes live when this says LISTENING.
+          </p>
+        ) : null}
         {showSilentMicHint ? (
           <p
             style={{
@@ -610,29 +789,32 @@ export function AskSheetVoice({ story, onClose, onOpenArticle }: AskSheetVoicePr
             Can&rsquo;t hear you — check mic access (Simulator: I/O ▸ Audio Input).
           </p>
         ) : null}
-        <div className="vthread" id="vthread">
-          {last_user_turn !== null && (
-            <div className="row-q">
-              <div className="bub-q voiced">
-                <VqWave />
-                <span>{last_user_turn.text}</span>
-              </div>
-            </div>
-          )}
-          {has_model_answer && (
-            <>
-              <div className="row-a">
-                <div className="bub-a">
-                  <p>{last_model_turn.text}</p>
+        <div className="vthread" id="vthread" ref={scrollContainerRef} onScroll={handleScroll}>
+          {turns.map((turn, turnIndex) =>
+            turn.role === "user" ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: append-only thread; index IS the turn identity.
+              <div className="row-q" key={turnIndex}>
+                <div className="bub-q voiced">
+                  <VqWave />
+                  <span>{turn.text}</span>
                 </div>
               </div>
-              <div className="row-a">
-                <button type="button" className="read-full" onClick={onOpenArticle}>
-                  {ic("doc")}
-                  Read the full story
-                </button>
+            ) : (
+              // biome-ignore lint/suspicious/noArrayIndexKey: append-only thread; index IS the turn identity.
+              <div className="row-a" key={turnIndex}>
+                <div className="bub-a">
+                  <p>{turn.text}</p>
+                </div>
               </div>
-            </>
+            ),
+          )}
+          {has_model_answer && (
+            <div className="row-a">
+              <button type="button" className="read-full" onClick={onOpenArticle}>
+                {ic("doc")}
+                Read the full story
+              </button>
+            </div>
           )}
         </div>
       </div>

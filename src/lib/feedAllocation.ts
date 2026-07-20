@@ -29,6 +29,7 @@ import {
   type DesignBucketId,
   ENUM_TO_DESIGN_BUCKET,
   type FeedCategoryEnum,
+  isCoarseAllocationSegment,
   sumSegmentCounts,
 } from "@/lib/feedBuckets";
 import { logger } from "@/lib/logger";
@@ -37,14 +38,24 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 /** The `user_feed_allocation` table name — single source of truth for the table ref. */
 const USER_FEED_ALLOCATION_TABLE = "user_feed_allocation";
 
-/** The column projection {@link getUserFeedAllocation} requests (DDL order, not `*`). */
-const USER_FEED_ALLOCATION_COLUMNS = "allocation_category,allocation_slot_count,allocation_sort_order";
+/**
+ * The column projection {@link getUserFeedAllocation} requests (DDL order, not `*`). Includes
+ * the migration-0026 niche columns (`allocation_interest_id`, `allocation_section_label`) so a
+ * niche/beyond-bubble SECTION row is legible to the screen as a read-only named block rather
+ * than collapsing into an anonymous coarse block (slice #12 loader-projection fix).
+ */
+const USER_FEED_ALLOCATION_COLUMNS =
+  "allocation_category,allocation_slot_count,allocation_sort_order,allocation_interest_id,allocation_section_label";
 
-/** The shape PostgREST returns for a `user_feed_allocation` row read. */
+/** The shape PostgREST returns for a `user_feed_allocation` row read (TS twin of migration 0026). */
 interface FeedAllocationRow {
   allocation_category: FeedCategoryEnum;
   allocation_slot_count: number;
   allocation_sort_order: number;
+  /** The niche interest node a section is named for (migration 0026); NULL on a coarse row. */
+  allocation_interest_id: string | null;
+  /** The user-vocabulary section label (migration 0026); NULL on a coarse/source row. */
+  allocation_section_label: string | null;
 }
 
 /**
@@ -122,7 +133,9 @@ export async function getUserFeedAllocation(
   }
 
   // Map each enum row back to its design bucket, dropping any enum value with no design
-  // mapping (defensive — should never happen, but never surface an unknown bucket).
+  // mapping (defensive — should never happen, but never surface an unknown bucket). A NICHE /
+  // beyond-bubble SECTION row (either niche column set) carries its columns through so the
+  // screen can render a read-only named block; a coarse row stays exactly `{ bucketId, count }`.
   const segments: AllocationSegment[] = [];
   for (const row of data ?? []) {
     const bucketId: DesignBucketId | undefined = ENUM_TO_DESIGN_BUCKET[row.allocation_category];
@@ -133,7 +146,16 @@ export async function getUserFeedAllocation(
       });
       continue;
     }
-    segments.push({ bucketId, count: row.allocation_slot_count });
+    const interestId = row.allocation_interest_id ?? null;
+    const sectionLabel = row.allocation_section_label ?? null;
+    // Use the shared coarse discriminator so "coarse = both niche columns null" lives in exactly
+    // one place (feedBuckets.ts) — a coarse row stays bare `{ bucketId, count }`; a section row
+    // carries its niche columns through for the read-only named-block render.
+    if (isCoarseAllocationSegment({ interestId, sectionLabel })) {
+      segments.push({ bucketId, count: row.allocation_slot_count });
+    } else {
+      segments.push({ bucketId, count: row.allocation_slot_count, interestId, sectionLabel });
+    }
   }
 
   logger.info("get_user_feed_allocation_completed", { user_id: authedUserId, returned: segments.length });
@@ -155,10 +177,13 @@ export interface SaveAllocationResult {
 
 /**
  * Persist a completed "Build your 30" allocation for the authed user, scoped to their
- * `auth.uid()`. Upserts one `user_feed_allocation` row per segment
- * (`allocation_category` = mapped enum, `allocation_slot_count` = count,
- * `allocation_sort_order` = the segment's index in the ordered list), then DELETES any
- * stale rows for buckets the user removed — so the table reflects EXACTLY the saved set.
+ * `auth.uid()`. COARSE-ONLY (founder decision 2026-07-05): only coarse blocks are written —
+ * read-only SECTION rows (niche + "Beyond your bubble" reserve) from the backend niche
+ * allocator are filtered out of the write and PRESERVED untouched. Upserts one
+ * `user_feed_allocation` row per coarse segment (`allocation_category` = mapped enum,
+ * `allocation_slot_count` = count, `allocation_sort_order` = the segment's index in the
+ * ordered list), then DELETES any stale COARSE rows for buckets the user removed — so the
+ * coarse set reflects EXACTLY the saved blocks while section rows survive the round-trip.
  * Idempotent: re-saving the same allocation rides the
  * `(follow_user_id, allocation_category, allocation_interest_id)` unique constraint
  * (migration 0026; NULLS NOT DISTINCT so coarse rows still key on user+category) and the
@@ -205,9 +230,27 @@ export async function saveUserFeedAllocation(
     });
   }
 
-  // Build one upsert row per segment, mapping the design bucket id → enum value and the
+  // COARSE-ONLY save (founder decision 2026-07-05): this writer edits and persists ONLY coarse
+  // "Build your 30" blocks. Read-only SECTION rows (niche / "Beyond your bubble" reserve, either
+  // migration-0026 niche column set) are edited via re-interview, never here — so we filter them
+  // OUT of the write set. Without this, a section segment that round-tripped through the screen
+  // would be upserted as a coarse row (its niche columns dropped), flattening the backend's niche
+  // allocation. The screen already passes coarse-only segments; this is the defensive belt.
+  const coarseSegments = segments.filter(isCoarseAllocationSegment);
+  const droppedSectionCount = segments.length - coarseSegments.length;
+  if (droppedSectionCount > 0) {
+    logger.warn("save_user_feed_allocation_section_segments_ignored", {
+      user_id: authedUserId,
+      dropped_section_count: droppedSectionCount,
+      fix_suggestion:
+        "Niche/beyond-bubble SECTION segments were passed to the coarse save and ignored — sections are read-only " +
+        "(edited via re-interview). Pass only coarse blocks; sections persist untouched via the backend allocator.",
+    });
+  }
+
+  // Build one upsert row per coarse segment, mapping the design bucket id → enum value and the
   // list index → the user's manual sort order.
-  const upsertRows: FeedAllocationUpsertRow[] = segments.map((segment, index) => ({
+  const upsertRows: FeedAllocationUpsertRow[] = coarseSegments.map((segment, index) => ({
     follow_user_id: authedUserId,
     allocation_category: DESIGN_BUCKET_TO_ENUM[segment.bucketId],
     allocation_slot_count: segment.count,
@@ -241,11 +284,34 @@ export async function saveUserFeedAllocation(
     }
   }
 
-  // 2. Delete any rows for buckets NOT in this save (the user removed them). Scoped to the
-  // authed user (also pinned by RLS) so the table reflects EXACTLY the saved set. A `.not.in`
-  // with an empty saved set would delete everything — guard that (clear-all save deletes all).
+  // 2. Delete any COARSE rows for buckets NOT in this save (the user removed them). Scoped to the
+  // authed user (also pinned by RLS) so the coarse set reflects EXACTLY the saved blocks.
+  //
+  // ANTI-CORRUPTION (slice #12, coarse-only): the delete is pinned to coarse rows only via
+  // `allocation_interest_id IS NULL AND allocation_section_label IS NULL`, so read-only SECTION
+  // rows written by the backend niche allocator are spared here. NICHE rows (interest set) are
+  // fully safe across the whole save — the upsert arbiter includes `allocation_interest_id`, so a
+  // coarse row (interest NULL) never collides with a niche row (interest set), and this delete
+  // spares them. Without these two `.is()` predicates the old `.not.in` prune deleted any section
+  // row whose category fell outside the coarse saved set, silently destroying the niche allocation.
+  //
+  // RESIDUAL (beyond-bubble only): a "Beyond your bubble" reserve row (interest NULL, label set)
+  // is spared by THIS delete, but the migration-0026 upsert arbiter
+  // `(follow_user_id, allocation_category, allocation_interest_id)` excludes the label — so a
+  // coarse upsert for a category that COINCIDES with a beyond-bubble root can collide with it. The
+  // full fix is a 4-column arbiter (incl. `allocation_section_label`), a schema migration deferred
+  // to a follow-on issue. Not reachable today (the niche allocator is unwired). See
+  // docs/residual-review-findings/ for the tracked finding.
+  //
+  // A `.not.in` with an empty saved set would prune every coarse row — that is the intended
+  // clear-all-coarse path (sections still survive via the same two `.is()` predicates).
   const savedEnumList = Array.from(savedEnumValues);
-  let deleteQuery = client.from(USER_FEED_ALLOCATION_TABLE).delete().eq("follow_user_id", authedUserId);
+  let deleteQuery = client
+    .from(USER_FEED_ALLOCATION_TABLE)
+    .delete()
+    .eq("follow_user_id", authedUserId)
+    .is("allocation_interest_id", null)
+    .is("allocation_section_label", null);
   if (savedEnumList.length > 0) {
     deleteQuery = deleteQuery.not("allocation_category", "in", `(${savedEnumList.join(",")})`);
   }

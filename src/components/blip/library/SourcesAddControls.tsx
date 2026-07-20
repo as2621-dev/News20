@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { SourceAvatarImage } from "@/components/blip/library/SourceAvatarImage";
 import { formatSubscriberCount } from "@/components/blip/reel/SettingsLayer";
 import { InterestChips, type InterestSelection } from "@/components/onboarding/InterestChips";
 import { logger } from "@/lib/logger";
@@ -356,12 +357,7 @@ export function AddSourceSearch({ onAdded }: AddSourceSearchProps) {
             return (
               <div className="follow-row" key={result.external_id}>
                 <div className="av sq">
-                  {result.thumbnail_url ? (
-                    // biome-ignore lint/performance/noImgElement: small remote avatar in a static export; next/image is inappropriate here.
-                    <img src={result.thumbnail_url} alt="" />
-                  ) : (
-                    <span className="mono">{result.source_name.charAt(0).toUpperCase()}</span>
-                  )}
+                  <SourceAvatarImage thumbnail_url={result.thumbnail_url} source_name={result.source_name} />
                   <span className="pbadge">
                     <Glyph id={glyph} />
                   </span>
