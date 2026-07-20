@@ -56,7 +56,7 @@ logger = get_logger("pipeline.stages.batch_review")
 
 # Reason: pin the same proven text model the other SP2 stages use; one judge over
 # a chunk of the day's reels is cheap relative to the TTS it precedes.
-BATCH_REVIEW_MODEL = "gemini-2.5-flash"
+BATCH_REVIEW_MODEL = "gemini-3.5-flash"
 
 # Reason: a touch warmer than the dedup judge's 0.1 — this pass not only DETECTS
 # repetition but writes the fresh replacement scaffolding, which needs a little

@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 # Cheap flash model for the 3 LLM judgment steps (query build, scoring, synth);
 # the image generator stays Nano Banana Pro (see generate_posters.GEMINI_IMAGE_MODEL).
-GEMINI_LLM_MODEL: str = "gemini-2.5-flash"
+GEMINI_LLM_MODEL: str = "gemini-3.5-flash"
 
 # Serper / gating knobs (poster-pipeline plan §gates).
 SERPER_NUM_RESULTS: int = 10
