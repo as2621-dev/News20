@@ -592,6 +592,12 @@ async def _run() -> int:
         # — paid gemini-embedding-001 calls. Set ENABLE_SEMANTIC_CLUSTERING=0 to fall
         # back to the byte-for-byte legacy path.
         enable_semantic_clustering=os.environ.get("ENABLE_SEMANTIC_CLUSTERING", "1") == "1",
+        # Reason (issue #48): the notability hard cut defaults ON in the live path — a
+        # candidate reaches production only with ≥2 distinct editorial outlets OR an
+        # authority-tier outlet (syndication of one wire item counts as zero), thin
+        # niches relax + stamp rather than starve. Set ENABLE_NOTABILITY_GATE=0 to fall
+        # back to the pre-gate admission (the RC2 behaviour) for a diagnostic run.
+        enable_notability_gate=os.environ.get("ENABLE_NOTABILITY_GATE", "1") == "1",
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=census_adapter,

@@ -53,6 +53,7 @@ from agents.pipeline.produce_caps import (
     compute_category_produce_caps,
     enforce_overall_ceiling,
 )
+from agents.pipeline.notability_gate import apply_notability_gate
 from agents.pipeline.produce_dedup import dedupe_produce_shortlist
 from agents.pipeline.produce_gate import select_stories_to_produce
 from agents.pipeline.stages.batch_review import review_reel_pool
@@ -813,6 +814,7 @@ async def run_daily_pipeline(
     enable_produce_dedup: bool = True,
     enable_batch_review: bool = False,
     enable_semantic_clustering: bool = False,
+    enable_notability_gate: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
@@ -880,6 +882,17 @@ async def run_daily_pipeline(
             ``ENABLE_SEMANTIC_CLUSTERING``, issue #34). A reconcile failure mid-run
             falls back to the un-reconciled pool for the WHOLE run — loud, never a
             half-reconciled feed.
+        enable_notability_gate: When True (issue #48), the deduped/reconciled pool passes
+            the notability hard cut (``notability_gate.apply_notability_gate``) BEFORE the
+            produce-once gate: a candidate reaches production only with ≥2 distinct
+            editorial outlets OR an authority-tier outlet — a syndication burst of one
+            wire item across many distributors counts as zero corroborating outlets and is
+            dropped. A thin leaf niche relaxes to the single-outlet rule (stamped
+            ``relaxed``) rather than starving. Followed-source (YouTube/X) stories are
+            exempt. The batch emits candidates-surviving-per-niche as structured JSON.
+            Fails LOUD if the authority config is unavailable (never a silent open gate).
+            Defaults False so the legacy path is byte-for-byte unchanged until a caller
+            opts in (the live entry point defaults it ON via ``ENABLE_NOTABILITY_GATE``).
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves each
             story's ``story_segment_slug`` (and the enrichment's analytic kind /
             coverage mode). Injected per batch; a story that resolves to no
@@ -974,12 +987,35 @@ async def run_daily_pipeline(
             # story_interest_match_depth mutation, which ranking persists verbatim).
             category_override_by_story = reconciled.category_override_by_story
 
+    # ── Stage B.9 — notability hard cut (issue #48, gated) ────────────────────
+    # Reason (PRD RC2): nothing reaches production unless it is plausibly news —
+    # ≥2 distinct editorial outlets OR an authority-tier outlet, with a thin-niche
+    # relaxation (stamped) so a legitimately thin leaf niche does not starve. A
+    # syndication burst of one wire item counts as zero corroborating outlets and is
+    # dropped. Runs BEFORE the produce-once gate so cost is only ever spent on news.
+    # ``stories`` is left intact (candidate_story_count = the full ingested pool);
+    # only the produce path narrows to the notable subset. Fails LOUD on missing config.
+    producible_stories = stories
+    if enable_notability_gate:
+        notability_result = apply_notability_gate(stories, story_interest_tags)
+        notable_ids = set(notability_result.notable_story_ids)
+        producible_stories = [
+            story for story in stories if story.canonical_story_id in notable_ids
+        ]
+        logger.info(
+            "notability_gate_applied",
+            candidate_pool=len(stories),
+            notable=len(producible_stories),
+            rejected=len(stories) - len(producible_stories),
+            relaxed_niche_count=len(notability_result.relaxed_niche_ids),
+        )
+
     # ── Stage C — produce-once gate, then bounded paid fan-out ────────────────
     has_current_digest = _load_has_current_digest(
-        supabase_client, [s.canonical_story_id for s in stories]
+        supabase_client, [s.canonical_story_id for s in producible_stories]
     )
     to_produce, _decisions = select_stories_to_produce(
-        stories, story_interest_tags, has_current_digest, now_utc=now
+        producible_stories, story_interest_tags, has_current_digest, now_utc=now
     )
     gated_count = len(to_produce)
 
