@@ -63,6 +63,7 @@ Run (paid, full scale):
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -375,6 +376,12 @@ async def _run() -> int:
     load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 
     paid = os.environ.get("RUN_LIVE_BATCH") == "1"
+    # Reason (founder rule 2026-07-19, shortlist-first): reel production is the
+    # expensive tail (script LLM → TTS → poster), so the live entry DEFAULTS to
+    # halting at story selection and dumping the would-produce shortlist for
+    # founder review. Producing a real batch now requires the explicit opt-out
+    # SHORTLIST_ONLY=0 — reels are made only after the founder approves a list.
+    shortlist_only = os.environ.get("SHORTLIST_ONLY", "1") == "1"
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
     produce_cap_headroom = float(os.environ.get("PRODUCE_CAP_HEADROOM", "2.0"))
     lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
@@ -587,7 +594,13 @@ async def _run() -> int:
             supabase, active_user_ids
         )
 
-    print("\n--- PAID RUN (live GDELT ingest → produce + enrich → allocate) ---")
+    if shortlist_only:
+        print(
+            "\n--- SHORTLIST-ONLY RUN (ingest → gates → selection; ZERO production"
+            " credits — set SHORTLIST_ONLY=0 to produce after founder approval) ---"
+        )
+    else:
+        print("\n--- PAID RUN (live GDELT ingest → produce + enrich → allocate) ---")
     result = await run_daily_pipeline(
         target_date=target,
         supabase_client=supabase,
@@ -620,6 +633,7 @@ async def _run() -> int:
         # per (cluster, theme) produced this run → honest ladder x slots. Off by
         # default (mirrors RUN_SOURCES): the interest-only batch is unchanged.
         enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
+        shortlist_only=shortlist_only,
     )
 
     print(
@@ -628,6 +642,37 @@ async def _run() -> int:
         f"skipped_by_gate={result.skipped_by_gate_count} "
         f"feeds_written={result.feeds.feeds_written if result.feeds else 0}"
     )
+
+    # ── SHORTLIST REVIEW DUMP — print + persist, then exit before the DoD
+    # readback (nothing was produced or written, so those checks don't apply). ──
+    if shortlist_only:
+        by_category: dict[str, list[Any]] = {}
+        for entry in result.shortlist:
+            by_category.setdefault(entry.shortlist_category, []).append(entry)
+        print(f"\n--- SHORTLIST FOR REVIEW ({len(result.shortlist)} stories) ---")
+        for category_name in sorted(by_category):
+            print(f"\n[{category_name}] ({len(by_category[category_name])})")
+            for entry in by_category[category_name]:
+                interests = ", ".join(entry.shortlist_matched_interest_slugs) or "-"
+                print(
+                    f"  {entry.shortlist_outlet_count:>3} outlets | {interests} | "
+                    f"{entry.shortlist_headline[:90]}"
+                )
+        shortlist_dir = os.path.join(_REPO_ROOT, ".agents", "shortlists")
+        os.makedirs(shortlist_dir, exist_ok=True)
+        shortlist_path = os.path.join(
+            shortlist_dir, f"{result.feed_date}-shortlist.json"
+        )
+        with open(shortlist_path, "w", encoding="utf-8") as shortlist_file:
+            json.dump(
+                [entry.model_dump() for entry in result.shortlist],
+                shortlist_file,
+                indent=2,
+                ensure_ascii=False,
+            )
+        print(f"\nshortlist saved: {shortlist_path}")
+        print("APPROVE the list, then re-run with SHORTLIST_ONLY=0 to produce reels.")
+        return 0
 
     # ── DoD READBACK ──────────────────────────────────────────────────────────
     feeds = (

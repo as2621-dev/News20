@@ -55,6 +55,7 @@ from agents.pipeline.produce_caps import (
 )
 from agents.pipeline.notability_gate import apply_notability_gate
 from agents.pipeline.produce_dedup import dedupe_produce_shortlist
+from agents.pipeline.shortlist import ShortlistEntry, build_produce_shortlist
 from agents.pipeline.produce_gate import select_stories_to_produce
 from agents.pipeline.stages.batch_review import review_reel_pool
 from agents.pipeline.stages.ranking import (
@@ -126,6 +127,9 @@ class DailyPipelineResult(BaseModel):
             set (max-over-users × BUFFER, floored). Observe-only in M2 — emitted
             for M3 (targeted ingest) to consume; does NOT change which reels are
             produced this run.
+        shortlist: The would-be-produced review list (founder rule 2026-07-19,
+            shortlist-first). Populated ONLY when the run halts with
+            ``shortlist_only=True``; empty on a producing run.
 
     Example:
         >>> # See tests/agents/pipeline/test_daily_batch.py for the staged asserts.
@@ -141,6 +145,10 @@ class DailyPipelineResult(BaseModel):
     pool_target: list[PoolTargetCell] = Field(
         default_factory=list,
         description="M2 shared-pool shopping list (observe-only; M3 consumes it)",
+    )
+    shortlist: list[ShortlistEntry] = Field(
+        default_factory=list,
+        description="Would-produce review list (set only when shortlist_only halts)",
     )
 
 
@@ -821,6 +829,7 @@ async def run_daily_pipeline(
     source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
     enable_x_theme_reels: bool = False,
     tweet_screenshot_renderer: TweetScreenshotRenderer | None = None,
+    shortlist_only: bool = False,
 ) -> DailyPipelineResult:
     """Run the full daily personalized-feed batch end-to-end (stages A–E).
 
@@ -922,6 +931,12 @@ async def run_daily_pipeline(
         tweet_screenshot_renderer: Optional ``(tweet_url) -> path|None`` seam for the
             theme reels' top-tweet screenshot (mocked in tests; the real Playwright
             renderer when ``None``). Only read when ``enable_x_theme_reels`` is True.
+        shortlist_only: Founder rule 2026-07-19 (shortlist-first, credit frugality).
+            When True the run HALTS after the full selection pipeline (ingest →
+            gates → dedup → caps → merges) and returns the would-produce list on
+            ``result.shortlist`` — the paid write/render phases and the feed
+            assembly never run, so zero production credits are spent and no
+            ``daily_feeds`` rows are written. Defaults False (producing run).
 
     Returns:
         A :class:`DailyPipelineResult` summarizing every stage.
@@ -1175,6 +1190,39 @@ async def run_daily_pipeline(
                 theme_to_produce=len(theme_to_produce),
                 eligible_user_count=len(x_theme_gather.candidates_by_user),
             )
+
+    # ── SHORTLIST-ONLY halt (founder rule 2026-07-19, shortlist-first) ────────
+    # Reason: production (script LLM → TTS → poster) is the expensive tail of the
+    # batch. Halting HERE — after every gate, dedup, cap and merge — surfaces the
+    # exact would-produce pool for founder review at zero production cost. The
+    # review list must be exactly what production would receive, so this sits
+    # immediately above _produce_story_pool and nothing may slip between them.
+    if shortlist_only:
+        shortlist_entries = build_produce_shortlist(
+            to_produce,
+            story_interest_tags,
+            interest_nodes,
+            category_override_by_story,
+        )
+        logger.info(
+            "shortlist_only_halt",
+            feed_date=target_date.isoformat(),
+            candidate_story_count=len(stories),
+            shortlist_count=len(shortlist_entries),
+            skipped_by_gate_count=len(stories) - gated_count,
+            capped_count=capped_count,
+        )
+        return DailyPipelineResult(
+            feed_date=target_date.isoformat(),
+            profile_update=profile_update,
+            candidate_story_count=len(stories),
+            produced_story_count=0,
+            skipped_by_gate_count=len(stories) - gated_count,
+            capped_count=capped_count,
+            feeds=None,
+            pool_target=pool_target_cells,
+            shortlist=shortlist_entries,
+        )
 
     produced_stories = await _produce_story_pool(
         stories_to_produce=to_produce,
