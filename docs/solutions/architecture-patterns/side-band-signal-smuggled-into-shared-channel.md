@@ -48,11 +48,14 @@ The 2026-07-25 audit failed 21/55 shortlist rows on exactly these shapes.
    that at the matched-id source — which silently expired M2's premise. Rule 7:
    the newer doctrine (verified keyword wins) replaced the older one, explicitly,
    with the old tests rewritten to encode the new WHY.
-4. **A merge pin must be the union resolution, not the representative's opinion.**
-   Reconcile now pins a conflicted merge to `assign_category` over the MERGED tags
-   + MERGED themes — the same verdict any downstream call site would compute — so
-   a rep chosen for headline quality/recency can no longer export its own
-   mis-categorization to the whole cluster.
+4. **Resolve the verdict ONCE and ride one carrier to every consumer.** The review
+   panel proved the follow-on failure mode: fixing the resolver but threading its
+   new input (the theme map) to only SOME call sites re-splits the verdict (chip
+   "sport" on the shortlist, bucket "arts" at feed assembly — same run). The end
+   state: `compute_category_verdicts` computes one `{story_id: category}` map per
+   batch and rides the existing `category_override_by_story` seam to caps,
+   shortlist, feed assembly and the persisted segment — which also let reconcile's
+   merge-specific pin machinery be deleted (the general map provably subsumes it).
 5. **Guard the artifact with a followed-set invariant that fails loud.** The
    shortlist now warns per row (`shortlist_matched_slug_outside_followed_set`,
    with fix_suggestion) whenever a matched slug falls outside the batch's followed

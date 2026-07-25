@@ -208,7 +208,9 @@ async def apply_semantic_relevance_key(
             fix_suggestion=(
                 "The semantic relevance key fell back to STRICT LEXICAL for this batch — "
                 "admission kept every lexically-matched interest UNFILTERED (no fail-open, "
-                "but the RC3 semantic tightening was skipped). Restore gemini-embedding-001 "
+                "but the RC3 semantic tightening was skipped), and categorization ran "
+                "WITHOUT the two-key guard (issue #70: a lexical false positive owns its "
+                "story's category outright). Restore gemini-embedding-001 "
                 "availability/quota BEFORE the next batch."
             ),
         )

@@ -55,14 +55,18 @@ from agents.pipeline.produce_caps import (
 )
 from agents.pipeline.notability_gate import apply_notability_gate
 from agents.pipeline.produce_dedup import dedupe_produce_shortlist
-from agents.pipeline.shortlist import ShortlistEntry, build_produce_shortlist
+from agents.pipeline.shortlist import (
+    ShortlistEntry,
+    build_produce_shortlist,
+    warn_matched_slugs_outside_followed_set,
+)
 from agents.pipeline.produce_gate import select_stories_to_produce
-from agents.pipeline.theme_category import theme_categories_for_stories
 from agents.pipeline.stages.batch_review import review_reel_pool
 from agents.pipeline.stages.ranking import (
     FOLLOW_SOURCE_WEIGHT,
     FollowedEntity,
     UserProfileInterest,
+    compute_category_verdicts,
 )
 from agents.pipeline.x_theme_ladder import XThemeReelCandidate
 from agents.pipeline.x_theme_production import (
@@ -668,6 +672,7 @@ async def _produce_story_pool(
     interest_segment_lookup: dict[str, str] | None = None,
     outlets_lookup: dict[str, str] | None = None,
     gdelt_adapter: Any | None = None,
+    pinned_segment_by_story: dict[str, str] | None = None,
 ) -> list[CanonicalStory]:
     """Produce each gated story into a digest, in two bounded waves (stage C).
 
@@ -712,6 +717,11 @@ async def _produce_story_pool(
                     enable_editorial_rewrite=enable_editorial_rewrite,
                     interest_segment_lookup=interest_segment_lookup,
                     pool_index=pool_index,
+                    # Reason: issue #70 — the persisted segment must be the SAME
+                    # resolve-once verdict the chip and the cap bucket used.
+                    pinned_segment_slug=(pinned_segment_by_story or {}).get(
+                        story.canonical_story_id
+                    ),
                 )
             except SegmentResolutionError as exc:
                 # Reason: the nightly batch calls write_phase DIRECTLY (never
@@ -997,11 +1007,6 @@ async def run_daily_pipeline(
             stories = reconciled.reconciled_stories
             story_interest_tags = reconciled.reconciled_tags
             cluster_importance_by_story = reconciled.cluster_importance_by_story
-            # Reason: issue #34 — a cross-category merge's enforced category pin rides
-            # this map to every assign_category call site (caps, ceiling, assembly) so
-            # the merge can never flip the surviving story's category (never via a
-            # story_interest_match_depth mutation, which ranking persists verbatim).
-            category_override_by_story = reconciled.category_override_by_story
 
     # ── Stage B.9 — notability hard cut (issue #48, gated) ────────────────────
     # Reason (PRD RC2): nothing reaches production unless it is plausibly news —
@@ -1031,7 +1036,11 @@ async def run_daily_pipeline(
         supabase_client, [s.canonical_story_id for s in producible_stories]
     )
     to_produce, _decisions = select_stories_to_produce(
-        producible_stories, story_interest_tags, has_current_digest, now_utc=now
+        producible_stories,
+        story_interest_tags,
+        has_current_digest,
+        now_utc=now,
+        interest_nodes=interest_nodes,
     )
     gated_count = len(to_produce)
 
@@ -1056,11 +1065,17 @@ async def run_daily_pipeline(
         DEFAULT_FEED_ALLOCATION,
         headroom_multiplier=produce_cap_headroom,
     )
-    # Reason: issue #70 — resolve the pool's theme (aboutness) categories ONCE and
-    # thread the map to every produce-path assign_category consumer (caps, ceiling,
-    # shortlist); the theme tiebreaks/falls-back inside assign_category and is no
-    # longer a depth-0 story_interests tag.
-    theme_category_by_story = theme_categories_for_stories(stories)
+    # Reason: issue #70 (review-panel HIGH) — resolve ONE category verdict per pool
+    # story (tags + theme tiebreak/fallback through assign_category, ONCE) and ride
+    # it as the override map to EVERY consumer: caps, ceiling, founder shortlist,
+    # feed-assembly buckets, and the persisted story_segment_slug. Before this map
+    # the produce path resolved with the theme tiebreak while the feed path did
+    # not, so one story could chip "sport" on the shortlist but bucket to "arts"
+    # at assembly. Subsumes the former reconcile merge pin (identical resolver
+    # over the reconciled pool).
+    category_override_by_story = compute_category_verdicts(
+        stories, story_interest_tags, interest_nodes
+    )
     to_produce = cap_stories_per_category(
         to_produce,
         _decisions,
@@ -1069,7 +1084,6 @@ async def run_daily_pipeline(
         caps,
         default_cap=DEFAULT_PER_CATEGORY_CAP,
         category_override_by_story=category_override_by_story,
-        theme_category_by_story=theme_category_by_story,
     )
     if max_total_productions and max_total_productions > 0:
         to_produce = enforce_overall_ceiling(
@@ -1079,7 +1093,6 @@ async def run_daily_pipeline(
             interest_nodes,
             max_total_productions,
             category_override_by_story=category_override_by_story,
-            theme_category_by_story=theme_category_by_story,
         )
     capped_count = gated_count - len(to_produce)
 
@@ -1092,6 +1105,20 @@ async def run_daily_pipeline(
     # (no extra taxonomy query), and is surfaced on DailyPipelineResult.pool_target.
     interest_nodes_by_user = _load_interest_nodes_by_user(
         supabase_client, active_user_ids, interest_nodes
+    )
+    # Reason: issue #70 invariant, UNCONDITIONAL (review-panel A2) — a matched slug
+    # outside the batch's followed universe means the tag stream is corrupted again;
+    # it must warn on producing runs too, not only under the shortlist halt.
+    batch_followed_interest_ids = frozenset(
+        node.interest_id
+        for user_nodes in interest_nodes_by_user.values()
+        for node in user_nodes
+    )
+    warn_matched_slugs_outside_followed_set(
+        story_interest_tags=story_interest_tags,
+        interest_nodes=interest_nodes,
+        followed_interest_ids=batch_followed_interest_ids,
+        story_ids={story.canonical_story_id for story in to_produce},
     )
     pool_target = compute_pool_target(
         allocation_by_user,
@@ -1206,20 +1233,13 @@ async def run_daily_pipeline(
     # review list must be exactly what production would receive, so this sits
     # immediately above _produce_story_pool and nothing may slip between them.
     if shortlist_only:
-        # Reason: issue #70 invariant — the batch's followed-interest universe, so
-        # the shortlist can fail loud on any matched slug nobody follows.
-        batch_followed_interest_ids = frozenset(
-            node.interest_id
-            for user_nodes in interest_nodes_by_user.values()
-            for node in user_nodes
-        )
+        # Reason: the followed-set invariant already ran unconditionally above; the
+        # override map carries the batch's resolve-once verdicts (issue #70).
         shortlist_entries = build_produce_shortlist(
             to_produce,
             story_interest_tags,
             interest_nodes,
             category_override_by_story,
-            followed_interest_ids=batch_followed_interest_ids,
-            theme_category_by_story=theme_category_by_story,
         )
         logger.info(
             "shortlist_only_halt",
@@ -1255,6 +1275,7 @@ async def run_daily_pipeline(
         interest_segment_lookup=interest_segment_lookup,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=gdelt_adapter,
+        pinned_segment_by_story=category_override_by_story,
     )
 
     # ── Stages D+E — score per user + allocate ~30-slot daily_feeds ───────────

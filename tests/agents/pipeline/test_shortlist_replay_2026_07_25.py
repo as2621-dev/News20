@@ -33,6 +33,7 @@ from agents.ingestion.ancestor_tagging import merge_story_tags
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline.clustering.reconcile import _collapse_stories, _remap_tags
 from agents.pipeline.shortlist import build_produce_shortlist
+from agents.pipeline.stages.ranking import compute_category_verdicts
 
 _NOW = datetime(2026, 7, 25, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -84,51 +85,34 @@ def _interest_id(slug: str) -> str:
 
 
 def _build_interest_nodes() -> dict[str, InterestNode]:
-    """The taxonomy: 8 roots + the followed leaves with real parent chains."""
+    """The taxonomy: 8 roots + every followed slug with its full prefix chain.
+
+    Generic prefix minting (review-panel A5): each slug's dotted prefixes are
+    minted exactly once, in order — no hardcoded special cases, no silent
+    overwrites of already-minted intermediates.
+    """
     nodes: dict[str, InterestNode] = {}
-    for root_slug in _ROOT_SLUGS:
-        nodes[_interest_id(root_slug)] = InterestNode(
-            interest_id=_interest_id(root_slug),
-            parent_interest_id=None,
-            interest_slug=root_slug,
-            interest_label=root_slug,
-            depth_level=0,
-            interest_search_query=f"{root_slug} news",
-        )
-    for slug in _FOLLOWED_SLUGS:
-        if slug in _ROOT_SLUGS or slug in ("crypto", "entertainment"):
-            continue
-        parts = slug.split(".")
-        parent_slug = ".".join(parts[:-1])
-        if parent_slug and parent_slug not in _ROOT_SLUGS and _interest_id(parent_slug) not in nodes:
-            # Intermediate node (e.g. sport.cricket under sport) added by its own
-            # entry in _FOLLOWED_SLUGS or minted here for the chain.
-            nodes[_interest_id(parent_slug)] = InterestNode(
-                interest_id=_interest_id(parent_slug),
-                parent_interest_id=_interest_id(parent_slug.split(".")[0]),
-                interest_slug=parent_slug,
-                interest_label=parent_slug,
-                depth_level=1,
-                interest_search_query=f"{parent_slug} news",
-            )
+
+    def _mint(slug: str, parent_slug: str | None, depth_level: int) -> None:
+        if _interest_id(slug) in nodes:
+            return
         nodes[_interest_id(slug)] = InterestNode(
             interest_id=_interest_id(slug),
             parent_interest_id=_interest_id(parent_slug) if parent_slug else None,
             interest_slug=slug,
             interest_label=slug,
-            depth_level=len(parts) - 1,
+            depth_level=depth_level,
             interest_search_query=f"{slug} news",
         )
-    # Followed root-level standalone interests (no dot, not one of the 8 roots).
-    for slug in ("crypto", "entertainment"):
-        nodes[_interest_id(slug)] = InterestNode(
-            interest_id=_interest_id(slug),
-            parent_interest_id=None,
-            interest_slug=slug,
-            interest_label=slug,
-            depth_level=0,
-            interest_search_query=f"{slug} news",
-        )
+
+    for root_slug in _ROOT_SLUGS:
+        _mint(root_slug, None, 0)
+    for slug in _FOLLOWED_SLUGS:
+        parts = slug.split(".")
+        for depth in range(len(parts)):
+            prefix = ".".join(parts[: depth + 1])
+            parent = ".".join(parts[:depth]) or None
+            _mint(prefix, parent, depth)
     return nodes
 
 
@@ -175,12 +159,20 @@ def _tags_for(stories: list[CanonicalStory], nodes: dict[str, InterestNode]) -> 
 def _shortlist_single(
     story: CanonicalStory, nodes: dict[str, InterestNode]
 ) -> tuple[str, list[str]]:
-    """Run one un-merged story through the real shortlist path."""
+    """Run one un-merged story through the real production order.
+
+    Mirrors ``run_daily_pipeline``: the resolve-once verdict map
+    (``compute_category_verdicts``) is computed first and rides the override seam
+    into the shortlist — the same map caps, feed assembly and the persisted
+    segment consume (#70 review-panel HIGH: one verdict everywhere).
+    """
+    tags = _tags_for([story], nodes)
+    verdicts = compute_category_verdicts([story], tags, nodes)
     entries = build_produce_shortlist(
         [story],
-        _tags_for([story], nodes),
+        tags,
         nodes,
-        None,
+        verdicts,
         followed_interest_ids=_FOLLOWED_IDS,
     )
     assert len(entries) == 1
@@ -201,8 +193,11 @@ def _shortlist_merged(
     tags = _tags_for(members, nodes)
     collapsed = _collapse_stories(members, shared_id_by_index)
     remapped = _remap_tags(tags, stories=members, shared_id_by_index=shared_id_by_index)
+    # Production order (#70 review panel): the resolve-once verdict map is computed
+    # over the RECONCILED outputs and rides the override seam into the shortlist.
+    verdicts = compute_category_verdicts(collapsed, remapped, nodes)
     entries = build_produce_shortlist(
-        collapsed, remapped, nodes, None, followed_interest_ids=_FOLLOWED_IDS
+        collapsed, remapped, nodes, verdicts, followed_interest_ids=_FOLLOWED_IDS
     )
     assert len(entries) == 1
     return entries[0].shortlist_category, entries[0].shortlist_matched_interest_slugs
@@ -491,7 +486,7 @@ class TestPhantomRootRowsCarryOnlyFollowedSlugs:
             ),
             nodes,
         )
-        assert category != "tech"
+        assert category == "arts"
         assert slugs == ["arts.bollywood"]
 
 
@@ -556,3 +551,129 @@ class TestShortlistInvariant:
             for event in captured
             if event.get("event") == "shortlist_matched_slug_outside_followed_set"
         ]
+
+class TestOneVerdictAcrossProduceAndFeedPaths:
+    """#70 review-panel HIGH: the SAME category verdict must hold at every seam.
+
+    Pre-fix, an UNMERGED story with equal-depth tags under different roots (the
+    row-5 MLS shape) chipped 'sport' on the founder shortlist (theme tiebreak) but
+    bucketed to 'arts' at feed assembly (slug-alpha, no theme) — same run, same
+    story, two categories. The resolve-once verdict map closes it: computed once
+    in the batch, ridden as ``category_override_by_story`` by the shortlist, the
+    produce caps, and the feed-path ``assign_category`` call shape (which never
+    sees the theme map).
+    """
+
+    def test_unmerged_two_root_tie_resolves_identically_everywhere(self, nodes) -> None:
+        from agents.pipeline.models import ProduceDecision
+        from agents.pipeline.produce_caps import cap_stories_per_category
+        from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
+
+        story = _story(
+            "cand-e499579dcbbd",
+            "MLS Teams See Ticket Sales Jump More Than 150% After World Cup",
+            ["arts.box-office", "sport.fifa-world-cup"],
+            ["SPORT", "WB_1953_SPORTS", "SOC_SPORTS"],
+        )
+        tags = _tags_for([story], nodes)
+        verdicts = compute_category_verdicts([story], tags, nodes)
+        assert verdicts == {story.canonical_story_id: "sport"}
+
+        # Shortlist chip (founder review) — consumes the verdict map.
+        entries = build_produce_shortlist([story], tags, nodes, verdicts)
+        assert entries[0].shortlist_category == "sport"
+
+        # Produce caps — the story must occupy a SPORT slot: with only a sport
+        # budget available, an arts-bucketed story would be capped away.
+        capped = cap_stories_per_category(
+            [story],
+            [
+                ProduceDecision(
+                    story_id=story.canonical_story_id,
+                    should_produce=True,
+                    importance_score=0.5,
+                    freshness_score=0.5,
+                )
+            ],
+            tags,
+            nodes,
+            {"sport": 1},
+            default_cap=0,
+            category_override_by_story=verdicts,
+        )
+        assert [s.canonical_story_id for s in capped] == [story.canonical_story_id]
+
+        # Feed-path call shape (ranking classify / feed assembly): override map,
+        # NO theme map — must still say sport.
+        assert (
+            assign_category(
+                story.canonical_story_id,
+                _index_tags_by_story(tags),
+                nodes,
+                verdicts,
+            )
+            == "sport"
+        )
+
+
+class TestEmitterLevelReplay:
+    """#70 review-panel B1: replay through the TAG EMITTER, not just the reader.
+
+    The bug lived in ``ingest_active_interests``'s tag emission (theme root tags
+    at depth 0 + shifted keyword depths). Reader-level fixtures built via
+    ``merge_story_tags`` would stay green if that emission regressed — so row 27
+    (cricket injury with health themes) runs the REAL ingestion entry point with a
+    fake adapter (network boundary mocked; the logic under test is not).
+    """
+
+    @pytest.mark.asyncio
+    async def test_row_27_through_real_ingestion_resolves_sport(self, nodes) -> None:
+        from agents.ingestion.adapters.base import BaseNewsAdapter
+        from agents.ingestion.interest_keyed_pipeline import ingest_active_interests
+        from agents.ingestion.models import CandidateStory
+
+        cricket_id = _interest_id("sport.cricket")
+
+        class _CricketInjuryAdapter(BaseNewsAdapter):
+            async def search(self, search_query, since_utc, **kwargs):
+                if search_query != nodes[cricket_id].interest_search_query:
+                    return []
+                return [
+                    CandidateStory(
+                        candidate_external_id="https://example.com/fazal-ruled-out",
+                        candidate_title=(
+                            "Pakistan opener Abdullah Fazal ruled out of West Indies"
+                            " Test series"
+                        ),
+                        candidate_url="https://example.com/fazal-ruled-out",
+                        candidate_outlet_domain="example.com",
+                        candidate_published_utc=_NOW,
+                        candidate_themes=[
+                            "MEDICAL",
+                            "GENERAL_HEALTH",
+                            "WB_621_HEALTH_NUTRITION_AND_POPULATION",
+                        ],
+                    )
+                ]
+
+            async def extract_body(self, candidate, **kwargs):
+                candidate.candidate_body_text = "body"
+                return candidate
+
+        result = await ingest_active_interests(
+            [cricket_id], nodes, _CricketInjuryAdapter()
+        )
+
+        assert len(result.canonical_stories) == 1
+        verdicts = compute_category_verdicts(
+            result.canonical_stories, result.story_interest_tags, nodes
+        )
+        entries = build_produce_shortlist(
+            result.canonical_stories,
+            result.story_interest_tags,
+            nodes,
+            verdicts,
+            followed_interest_ids=_FOLLOWED_IDS,
+        )
+        assert entries[0].shortlist_category == "sport"
+        assert entries[0].shortlist_matched_interest_slugs == ["sport.cricket"]

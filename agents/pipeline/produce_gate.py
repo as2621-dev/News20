@@ -42,7 +42,7 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 
 from agents.ingestion.dedup import is_source_origin_domain
-from agents.ingestion.models import CanonicalStory, StoryInterestTag
+from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline.models import ProduceDecision
 from agents.shared.logger import get_logger
 
@@ -143,6 +143,7 @@ def evaluate_story_for_production(
     min_importance: float = _DEFAULT_MIN_IMPORTANCE,
     min_freshness: float = _DEFAULT_MIN_FRESHNESS,
     is_source_origin: bool = False,
+    interest_nodes: dict[str, InterestNode] | None = None,
 ) -> ProduceDecision:
     """Decide whether one canonical story should be produced into a digest.
 
@@ -176,6 +177,12 @@ def evaluate_story_for_production(
             X). Exempts it from the interest-membership and importance/freshness
             floor checks (it is intrinsically wanted); the produce-once check still
             applies.
+        interest_nodes: Optional taxonomy lookup (issue #70 review panel). When
+            given, ONLY tags whose interest resolves in the taxonomy count toward
+            ``serves_interest_count`` — an orphan-tagged story would otherwise pass
+            the gate, occupy a cap slot, then deterministically raise
+            ``SegmentResolutionError`` at write time. ``None`` keeps the raw count
+            (pure fixture callers).
 
     Returns:
         A :class:`ProduceDecision` with the verdict, the failing reason (if any),
@@ -196,8 +203,16 @@ def evaluate_story_for_production(
         for tag in story_interest_tags
         if tag.story_interest_story_id == story.canonical_story_id
     ]
+    # Reason: issue #70 review panel — count only interests the taxonomy can
+    # resolve; an orphan tag serves nobody and would die at segment resolution
+    # AFTER occupying a cap slot and a founder-shortlist row.
     serves_interest_count = len(
-        {tag.story_interest_interest_id for tag in relevant_tags}
+        {
+            tag.story_interest_interest_id
+            for tag in relevant_tags
+            if interest_nodes is None
+            or tag.story_interest_interest_id in interest_nodes
+        }
     )
 
     importance_score = compute_importance_score(story.story_outlet_count)
@@ -262,6 +277,7 @@ def select_stories_to_produce(
     now_utc: datetime | None = None,
     min_importance: float = _DEFAULT_MIN_IMPORTANCE,
     min_freshness: float = _DEFAULT_MIN_FRESHNESS,
+    interest_nodes: dict[str, InterestNode] | None = None,
 ) -> tuple[list[CanonicalStory], list[ProduceDecision]]:
     """Apply the produce-once gate across the whole canonical story pool.
 
@@ -278,6 +294,9 @@ def select_stories_to_produce(
         now_utc: Current time for freshness (injected; defaults to ``utcnow``).
         min_importance: Importance floor.
         min_freshness: Freshness floor.
+        interest_nodes: Optional taxonomy lookup — forwarded to
+            :func:`evaluate_story_for_production` so orphan tags never count as
+            served interests (issue #70 review panel).
 
     Returns:
         ``(stories_to_produce, all_decisions)``.
@@ -313,6 +332,7 @@ def select_stories_to_produce(
             min_importance=min_importance,
             min_freshness=min_freshness,
             is_source_origin=is_source_origin,
+            interest_nodes=interest_nodes,
         )
         decisions.append(decision)
         if decision.should_produce:

@@ -57,6 +57,56 @@ class ShortlistEntry(BaseModel):
     )
 
 
+def warn_matched_slugs_outside_followed_set(
+    story_interest_tags: Iterable[StoryInterestTag],
+    interest_nodes: dict[str, InterestNode],
+    followed_interest_ids: frozenset[str] | set[str],
+    story_ids: set[str] | None = None,
+) -> None:
+    """Warn per story about depth-0 matched slugs outside the followed universe.
+
+    The issue #70 invariant, extracted so it runs UNCONDITIONALLY in the daily
+    batch (review-panel A2: a tag-stream corruption must warn on producing runs
+    too, not only under the shortlist halt) while the shortlist builder reuses
+    the same single implementation for standalone callers.
+
+    Args:
+        story_interest_tags: The batch's ``story_interests`` tags.
+        interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
+        followed_interest_ids: The batch's followed-interest universe (union of
+            the active users' ``user_interest_profile`` rows).
+        story_ids: Optional scope — check only these stories (the would-produce
+            pool); ``None`` checks every tagged story.
+    """
+    phantom_slugs_by_story: dict[str, list[str]] = {}
+    for tag in story_interest_tags:
+        if tag.story_interest_match_depth != 0:
+            continue
+        if story_ids is not None and tag.story_interest_story_id not in story_ids:
+            continue
+        interest_id = tag.story_interest_interest_id
+        if interest_id in interest_nodes and interest_id not in followed_interest_ids:
+            phantom_slugs_by_story.setdefault(tag.story_interest_story_id, []).append(
+                interest_nodes[interest_id].interest_slug
+            )
+    for story_id, phantom_slugs in sorted(phantom_slugs_by_story.items()):
+        # Reason: issue #70 invariant — a matched slug nobody follows means the
+        # tag stream is corrupted again (e.g. a category signal smuggled in as an
+        # interest tag). Surface it per story, never silently.
+        logger.warning(
+            "shortlist_matched_slug_outside_followed_set",
+            story_id=story_id,
+            phantom_slugs=sorted(phantom_slugs),
+            followed_interest_count=len(followed_interest_ids),
+            fix_suggestion=(
+                "A story carries a matched interest no active user follows — the "
+                "story_interests stream holds a non-interest tag. Check "
+                "interest_keyed_pipeline tag emission (tags must be verified "
+                "keyword matches only, issue #70) and the reconcile tag remap."
+            ),
+        )
+
+
 def build_produce_shortlist(
     stories: Iterable[CanonicalStory],
     story_interest_tags: Iterable[StoryInterestTag],
@@ -97,53 +147,34 @@ def build_produce_shortlist(
         'ai'
     """
     story_pool = list(stories)
-    tags_by_story = _index_tags_by_story(list(story_interest_tags))
+    story_tags = list(story_interest_tags)
+    tags_by_story = _index_tags_by_story(story_tags)
     # Reason: issue #70 — the theme (aboutness) channel rides beside the tags;
     # consume the batch's map when given, derive only for standalone callers.
     if theme_category_by_story is None:
         theme_category_by_story = theme_categories_for_stories(story_pool)
+    if followed_interest_ids is not None:
+        warn_matched_slugs_outside_followed_set(
+            story_tags,
+            interest_nodes,
+            followed_interest_ids,
+            story_ids={story.canonical_story_id for story in story_pool},
+        )
     entries: list[ShortlistEntry] = []
     for story in story_pool:
         story_id = story.canonical_story_id
         story_tag_depths = tags_by_story.get(story_id, {})
-        leaf_interest_ids = [
-            interest_id
-            for interest_id, match_depth in story_tag_depths.items()
-            if match_depth == 0 and interest_id in interest_nodes
-        ]
         leaf_slugs = sorted(
             interest_nodes[interest_id].interest_slug
-            for interest_id in leaf_interest_ids
+            for interest_id, match_depth in story_tag_depths.items()
+            if match_depth == 0 and interest_id in interest_nodes
         )
-        if followed_interest_ids is not None:
-            phantom_slugs = sorted(
-                interest_nodes[interest_id].interest_slug
-                for interest_id in leaf_interest_ids
-                if interest_id not in followed_interest_ids
-            )
-            if phantom_slugs:
-                # Reason: issue #70 invariant — a matched slug nobody follows means
-                # the tag stream is corrupted again (e.g. a category signal smuggled
-                # in as an interest tag). Surface it per story, never silently.
-                logger.warning(
-                    "shortlist_matched_slug_outside_followed_set",
-                    story_id=story_id,
-                    phantom_slugs=phantom_slugs,
-                    followed_interest_count=len(followed_interest_ids),
-                    fix_suggestion=(
-                        "A shortlist row carries a matched interest no active user "
-                        "follows — the story_interests stream holds a non-interest "
-                        "tag. Check interest_keyed_pipeline tag emission (tags must "
-                        "be verified keyword matches only, issue #70) and the "
-                        "reconcile tag remap."
-                    ),
-                )
         category = assign_category(
             story_id,
             tags_by_story,
             interest_nodes,
-            category_override_by_story,
-            theme_category_by_story,
+            category_override_by_story=category_override_by_story,
+            theme_category_by_story=theme_category_by_story,
         )
         entries.append(
             ShortlistEntry(

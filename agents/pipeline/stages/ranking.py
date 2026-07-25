@@ -55,6 +55,7 @@ from agents.pipeline.produce_gate import (
     compute_freshness_score,
     compute_importance_score,
 )
+from agents.pipeline.theme_category import theme_categories_for_stories
 from agents.shared.logger import get_logger
 
 logger = get_logger("pipeline.stages.ranking")
@@ -1061,42 +1062,41 @@ def assign_category(
     _best_interest_id, best_depth, best_slug = min(
         resolvable, key=lambda item: (item[1], item[2])
     )
-    winner_category = category_for_slug(best_slug)
+    slug_pick_category = category_for_slug(best_slug)
+    winner_category = slug_pick_category
+    # Reason: the equal-lowest-depth contender set drives BOTH the theme tiebreak
+    # and the conflict log — build it once (review-panel simplicity finding).
+    lowest_depth_categories = {
+        category_for_slug(slug)
+        for _interest_id, depth, slug in resolvable
+        if depth == best_depth
+    }
     # Reason: issue #70 — when the lowest-depth tags span multiple categories, the
     # story's theme-derived category breaks the tie (aboutness beats alphabetical
     # slug order), but only among the verified contenders — it can never inject a
     # category no matched interest carries.
-    if theme_category is not None and theme_category != winner_category:
-        lowest_depth_categories = {
-            category_for_slug(slug)
-            for _interest_id, depth, slug in resolvable
-            if depth == best_depth
-        }
-        if theme_category in lowest_depth_categories:
-            winner_category = theme_category
+    if (
+        theme_category is not None
+        and theme_category != winner_category
+        and theme_category in lowest_depth_categories
+    ):
+        winner_category = theme_category
     # Reason: issue #35 — a same-lowest-depth contest across DIFFERENT roots (e.g. a
-    # story fetched by two interests under different roots) is decided by the slug
-    # tiebreak; log the resolved conflict so cross-root ambiguity stays visible.
-    # Depth-decided contests are the designed precedence, not a conflict — no log.
-    # Guarded on >1 tag: a single resolvable tag can never conflict.
-    if len(resolvable) > 1:
-        contender_categories = {
-            category_for_slug(slug)
-            for _interest_id, depth, slug in resolvable
-            if depth == best_depth
-        }
-        if len(contender_categories) > 1:
-            _log_category_conflict_once(
-                story_id,
-                best_depth,
-                tuple(sorted(contender_categories)),
-                winner_category,
-                # Reason: when the theme tiebreak (issue #70) picked the winner, the
-                # slug-order pick did NOT decide — name the resolver honestly.
-                best_slug
-                if winner_category == category_for_slug(best_slug)
-                else "(theme-tiebreak)",
-            )
+    # story fetched by two interests under different roots) is decided by the theme
+    # tiebreak (or slug order); log the resolved conflict so cross-root ambiguity
+    # stays visible. Depth-decided contests are the designed precedence — no log.
+    if len(lowest_depth_categories) > 1:
+        theme_decided = winner_category != slug_pick_category
+        _log_category_conflict_once(
+            story_id,
+            best_depth,
+            tuple(sorted(lowest_depth_categories)),
+            winner_category,
+            # Reason: keep winner_slug a REAL slug or None (structured-log contract,
+            # review-panel finding) — the resolver field names what decided.
+            None if theme_decided else best_slug,
+            "theme" if theme_decided else "slug",
+        )
     return winner_category
 
 
@@ -1133,13 +1133,19 @@ def _log_category_conflict_once(
     match_depth: int,
     contender_categories: tuple[FeedCategory, ...],
     winner_category: FeedCategory,
-    winner_slug: str,
+    winner_slug: str | None,
+    winner_resolver: str,
 ) -> None:
     """Log a resolved cross-root category conflict ONCE per distinct contest.
 
     Same dedup rationale as :func:`_warn_category_fallback_no_tags_once` — the
     contest outcome is deterministic per story, so repeating it per user/call-site
     adds volume, not information.
+
+    ``winner_slug`` is a REAL interest slug or ``None`` (never a sentinel string —
+    structured-log contract, #70 review panel); ``winner_resolver`` names what
+    decided the tie: ``"slug"`` (deterministic slug order) or ``"theme"`` (the
+    story's theme-derived category broke the tie).
     """
     logger.info(
         "category_conflict_lowest_depth_won",
@@ -1148,7 +1154,52 @@ def _log_category_conflict_once(
         contender_categories=list(contender_categories),
         winner_category=winner_category,
         winner_slug=winner_slug,
+        winner_resolver=winner_resolver,
     )
+
+
+def compute_category_verdicts(
+    stories: list[CanonicalStory],
+    story_interest_tags: list[StoryInterestTag],
+    interest_nodes: dict[str, InterestNode],
+) -> dict[str, FeedCategory]:
+    """Resolve ONE category verdict per pool story (issue #70 resolve-once map).
+
+    The single seam where a batch's categories are decided: tags + the theme
+    (aboutness) side-channel go through :func:`assign_category` exactly once per
+    story, and the returned map rides ``category_override_by_story`` to EVERY
+    downstream consumer — produce caps, overall ceiling, founder shortlist, feed
+    assembly buckets, and the persisted ``story_segment_slug``. Review-panel HIGH
+    (issue #70): before this map, the produce path resolved with the theme
+    tiebreak while the feed path resolved without it, so the same story could
+    carry chip "sport" on the founder shortlist and bucket to "arts" at assembly.
+    One verdict also means ONE ``category_conflict_lowest_depth_won`` event per
+    story (downstream ``assign_category`` calls short-circuit on the override
+    before any logging).
+
+    Args:
+        stories: The final (post-reconcile) canonical pool.
+        story_interest_tags: The pool's ``story_interests`` tags.
+        interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
+
+    Returns:
+        ``{canonical_story_id: FeedCategory}`` for every story in ``stories``.
+
+    Example:
+        >>> # See tests/agents/pipeline/test_shortlist_replay_2026_07_25.py —
+        >>> # the same verdict feeds shortlist, caps and the feed-bucket path.
+    """
+    tags_by_story = _index_tags_by_story(story_interest_tags)
+    theme_category_by_story = theme_categories_for_stories(stories)
+    return {
+        story.canonical_story_id: assign_category(
+            story.canonical_story_id,
+            tags_by_story,
+            interest_nodes,
+            theme_category_by_story=theme_category_by_story,
+        )
+        for story in stories
+    }
 
 
 def _best_candidate_per_story(

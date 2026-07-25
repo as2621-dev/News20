@@ -261,7 +261,6 @@ async def test_empty_pool_is_a_noop_passthrough():
     assert result.reconciled_stories == []
     assert result.reconciled_tags == []
     assert result.cluster_importance_by_story == {}
-    assert result.category_override_by_story == {}
     embed.assert_not_awaited()
 
 
@@ -280,21 +279,20 @@ _GUARD_INTEREST_NODES = {
 
 
 @pytest.mark.asyncio
-async def test_cross_category_merge_enforces_representative_category_and_never_touches_tag_depths():
-    """(e) Issues #34 + #70: a cross-category merge is a category conflict — it must
-    be logged as a structured ``reconcile_category_conflict`` event, PINNED via the
-    returned ``category_override_by_story`` map to the UNION resolution (merged tags
-    + merged themes through ``assign_category`` — post-#70 the most specific verified
-    match wins, NOT the representative's provisional category, which the 2026-07-25
-    audit showed froze theme-scrambled verdicts onto whole merges), and the remapped
-    tags' ``match_depth`` values must be BYTE-IDENTICAL to their inputs.
+async def test_cross_category_merge_resolves_downstream_and_never_touches_tag_depths():
+    """(e) Issues #34 + #70: a cross-category merge carries NO reconcile-side pin —
+    the batch-wide resolve-once verdict map (``compute_category_verdicts`` over the
+    RECONCILED outputs) decides the merged story's category downstream: the most
+    specific verified match wins (the absorbed member's direct geopolitics match at
+    depth 0 beats the representative's ancestor tag at depth 1). The remapped tags'
+    ``match_depth`` values must be BYTE-IDENTICAL to their inputs.
 
     WHY the depths must not move (review-panel HIGH): ``story_interest_match_depth`` is
     also the ranker's DepthMatch input and is persisted verbatim to ``story_interests``
     — clamping it to steer the category contest would cut a genuine follower of the
     foreign interest from DepthMatch 1.0 to 0.6/0.3 (or zero it entirely past depth 2).
-    Enforcement therefore rides an explicit override map to the ``assign_category``
-    call sites, never a depth mutation (the #34 remainder, panel-agreed design)."""
+    The verdict rides an explicit override map to the ``assign_category`` call sites,
+    never a depth mutation (the #34 remainder; pin machinery dissolved by #70)."""
     from unittest.mock import MagicMock
 
     from agents.pipeline.clustering import reconcile as reconcile_module
@@ -338,22 +336,16 @@ async def test_cross_category_merge_enforces_representative_category_and_never_t
         row["story_interest_interest_id"]: row["story_interest_match_depth"]
         for row in persisted_rows
     } == {_EGYPT_INTEREST_ID: 1, _GEO_INTEREST_ID: 0}
-    # ENFORCEMENT (issue #70): the merged story is pinned to the UNION resolution —
-    # the absorbed member's DIRECT geopolitics match (depth 0) is more specific than
-    # the representative's ancestor tag (depth 1), so the pin is geopolitics, the
-    # same verdict every theme-threaded assign_category call site would reach (one
-    # rule, no divergent rep special case). Never via a depth clamp.
-    assert result.category_override_by_story == {shared_id: "geopolitics"}
-    # The conflict is visible: a structured event fired exactly once, naming the pin.
-    conflict_calls = [
-        call for call in fake_logger.info.call_args_list
-        if call.args and call.args[0] == "reconcile_category_conflict"
-    ]
-    assert len(conflict_calls) == 1
-    kwargs = conflict_calls[0].kwargs
-    assert kwargs["story_id"] == shared_id
-    assert kwargs["pinned_category"] == "geopolitics"
-    assert sorted(kwargs["contender_categories"]) == ["geopolitics", "sport"]
+    # RESOLUTION (issue #70): reconcile emits no pin — the batch-wide verdict map
+    # over the RECONCILED outputs decides, and the absorbed member's DIRECT
+    # geopolitics match (depth 0) beats the representative's ancestor tag (depth
+    # 1). One rule at one seam, no divergent rep special case, never a depth clamp.
+    from agents.pipeline.stages.ranking import compute_category_verdicts
+
+    verdicts = compute_category_verdicts(
+        result.reconciled_stories, result.reconciled_tags, _GUARD_INTEREST_NODES
+    )
+    assert verdicts == {shared_id: "geopolitics"}
 
 
 @pytest.mark.asyncio
@@ -397,14 +389,15 @@ async def test_same_category_merge_does_not_log_conflict_or_touch_depths():
 
 
 @pytest.mark.asyncio
-async def test_untagged_representative_conflict_pins_union_resolution_and_tags_pass_through():
+async def test_untagged_representative_merge_resolves_by_union_and_tags_pass_through():
     """(g) Issues #34 + #70 boundary: when the REPRESENTATIVE has no resolvable tags
-    of its own, the pin no longer depends on the representative at all — the UNION
-    resolution decides (post-#70 the rep-pin was the arbitrariness: the 2026-07-25
-    AFF-Cup merge froze the rep's wrong verdict). Here the two absorbed members tie
-    at depth 0 across sport/geopolitics with no theme signal, so the deterministic
-    slug tiebreak pins geopolitics; the conflict is logged; every remapped tag depth
-    passes through untouched (Rule 9: pin it or it silently changes)."""
+    of its own, the merged story's category no longer depends on the representative
+    at all — the downstream verdict over the UNION decides (post-#70 the rep-pin was
+    the arbitrariness: the 2026-07-25 AFF-Cup merge froze the rep's wrong verdict).
+    Here the two absorbed members tie at depth 0 across sport/geopolitics with no
+    theme signal, so the deterministic slug tiebreak resolves geopolitics; every
+    remapped tag depth passes through untouched (Rule 9: pin it or it silently
+    changes)."""
     from unittest.mock import MagicMock
 
     from agents.pipeline.clustering import reconcile as reconcile_module
@@ -441,17 +434,14 @@ async def test_untagged_representative_conflict_pins_union_resolution_and_tags_p
     # All three collapsed onto the untagged representative's id.
     assert len(result.reconciled_stories) == 1
     shared_id = result.reconciled_stories[0].canonical_story_id
-    # The conflict fired once, naming the union-resolution pin.
-    conflict_calls = [
-        call for call in fake_logger.info.call_args_list
-        if call.args and call.args[0] == "reconcile_category_conflict"
-    ]
-    assert len(conflict_calls) == 1
-    assert conflict_calls[0].kwargs["story_id"] == shared_id
-    assert conflict_calls[0].kwargs["pinned_category"] == "geopolitics"
-    # The pin is the union resolution (equal-depth tie, no themes → slug tiebreak) —
-    # never an arbitrary representative fallback.
-    assert result.category_override_by_story == {shared_id: "geopolitics"}
+    # The downstream verdict over the union resolves geopolitics (equal-depth tie,
+    # no themes → slug tiebreak) — never an arbitrary representative fallback.
+    from agents.pipeline.stages.ranking import compute_category_verdicts
+
+    verdicts = compute_category_verdicts(
+        result.reconciled_stories, result.reconciled_tags, _GUARD_INTEREST_NODES
+    )
+    assert verdicts == {shared_id: "geopolitics"}
     # Nothing was clamped: both remapped tags keep depth 0.
     depth_by_interest = {
         tag.story_interest_interest_id: tag.story_interest_match_depth

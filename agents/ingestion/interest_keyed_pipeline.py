@@ -390,6 +390,23 @@ async def ingest_active_interests(
         await apply_semantic_relevance_key(
             canonical_stories, interest_nodes, llm_client=llm_client
         )
+    elif canonical_stories:
+        # Reason: issue #70 review panel — with the theme override removed from
+        # categorization, the semantic key is the ONLY guard against a lexical
+        # false positive owning a story's chip. A batch running without it must
+        # say so loudly, once (Rule 12), not silently degrade.
+        logger.warning(
+            "semantic_relevance_key_inactive",
+            canonical_stories=len(canonical_stories),
+            fix_suggestion=(
+                "The semantic relevance key is OFF (flag disabled or no LLM "
+                "client) — categorization runs WITHOUT the two-key guard, so a "
+                "lexical false-positive interest match owns its story's category "
+                "outright (issue #70 removed the theme override). Set "
+                "ENABLE_SEMANTIC_RELEVANCE_KEY=1 with a working llm_client for "
+                "live batches."
+            ),
+        )
 
     # --- Tag each canonical story into story_interests payloads ---
     # Issue #70: ``story_interests`` holds ONLY verified interest matches (the

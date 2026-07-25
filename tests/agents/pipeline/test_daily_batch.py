@@ -426,15 +426,15 @@ async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_imp
 ) -> None:
     """Wiring contract (the dedup fix): with enable_semantic_clustering True the batch
     reconciles the ingested pool BEFORE the gate — so the gate + assembler see collapsed
-    stories, not the raw two-id pool — and the reconciled cluster-importance +
-    category-override maps reach the assembler. If this regresses, same-event candidates
-    survive to feed assembly and the user sees one event twice (or a cross-category
-    merge flips the survivor's category unenforced — the #34 remainder)."""
+    stories, not the raw two-id pool — and the reconciled cluster-importance map plus
+    the batch's resolve-once category-verdict map (issue #70; supersedes the old
+    reconcile-only pin) reach the assembler. If this regresses, same-event candidates
+    survive to feed assembly and the user sees one event twice (or the feed buckets a
+    story under a different category than its chip/cap)."""
     _pipeline_seams(monkeypatch)
     raw_pool = [_story("cand-egypt-a"), _story("cand-egypt-b")]
     collapsed = [_story("cand-egypt-a")]  # the two events collapsed to one shared id
     importance_map = {"cand-egypt-a": 0.9}
-    override_map = {"cand-egypt-a": "sport"}
 
     async def fake_ingest():
         return raw_pool, []
@@ -446,7 +446,6 @@ async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_imp
             reconciled_stories=collapsed,
             reconciled_tags=[],
             cluster_importance_by_story=importance_map,
-            category_override_by_story=override_map,
         )
 
     gate_saw: dict = {}
@@ -490,8 +489,10 @@ async def test_semantic_clustering_flag_collapses_pool_before_gate_and_feeds_imp
     assert gate_saw["ids"] == ["cand-egypt-a"]
     # The reconciled importance map was threaded into the assembler.
     assert assemble_saw["importance"] == importance_map
-    # #34 remainder: the enforced category pins rode the same plumbing.
-    assert assemble_saw["overrides"] == override_map
+    # Issue #70: the batch's resolve-once verdict map (computed over the RECONCILED
+    # pool — untagged, themeless fixture → the loud arts fallback) rode the same
+    # plumbing, so the feed buckets exactly what the chip/caps resolved.
+    assert assemble_saw["overrides"] == {"cand-egypt-a": "arts"}
 
 
 @pytest.mark.asyncio
@@ -500,7 +501,9 @@ async def test_semantic_clustering_disabled_by_default_leaves_pool_and_map_untou
 ) -> None:
     """Default-off rollout: with the flag unset, reconcile is NEVER called and the
     assembler's cluster-importance map is None (the un-clustered raw-importance fallback)
-    — the legacy path is unchanged and costs no Gemini embeddings."""
+    — no Gemini embeddings are spent. The resolve-once category-verdict map (issue #70)
+    is computed regardless: one verdict per pool story reaches the assembler even
+    without clustering."""
     _pipeline_seams(monkeypatch)
     reconcile_called: list[int] = []
 
@@ -546,8 +549,10 @@ async def test_semantic_clustering_disabled_by_default_leaves_pool_and_map_untou
 
     assert reconcile_called == []
     assert assemble_saw["importance"] is None
-    # Flag off → no override map either (classification byte-identical to legacy).
-    assert assemble_saw["overrides"] is None
+    # Issue #70: the resolve-once verdict map is computed with or without
+    # clustering — every pool story gets exactly one category verdict (these
+    # untagged, themeless fixtures land on the loud arts fallback).
+    assert assemble_saw["overrides"] == {"s-1": "arts", "s-2": "arts"}
 
 
 @pytest.mark.asyncio

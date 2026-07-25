@@ -1,5 +1,14 @@
 # Phase FSR-M2: News category from GDELT themes
 
+> **⚠ SUPERSEDED by issue #70 (2026-07-25, commit c38092f + review-panel fixes):**
+> the depth-0 theme ROOT tag + keyword-tag shift described below scrambled the
+> 07-25 shortlist (cricket→tech via the health pin; phantom root matched slugs)
+> and was REMOVED. Themes are now an explicit side-channel
+> (`theme_categories_for_stories` → `assign_category(theme_category_by_story=…)`)
+> — tiebreak/fallback only, never an override of a verified interest match; the
+> M2 wrong-query false-positive case is the semantic relevance key's job (#51).
+> Kept for history.
+
 > **Shipped.** SP1+SP2 in `b25c568`; root-node foundation (M2R) in `b76feab` (migration 0023). SP3+SP4 wired theme-derived tagging in `ingest_active_interests`: each canonical story aggregates member `candidate_themes` → `category_for_themes` → a depth-0 `story_interests` tag on the category-ROOT interest (resolved via `root_interest_slug_for_category` → `root_id_by_slug`). Keyword ancestor tags are SHIFTED to depth ≥ 1 so the theme tag is the strict lowest-depth signal `assign_category` reads — fixing the keyword-inherited-category bug deterministically with `assign_category` and the schema unchanged. Open Question 1's escalation (only 3 of 8 roots existed) was resolved by M2R, not papered over. **Design note (Rule 7/12):** the +1 keyword-tag shift means a keyword-path followed-LEAF scores at DepthMatch 0.6 not 1.0 — a deliberate trade (category correctness > leaf-affinity nuance). The M4 trusted-outlet news path carries NO keyword tags, so its theme tag is the sole tag (no shift, no scoring impact); the shift only touches the residual `ingest_active_interests` keyword path. Flag for M3 (it tunes ranking/importance).
 
 

@@ -48,7 +48,6 @@ from agents.pipeline.clustering.continuity import persist_run
 from agents.pipeline.clustering.engine_models import ClusterInput, ClusterRun
 from agents.pipeline.clustering.online_clusterer import cluster_candidates
 from agents.shared.headline_quality import is_publishable_headline
-from agents.pipeline.categories import FeedCategory, category_for_slug
 from agents.pipeline.importance.story_importance import score_clusters
 from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
 from agents.pipeline.theme_category import theme_categories_for_stories
@@ -72,20 +71,19 @@ class ReconcileResult:
             de-duplicated per (story_id, interest_id) at the lowest match depth.
         cluster_importance_by_story: ``{shared_story_id: cluster_importance ∈ [0, 1]}``
             for the assembler's Importance term; empty when nothing clustered.
-        category_override_by_story: ``{shared_story_id: FeedCategory}`` — the enforced
-            category pin for cross-category merged stories (issues #34 + #70): each
-            conflicted merged story maps to the UNION resolution (merged tags +
-            merged themes through ``assign_category``). The caller threads it to the
-            ``assign_category`` call sites so the merge verdict is resolved once
-            (never via a depth mutation — ``reconciled_tags`` stays byte-identical
-            for ranking). Empty when no cross-category merge occurred.
+
+    Note:
+        The former ``category_override_by_story`` merge pin dissolved into the
+        batch-wide resolve-once verdict map (issue #70 review panel):
+        ``daily_batch`` computes ``compute_category_verdicts`` over the RECONCILED
+        pool, which is provably identical to the old per-merge pin (same tags
+        index, same merged themes, same resolver) and covers unmerged stories too.
     """
 
     __slots__ = (
         "reconciled_stories",
         "reconciled_tags",
         "cluster_importance_by_story",
-        "category_override_by_story",
     )
 
     def __init__(
@@ -93,12 +91,10 @@ class ReconcileResult:
         reconciled_stories: list[CanonicalStory],
         reconciled_tags: list[StoryInterestTag],
         cluster_importance_by_story: dict[str, float],
-        category_override_by_story: dict[str, FeedCategory],
     ) -> None:
         self.reconciled_stories = reconciled_stories
         self.reconciled_tags = reconciled_tags
         self.cluster_importance_by_story = cluster_importance_by_story
-        self.category_override_by_story = category_override_by_story
 
 
 async def reconcile_story_ids_via_clustering(
@@ -155,7 +151,7 @@ async def reconcile_story_ids_via_clustering(
     """
     if not stories:
         logger.info("reconcile_story_ids_skipped_empty", candidate_count=0)
-        return ReconcileResult(list(stories), list(story_interest_tags), {}, {})
+        return ReconcileResult(list(stories), list(story_interest_tags), {})
 
     mint_cluster_id = mint_cluster_id or (lambda: f"clu-{uuid.uuid4().hex}")
     tags_by_story = _index_tags_by_story(story_interest_tags)
@@ -213,16 +209,6 @@ async def reconcile_story_ids_via_clustering(
     reconciled_tags = _remap_tags(
         story_interest_tags, stories=stories, shared_id_by_index=shared_id_by_index
     )
-    category_override_by_story = _category_overrides_for_merge_conflicts(
-        reconciled_tags,
-        reconciled_stories=reconciled_stories,
-        stories=stories,
-        shared_id_by_index=shared_id_by_index,
-        provisional_categories=[
-            cluster_input.input_provisional_category for cluster_input in inputs
-        ],
-        interest_nodes=interest_nodes,
-    )
 
     # Step 4 — score clusters, persist, and build the importance map keyed by story id.
     scored_run = _score_run(run, now_utc=now_utc)
@@ -241,14 +227,12 @@ async def reconcile_story_ids_via_clustering(
         collapsed_story_count=len(reconciled_stories),
         merged_away=len(stories) - len(reconciled_stories),
         importance_entries=len(cluster_importance_by_story),
-        category_overrides=len(category_override_by_story),
         block_by_category=block_by_category,
     )
     return ReconcileResult(
         reconciled_stories,
         reconciled_tags,
         cluster_importance_by_story,
-        category_override_by_story,
     )
 
 
@@ -491,99 +475,6 @@ def _remap_tags(
             )
 
     return [best_by_edge[edge] for edge in sorted(best_by_edge)]
-
-
-def _category_overrides_for_merge_conflicts(
-    reconciled_tags: list[StoryInterestTag],
-    *,
-    reconciled_stories: list[CanonicalStory],
-    stories: list[CanonicalStory],
-    shared_id_by_index: dict[int, str],
-    provisional_categories: list[FeedCategory],
-    interest_nodes: dict[str, InterestNode],
-) -> dict[str, FeedCategory]:
-    """Detect, log, and PIN cross-category merge conflicts (issues #34 + #70).
-
-    A cross-category merge (deliberate — ``block_by_category=False``) unions tags from
-    members whose FETCHING interests live under different roots. The pin resolves the
-    contest ONCE over the merged evidence — ``assign_category`` on the UNION of the
-    merged tags with the merged story's theme category as tiebreak (issue #70) — and
-    the caller threads the result to every downstream ``assign_category`` call site.
-    Pre-#70 the pin froze the REPRESENTATIVE's provisional category, which propagated
-    the rep's theme-scrambled verdict to the whole merge (the 2026-07-25 audit's
-    cricket→tech and AFF-Cup→arts rows); the union resolution replaces it.
-
-    The pin's remaining value post-#70: call sites that do not thread the theme map
-    (feed assembly, ranking classify) still receive the theme-tiebroken verdict for
-    merged stories via this override, and the verdict is resolved once, not
-    re-derived per site (resolve-once doctrine).
-
-    Enforcement deliberately does NOT touch ``story_interest_match_depth``: that field
-    is also the ranker's DepthMatch input and is persisted verbatim to
-    ``story_interests`` (``persist_helpers.build_story_interest_rows``), so clamping it
-    to steer the category contest would corrupt a genuine follower's affinity (issue
-    #34 review-panel HIGH). ``reconciled_tags`` passes through byte-identical.
-
-    Args:
-        reconciled_tags: The remapped/deduped tags from :func:`_remap_tags` (read-only).
-        reconciled_stories: The collapsed pool from :func:`_collapse_stories` — each
-            merged story carries the UNION of its members' themes (the issue #70
-            tiebreak input).
-        stories: The ORIGINAL candidate pool (representative logging parity with
-            :func:`_collapse_stories`).
-        shared_id_by_index: ``{story_index: shared_story_id}`` merge mapping.
-        provisional_categories: Index-aligned per-story pre-merge categories (the
-            ``ClusterInput.input_provisional_category`` values — logged so the
-            conflict event shows what the old rep-pin would have chosen).
-        interest_nodes: Taxonomy lookup to resolve each tag's root category.
-
-    Returns:
-        ``{shared_story_id: FeedCategory}`` — one entry per conflicted merge; empty
-        when no cross-category merge occurred.
-    """
-    indices_by_shared_id: dict[str, list[int]] = {}
-    for index, shared_id in shared_id_by_index.items():
-        indices_by_shared_id.setdefault(shared_id, []).append(index)
-
-    merged_tags_by_story = _index_tags_by_story(reconciled_tags)
-    merged_theme_by_story = theme_categories_for_stories(reconciled_stories)
-
-    overrides: dict[str, FeedCategory] = {}
-    for shared_id, indices in indices_by_shared_id.items():
-        if len(indices) < 2:
-            continue
-        # Resolve each merged tag's root category (orphan tags cannot be categorized —
-        # assign_category ignores them too, so they cannot cause a flip). The conflict
-        # decision keys on the MERGED TAGS' categories, not the members' provisional
-        # ones — an absorbed member with no tags contributes nothing to the contest.
-        tag_categories = {
-            category_for_slug(interest_nodes[tag.story_interest_interest_id].interest_slug)
-            for tag in reconciled_tags
-            if tag.story_interest_story_id == shared_id
-            and tag.story_interest_interest_id in interest_nodes
-        }
-        if len(tag_categories) <= 1:
-            continue
-        representative_index = _pick_representative_index(stories, sorted(indices), shared_id)
-        # Reason: issue #70 — the pin IS the union resolution (merged tags + merged
-        # themes through the one shared resolver), so the merge verdict can never
-        # diverge from what a theme-threaded assign_category would say.
-        pinned_category = assign_category(
-            shared_id,
-            merged_tags_by_story,
-            interest_nodes,
-            None,
-            merged_theme_by_story,
-        )
-        overrides[shared_id] = pinned_category
-        logger.info(
-            "reconcile_category_conflict",
-            story_id=shared_id,
-            pinned_category=pinned_category,
-            representative_category=provisional_categories[representative_index],
-            contender_categories=sorted(tag_categories),
-        )
-    return overrides
 
 
 def _score_run(run: ClusterRun, *, now_utc: datetime) -> ClusterRun:

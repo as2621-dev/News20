@@ -48,6 +48,7 @@ from agents.pipeline.llm_clients import LLMClient
 from agents.pipeline.models import CoverageReport, DigestScript, WritePhaseResult
 from agents.pipeline.persist import PersistResult, make_story_id, persist_digest
 from agents.pipeline.persist_helpers import (
+    canonical_segment_root,
     reject_unpublishable_headline,
     resolve_segment_from_tags,
 )
@@ -463,6 +464,7 @@ async def write_phase(
     enable_editorial_rewrite: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     pool_index: int | None = None,
+    pinned_segment_slug: str | None = None,
 ) -> WritePhaseResult | None:
     """WRITE phase (stages 1–2b): script → verify (HALT → skip) → editorial rewrite.
 
@@ -481,6 +483,12 @@ async def write_phase(
             ``editorial_story`` (fail-safe: stays the original on rewrite failure).
         interest_segment_lookup: ``{interest_id: segment_slug}`` — resolves the
             segment ONCE here so render's detail + persist agree.
+        pinned_segment_slug: The batch's resolve-once category verdict for this
+            story (``compute_category_verdicts``, issue #70 review panel). When
+            given it IS the segment — the persisted ``story_segment_slug`` must
+            match the chip the founder approved and the cap bucket the story
+            occupied, not a second resolver's opinion. ``None`` → the legacy
+            tag-based resolution (direct callers without a batch verdict).
         pool_index: Zero-based position in the day's production pool, threaded into
             scripting to rotate the opener archetype + handoff style (cross-reel
             diversity). ``None`` → generic opener/handoff (single-story callers).
@@ -496,10 +504,12 @@ async def write_phase(
     """
     # Reason: resolve the segment ONCE — both detail stages + persist must agree
     # (the second-analytic kind, coverage mode, and stored story_segment_slug all
-    # derive from it).
-    segment_slug = resolve_segment_from_tags(
-        story_interest_tags, interest_segment_lookup
-    )
+    # derive from it). Issue #70: the batch's pinned verdict wins so the persisted
+    # segment can never diverge from the chip/cap category; the tag-based path
+    # remains for direct callers. canonical_segment_root guards a non-root pin.
+    segment_slug = canonical_segment_root(
+        pinned_segment_slug
+    ) or resolve_segment_from_tags(story_interest_tags, interest_segment_lookup)
     if segment_slug is None:
         raise SegmentResolutionError(story_id=story.canonical_story_id)
     # Reason: with no rewrite to rescue it, a masthead/fragment source title can only

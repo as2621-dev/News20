@@ -166,17 +166,16 @@ def category_for_themes(themes: list[str]) -> FeedCategory | None:
     (Rule 9: a test pins the winner of a crafted mixed list and fails if the rule
     changes).
 
-    A theme list with **no whitelisted theme** returns ``None`` and emits a
-    structured ``logger.info`` naming the top unmatched codes (the input to the
-    data-driven whitelist expansion — scripts/theme_miss_counts.py aggregates the
-    same signal). An **empty** theme list also returns ``None`` but logs only a
-    debug event — there is nothing to whitelist. ``None`` means "the themes carry
-    no category signal" — the caller must let the FETCHING interest's root own
-    categorization (issue #35: a theme-derived category may only win when a
-    whitelisted theme actually matched; the old behavior returned the arts default
-    here, which the caller stamped at depth 0 and mis-bucketed every unmatched
-    story into arts). Neither case is an error: post-#35 the fetching-interest
-    fallback is the DESIGNED path, so this is routine signal, not a warning.
+    A theme list with **no whitelisted theme** (or an empty list) returns ``None``
+    — "the themes carry no category signal" — and the caller must let the FETCHING
+    interest's root own categorization (issue #35: a theme-derived category may
+    only win when a whitelisted theme actually matched; the old behavior returned
+    the arts default here, which mis-bucketed every unmatched story into arts).
+    Miss VISIBILITY lives in :func:`theme_categories_for_stories` as one aggregate
+    event per pool build (#70 review panel — per-call logging was memoization-
+    suppressed and per-story-noisy); scripts/theme_miss_counts.py aggregates the
+    same signal from raw data. Neither case is an error: post-#35 the
+    fetching-interest fallback is the DESIGNED path.
 
     Args:
         themes: The story's GDELT GKG ``V2Themes`` codes (offset-stripped, e.g.
@@ -204,25 +203,11 @@ def category_for_themes(themes: list[str]) -> FeedCategory | None:
     if not hit_counts:
         # Reason: no recognized theme means the themes carry NO category signal, so
         # return None (the fetching interest's root then owns categorization —
-        # issue #35, the DESIGNED fallback, hence info/debug not warning). The
-        # non-empty case still surfaces the unmatched codes as the raw input to
-        # data-driven whitelist expansion (scripts/theme_miss_counts.py).
-        if themes:
-            logger.info(
-                "theme_category_no_whitelisted_theme",
-                theme_count=len(themes),
-                themes=themes[:20],
-                fix_suggestion=(
-                    "No V2Themes code matched THEME_CATEGORY_WHITELIST — the "
-                    "fetching interest's root categorizes this story (by design). "
-                    "If one of these codes SHOULD drive categorization, add it to "
-                    "the whitelist in agents/pipeline/theme_category.py backed by "
-                    "scripts/theme_miss_counts.py counts"
-                ),
-            )
-        else:
-            # Nothing to whitelist for a zero-theme story — routine, debug only.
-            logger.debug("theme_category_no_themes")
+        # issue #35, the DESIGNED fallback). Miss VISIBILITY is the pool-level
+        # aggregate event in :func:`theme_categories_for_stories` (#70 review
+        # panel: per-call logging here was suppressed by memoization and flooded
+        # per-story otherwise — one aggregate event per pool restores
+        # audit-by-log-rate).
         return None
 
     max_hits = max(hit_counts.values())
@@ -272,16 +257,43 @@ def theme_categories_for_stories(
         >>> # A story with ECON_STOCKMARKET themes maps to business; a themeless
         >>> # story is absent from the map (see tests/agents/pipeline/test_theme_category.py).
     """
-    # Reason: the map is (re)built at more than one pipeline seam (reconcile, caps,
-    # standalone shortlist callers) over overlapping pools; memoizing per distinct
-    # theme tuple keeps ``category_for_themes``'s miss logging to ONE event per
-    # distinct theme list per process instead of one per rebuild (the #61
-    # duplicate-log lesson — an audit greps these events as a rate).
+    # Reason: memoize per distinct theme tuple — the map is (re)built at more than
+    # one pipeline seam over overlapping pools, and the resolution is pure.
     theme_category_by_story: dict[str, FeedCategory] = {}
+    pool_story_count = 0
+    miss_story_count = 0
+    unmatched_code_counts: dict[str, int] = {}
     for story in stories:
-        category = _category_for_theme_tuple(tuple(story.canonical_themes))
+        pool_story_count += 1
+        themes = story.canonical_themes
+        category = _category_for_theme_tuple(tuple(themes))
         if category is not None:
             theme_category_by_story[story.canonical_story_id] = category
+        elif themes:
+            miss_story_count += 1
+            for code in themes:
+                if code not in THEME_CATEGORY_WHITELIST:
+                    unmatched_code_counts[code] = unmatched_code_counts.get(code, 0) + 1
+    # Reason: #70 review panel — ONE aggregate miss event per pool build (not one
+    # per story, and never suppressed by the memoization) keeps audit-by-log-rate
+    # honest on the long-lived worker and feeds the data-driven whitelist expansion.
+    if miss_story_count:
+        top_unmatched_codes = sorted(
+            unmatched_code_counts.items(), key=lambda item: (-item[1], item[0])
+        )[:20]
+        logger.info(
+            "theme_category_no_whitelisted_theme",
+            miss_story_count=miss_story_count,
+            pool_story_count=pool_story_count,
+            top_unmatched_codes=top_unmatched_codes,
+            fix_suggestion=(
+                "These stories' V2Themes matched nothing in "
+                "THEME_CATEGORY_WHITELIST — their fetching interests categorize "
+                "them (by design). If a listed code SHOULD drive categorization, "
+                "add it to the whitelist in agents/pipeline/theme_category.py "
+                "backed by scripts/theme_miss_counts.py counts"
+            ),
+        )
     return theme_category_by_story
 
 

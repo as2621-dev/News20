@@ -1,5 +1,18 @@
 # Ranking spec — per-user personalized feed (M1)
 
+> **⚠ #70 correction banner (2026-07-25):** the revamp banner's point (3) below is
+> SUPERSEDED. The theme-derived category is **no longer a depth-0 `story_interests`
+> tag** (that smuggled a category signal into the interest-match channel and let the
+> noisy theme whitelist outrank the two-key-verified fetching interest — the
+> 2026-07-25 scrambled chips). Post-#70: tags hold ONLY verified interest matches at
+> natural depth; the theme rides beside the pool as an explicit side-channel
+> (`theme_categories_for_stories` → `assign_category(theme_category_by_story=…)`)
+> that may only break an equal-lowest-depth category tie or categorize an untagged
+> story; the tiebreak below is therefore **theme-then-slug**, not slug-only; and the
+> batch resolves ONE category verdict per story (`compute_category_verdicts`) that
+> rides `category_override_by_story` to caps, shortlist, feed assembly and the
+> persisted `story_segment_slug`.
+
 > **⚠ Revamp banner (2026-06-30):** the **feed-source revamp** (`plans/prd.md`) changes how the §1 `Importance` term is computed and how stories are categorized at ingest, and reweights assembly. Specifically: (1) `Importance` becomes the shared-pool **E1 `story_importance`** — authority-weighted outlet count + within-category normalization + ~24h recency decay + syndication dampening (M3 also makes E1 **authority-weighted**: a few authoritative, ideologically-varied outlets outweigh a many-content-farm syndication burst) — replacing `produce_gate`'s raw `min(1, story_outlet_count/12)`; (2) `IMPORTANCE_WEIGHT` (β) is **raised `0.3 → 0.45`** (shipped value in `agents/pipeline/stages/ranking.py`, M3) so a genuinely big story outranks a well-matched minor one (fixes the diagnosed bug); (3) a story's **category is assigned from its GDELT theme** (`V2Themes`/`V2EnhancedThemes`) at ingestion-time tagging, not from the matched keyword — `assign_category` already picks the lowest-`match_depth` `story_interests` tag, so the fix is to the *tags it reads*, not to `assign_category` itself; (4) **followed-source items get priority slots first** in assembly (`feed_assembly.py`, M6b) — see §3a.4. The Score shape (§1), EntityBonus (§3a.1), and category-budget allocation (§3a.2) are **preserved**; only the `Importance` definition, β weight, ingest-time category source, and source-slot priority change. See `plans/prd.md` M2/M3/M6 and Decision #5.
 
 > **⚠ Rework banner (2026-06-18):** the **shared-pool rework** changes the layers *around* this spec — see `reference/shared-pool-pipeline.md`. It supersedes the candidate-generation half of §2 (per-user fallback-tree search → demand-sized shared pool), enriches the §1 `Importance` term into the full `story_importance` (E1), adds an MMR diversity term, and retires the breaking tier (→ velocity signal). The per-user Score (§1), EntityBonus (§3a.1), and category-budget allocation (§3a.2) below are **preserved**.
@@ -113,7 +126,7 @@ Let `total_target = min(Σ allocation_slot_count, 30)`. The allocator fills the 
 Breaking News · World & Politics · Tech & Science · YouTube · Markets · Sport · X · Culture
 ```
 
-The 13 seeded interest slugs map up into the 5 **topic** categories (`SLUG_TO_CATEGORY`): World&Politics ← `world`/`geopolitics`/`climate`; Tech&Science ← `tech`/`science`/`health`; Markets ← `business`/`markets`/`crypto`; Sport ← `sport`; Culture ← `entertainment`/`lifestyle`/`wildcard`. Each story classifies into **exactly one** best-fit category (the lowest-`match_depth` tag's root slug; slug tiebreak), for clean 30-slot accounting (no duplicates, budgets exact).
+The 13 seeded interest slugs map up into the 5 **topic** categories (`SLUG_TO_CATEGORY`): World&Politics ← `world`/`geopolitics`/`climate`; Tech&Science ← `tech`/`science`/`health`; Markets ← `business`/`markets`/`crypto`; Sport ← `sport`; Culture ← `entertainment`/`lifestyle`/`wildcard`. Each story classifies into **exactly one** best-fit category (the lowest-`match_depth` tag's root slug; equal-depth ties break on the story's theme-derived category when it is among the contenders, else slug order — issue #70), for clean 30-slot accounting (no duplicates, budgets exact).
 
 The passes:
 

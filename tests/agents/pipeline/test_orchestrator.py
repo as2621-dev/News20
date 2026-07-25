@@ -622,3 +622,52 @@ class TestRenderAudioBytes:
 
         seg = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
         assert abs(len(seg) - duration_ms) < 200
+
+
+class TestPinnedSegmentVerdict:
+    """Issue #70 review panel (item 2): the persisted segment IS the batch verdict.
+
+    WHY (Rule 9): ``assign_category`` (chip + cap bucket) and
+    ``resolve_segment_from_tags`` (persisted ``story_segment_slug``) are different
+    resolvers with different tiebreaks — post-#70, equal-depth multi-root ties are
+    common, and persist is INSERT-only, so a divergent segment would freeze forever
+    on a story whose chip the founder approved under another category. The batch
+    now threads its resolve-once verdict into ``write_phase`` as
+    ``pinned_segment_slug``; the pin must win over the tag-based resolution.
+    """
+
+    @pytest.mark.asyncio
+    async def test_pinned_segment_beats_divergent_tag_resolution(
+        self, canonical_story, story_interest_tags
+    ) -> None:
+        llm = _llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED)
+
+        result = await orch.write_phase(
+            canonical_story,
+            story_interest_tags=story_interest_tags,
+            llm_client=llm,
+            story_id=canonical_story.canonical_story_id,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
+            pinned_segment_slug="tech",
+        )
+
+        assert result is not None
+        # The pin (the batch's chip/cap verdict) wins over the lookup's own answer.
+        assert result.segment_slug == "tech"
+
+    @pytest.mark.asyncio
+    async def test_without_pin_the_tag_resolution_still_owns_the_segment(
+        self, canonical_story, story_interest_tags
+    ) -> None:
+        llm = _llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED)
+
+        result = await orch.write_phase(
+            canonical_story,
+            story_interest_tags=story_interest_tags,
+            llm_client=llm,
+            story_id=canonical_story.canonical_story_id,
+            interest_segment_lookup=_SEGMENT_LOOKUP,
+        )
+
+        assert result is not None
+        assert result.segment_slug == _SEGMENT_LOOKUP["int-arsenal"]

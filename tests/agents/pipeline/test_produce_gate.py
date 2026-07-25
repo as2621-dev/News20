@@ -210,3 +210,57 @@ class TestSelectStoriesToProduce:
         reason_by_id = {d.story_id: d.skip_reason for d in decisions}
         assert reason_by_id["cand-already-done"] == SKIP_REASON_HAS_CURRENT_DIGEST
         assert reason_by_id["cand-no-interest"] == SKIP_REASON_NO_INTEREST
+
+
+class TestOrphanTagsDoNotServeInterests:
+    """Issue #70 review panel (item 3): orphan tags must not pass the gate.
+
+    WHY (Rule 9): a tag whose interest is absent from the taxonomy lookup serves
+    nobody — but it used to count toward ``serves_interest_count``, so the story
+    passed the gate, occupied a per-category cap slot and a founder-shortlist row,
+    then deterministically raised ``SegmentResolutionError`` at write time. With
+    ``interest_nodes`` given, only resolvable tags count.
+    """
+
+    def test_orphan_only_tags_skip_as_no_interest(
+        self, canonical_story, story_interest_tags, fixed_now
+    ) -> None:
+        decision = evaluate_story_for_production(
+            story=canonical_story,
+            story_interest_tags=story_interest_tags,
+            has_current_digest=False,
+            now_utc=fixed_now,
+            # None of the story's tagged interests exist in this taxonomy.
+            interest_nodes={"int-unrelated": object()},
+        )
+        assert decision.should_produce is False
+        assert decision.skip_reason == SKIP_REASON_NO_INTEREST
+        assert decision.serves_interest_count == 0
+
+    def test_resolvable_tags_still_count_when_taxonomy_given(
+        self, canonical_story, story_interest_tags, fixed_now
+    ) -> None:
+        resolvable_ids = {
+            tag.story_interest_interest_id for tag in story_interest_tags
+        }
+        decision = evaluate_story_for_production(
+            story=canonical_story,
+            story_interest_tags=story_interest_tags,
+            has_current_digest=False,
+            now_utc=fixed_now,
+            interest_nodes={interest_id: object() for interest_id in resolvable_ids},
+        )
+        assert decision.should_produce is True
+        assert decision.serves_interest_count == len(resolvable_ids)
+
+    def test_no_taxonomy_keeps_the_raw_count(
+        self, canonical_story, story_interest_tags, fixed_now
+    ) -> None:
+        """``interest_nodes=None`` (pure fixture callers) counts tags as before."""
+        decision = evaluate_story_for_production(
+            story=canonical_story,
+            story_interest_tags=story_interest_tags,
+            has_current_digest=False,
+            now_utc=fixed_now,
+        )
+        assert decision.should_produce is True
