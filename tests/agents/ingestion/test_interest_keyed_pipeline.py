@@ -27,6 +27,7 @@ from agents.ingestion.interest_keyed_pipeline import (
 )
 from agents.ingestion.models import CandidateStory, InterestNode
 from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
+from agents.pipeline.theme_category import theme_categories_for_stories
 from agents.shared.exceptions import AdapterFetchError, IngestionError
 
 _NOW = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
@@ -158,18 +159,16 @@ class TestIngestActiveInterests:
         assert arsenal_story.covering_outlets == ["bbc.com", "cnn.com"]
         assert arsenal_story.canonical_body_text is not None  # extracted
 
-        # Arsenal story → 3 keyword tags (self/parent/grandparent). Keyword tags are
-        # shifted +1 UNCONDITIONALLY (clamped at the schema max 2) so DepthMatch
-        # scoring is uniform whether or not a theme tag exists (issue #35 panel
-        # finding: a conditional shift boosted theme-miss stories over theme-matched
-        # ones from the same interest). No themes here → no depth-0 theme tag, so
-        # the shifted leaf (depth 1) is the lowest tag and still wins categorization.
+        # Arsenal story → 3 keyword tags (self/parent/grandparent) at NATURAL
+        # depth — leaf 0, parent 1, grandparent 2. Issue #70: the theme signal is
+        # no longer a story_interests tag, so keyword tags are never shifted and
+        # depth 0 always means "the verified fetching leaf".
         tags_by_story: dict[str, list[int]] = {}
         for tag in result.story_interest_tags:
             tags_by_story.setdefault(tag.story_interest_story_id, []).append(
                 tag.story_interest_match_depth
             )
-        assert sorted(tags_by_story[arsenal_story.canonical_story_id]) == [1, 2, 2]
+        assert sorted(tags_by_story[arsenal_story.canonical_story_id]) == [0, 1, 2]
 
     @pytest.mark.asyncio
     async def test_one_source_failure_does_not_abort_batch(
@@ -726,34 +725,46 @@ class _ThemedAdapter(BaseNewsAdapter):
 
 
 class TestThemeDerivedCategoryTagging:
-    """SP3 — the ingestion-time tag a story carries is THEME-derived, not keyword.
+    """Issue #70 — themes are a SIDE-CHANNEL, never a ``story_interests`` tag.
 
-    Each test asserts the DOWNSTREAM assign_category output (the surface the bug
-    actually manifested on), so a revert to keyword-inherited category fails it.
+    WHY (Rule 9): the M2 SP3 design emitted the theme category as a depth-0 ROOT
+    tag and shifted keyword tags to depth >= 1. That let the noisy theme whitelist
+    outrank the two-key-verified fetching interest (2026-07-25: cricket→tech via
+    the health pin) and made the shortlist's "depth 0 == leaf" slugs phantom roots
+    nobody follows. Post-#70 the verified keyword match owns categorization; the
+    theme may only tiebreak equal-depth contests or categorize untagged stories.
+    The M2 "wrong-query fetch" case these tests used to pin is now the semantic
+    relevance key's job (issue #51) at the matched-id source.
     """
 
     @pytest.mark.asyncio
-    async def test_business_theme_beats_geopolitics_keyword(self) -> None:
-        """The retail story matched a GEOPOLITICS keyword but carries BUSINESS themes
-        → it categorizes BUSINESS. Fails if category reverts to keyword-inherited."""
+    async def test_verified_keyword_beats_theme(self) -> None:
+        """The retail story matched a GEOPOLITICS keyword and carries BUSINESS
+        themes → it categorizes GEOPOLITICS (issue #70: a verified interest match
+        is never overridden by aboutness; a bogus lexical match is the semantic
+        key's problem, not the categorizer's)."""
         nodes = _m2_interest_nodes()
         adapter = _ThemedAdapter(themes=["ECON_STOCKMARKET", "WB_2670_JOBS"])
 
         result = await ingest_active_interests([_GEO_LEAF_ID], nodes, adapter)
 
         assert len(result.canonical_stories) == 1
-        story_id = result.canonical_stories[0].canonical_story_id
+        story = result.canonical_stories[0]
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
-        # The category-determining (downstream) signal is the business themes …
-        assert assign_category(story_id, tags_by_story, nodes) == "business"
-        # … NOT the geopolitics keyword the query matched (the M2 bug).
-        assert assign_category(story_id, tags_by_story, nodes) != "geopolitics"
+        theme_map = theme_categories_for_stories(result.canonical_stories)
+        assert theme_map[story.canonical_story_id] == "business"  # signal exists …
+        # … but the verified geopolitics match wins the category.
+        assert (
+            assign_category(
+                story.canonical_story_id, tags_by_story, nodes, None, theme_map
+            )
+            == "geopolitics"
+        )
 
     @pytest.mark.asyncio
-    async def test_theme_tag_is_strict_lowest_depth(self) -> None:
-        """The theme root tag is emitted at depth 0 and the keyword tags are shifted
-        to depth >= 1 — so the theme tag is the unambiguous category winner (not a
-        fragile slug tiebreak between two depth-0 tags)."""
+    async def test_theme_never_emitted_as_tag_and_keyword_depth_is_natural(self) -> None:
+        """No ROOT interest ever gets a theme tag; the fetching leaf keeps its
+        natural depth 0 (the shortlist's leaf-slug read depends on this)."""
         nodes = _m2_interest_nodes()
         adapter = _ThemedAdapter(themes=["ECON_STOCKMARKET"])
 
@@ -765,11 +776,10 @@ class TestThemeDerivedCategoryTagging:
             for t in result.story_interest_tags
             if t.story_interest_story_id == story_id
         }
-        # The business root carries the sole depth-0 tag …
-        assert depth_by_interest[_ROOT_IDS_M2["business"]] == 0
-        # … and the keyword geopolitics leaf, naturally depth 0, was shifted to 1 so
-        # it still scores (DepthMatch ladder) but never wins categorization.
-        assert depth_by_interest[_GEO_LEAF_ID] == 1
+        # No smuggled business-root tag (the #70 corruption shape) …
+        assert _ROOT_IDS_M2["business"] not in depth_by_interest
+        # … and the fetching leaf sits at its NATURAL depth 0.
+        assert depth_by_interest[_GEO_LEAF_ID] == 0
 
     @pytest.mark.asyncio
     async def test_no_theme_falls_back_to_fetching_interest_root(self) -> None:
@@ -854,9 +864,10 @@ class TestFetchingInterestPrecedence:
         )
 
     @pytest.mark.asyncio
-    async def test_whitelisted_theme_still_beats_fetching_interest(self) -> None:
-        """Precedence guard: an ACTUAL whitelist match still wins over the fetching
-        interest (existing behavior preserved — the flip only covers no-match)."""
+    async def test_whitelisted_theme_no_longer_overrides_fetching_interest(self) -> None:
+        """Issue #70 precedence flip: a whitelist theme match may NOT override a
+        verified fetching interest (2026-07-25: the health→tech pin re-chipped a
+        cricket-injury story fetched by sport.cricket). The theme only tiebreaks."""
         nodes = _m2_interest_nodes()
         leaf_id = "leaf-tech.semiconductors"
         nodes[leaf_id] = InterestNode(
@@ -874,7 +885,10 @@ class TestFetchingInterestPrecedence:
         result = await ingest_active_interests([leaf_id], nodes, adapter)
         story_id = result.canonical_stories[0].canonical_story_id
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
-        assert assign_category(story_id, tags_by_story, nodes) == "sport"
+        theme_map = theme_categories_for_stories(result.canonical_stories)
+        assert (
+            assign_category(story_id, tags_by_story, nodes, None, theme_map) == "tech"
+        )
 
 
 class _MultiThemedGkgAdapter(BaseNewsAdapter):
@@ -929,13 +943,15 @@ class TestThemeCategoryEndToEnd:
 
     @pytest.mark.asyncio
     async def test_gkg_batch_themes_drive_category_end_to_end(self) -> None:
-        """Two stories from the batched GKG path: a business-themed one categorizes
-        business; a no-theme one falls back to its FETCHING interest's root
-        (geopolitics — issue #35, never arts) — in a SINGLE batch run."""
+        """Two stories from the batched GKG path (issue #70 precedence): a
+        business-themed story fetched by a verified geopolitics interest stays
+        GEOPOLITICS (aboutness never overrides a verified match); a no-theme one
+        also categorizes by its fetching interest's root (issue #35, never arts)
+        — in a SINGLE batch run."""
         nodes = _m2_interest_nodes()
         adapter = _MultiThemedGkgAdapter(
             rows=[
-                # business themes despite the geopolitics keyword match (the bug case)
+                # business themes alongside the verified geopolitics keyword match
                 (
                     "https://reuters.com/biz",
                     _GEO_LEAF_ID,
@@ -950,16 +966,17 @@ class TestThemeCategoryEndToEnd:
 
         assert len(result.canonical_stories) == 2  # batch completed for both
         tags_by_story = _index_tags_by_story(result.story_interest_tags)
+        theme_map = theme_categories_for_stories(result.canonical_stories)
         cats = {
             s.canonical_story_id: assign_category(
-                s.canonical_story_id, tags_by_story, nodes
+                s.canonical_story_id, tags_by_story, nodes, None, theme_map
             )
             for s in result.canonical_stories
         }
         by_url = {
             s.canonical_url: s.canonical_story_id for s in result.canonical_stories
         }
-        assert cats[by_url["https://reuters.com/biz"]] == "business"
+        assert cats[by_url["https://reuters.com/biz"]] == "geopolitics"
         assert cats[by_url["https://reuters.com/none"]] == "geopolitics"
 
 
@@ -1057,11 +1074,10 @@ class TestBigQueryNicheSeamIntegration:
             (t.story_interest_interest_id, t.story_interest_match_depth)
             for t in result.story_interest_tags
         }
-        # Leaf-matched tags exist for both followed interests → node + depth. Leaf
-        # tags land at depth 1 (issue #35: keyword tags are shifted +1 uniformly so
-        # a depth-0 theme tag — when a whitelisted theme matches — always wins).
-        assert ("int-arsenal", 1) in tags_by_interest
-        assert ("int-chips", 1) in tags_by_interest
+        # Leaf-matched tags exist for both followed interests → node + depth 0
+        # (issue #70: natural depth; the theme signal is a side-channel, not a tag).
+        assert ("int-arsenal", 0) in tags_by_interest
+        assert ("int-chips", 0) in tags_by_interest
 
     @pytest.mark.asyncio
     async def test_zero_match_niche_yields_no_candidates_no_error(

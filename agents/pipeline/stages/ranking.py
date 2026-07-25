@@ -969,6 +969,7 @@ def assign_category(
     tags_by_story: dict[str, dict[str, int]],
     interest_nodes: dict[str, InterestNode],
     category_override_by_story: dict[str, FeedCategory] | None = None,
+    theme_category_by_story: dict[str, FeedCategory] | None = None,
 ) -> FeedCategory:
     """Classify a story into exactly ONE best-fit screen category (phase-5a SP2).
 
@@ -978,26 +979,33 @@ def assign_category(
       1. Among the story's ``story_interests`` tags, pick the one with the
          **lowest ``match_depth``** — leaf (0) beats parent (1) beats grandparent
          (2). A leaf-tagged interest is the most *specific* hit, so its category
-         is the truest fit.
-      2. Tiebreak (multiple tags at the same lowest depth): by the matched
-         interest's **slug** (stable, deterministic). NOTE: the locked rule says
-         "tiebreak by interest sort order", but :class:`InterestNode` does not
-         carry ``interest_sort_order`` — the slug tiebreak is the deterministic
-         stand-in (documented divergence; slug order is a stable proxy and the
-         common case has a single lowest-depth tag).
+         is the truest fit. Post-#70 the tag stream holds ONLY verified interest
+         matches at natural depth (the theme signal is no longer a depth-0 tag).
+      2. Tiebreak (lowest-depth tags spanning MULTIPLE categories): the story's
+         theme-derived category (``theme_category_by_story``, issue #70) wins when
+         it is among the contenders — aboutness breaks the tie but can never
+         override a verified match. Otherwise by the matched interest's **slug**
+         (stable, deterministic). NOTE: the locked rule says "tiebreak by interest
+         sort order", but :class:`InterestNode` does not carry
+         ``interest_sort_order`` — the slug tiebreak is the deterministic stand-in
+         (documented divergence; the common case has a single lowest-depth tag).
       3. Map the winning interest's slug up to its category via
          :func:`agents.pipeline.categories.category_for_slug`.
 
     A story with NO resolvable tag (no tags, or none of its tags' interests are in
-    the taxonomy) falls back to :data:`DEFAULT_CATEGORY` so it is never dropped —
-    LOGGED, never silent (issue #35: e.g. a beyond-bubble story with no fetching
-    interest and no matched theme must be operator-visible, not quietly arts).
+    the taxonomy) falls back to its THEME-derived category when
+    ``theme_category_by_story`` carries one (issue #70 — the M2 "categorize by
+    aboutness" path, now explicit instead of a smuggled depth-0 tag), else to
+    :data:`DEFAULT_CATEGORY` so it is never dropped — LOGGED, never silent (issue
+    #35: a story with no fetching interest and no matched theme must be
+    operator-visible, not quietly arts).
 
     When several tags at the same lowest depth resolve to DIFFERENT categories (a
-    story fetched by two interests under different roots), the slug tiebreak decides
-    and a structured ``category_conflict_lowest_depth_won`` event records the
-    contenders + winner (issue #35: the conflict is resolved deterministically but
-    must be visible).
+    story fetched by two interests under different roots), the theme tiebreak (or
+    the slug order, absent a theme signal) decides and a structured
+    ``category_conflict_lowest_depth_won`` event records the contenders + winner +
+    resolver (issue #35: the conflict is resolved deterministically but must be
+    visible).
 
     Args:
         story_id: The canonical story id to classify.
@@ -1010,6 +1018,12 @@ def assign_category(
             #34). Checked FIRST: a story in the map returns its pinned category and
             skips the depth/slug rule entirely. Stories absent from the map (and a
             ``None``/empty map) classify exactly as before — the seam is additive.
+        theme_category_by_story: ``{story_id: FeedCategory}`` — the pool's
+            theme-derived categories (:func:`agents.pipeline.theme_category.
+            theme_categories_for_stories`, issue #70). Used ONLY as (a) the
+            tiebreak when the lowest-depth tags span multiple categories and (b)
+            the fallback when no tag resolves. ``None``/absent story → the slug
+            tiebreak / arts fallback as before — the seam is additive.
 
     Returns:
         The single best-fit :data:`FeedCategory` for the story.
@@ -1027,6 +1041,7 @@ def assign_category(
         if override_category is not None:
             return override_category
     story_tags = tags_by_story.get(story_id) or {}
+    theme_category = (theme_category_by_story or {}).get(story_id)
     # Reason: consider only tags whose interest resolves to a slug in the taxonomy —
     # an orphan tag (interest absent from interest_nodes) cannot be categorized.
     resolvable = [
@@ -1035,6 +1050,11 @@ def assign_category(
         if interest_id in interest_nodes
     ]
     if not resolvable:
+        # Reason: issue #70 — a story with no verified interest tag is categorized
+        # by its aboutness (the theme channel) when available; the loud arts
+        # fallback fires only when BOTH signals are absent (issue #35 unchanged).
+        if theme_category is not None:
+            return theme_category
         _warn_category_fallback_no_tags_once(story_id)
         return DEFAULT_CATEGORY
     # Lowest match_depth first (leaf < parent < grandparent); tiebreak by slug.
@@ -1042,6 +1062,18 @@ def assign_category(
         resolvable, key=lambda item: (item[1], item[2])
     )
     winner_category = category_for_slug(best_slug)
+    # Reason: issue #70 — when the lowest-depth tags span multiple categories, the
+    # story's theme-derived category breaks the tie (aboutness beats alphabetical
+    # slug order), but only among the verified contenders — it can never inject a
+    # category no matched interest carries.
+    if theme_category is not None and theme_category != winner_category:
+        lowest_depth_categories = {
+            category_for_slug(slug)
+            for _interest_id, depth, slug in resolvable
+            if depth == best_depth
+        }
+        if theme_category in lowest_depth_categories:
+            winner_category = theme_category
     # Reason: issue #35 — a same-lowest-depth contest across DIFFERENT roots (e.g. a
     # story fetched by two interests under different roots) is decided by the slug
     # tiebreak; log the resolved conflict so cross-root ambiguity stays visible.
@@ -1059,7 +1091,11 @@ def assign_category(
                 best_depth,
                 tuple(sorted(contender_categories)),
                 winner_category,
-                best_slug,
+                # Reason: when the theme tiebreak (issue #70) picked the winner, the
+                # slug-order pick did NOT decide — name the resolver honestly.
+                best_slug
+                if winner_category == category_for_slug(best_slug)
+                else "(theme-tiebreak)",
             )
     return winner_category
 

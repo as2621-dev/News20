@@ -31,11 +31,19 @@ indicative, and an unmatched story now falls back to its fetching interest's roo
 
 from __future__ import annotations
 
+from functools import lru_cache
+from typing import TYPE_CHECKING
+
 from agents.pipeline.categories import (
     TOPIC_CATEGORIES,
     FeedCategory,
 )
 from agents.shared.logger import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from agents.ingestion.models import CanonicalStory
 
 logger = get_logger(__name__)
 
@@ -238,3 +246,46 @@ def category_for_themes(themes: list[str]) -> FeedCategory | None:
 assert set(_TIEBREAK_PRIORITY) == set(TOPIC_CATEGORIES), (
     "_TIEBREAK_PRIORITY must cover exactly TOPIC_CATEGORIES"
 )
+
+
+def theme_categories_for_stories(
+    stories: "Iterable[CanonicalStory]",
+) -> dict[str, FeedCategory]:
+    """Resolve each story's theme-derived category into a ``{story_id: category}`` map.
+
+    Issue #70: the theme signal is NO LONGER emitted as a depth-0 ``story_interests``
+    tag (that smuggled a category signal into the interest-match channel and let the
+    noisy whitelist outrank the two-key-verified fetching interest — the 2026-07-25
+    scrambled chips). Instead this explicit side-channel map is built once per batch
+    and threaded to ``assign_category``, where it may only (a) break an equal-depth
+    category tie between verified interest matches, or (b) categorize a story with no
+    resolvable interest tag at all.
+
+    Args:
+        stories: The canonical story pool (each carries ``canonical_themes``).
+
+    Returns:
+        ``{canonical_story_id: FeedCategory}`` for every story whose themes matched
+        the whitelist; stories with no theme signal are simply absent.
+
+    Example:
+        >>> # A story with ECON_STOCKMARKET themes maps to business; a themeless
+        >>> # story is absent from the map (see tests/agents/pipeline/test_theme_category.py).
+    """
+    # Reason: the map is (re)built at more than one pipeline seam (reconcile, caps,
+    # standalone shortlist callers) over overlapping pools; memoizing per distinct
+    # theme tuple keeps ``category_for_themes``'s miss logging to ONE event per
+    # distinct theme list per process instead of one per rebuild (the #61
+    # duplicate-log lesson — an audit greps these events as a rate).
+    theme_category_by_story: dict[str, FeedCategory] = {}
+    for story in stories:
+        category = _category_for_theme_tuple(tuple(story.canonical_themes))
+        if category is not None:
+            theme_category_by_story[story.canonical_story_id] = category
+    return theme_category_by_story
+
+
+@lru_cache(maxsize=4096)
+def _category_for_theme_tuple(themes: tuple[str, ...]) -> FeedCategory | None:
+    """Memoized :func:`category_for_themes` over a hashable theme tuple."""
+    return category_for_themes(list(themes))

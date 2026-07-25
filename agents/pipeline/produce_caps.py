@@ -150,6 +150,7 @@ def cap_stories_per_category(
     *,
     default_cap: int,
     category_override_by_story: dict[str, FeedCategory] | None = None,
+    theme_category_by_story: dict[str, FeedCategory] | None = None,
 ) -> list[CanonicalStory]:
     """Cap the gated pool per category, keeping the most important stories.
 
@@ -171,6 +172,9 @@ def cap_stories_per_category(
         category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
             stage's enforced category pins (issue #34), forwarded to
             :func:`assign_category`. ``None``/empty → classification as before.
+        theme_category_by_story: ``{story_id: FeedCategory}`` — the pool's
+            theme-derived categories (issue #70), forwarded to
+            :func:`assign_category` as tiebreak/fallback. ``None`` → as before.
 
     Returns:
         The capped subset of ``to_produce`` (original order preserved).
@@ -196,6 +200,7 @@ def cap_stories_per_category(
             tags_by_story,
             interest_nodes,
             category_override_by_story,
+            theme_category_by_story,
         )
         by_category.setdefault(category, []).append(story)
 
@@ -239,6 +244,7 @@ def enforce_overall_ceiling(
     max_total: int,
     *,
     category_override_by_story: dict[str, FeedCategory] | None = None,
+    theme_category_by_story: dict[str, FeedCategory] | None = None,
 ) -> list[CanonicalStory]:
     """Trim a capped pool to an overall ceiling, round-robin across categories.
 
@@ -256,6 +262,9 @@ def enforce_overall_ceiling(
         category_override_by_story: ``{story_id: FeedCategory}`` — the reconcile
             stage's enforced category pins (issue #34), forwarded to
             :func:`assign_category`. ``None``/empty → classification as before.
+        theme_category_by_story: ``{story_id: FeedCategory}`` — the pool's
+            theme-derived categories (issue #70), forwarded to
+            :func:`assign_category` as tiebreak/fallback. ``None`` → as before.
 
     Returns:
         At most ``max_total`` stories (original order preserved), balanced across
@@ -281,6 +290,7 @@ def enforce_overall_ceiling(
             tags_by_story,
             interest_nodes,
             category_override_by_story,
+            theme_category_by_story,
         )
         by_category.setdefault(category, []).append(story)
 

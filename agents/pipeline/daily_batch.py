@@ -57,6 +57,7 @@ from agents.pipeline.notability_gate import apply_notability_gate
 from agents.pipeline.produce_dedup import dedupe_produce_shortlist
 from agents.pipeline.shortlist import ShortlistEntry, build_produce_shortlist
 from agents.pipeline.produce_gate import select_stories_to_produce
+from agents.pipeline.theme_category import theme_categories_for_stories
 from agents.pipeline.stages.batch_review import review_reel_pool
 from agents.pipeline.stages.ranking import (
     FOLLOW_SOURCE_WEIGHT,
@@ -1055,6 +1056,11 @@ async def run_daily_pipeline(
         DEFAULT_FEED_ALLOCATION,
         headroom_multiplier=produce_cap_headroom,
     )
+    # Reason: issue #70 — resolve the pool's theme (aboutness) categories ONCE and
+    # thread the map to every produce-path assign_category consumer (caps, ceiling,
+    # shortlist); the theme tiebreaks/falls-back inside assign_category and is no
+    # longer a depth-0 story_interests tag.
+    theme_category_by_story = theme_categories_for_stories(stories)
     to_produce = cap_stories_per_category(
         to_produce,
         _decisions,
@@ -1063,6 +1069,7 @@ async def run_daily_pipeline(
         caps,
         default_cap=DEFAULT_PER_CATEGORY_CAP,
         category_override_by_story=category_override_by_story,
+        theme_category_by_story=theme_category_by_story,
     )
     if max_total_productions and max_total_productions > 0:
         to_produce = enforce_overall_ceiling(
@@ -1072,6 +1079,7 @@ async def run_daily_pipeline(
             interest_nodes,
             max_total_productions,
             category_override_by_story=category_override_by_story,
+            theme_category_by_story=theme_category_by_story,
         )
     capped_count = gated_count - len(to_produce)
 
@@ -1198,11 +1206,20 @@ async def run_daily_pipeline(
     # review list must be exactly what production would receive, so this sits
     # immediately above _produce_story_pool and nothing may slip between them.
     if shortlist_only:
+        # Reason: issue #70 invariant — the batch's followed-interest universe, so
+        # the shortlist can fail loud on any matched slug nobody follows.
+        batch_followed_interest_ids = frozenset(
+            node.interest_id
+            for user_nodes in interest_nodes_by_user.values()
+            for node in user_nodes
+        )
         shortlist_entries = build_produce_shortlist(
             to_produce,
             story_interest_tags,
             interest_nodes,
             category_override_by_story,
+            followed_interest_ids=batch_followed_interest_ids,
+            theme_category_by_story=theme_category_by_story,
         )
         logger.info(
             "shortlist_only_halt",
