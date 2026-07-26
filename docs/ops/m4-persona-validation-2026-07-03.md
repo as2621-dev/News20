@@ -23,7 +23,8 @@ go/no-go structurally cannot complete before 2026-07-05/06 (tracked in #11; chec
 4. **Batch** — one paid `scripts/run_live_batch.py` run scoped to exactly the 3 personas
    (`ONLY_USER_EMAIL` now accepts comma-separated emails — the only batch-code change),
    `PRODUCE_CAP_HEADROOM=1.0 MAX_PRODUCE=0 POSTER_MODE=sync INGEST_SOURCE=bigquery`,
-   feed_date 2026-07-03.
+   feed_date 2026-07-03. (`PRODUCE_CAP_HEADROOM` was RETIRED on 2026-07-26 by issue
+   #74 — drop it when re-running this recipe; the caps are pure demand now.)
 5. **Census** — `scripts/coverage_census.py` over the 2026-07-03 pull-day (day-1 baseline).
 6. **Browser** — real `next dev` against prod Supabase, real persona sessions injected
    (no PostgREST stubs), puppeteer walkthrough of the rendered reel sections.

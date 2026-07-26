@@ -36,6 +36,7 @@ from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter
 from agents.ingestion.dedup import is_source_origin_domain
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline.feed_assembly import (
+    AllocatedSlot,
     FeedWriteResult,
     ScoredCandidate,
     assemble_niche_feed,
@@ -914,6 +915,83 @@ class DailyFeedsBatchResult(BaseModel):
     write_results: list[FeedWriteResult] = Field(default_factory=list)
 
 
+def select_user_slots(
+    user_inputs: ActiveUserFeedInputs,
+    stories: list[CanonicalStory],
+    story_interest_tags: list[StoryInterestTag],
+    interest_nodes: dict[str, InterestNode],
+    now_utc: Any = None,
+    source_stories_by_user: dict[str, list[CanonicalStory]] | None = None,
+    x_theme_candidates_by_user: dict[str, list[XThemeReelCandidate]] | None = None,
+    cluster_importance_by_story: dict[str, float] | None = None,
+    category_override_by_story: dict[str, FeedCategory] | None = None,
+) -> list[AllocatedSlot]:
+    """Run ONE user's feed selection over a candidate pool (no DB, no writes).
+
+    The single seam that decides which stories fill a user's ~30 slots. Extracted
+    from :func:`assemble_daily_feeds` so the issue #74 PRE-production cut
+    (``agents.pipeline.production_selection``) selects with exactly the same rule the
+    post-production assembly then applies — if the two could drift, the batch would
+    pay to produce one set of stories and ship another.
+
+    Args:
+        user_inputs: The user's loaded feed inputs (profile, allocation, mutes,
+            prior feed ids, entity follows).
+        stories: The candidate pool to select from — PRE-production at the #74 cut,
+            the produced pool at final assembly.
+        story_interest_tags: All ``story_interests`` tag payloads for the pool.
+        interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
+        now_utc: Current time for freshness (defaults to ``utcnow``).
+        source_stories_by_user: ``{user_id: [followed-source stories]}`` (phase-5d).
+        x_theme_candidates_by_user: ``{user_id: [X theme reels]}`` (slice #31) —
+            per-user eligibility, see :func:`assemble_daily_feeds`.
+        cluster_importance_by_story: E1 within-category importance map (FSR-M3).
+        category_override_by_story: The batch's resolve-once category verdicts (#70).
+
+    Returns:
+        The ordered :class:`AllocatedSlot` list, EMPTY when nothing is eligible.
+    """
+    # FSR #7: the niche-first fallback-ladder assembler. When the user has niche
+    # sections it fills them niche-first (climbing one honest level at a time) +
+    # beyond-bubble backfill; when they have only coarse rows (roots-only / pre-screen)
+    # it delegates to the unchanged coarse allocator (byte-identical). If the loader
+    # has no niche-allocation rows for this user (legacy call path / older loader),
+    # fall back to the coarse rows so the projection still runs.
+    niche_allocation = user_inputs.niche_allocation or [
+        NicheAllocationRow(
+            allocation_category=row.allocation_category,
+            allocation_slot_count=row.allocation_slot_count,
+            allocation_sort_order=row.allocation_sort_order,
+        )
+        for row in user_inputs.category_allocation
+    ]
+    return assemble_niche_feed(
+        profile_interests=user_inputs.profile_interests,
+        niche_allocation=niche_allocation,
+        stories=stories,
+        story_interest_tags=story_interest_tags,
+        interest_nodes=interest_nodes,
+        followed_entities=user_inputs.followed_entities,
+        prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
+        source_stories=(
+            (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
+        ),
+        x_theme_candidates=(
+            None
+            if x_theme_candidates_by_user is None
+            # Reason (slice #31): eligibility is PER USER — a user present in the
+            # dict follows >= 1 X cluster and gets the honest ladder (even with an
+            # empty list → x slots roll to the news floor); a user ABSENT from the
+            # dict follows no X cluster and keeps the legacy source-stories x fill.
+            else x_theme_candidates_by_user.get(user_inputs.active_user_id)
+        ),
+        cluster_importance_by_story=cluster_importance_by_story,
+        category_override_by_story=category_override_by_story,
+        mute_terms=user_inputs.mute_terms,
+        now_utc=now_utc,
+    )
+
+
 def assemble_daily_feeds(
     target_date: date,
     active_user_inputs: list[ActiveUserFeedInputs],
@@ -997,44 +1075,16 @@ def assemble_daily_feeds(
     )
 
     for user_inputs in active_user_inputs:
-        # FSR #7: the niche-first fallback-ladder assembler. When the user has niche
-        # sections it fills them niche-first (climbing one honest level at a time) +
-        # beyond-bubble backfill; when they have only coarse rows (roots-only / pre-screen)
-        # it delegates to the unchanged coarse allocator (byte-identical). If the loader
-        # has no niche-allocation rows for this user (legacy call path / older loader),
-        # fall back to the coarse rows so the projection still runs.
-        niche_allocation = user_inputs.niche_allocation or [
-            NicheAllocationRow(
-                allocation_category=row.allocation_category,
-                allocation_slot_count=row.allocation_slot_count,
-                allocation_sort_order=row.allocation_sort_order,
-            )
-            for row in user_inputs.category_allocation
-        ]
-        slots = assemble_niche_feed(
-            profile_interests=user_inputs.profile_interests,
-            niche_allocation=niche_allocation,
+        slots = select_user_slots(
+            user_inputs,
             stories=stories,
             story_interest_tags=story_interest_tags,
             interest_nodes=interest_nodes,
-            followed_entities=user_inputs.followed_entities,
-            prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
-            source_stories=(
-                (source_stories_by_user or {}).get(user_inputs.active_user_id) or None
-            ),
-            x_theme_candidates=(
-                None
-                if x_theme_candidates_by_user is None
-                # Reason (slice #31): eligibility is PER USER — a user present in the
-                # dict follows >= 1 X cluster and gets the honest ladder (even with an
-                # empty list → x slots roll to the news floor); a user ABSENT from the
-                # dict follows no X cluster and keeps the legacy source-stories x fill.
-                else x_theme_candidates_by_user.get(user_inputs.active_user_id)
-            ),
+            now_utc=now_utc,
+            source_stories_by_user=source_stories_by_user,
+            x_theme_candidates_by_user=x_theme_candidates_by_user,
             cluster_importance_by_story=cluster_importance_by_story,
             category_override_by_story=category_override_by_story,
-            mute_terms=user_inputs.mute_terms,
-            now_utc=now_utc,
         )
         # Reason: empty allocation → skip the user (no daily_feeds row) — SP4 DoD-c.
         if not slots:
@@ -1084,4 +1134,5 @@ __all__ = [
     "ActiveUserFeedInputs",
     "DailyFeedsBatchResult",
     "assemble_daily_feeds",
+    "select_user_slots",
 ]

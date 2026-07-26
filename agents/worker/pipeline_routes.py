@@ -651,6 +651,29 @@ def _log_shortlist_for_review(artifact: "ShortlistArtifact", run_id: str) -> Non
             run_id=run_id,
             **entry.model_dump(),
         )
+    # Issue #74: the entries above are the candidate pool + standbys; THESE lines are
+    # the actual feed each user would get, in order, plus the promotion order. One
+    # line per user (a 30-id list is small) so the review is readable in a log viewer.
+    selection = artifact.shortlist_selection
+    if selection is not None:
+        for user_selection in selection.selection_by_user:
+            logger.info(
+                "pipeline_daily_selected_feed",
+                run_id=run_id,
+                selected_user_id=user_selection.selection_user_id,
+                selected_count=len(user_selection.selection_story_ids),
+                selected_story_ids=user_selection.selection_story_ids,
+            )
+        for category, story_ids in sorted(
+            selection.selection_standby_story_ids_by_category.items()
+        ):
+            logger.info(
+                "pipeline_daily_standby_order",
+                run_id=run_id,
+                standby_category=category,
+                standby_count=len(story_ids),
+                standby_story_ids=story_ids,
+            )
 
 
 def _log_scripts_for_review(artifact: "ScriptsArtifact", run_id: str) -> None:

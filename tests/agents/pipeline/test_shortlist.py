@@ -99,7 +99,7 @@ class TestBuildProduceShortlist:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("shortlist_only", [True, False])
 async def test_shortlist_only_halts_before_any_paid_production(
-    monkeypatch: pytest.MonkeyPatch, shortlist_only: bool
+    monkeypatch: pytest.MonkeyPatch, shortlist_only: bool, stub_production_selection: None
 ) -> None:
     """shortlist_only=True returns the would-produce list and NEVER touches the
     paid phases (write/render/assemble); False (the default path) still produces.

@@ -18,16 +18,19 @@ SAFETY (this run costs real paid Gemini calls):
   * Reels are bounded per category at the cross-user max "Build your 30" budget
     (the per-category produce cap, applied inside ``run_daily_pipeline`` after the
     gate) — so no single category can dominate the batch.
-  * ``MAX_PRODUCE`` is an OPTIONAL overall ceiling on top of those caps (default 8),
-    trimmed round-robin across categories so balance is preserved. Set
-    ``MAX_PRODUCE=0`` to let the per-category caps be the only bound (full scale).
-  * ``PRODUCE_CAP_HEADROOM`` (default 2.0) over-provisions every per-category cap so
-    downstream quality gates (verification halt, editorial-JSON failure) that reject
-    a fraction of reels still leave enough survivors to fill each category's real
-    feed budget. demand 4 → renders ceil(4×2.0)=8. The feed is still capped at the
-    user's true allocation by ``feed_assembly``. Pair with ``MAX_PRODUCE=0`` — a low
-    overall ceiling trims the pool back down and negates the headroom (the preflight
-    warns when this happens). Set ``1.0`` for the old 1×-demand behaviour.
+  * Each user's 30 is SELECTED BEFORE production (issue #74): the run produces only
+    the union of the users' selections, and replaces a reel that fails production
+    with the next ranked standby in its category. The candidate pool is no longer
+    the render pool.
+  * ``MAX_PRODUCE`` is an OPTIONAL overall ceiling (default 8). It trims the
+    candidate pool round-robin across categories AND caps total production ATTEMPTS
+    (selection + standby promotions), so a ceiling at or below the selection size
+    leaves no budget to replace a failed reel and the feed ships short by design.
+    Set ``MAX_PRODUCE=0`` to let the per-category caps be the only bound (full
+    scale, failures backfilled from standby).
+  * ``PRODUCE_CAP_HEADROOM`` is RETIRED (issue #74) and ignored — it existed only to
+    over-provision the render pool against post-production attrition, which standby
+    promotion now handles. The preflight warns if it is still set.
   * ``ENABLE_SEMANTIC_CLUSTERING`` (default 1 — ON in production, issue #34) runs the
     semantic same-event reconcile before the produce gate: paid gemini-embedding-001
     calls, one reel per real-world event, authority-weighted cluster importance in
@@ -399,8 +402,16 @@ async def _run() -> int:
     shortlist_only = run_stage == RUN_STAGE_SHORTLIST
     scripts_only = run_stage == RUN_STAGE_SCRIPTS
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
-    produce_cap_headroom = float(os.environ.get("PRODUCE_CAP_HEADROOM", "2.0"))
     lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
+    # Reason (issue #74): PRODUCE_CAP_HEADROOM is retired. A dashboard/shell that
+    # still sets it would otherwise look like it is doing something — say plainly
+    # that it is ignored rather than let an operator trust a dead knob.
+    if os.environ.get("PRODUCE_CAP_HEADROOM"):
+        print(
+            "\n⚠ PRODUCE_CAP_HEADROOM is RETIRED (issue #74) and IGNORED. The "
+            "per-user cut now happens before production, so the caps are pure "
+            "demand and attrition is covered by standby promotion. Unset it."
+        )
 
     supabase = create_client(
         os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -520,10 +531,8 @@ async def _run() -> int:
         allocation_by_user,
         active_user_ids,
         DEFAULT_FEED_ALLOCATION,
-        headroom_multiplier=produce_cap_headroom,
     )
-    print(f"  produce cap headroom .......... {produce_cap_headroom}x (demand → render pool)")
-    print("  per-category produce caps ....")
+    print("  per-category produce caps ....  (pure demand — headroom retired, #74)")
     if caps:
         for category, cap in sorted(caps.items()):
             print(f"      {category:<16} {cap}")
@@ -535,12 +544,12 @@ async def _run() -> int:
     if max_produce > 0:
         print(f"  overall ceiling (MAX_PRODUCE) . {max_produce}")
         caps_sum = sum(caps.values()) if caps else 0
-        if produce_cap_headroom > 1.0 and caps_sum > max_produce:
+        if caps_sum > max_produce:
             print(
-                f"  ⚠ WARNING: MAX_PRODUCE={max_produce} trims the pool BELOW the "
-                f"{produce_cap_headroom}x-headroomed caps (sum={caps_sum}) — the "
-                f"round-robin ceiling will NEGATE the rejection headroom.\n"
-                f"    fix: re-run with MAX_PRODUCE=0 so the headroomed caps bind."
+                f"  ⚠ WARNING: MAX_PRODUCE={max_produce} is below the users' total "
+                f"demand (sum of caps = {caps_sum}) — the run will produce at most "
+                f"{max_produce} reels and every feed past that ships SHORT.\n"
+                f"    fix: re-run with MAX_PRODUCE=0 so the per-category caps bind."
             )
 
     if not active_user_ids or not followed_ids:
@@ -645,7 +654,6 @@ async def _run() -> int:
         interest_nodes=interest_nodes,
         poster_genai_client=poster_client,
         max_total_productions=max_produce,
-        produce_cap_headroom=produce_cap_headroom,
         enable_detail_enrichment=True,
         enable_editorial_rewrite=True,
         # Reason: semantic same-event reconciliation (collapses "two reels, one event"
@@ -681,6 +689,7 @@ async def _run() -> int:
     print(
         f"\ncandidate={result.candidate_story_count} "
         f"produced={result.produced_story_count} "
+        f"promoted={result.promoted_story_count} "
         f"skipped_by_gate={result.skipped_by_gate_count} "
         f"feeds_written={result.feeds.feeds_written if result.feeds else 0}"
     )
@@ -688,18 +697,46 @@ async def _run() -> int:
     # ── SHORTLIST REVIEW DUMP — print + persist, then exit before the DoD
     # readback (nothing was produced or written, so those checks don't apply). ──
     if shortlist_only:
-        by_category: dict[str, list[Any]] = {}
-        for entry in result.shortlist:
-            by_category.setdefault(entry.shortlist_category, []).append(entry)
-        print(f"\n--- SHORTLIST FOR REVIEW ({len(result.shortlist)} stories) ---")
-        for category_name in sorted(by_category):
-            print(f"\n[{category_name}] ({len(by_category[category_name])})")
-            for entry in by_category[category_name]:
-                interests = ", ".join(entry.shortlist_matched_interest_slugs) or "-"
+        entry_by_id = {entry.shortlist_story_id: entry for entry in result.shortlist}
+
+        def _line(story_id: str) -> str:
+            entry = entry_by_id.get(story_id)
+            if entry is None:
+                return f"  ??? | {story_id}"
+            interests = ", ".join(entry.shortlist_matched_interest_slugs) or "-"
+            return (
+                f"  [{entry.shortlist_category}] {entry.shortlist_outlet_count:>3} "
+                f"outlets | {interests} | {entry.shortlist_headline[:80]}"
+            )
+
+        # Issue #74: the founder reviews THE FEED — each user's selected 30 in feed
+        # order — not the candidate pool. The standby order below it is what would
+        # replace any of those reels if production failed.
+        selection = result.selection
+        if selection is not None:
+            for user_selection in selection.selection_by_user:
                 print(
-                    f"  {entry.shortlist_outlet_count:>3} outlets | {interests} | "
-                    f"{entry.shortlist_headline[:90]}"
+                    f"\n--- SELECTED FEED for {user_selection.selection_user_id} "
+                    f"({len(user_selection.selection_story_ids)} reels, in order) ---"
                 )
+                for position, story_id in enumerate(
+                    user_selection.selection_story_ids, start=1
+                ):
+                    print(f"{position:>3}.{_line(story_id)}")
+            standby = selection.selection_standby_story_ids_by_category
+            print(
+                f"\n--- STANDBY (promotion order, {sum(len(v) for v in standby.values())} "
+                "stories — produced ONLY if a selected reel fails) ---"
+            )
+            for category_name in sorted(standby):
+                story_ids = standby[category_name]
+                print(f"\n[{category_name}] ({len(story_ids)})")
+                for story_id in story_ids:
+                    print(_line(story_id))
+        else:
+            print(f"\n--- SHORTLIST FOR REVIEW ({len(result.shortlist)} stories) ---")
+            for entry in result.shortlist:
+                print(_line(entry.shortlist_story_id))
         shortlist_dir = os.path.join(_REPO_ROOT, ".agents", "shortlists")
         os.makedirs(shortlist_dir, exist_ok=True)
         shortlist_path = os.path.join(

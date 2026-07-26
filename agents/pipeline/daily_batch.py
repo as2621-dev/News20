@@ -53,10 +53,14 @@ from agents.pipeline.orchestrator import (
     write_phase,
 )
 from agents.pipeline.produce_caps import (
-    DEFAULT_HEADROOM_MULTIPLIER,
     cap_stories_per_category,
     compute_category_produce_caps,
     enforce_overall_ceiling,
+)
+from agents.pipeline.production_selection import (
+    ProductionSelectionPlan,
+    promote_standbys,
+    select_stories_for_production,
 )
 from agents.pipeline.notability_gate import apply_notability_gate
 from agents.pipeline.produce_dedup import (
@@ -104,6 +108,13 @@ DEFAULT_MAX_CONCURRENT_PRODUCTIONS = 4
 # user_feed_allocation row (decision: explicit budgets drive the caps; this is the
 # safe fallback so a freshly-seeded DB without allocations still stays balanced).
 DEFAULT_PER_CATEGORY_CAP = 8
+
+# Reason (issue #74): bound the standby-promotion loop. Each round costs a write +
+# render wave, so a pathological pool (every replacement failing the same gate) must
+# not bill round after round. Three rounds covers ordinary attrition — a category
+# whose first three replacements all fail has a systemic problem the honest short
+# section should surface, not one more paid retry.
+MAX_STANDBY_PROMOTION_ROUNDS = 3
 
 # Type of the injected ingest stage: returns the deduped, ancestor-tagged pool,
 # OPTIONALLY followed by the semantic-relevance run stamp (issue #67 — the live
@@ -169,6 +180,12 @@ class DailyPipelineResult(BaseModel):
             before the reel stage, each with the twin it was dropped in favour of.
         script_dedup_enabled: Whether that gate ran at all — zero drops means
             something different when the gate was off.
+        selection: The issue #74 pre-production cut — each user's selected feed plus
+            the per-category standby order. Populated on every run that reaches the
+            selection stage (including both halts), so the founder reviews the actual
+            feed rather than the candidate pool.
+        promoted_story_count: Standbys produced this run to replace reels that failed
+            production (0 on a clean run).
 
     Example:
         >>> # See tests/agents/pipeline/test_daily_batch.py for the staged asserts.
@@ -203,6 +220,15 @@ class DailyPipelineResult(BaseModel):
     )
     script_dedup_enabled: bool = Field(
         default=False, description="Whether the script similarity gate ran"
+    )
+    selection: ProductionSelectionPlan | None = Field(
+        default=None,
+        description="Pre-production per-user cut + standby order (issue #74)",
+    )
+    promoted_story_count: int = Field(
+        default=0,
+        ge=0,
+        description="Standbys produced to replace failed reels (issue #74)",
     )
 
 
@@ -728,6 +754,7 @@ async def _write_script_pool(
     enable_batch_review: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
     pinned_segment_by_story: dict[str, str] | None = None,
+    pool_index_offset: int = 0,
 ) -> list[WritePhaseResult]:
     """Run the WRITE wave — script → verify → editorial rewrite (stage C, first half).
 
@@ -755,6 +782,9 @@ async def _write_script_pool(
             resolves the segment ONCE onto ``WritePhaseResult.segment_slug``; render
             consumes that rather than re-resolving (issue #61).
         pinned_segment_by_story: The batch's resolve-once category verdicts (#70).
+        pool_index_offset: Added to each reel's pool index. A standby-promotion round
+            (issue #74) passes the count already written so its reels keep rotating
+            openers forward instead of repeating round one's (cross-reel diversity).
 
     Returns:
         The written reels, in pool order. A story whose script/verify failed is
@@ -821,7 +851,10 @@ async def _write_script_pool(
                 return None
 
     write_results = await asyncio.gather(
-        *(_write_one(story, index) for index, story in enumerate(stories_to_produce))
+        *(
+            _write_one(story, pool_index_offset + index)
+            for index, story in enumerate(stories_to_produce)
+        )
     )
     survivors = [wr for wr in write_results if wr is not None]
 
@@ -981,7 +1014,6 @@ async def run_daily_pipeline(
     since_utc: datetime | None = None,
     max_concurrent_productions: int = DEFAULT_MAX_CONCURRENT_PRODUCTIONS,
     max_total_productions: int | None = None,
-    produce_cap_headroom: float = DEFAULT_HEADROOM_MULTIPLIER,
     enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
     enable_produce_dedup: bool = True,
@@ -1018,20 +1050,15 @@ async def run_daily_pipeline(
         now_utc: Time for freshness + ``profile_updated_at`` (defaults to utcnow).
         since_utc: Only aggregate signals at/after this time (stage A).
         max_concurrent_productions: Bounded fan-out width for stage C.
-        max_total_productions: Optional overall ceiling on the produced pool, applied
-            AFTER the per-category caps and trimmed round-robin across categories so
-            balance is preserved (the re-purposed ``MAX_PRODUCE``). ``None``/``<=0``
-            leaves the per-category caps as the only bound.
-        produce_cap_headroom: Over-provision factor for the per-category produce
-            caps (``PRODUCE_CAP_HEADROOM``). Defaults to
-            :data:`agents.pipeline.produce_caps.DEFAULT_HEADROOM_MULTIPLIER` (``1.5``,
-            FSR-M6b SP3 — sized for the source-led mix); ``1.0`` renders 1× demand;
-            ``2.0`` doubles the render pool so downstream quality-gate rejections
-            still leave enough survivors to fill each category's real feed budget.
-            The feed itself is still capped at the user's true allocation by
-            ``feed_assembly``. Note: a low ``max_total_productions`` ceiling applied
-            AFTER the caps can negate this — set ``MAX_PRODUCE=0`` to let the
-            headroomed caps bind.
+        max_total_productions: The overall ``MAX_PRODUCE`` ceiling. Under the issue
+            #74 order it binds TWICE: it trims the candidate pool round-robin across
+            categories (balance preserved), and it caps total production ATTEMPTS —
+            the initial selection plus every standby promotion. Attempts, not
+            successes, because a failed reel has usually already billed its script;
+            the consequence is that a ceiling at or below the selection size leaves
+            no budget to replace a failure, so the feed ships short by design. Set
+            ``MAX_PRODUCE=0`` (per-category caps only) for a run that backfills every
+            failure. (``PRODUCE_CAP_HEADROOM`` is RETIRED — see ``produce_caps``.)
         enable_detail_enrichment: Phase 2c gate — when True, each produced story
             also gets grounded detail enrichment + the GDELT coverage census.
             Defaults False (the M1 produce path) until the production wiring passes
@@ -1241,7 +1268,6 @@ async def run_daily_pipeline(
         allocation_by_user,
         active_user_ids,
         DEFAULT_FEED_ALLOCATION,
-        headroom_multiplier=produce_cap_headroom,
     )
     # Reason: issue #70 (review-panel HIGH) — resolve ONE category verdict per pool
     # story (tags + theme tiebreak/fallback through assign_category, ONCE) and ride
@@ -1254,6 +1280,10 @@ async def run_daily_pipeline(
     category_override_by_story = compute_category_verdicts(
         stories, story_interest_tags, interest_nodes
     )
+    # Reason (issue #74): the gated+deduped pool BEFORE the caps is the standby
+    # source. A story below a category's cap line is a perfectly good replacement now
+    # that sitting in the pool costs nothing — only a promotion spends.
+    gated_deduped_pool = list(to_produce)
     to_produce = cap_stories_per_category(
         to_produce,
         _decisions,
@@ -1404,17 +1434,85 @@ async def run_daily_pipeline(
                 eligible_user_count=len(x_theme_gather.candidates_by_user),
             )
 
+    # ── Stage C.5 — PRE-PRODUCTION per-user cut (issue #74) ───────────────────
+    # Reason (founder directive 2026-07-26): the users' 30s are selected HERE, from
+    # the candidate pool, and only their union is produced. The old order produced
+    # the whole capped pool and cut afterwards, so ~60% of the script/TTS/poster bill
+    # bought reels no feed ever showed. The cut uses ``select_user_slots`` — the same
+    # seam stage E applies below — so the run cannot pay for one set of stories and
+    # ship another. Everything unselected becomes a FREE ranked standby.
+    active_user_inputs = load_active_user_inputs(
+        supabase_client, target_date, exploration_by_user
+    )
+    selection_plan = select_stories_for_production(
+        selection_pool=to_produce,
+        standby_pool=gated_deduped_pool,
+        active_user_inputs=active_user_inputs,
+        story_interest_tags=story_interest_tags,
+        interest_nodes=interest_nodes,
+        category_by_story=category_override_by_story,
+        score_by_story={
+            decision.story_id: (decision.importance_score, decision.freshness_score)
+            for decision in _decisions
+        },
+        eligible_categories={category for category, cap in caps.items() if cap > 0}
+        or None,
+        source_stories_by_user=source_stories_by_user,
+        # Reason: pre-production every gathered theme candidate is still placeable —
+        # the FK guard below re-filters against what actually produced.
+        x_theme_candidates_by_user=(
+            None if x_theme_gather is None else x_theme_gather.candidates_by_user
+        ),
+        cluster_importance_by_story=cluster_importance_by_story,
+        now_utc=now,
+    )
+    stories_by_id = {story.canonical_story_id: story for story in to_produce}
+    candidate_pool = list(to_produce)
+    # Reason: a user can select a story that needs NO production (a followed-source
+    # reel that already carries a current digest); produce only the pool subset.
+    to_produce = [
+        stories_by_id[story_id]
+        for story_id in selection_plan.selection_production_story_ids
+        if story_id in stories_by_id
+    ]
+    logger.info(
+        "preproduction_cut_applied",
+        feed_date=target_date.isoformat(),
+        candidate_pool=len(stories_by_id),
+        selected_for_production=len(to_produce),
+        standby_pool=sum(
+            len(ids)
+            for ids in selection_plan.selection_standby_story_ids_by_category.values()
+        ),
+    )
+
     # ── SHORTLIST-ONLY halt (founder rule 2026-07-19, shortlist-first) ────────
     # Reason: production (script LLM → TTS → poster) is the expensive tail of the
-    # batch. Halting HERE — after every gate, dedup, cap and merge — surfaces the
-    # exact would-produce pool for founder review at zero production cost. The
-    # review list must be exactly what production would receive, so this sits
-    # immediately above _produce_story_pool and nothing may slip between them.
+    # batch. Halting HERE — after every gate, dedup, cap, merge and the issue #74
+    # cut — surfaces the real feed for founder review at zero production cost. This
+    # sits immediately above the write wave and nothing may slip between them.
     if shortlist_only:
+        # Reason: the artifact must resolve EVERY id it names — the selected feed AND
+        # the standby (promotion) order — so its entry list is the candidate pool plus
+        # the standby stories drawn from below the cap line. ``result.selection`` is
+        # what says which of those would actually ship.
+        standby_ids = {
+            story_id
+            for ids in (
+                selection_plan.selection_standby_story_ids_by_category.values()
+            )
+            for story_id in ids
+        }
+        review_pool = candidate_pool + [
+            story
+            for story in gated_deduped_pool
+            if story.canonical_story_id in standby_ids
+            and story.canonical_story_id not in stories_by_id
+        ]
         # Reason: the followed-set invariant already ran unconditionally above; the
         # override map carries the batch's resolve-once verdicts (issue #70).
         shortlist_entries = build_produce_shortlist(
-            to_produce,
+            review_pool,
             story_interest_tags,
             interest_nodes,
             category_override_by_story,
@@ -1424,6 +1522,7 @@ async def run_daily_pipeline(
             feed_date=target_date.isoformat(),
             candidate_story_count=len(stories),
             shortlist_count=len(shortlist_entries),
+            selected_for_production=len(to_produce),
             semantic_relevance_mode=semantic_relevance.semantic_relevance_mode,
             skipped_by_gate_count=len(stories) - gated_count,
             capped_count=capped_count,
@@ -1439,6 +1538,7 @@ async def run_daily_pipeline(
             pool_target=pool_target_cells,
             shortlist=shortlist_entries,
             semantic_relevance=semantic_relevance,
+            selection=selection_plan,
         )
 
     # ── WRITE wave — scripts only, no media (stage C, first half) ─────────────
@@ -1496,6 +1596,7 @@ async def run_daily_pipeline(
             scripts=script_entries,
             script_dedup_drops=script_dedup_drops,
             script_dedup_enabled=enable_script_dedup,
+            selection=selection_plan,
         )
 
     # ── RENDER wave — the ARMED, paid half (TTS → poster → persist) ───────────
@@ -1511,10 +1612,111 @@ async def run_daily_pipeline(
         gdelt_adapter=gdelt_adapter,
     )
 
+    # ── STANDBY PROMOTION LOOP (issue #74) ────────────────────────────────────
+    # Reason: under the pre-production cut every selected story is a slot someone's
+    # feed is counting on, so a production failure (script gate, similarity drop, TTS
+    # error, poster safety block) is now a HOLE rather than one of many spares. Each
+    # failure promotes the next standby in its own category and produces just that
+    # one. Standbys exhausted → the pool is short and the existing fallback ladder
+    # writes an honest short section (loudly logged, never a crash).
+    attempted_story_ids = {story.canonical_story_id for story in to_produce}
+    produced_story_ids = {story.canonical_story_id for story in produced_stories}
+    failed_story_ids = [
+        story_id for story_id in attempted_story_ids if story_id not in produced_story_ids
+    ]
+    standby_by_category = {
+        category: list(story_ids)
+        for category, story_ids in (
+            selection_plan.selection_standby_story_ids_by_category.items()
+        )
+    }
+    standby_story_by_id = {
+        story.canonical_story_id: story for story in gated_deduped_pool
+    }
+    promoted_story_count = 0
+    written_reel_count = len(to_produce)
+    for _promotion_round in range(MAX_STANDBY_PROMOTION_ROUNDS):
+        if not failed_story_ids:
+            break
+        remaining_budget = (
+            max(0, max_total_productions - len(attempted_story_ids))
+            if max_total_productions and max_total_productions > 0
+            else None
+        )
+        promoted_ids = promote_standbys(
+            sorted(failed_story_ids),
+            standby_by_category,
+            category_override_by_story,
+            exclude_story_ids=attempted_story_ids,
+            max_promotions=remaining_budget,
+        )
+        promoted_stories = [
+            standby_story_by_id[story_id]
+            for story_id in promoted_ids
+            if story_id in standby_story_by_id
+        ]
+        if not promoted_stories:
+            break
+        attempted_story_ids |= {s.canonical_story_id for s in promoted_stories}
+        promotion_writes = await _write_script_pool(
+            stories_to_produce=promoted_stories,
+            story_interest_tags=story_interest_tags,
+            llm_client=llm_client,
+            max_concurrent=max_concurrent_productions,
+            enable_editorial_rewrite=enable_editorial_rewrite,
+            enable_batch_review=enable_batch_review,
+            interest_segment_lookup=interest_segment_lookup,
+            pinned_segment_by_story=category_override_by_story,
+            pool_index_offset=written_reel_count,
+        )
+        written_reel_count += len(promoted_stories)
+        if enable_script_dedup and promotion_writes:
+            promotion_writes, promotion_drops = await dedupe_written_scripts(
+                promotion_writes, llm_client
+            )
+            script_dedup_drops.extend(promotion_drops)
+        promotion_produced = await _render_story_pool(
+            write_results=promotion_writes,
+            tts_client=tts_client,
+            supabase_client=supabase_client,
+            llm_client=llm_client,
+            poster_genai_client=poster_genai_client,
+            max_concurrent=max_concurrent_productions,
+            enable_detail_enrichment=enable_detail_enrichment,
+            outlets_lookup=outlets_lookup,
+            gdelt_adapter=gdelt_adapter,
+        )
+        produced_stories = produced_stories + promotion_produced
+        promoted_story_count += len(promotion_produced)
+        promotion_produced_ids = {
+            story.canonical_story_id for story in promotion_produced
+        }
+        failed_story_ids = [
+            story_id
+            for story_id in promoted_ids
+            if story_id not in promotion_produced_ids
+        ]
+    if failed_story_ids:
+        # Reason (Rule 12): the loop gave up with holes still open — say so with the
+        # ids, or a short feed reads as "there was no news" instead of "production
+        # failed and the standbys could not cover it".
+        logger.error(
+            "standby_promotion_incomplete_feed_may_run_short",
+            unfilled_story_ids=sorted(failed_story_ids),
+            unfilled_count=len(failed_story_ids),
+            promoted_story_count=promoted_story_count,
+            max_promotion_rounds=MAX_STANDBY_PROMOTION_ROUNDS,
+            fix_suggestion=(
+                "Reels failed production and could not be replaced (standbys "
+                "exhausted, MAX_PRODUCE reached, or the round limit hit). Affected "
+                "sections fall back through the honest ladder and may run short — "
+                "check the produce_write_* / produce_render_* errors above."
+            ),
+        )
+
     # ── Stages D+E — score per user + allocate ~30-slot daily_feeds ───────────
-    active_user_inputs = load_active_user_inputs(
-        supabase_client, target_date, exploration_by_user
-    )
+    # ``active_user_inputs`` was loaded for the pre-production cut above; stage E
+    # reuses it so both passes score against exactly the same profile snapshot.
     # ── FSR-M3 cluster-importance bridge ──────────────────────────────────────
     # The assembly seam threads a SHARED ``cluster_importance_by_story`` map through
     # ``assemble_daily_feeds`` → ``assemble_user_feed`` → ``score_and_classify_for_user`` →
@@ -1579,6 +1781,8 @@ async def run_daily_pipeline(
         feed_date=target_date.isoformat(),
         candidate_story_count=len(stories),
         produced_story_count=len(produced_stories),
+        selected_for_production=len(selection_plan.selection_production_story_ids),
+        promoted_story_count=promoted_story_count,
         dedup_dropped_count=dedup_dropped_count,
         capped_count=capped_count,
         feeds_written=feeds.feeds_written,
@@ -1596,4 +1800,6 @@ async def run_daily_pipeline(
         feeds=feeds,
         pool_target=pool_target_cells,
         semantic_relevance=semantic_relevance,
+        selection=selection_plan,
+        promoted_story_count=promoted_story_count,
     )

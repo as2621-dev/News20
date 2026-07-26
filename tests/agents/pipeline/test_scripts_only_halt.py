@@ -126,7 +126,7 @@ def _patch_pipeline_edges(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("scripts_only", [True, False])
 async def test_scripts_only_writes_scripts_and_makes_zero_media_calls(
-    monkeypatch: pytest.MonkeyPatch, scripts_only: bool
+    monkeypatch: pytest.MonkeyPatch, scripts_only: bool, stub_production_selection: None
 ) -> None:
     """AC1 + AC5. ``scripts_only=True`` runs the WRITE wave and stops dead: the
     render wave (TTS → poster → persist) is never entered and the media clients are
@@ -188,7 +188,7 @@ async def test_scripts_only_writes_scripts_and_makes_zero_media_calls(
 
 @pytest.mark.asyncio
 async def test_script_similarity_gate_drops_near_duplicate_and_records_it(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, stub_production_selection: None
 ) -> None:
     """AC2. Two scripts telling the same story must not both become reels. The gate
     reuses the produce_dedup judge seam (one LLM call over the FINAL scripts), and
@@ -284,7 +284,7 @@ async def test_empty_shortlist_is_a_clean_noop_with_no_llm_calls(
 
 @pytest.mark.asyncio
 async def test_one_script_llm_failure_skips_that_story_and_run_completes(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, stub_production_selection: None
 ) -> None:
     """AC4. One story's script LLM blowing up must not cost the whole run — the
     founder still reviews the scripts that DID write. The failure is logged (the

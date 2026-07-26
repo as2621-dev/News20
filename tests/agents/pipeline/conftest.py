@@ -50,6 +50,32 @@ _SOURCE_BODY = (
 
 
 @pytest.fixture
+def stub_production_selection(monkeypatch: pytest.MonkeyPatch):
+    """Stub the issue #74 pre-production cut so every candidate counts as selected.
+
+    Tests that pin the batch's stage ORDER stub the user loader with profile-less,
+    allocation-less users, so the REAL cut would select nothing and the run would
+    produce nothing — hiding the behaviour those tests exist to check. The cut's own
+    contract is covered in ``tests/agents/pipeline/test_production_selection.py`` and
+    the batch-level order in ``test_preproduction_batch_order.py``.
+    """
+    from agents.pipeline import daily_batch
+    from agents.pipeline.production_selection import ProductionSelectionPlan
+
+    def _select_every_candidate(*, selection_pool, **_kwargs) -> ProductionSelectionPlan:
+        return ProductionSelectionPlan(
+            selection_production_story_ids=[
+                story.canonical_story_id for story in selection_pool
+            ],
+            selection_candidate_pool_size=len(selection_pool),
+        )
+
+    monkeypatch.setattr(
+        daily_batch, "select_stories_for_production", _select_every_candidate
+    )
+
+
+@pytest.fixture
 def fixed_now() -> datetime:
     """A deterministic tz-aware UTC 'now' so freshness decay is reproducible."""
     return _FIXED_NOW

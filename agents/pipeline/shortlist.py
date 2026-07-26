@@ -23,6 +23,7 @@ from agents.ingestion.models import (
     StoryInterestTag,
 )
 from agents.pipeline.categories import FeedCategory
+from agents.pipeline.production_selection import ProductionSelectionPlan
 from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
 from agents.pipeline.theme_category import theme_categories_for_stories
 from agents.shared.logger import get_logger
@@ -97,11 +98,21 @@ class ShortlistArtifact(BaseModel):
     produced it makes every later audit of a bad tag unfalsifiable — a quality miss
     and an embedding outage look identical. Artifacts written before 2026-07-25 are
     bare JSON lists with no header; readers of historical files must handle both.
+
+    Since issue #74 it also carries ``shortlist_selection`` — each user's actual
+    30 plus the per-category standby (promotion) order. ``shortlist_entries`` is the
+    entry list every id in that block resolves against (candidates + standbys), so
+    the review reads as "here is the feed" rather than "here is a pool". Artifacts
+    written before 2026-07-26 have no selection block.
     """
 
     shortlist_run: ShortlistRunHeader = Field(..., description="Run provenance")
     shortlist_entries: list[ShortlistEntry] = Field(
         default_factory=list, description="The would-produce review list"
+    )
+    shortlist_selection: ProductionSelectionPlan | None = Field(
+        default=None,
+        description="Per-user selected feed + standby promotion order (issue #74)",
     )
 
 
@@ -132,6 +143,7 @@ def build_shortlist_artifact(result: Any) -> ShortlistArtifact:
             run_shortlist_story_count=len(result.shortlist),
         ),
         shortlist_entries=list(result.shortlist),
+        shortlist_selection=getattr(result, "selection", None),
     )
 
 

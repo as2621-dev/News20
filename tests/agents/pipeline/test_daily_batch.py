@@ -35,7 +35,7 @@ def _story(story_id: str) -> CanonicalStory:
 
 @pytest.mark.asyncio
 async def test_run_daily_pipeline_updates_weights_first_then_produces_only_gated(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, stub_production_selection: None
 ) -> None:
     order: list[str] = []
     pool = [_story("s-keep"), _story("s-drop")]
