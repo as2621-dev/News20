@@ -38,7 +38,7 @@ classifies into one of the eight **topic** roots below.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, Field
 
@@ -59,6 +59,13 @@ FeedCategory = Literal[
     "youtube",
     "x",
 ]
+
+# Reason: the RUNTIME membership test behind the Literal. A Literal is erased at
+# runtime, so a value crossing an untyped boundary — the persisted
+# ``stories.story_resolved_category`` column, or a ``pinned_segment_slug`` from a direct
+# caller (issue #73) — has to be checked against the same closed set the type declares.
+# Derived from ``FeedCategory`` itself so the two can never drift.
+FEED_CATEGORY_VALUES: frozenset[str] = frozenset(get_args(FeedCategory))
 
 # Reason: the 8 topic roots an interest slug can classify into. EXCLUDES the
 # source-axis ``youtube``/``x`` (no slug maps to them — empty until a followed

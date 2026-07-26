@@ -691,7 +691,7 @@ def _load_interest_nodes(supabase_client: Any) -> dict[str, Any]:
 
 def _load_ready_story_pool(
     supabase_client: Any,
-) -> tuple[list[Any], list[Any]]:
+) -> tuple[list[Any], list[Any], dict[str, Any]]:
     """Load the GLOBAL ready-story pool + its interest tags from Supabase.
 
     A "ready" story is one that has a CURRENT digest with both audio and a poster —
@@ -715,15 +715,27 @@ def _load_ready_story_pool(
     it dishonestly: the docstring contract above already says a partial pool yields a
     shorter feed, and a reel with no news in it is worse than a missing slot.
 
+    Because the rebuilt stories carry no ``canonical_themes``, this path can never see
+    the theme (aboutness) side-channel the batch classifies with — so re-deriving a
+    category here would default an untaggable story to ``arts`` and would settle an
+    equal-depth cross-root tie by slug order, disagreeing with the batch's own verdict
+    for the same story. It therefore also loads the batch's PERSISTED verdict
+    (``stories.story_resolved_category``, migration 0034 / issue #73) and returns it as
+    a ``category_override_by_story`` map. A row whose column is NULL contributes NO
+    entry, so it classifies exactly as it did before the column existed.
+
     Args:
         supabase_client: Service-role Supabase client.
 
     Returns:
-        ``(stories, story_interest_tags)`` — the ready ``CanonicalStory`` pool and
-        every ``story_interests`` edge for those stories. Empty when no story is
-        ready (the caller returns ``allocated_count=0`` — not an error).
+        ``(stories, story_interest_tags, category_override_by_story)`` — the ready
+        ``CanonicalStory`` pool, every ``story_interests`` edge for those stories, and
+        ``{story_id: FeedCategory}`` for the stories carrying a persisted verdict.
+        Empty when no story is ready (the caller returns ``allocated_count=0`` — not
+        an error).
     """
     from agents.ingestion.models import CanonicalStory, StoryInterestTag
+    from agents.pipeline.categories import FEED_CATEGORY_VALUES
     from agents.shared.persisted_headline_gate import (
         load_source_origin_story_ids,
         persisted_headline_rejection_reason,
@@ -749,14 +761,15 @@ def _load_ready_story_pool(
         if row.get("digest_audio_url") and row.get("digest_ambient_poster_url")
     ]
     if not ready_story_ids:
-        return [], []
+        return [], [], {}
 
     story_rows = (
         getattr(
             supabase_client.table("stories")
             .select(
                 "story_id,story_headline,story_primary_outlet_name,"
-                "story_outlet_count,story_first_reported_utc"
+                "story_outlet_count,story_first_reported_utc,"
+                "story_resolved_category"
             )
             .in_("story_id", ready_story_ids)
             .execute(),
@@ -769,6 +782,7 @@ def _load_ready_story_pool(
     source_origin_ids = load_source_origin_story_ids(supabase_client, ready_story_ids)
 
     stories: list[CanonicalStory] = []
+    category_override_by_story: dict[str, Any] = {}
     for row in story_rows:
         story_id = str(row["story_id"])
         headline = str(row.get("story_headline") or "")
@@ -809,6 +823,14 @@ def _load_ready_story_pool(
                 member_candidate_ids=[story_id],
             )
         )
+        # Reason: issue #73 — consume the batch's persisted verdict, never re-derive.
+        # Only rows that actually entered the pool get an entry (a skipped story must
+        # not steer anything), and only values the Python FeedCategory Literal knows:
+        # the Postgres enum retains 'podcasts' from migration 0010, which no allocator
+        # bucket accepts. NULL / unknown → no entry → today's tag-based classification.
+        persisted_category = row.get("story_resolved_category")
+        if persisted_category in FEED_CATEGORY_VALUES:
+            category_override_by_story[story_id] = persisted_category
 
     skipped_count = len(story_rows) - len(stories)
     if skipped_count:
@@ -853,7 +875,16 @@ def _load_ready_story_pool(
         )
         for row in tag_rows
     ]
-    return stories, story_interest_tags
+    # Reason: positive evidence, not absent errors. A migration applied but not yet
+    # followed by a batch leaves EVERY story unpinned, which looks identical to "the
+    # override was never wired". This one line separates the two and is the number a
+    # backfill decision hangs on (issue #73 left the backfill as a follow-up).
+    logger.info(
+        "ready_pool_loaded",
+        pool_size=len(stories),
+        persisted_category_count=len(category_override_by_story),
+    )
+    return stories, story_interest_tags, category_override_by_story
 
 
 def _load_single_user_inputs(
@@ -979,7 +1010,9 @@ async def _assemble_for_user(user_id: str, feed_date: date) -> tuple[int, int]:
         )
         raise LookupError(f"No interest profile for user_id={user_id}")
 
-    stories, story_interest_tags = _load_ready_story_pool(supabase)
+    stories, story_interest_tags, category_override_by_story = _load_ready_story_pool(
+        supabase
+    )
     interest_nodes = _load_interest_nodes(supabase)
 
     slots = assemble_user_feed(
@@ -990,6 +1023,11 @@ async def _assemble_for_user(user_id: str, feed_date: date) -> tuple[int, int]:
         followed_entities=user_inputs.followed_entities,
         category_allocation=user_inputs.category_allocation,
         prior_feed_story_ids=set(user_inputs.prior_feed_story_ids),
+        # Reason: issue #73 — the batch's persisted resolve-once verdict. This path
+        # rebuilds stories WITHOUT canonical_themes, so without the override it would
+        # re-derive a category blind to aboutness and could bucket a story differently
+        # from the chip the founder approved. Empty map == pre-0034 behaviour.
+        category_override_by_story=category_override_by_story,
     )
 
     write_result = write_daily_feed(

@@ -343,7 +343,7 @@ def patched_assemble(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     monkeypatch.setattr(pipeline_routes, "_load_single_user_inputs", load_inputs)
 
     # A ready pool of two stand-in stories + tags (contents irrelevant — ranker mocked).
-    load_pool = MagicMock(return_value=(["story-a", "story-b"], ["tag-1"]))
+    load_pool = MagicMock(return_value=(["story-a", "story-b"], ["tag-1"], {}))
     monkeypatch.setattr(pipeline_routes, "_load_ready_story_pool", load_pool)
     monkeypatch.setattr(
         pipeline_routes, "_load_interest_nodes", MagicMock(return_value={})
@@ -853,7 +853,7 @@ def test_ready_pool_excludes_persisted_masthead_headline() -> None:
     This is the whole point of the slice: the row predates the write-time gate, so
     the pool is the last place it can be stopped before it reaches a reel.
     """
-    stories, _tags = pipeline_routes._load_ready_story_pool(
+    stories, _tags, _overrides = pipeline_routes._load_ready_story_pool(
         _ready_pool_client([_MASTHEAD_ROW, _GOOD_ROW])
     )
     assert [s.canonical_story_id for s in stories] == ["story-good"]
@@ -861,7 +861,7 @@ def test_ready_pool_excludes_persisted_masthead_headline() -> None:
 
 def test_ready_pool_keeps_legitimate_persisted_headline() -> None:
     """A real headline is untouched — the gate must not shrink the pool it protects."""
-    stories, _tags = pipeline_routes._load_ready_story_pool(
+    stories, _tags, _overrides = pipeline_routes._load_ready_story_pool(
         _ready_pool_client([_GOOD_ROW])
     )
     assert len(stories) == 1
@@ -925,7 +925,7 @@ def test_ready_pool_logs_no_shrink_summary_when_nothing_is_skipped(
 
 def test_ready_pool_with_no_ready_stories_returns_empty() -> None:
     """No current digest at all → empty pool, no raise (caller answers allocated_count=0)."""
-    assert pipeline_routes._load_ready_story_pool(_FakeSupabase({})) == ([], [])
+    assert pipeline_routes._load_ready_story_pool(_FakeSupabase({})) == ([], [], {})
 
 
 def test_ready_pool_skips_row_with_null_headline() -> None:
@@ -937,7 +937,7 @@ def test_ready_pool_skips_row_with_null_headline() -> None:
     null_row = dict(_MASTHEAD_ROW)
     null_row["story_id"] = "story-null"
     null_row["story_headline"] = None
-    stories, _tags = pipeline_routes._load_ready_story_pool(
+    stories, _tags, _overrides = pipeline_routes._load_ready_story_pool(
         _ready_pool_client([null_row])
     )
     assert stories == []
@@ -985,7 +985,7 @@ def test_ready_pool_excludes_masthead_matching_the_outlet_domain() -> None:
         "story_outlet_count": 2,
         "story_first_reported_utc": "2026-07-07T09:00:00+00:00",
     }
-    stories, _tags = pipeline_routes._load_ready_story_pool(
+    stories, _tags, _overrides = pipeline_routes._load_ready_story_pool(
         _ready_pool_client([domain_masthead, _GOOD_ROW])
     )
     assert [s.canonical_story_id for s in stories] == ["story-good"]
@@ -1006,7 +1006,7 @@ def test_ready_pool_keeps_followed_source_reel_with_a_short_title() -> None:
         "story_outlet_count": 1,
         "story_first_reported_utc": "2026-07-07T09:00:00+00:00",
     }
-    stories, _tags = pipeline_routes._load_ready_story_pool(
+    stories, _tags, _overrides = pipeline_routes._load_ready_story_pool(
         _ready_pool_client(
             [youtube_row, _MASTHEAD_ROW],
             [

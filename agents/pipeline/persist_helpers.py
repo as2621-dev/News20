@@ -224,6 +224,7 @@ def build_story_row(
     key_figure: KeyFigure | None = None,
     detail_category: str | None = None,
     is_breaking: bool = False,
+    resolved_category: str | None = None,
 ) -> dict[str, Any]:
     """Build the ``stories`` insert payload (reference/supabase-schema.md).
 
@@ -243,6 +244,10 @@ def build_story_row(
             nullable; the UI null-guards).
         is_breaking: Whether the story is flagged breaking (from the GDELT coverage
             census). Persisted as ``stories.story_is_breaking``.
+        resolved_category: The batch's resolve-once ``FeedCategory`` verdict, stored
+            on ``stories.story_resolved_category`` (migration 0034, issue #73) so the
+            worker's on-demand assembly reads the verdict instead of re-deriving one.
+            ``None`` → NULL, which the read path treats as "classify from tags".
 
     Returns:
         A column dict for ``stories``.
@@ -272,6 +277,10 @@ def build_story_row(
         # the underlying topic.
         "story_detail_category": detail_category,
         "story_is_breaking": is_breaking,
+        # Reason: the batch's resolve-once category verdict, made durable so the
+        # worker's on-demand assembly consumes it rather than re-deriving a category
+        # from tags alone (issue #73). NULL when no batch verdict exists.
+        "story_resolved_category": resolved_category,
     }
 
 

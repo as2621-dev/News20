@@ -198,6 +198,13 @@ class WritePhaseResult(BaseModel):
         story_interest_tags: The story's ``story_interests`` tag payloads (SP1).
         suggested_questions: Optional suggested-question strings.
         segment_slug: The segment resolved ONCE in write (detail + persist agree).
+        resolved_category: The batch's resolve-once category verdict
+            (``compute_category_verdicts``) carried VERBATIM for persistence into
+            ``stories.story_resolved_category`` (issue #73). ``None`` for direct
+            callers with no batch verdict — the column stays NULL, which the read
+            path treats as "classify from tags", i.e. today's behaviour. Distinct
+            from ``segment_slug``, which folds the same verdict onto the narrower
+            ``segment_slug`` enum.
 
     Example:
         >>> # constructed by orchestrator.write_phase; see that module.
@@ -229,6 +236,10 @@ class WritePhaseResult(BaseModel):
     )
     segment_slug: str = Field(
         ..., description="Segment resolved once in write (detail + persist agree)"
+    )
+    resolved_category: str | None = Field(
+        default=None,
+        description="The batch's resolve-once FeedCategory verdict, persisted verbatim",
     )
 
 

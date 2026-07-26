@@ -108,7 +108,7 @@ def _category_through_worker_read_path(tag_rows: list[dict[str, object]]) -> str
     hand-building ``StoryInterestTag`` objects: the loader is where the missing date
     scoping lives, and it is the seam that hands mixed-vintage rows to the ranker.
     """
-    _stories, story_interest_tags = pipeline_routes._load_ready_story_pool(
+    _stories, story_interest_tags, _overrides = pipeline_routes._load_ready_story_pool(
         _pool_client(tag_rows)
     )
     return assign_category(

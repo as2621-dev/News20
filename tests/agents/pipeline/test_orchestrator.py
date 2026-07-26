@@ -671,3 +671,99 @@ class TestPinnedSegmentVerdict:
 
         assert result is not None
         assert result.segment_slug == _SEGMENT_LOOKUP["int-arsenal"]
+
+
+class TestResolvedCategoryPersistence:
+    """Issue #73: the batch's verdict becomes DURABLE on the same pin seam.
+
+    WHY (Rule 9): the worker's on-demand assembly rebuilds stories from the ``stories``
+    table without ``canonical_themes``, so it cannot re-derive the batch's category — it
+    has to read one. That only works if every produced story carries the verdict out of
+    the SAME seam that already pins ``story_segment_slug`` (no second resolver, nothing
+    to drift). These tests assert the value survives write → render → the ``stories``
+    insert payload, and that a story with no batch verdict writes NULL rather than a
+    guess.
+    """
+
+    @pytest.mark.asyncio
+    async def test_batch_pin_is_persisted_as_the_resolved_category(
+        self, canonical_story, story_interest_tags
+    ) -> None:
+        """The pin rides write → render → persist onto ``story_resolved_category``."""
+        write_result = await orch.write_phase(
+            canonical_story,
+            story_interest_tags=story_interest_tags,
+            llm_client=_llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED),
+            story_id="FIXTURE-SP3-pinned",
+            interest_segment_lookup=_SEGMENT_LOOKUP,
+            pinned_segment_slug="tech",
+        )
+        assert write_result is not None
+        assert write_result.resolved_category == "tech"
+
+        supabase = FakeSupabaseClient()
+        await orch.render_phase(
+            write_result,
+            tts_client=_tts_returning_audio(),
+            supabase_client=supabase,
+            poster_genai_client=None,
+        )
+
+        story_row = supabase.captured_inserts["stories"][0]
+        assert story_row["story_resolved_category"] == "tech"
+        # Reason: ONE verdict, two columns — the narrower segment enum and the durable
+        # category must not disagree, which is the whole point of pinning both here.
+        assert story_row["story_segment_slug"] == "tech"
+
+    @pytest.mark.asyncio
+    async def test_without_a_pin_the_column_is_null(
+        self, canonical_story, story_interest_tags
+    ) -> None:
+        """No batch verdict → NULL, never a guess.
+
+        A direct caller (e2e fixture, script) has no resolve-once verdict to offer, and
+        NULL is what the read path reads as "classify from tags" — i.e. exactly the
+        behaviour that existed before the column. Writing the tag-derived segment here
+        instead would fabricate a verdict the batch never issued.
+        """
+        write_result = await orch.write_phase(
+            canonical_story,
+            story_interest_tags=story_interest_tags,
+            llm_client=_llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED),
+            story_id="FIXTURE-SP3-unpinned",
+            interest_segment_lookup=_SEGMENT_LOOKUP,
+        )
+        assert write_result is not None
+        assert write_result.resolved_category is None
+
+        supabase = FakeSupabaseClient()
+        await orch.render_phase(
+            write_result,
+            tts_client=_tts_returning_audio(),
+            supabase_client=supabase,
+            poster_genai_client=None,
+        )
+        assert supabase.captured_inserts["stories"][0]["story_resolved_category"] is None
+
+    @pytest.mark.asyncio
+    async def test_pin_outside_the_feed_category_literal_is_not_persisted(
+        self, canonical_story, story_interest_tags
+    ) -> None:
+        """Edge: an unrecognised pin writes NULL instead of failing the INSERT.
+
+        ``story_resolved_category`` is a Postgres enum, so a value outside it would
+        abort the whole story insert after TTS + poster spend. ``write_phase`` is a
+        public function any caller can hand a string, so the guard belongs here.
+        """
+        write_result = await orch.write_phase(
+            canonical_story,
+            story_interest_tags=story_interest_tags,
+            llm_client=_llm_returning(_SCRIPT_JSON, _VERIFY_GROUNDED),
+            story_id="FIXTURE-SP3-bad-pin",
+            interest_segment_lookup=_SEGMENT_LOOKUP,
+            pinned_segment_slug="not-a-category",
+        )
+        assert write_result is not None
+        assert write_result.resolved_category is None
+        # The segment still resolves from the tags — an unusable pin is ignored, not fatal.
+        assert write_result.segment_slug == _SEGMENT_LOOKUP["int-arsenal"]

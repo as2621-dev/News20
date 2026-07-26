@@ -58,7 +58,11 @@ from agents.pipeline.stages.detail_enrichment import (
     DetailEnrichment,
     run_detail_enrichment,
 )
-from agents.pipeline.categories import CategoryAllocation, FeedCategory
+from agents.pipeline.categories import (
+    FEED_CATEGORY_VALUES,
+    CategoryAllocation,
+    FeedCategory,
+)
 from agents.pipeline.stages.ranking import FollowedEntity, UserProfileInterest
 from agents.pipeline.stages.acoustic_alignment import acoustically_align_turn_windows
 from agents.pipeline.stages.forced_alignment import (
@@ -488,7 +492,9 @@ async def write_phase(
             given it IS the segment — the persisted ``story_segment_slug`` must
             match the chip the founder approved and the cap bucket the story
             occupied, not a second resolver's opinion. ``None`` → the legacy
-            tag-based resolution (direct callers without a batch verdict).
+            tag-based resolution (direct callers without a batch verdict). Also
+            carried verbatim onto ``WritePhaseResult.resolved_category`` so persist
+            can store it durably (issue #73).
         pool_index: Zero-based position in the day's production pool, threaded into
             scripting to rotate the opener archetype + handoff style (cross-reel
             diversity). ``None`` → generic opener/handoff (single-story callers).
@@ -512,6 +518,14 @@ async def write_phase(
     ) or resolve_segment_from_tags(story_interest_tags, interest_segment_lookup)
     if segment_slug is None:
         raise SegmentResolutionError(story_id=story.canonical_story_id)
+    # Reason: issue #73 — the same pin, carried VERBATIM (not folded onto the narrower
+    # segment_slug enum) so persist can make the batch's verdict durable on
+    # stories.story_resolved_category. Membership-checked because the column is a
+    # feed_category enum and a direct caller can pass any string: an unrecognised pin
+    # persists as NULL (today's behaviour) rather than failing the INSERT.
+    resolved_category = (
+        pinned_segment_slug if pinned_segment_slug in FEED_CATEGORY_VALUES else None
+    )
     # Reason: with no rewrite to rescue it, a masthead/fragment source title can only
     # end up as the published headline — reject it here, before any LLM spend. With
     # the rewrite on, the story gets its chance and is re-checked after (below).
@@ -575,6 +589,7 @@ async def write_phase(
         story_interest_tags=story_interest_tags,
         suggested_questions=suggested_questions,
         segment_slug=segment_slug,
+        resolved_category=resolved_category,
     )
 
 
@@ -674,6 +689,9 @@ async def render_phase(
         # Reason: the segment resolved ONCE in write_phase — persist consumes it
         # instead of re-resolving from the raw tags (issue #61).
         segment_slug=write_result.segment_slug,
+        # Reason: the same verdict, unfolded, so the read path can consume it rather
+        # than re-derive a category without the theme side-channel (issue #73).
+        resolved_category=write_result.resolved_category,
     )
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)

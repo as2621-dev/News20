@@ -278,6 +278,7 @@ def persist_digest(
     coverage_report: CoverageReport | None = None,
     interest_segment_lookup: dict[str, str] | None = None,
     segment_slug: str | None = None,
+    resolved_category: str | None = None,
 ) -> PersistResult:
     """Persist one produced digest end-to-end (uploads + content INSERTs).
 
@@ -317,6 +318,13 @@ def persist_digest(
             — so the "resolve once" invariant holds and ``segment_resolution_conflict``
             is not logged a second time per story (issue #61). ``None`` (direct
             callers) falls back to resolving from ``interest_segment_lookup``.
+        resolved_category: The batch's resolve-once ``FeedCategory`` verdict for this
+            story, stored verbatim on ``stories.story_resolved_category`` so the
+            worker's on-demand feed assembly consumes it instead of re-deriving a
+            category without the theme side-channel (issue #73). ``None`` (direct
+            callers with no batch verdict) leaves the column NULL, which the read path
+            treats as "classify from tags" — exactly the behaviour before the column
+            existed. NOT re-derived here: this is a carry, not a second resolver.
 
     Returns:
         A :class:`PersistResult` listing every created row id + storage path.
@@ -406,6 +414,7 @@ def persist_digest(
         key_figure=enrichment.key_figure if enrichment else None,
         detail_category=detail_category,
         is_breaking=is_breaking,
+        resolved_category=resolved_category,
     )
     _insert_rows(supabase_client, "stories", [story_row], result, pk_column=None)
     result.created_table_row_ids.setdefault("stories", []).append(resolved_story_id)
