@@ -70,6 +70,7 @@ from agents.ingestion.candidate_language import (
     build_language_filter_sql,
     evaluate_language_admission,
 )
+from agents.ingestion.candidate_title import clean_candidate_title
 from agents.ingestion.models import ActiveInterest, CandidateStory
 from agents.shared.exceptions import AdapterFetchError
 from agents.shared.logger import get_logger
@@ -674,6 +675,8 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
         candidates: list[CandidateStory] = []
         rejected_by_reason: dict[str, int] = {}
         blind_admissions = 0
+        titles_cleaned = 0
+        first_cleaned_example: tuple[str, str] | None = None
         for row in rows:
             url = (row.get("url") or "").strip()
             title = (row.get("title") or "").strip()
@@ -703,10 +706,20 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                     matched_interest_id = interest_id
                     matched_interest_slug = row.get("interest_slug")
 
+            # Reason (#71): clean AFTER the language verdict, never before. The gate
+            # entity-decodes internally for detection, so cleaning first would stack a
+            # second decode on a double-escaped title AND delete the outlet suffix that
+            # is sometimes the row's only non-Latin evidence ("- CFi.CN 中财网").
+            clean_title = clean_candidate_title(
+                title, outlet_name=domain, outlet_domain=domain
+            )
+            if clean_title != title:
+                titles_cleaned += 1
+                first_cleaned_example = first_cleaned_example or (title, clean_title)
             candidates.append(
                 CandidateStory(
                     candidate_external_id=url,
-                    candidate_title=title,
+                    candidate_title=clean_title,
                     candidate_url=url,
                     candidate_outlet_domain=domain,
                     candidate_outlet_name=domain,
@@ -725,6 +738,18 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                 rejected_total=sum(rejected_by_reason.values()),
                 rejected_by_reason=rejected_by_reason,
                 candidates_admitted=len(candidates),
+            )
+        if first_cleaned_example:
+            # Reason (Rule 12, #71): title hygiene REWRITES what the founder reviews and
+            # what persists as canonical_title, so it must never be invisible. One
+            # aggregate line per call, with a worked example, is enough to spot an
+            # over-eager strip in the run log without burying a 5000-row batch.
+            logger.info(
+                "gdelt_candidate_titles_cleaned",
+                rows_in=len(rows),
+                titles_cleaned=titles_cleaned,
+                example_raw_title=first_cleaned_example[0][:160],
+                example_clean_title=first_cleaned_example[1][:160],
             )
         if blind_admissions:
             # Reason (Rule 12): these rows carried NO language evidence either way —

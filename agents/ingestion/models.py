@@ -119,7 +119,9 @@ class CandidateStory(BaseModel):
 
     Attributes:
         candidate_external_id: Stable per-article id (the article URL by default).
-        candidate_title: Article headline as reported by the source.
+        candidate_title: Article headline as reported by the source — HTML-entity
+            decoded and masthead-suffix stripped at GDELT admission (#71), so it is
+            already the publishable form, not the raw ``<PAGE_TITLE>``.
         candidate_url: Canonical URL to the original article.
         candidate_outlet_domain: Publisher domain, e.g. 'cnn.com' (GDELT `domain`).
         candidate_outlet_name: Display name for the outlet (defaults to the domain).

@@ -29,6 +29,7 @@ import httpx
 import trafilatura
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
+from agents.ingestion.candidate_title import clean_candidate_title
 from agents.ingestion.models import CandidateStory
 from agents.shared.exceptions import AdapterFetchError
 from agents.shared.logger import get_logger
@@ -467,9 +468,14 @@ class GdeltDocAdapter(BaseNewsAdapter):
         published_utc = self._parse_seendate(article.get("seendate"))
         social_image = (article.get("socialimage") or "").strip() or None
 
+        # Reason (#71): the same title hygiene as the BigQuery path — this adapter is
+        # the other door into the pool, so leaving it out would let entity soup and
+        # masthead suffixes back in through the scalpel path.
         return CandidateStory(
             candidate_external_id=url,
-            candidate_title=title,
+            candidate_title=clean_candidate_title(
+                title, outlet_name=domain, outlet_domain=domain
+            ),
             candidate_url=url,
             candidate_outlet_domain=domain,
             candidate_outlet_name=domain,

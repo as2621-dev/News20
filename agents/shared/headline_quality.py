@@ -36,8 +36,12 @@ _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
 _LEADING_ARTICLE = re.compile(r"^the ")
 
 
-def _comparison_key(text: str) -> str:
+def comparison_key(text: str) -> str:
     """Lowercase, article-stripped, alphanumeric-only form used for outlet matching.
+
+    Public because title hygiene at ingestion (``agents/ingestion/candidate_title.py``)
+    matches a trailing suffix against the same outlet keys — one normalizer, or the two
+    seams drift and a suffix this module would call a masthead survives over there.
 
     Args:
         text: Any title, outlet name, or outlet domain.
@@ -46,7 +50,7 @@ def _comparison_key(text: str) -> str:
         The comparison key ("" when the text carries no alphanumerics).
 
     Example:
-        >>> _comparison_key("The Language Magazine!") == _comparison_key("language magazine")
+        >>> comparison_key("The Language Magazine!") == comparison_key("language magazine")
         True
     """
     lowered = _LEADING_ARTICLE.sub("", text.strip().lower())
@@ -74,8 +78,32 @@ def _domain_keys(outlet_domain: str) -> set[str]:
     """
     host = outlet_domain.strip().lower().removeprefix("www.")
     labels = [label for label in host.split(".") if label][:-1]
-    keys = {_comparison_key(label) for label in labels}
-    keys.add(_comparison_key("".join(labels)))
+    keys = {comparison_key(label) for label in labels}
+    keys.add(comparison_key("".join(labels)))
+    return {key for key in keys if key}
+
+
+def outlet_comparison_keys(
+    outlet_name: str | None, outlet_domain: str | None
+) -> set[str]:
+    """Every comparison key this outlet's own name could be written as in a title.
+
+    The union of the display name's key and the domain's label keys, empties dropped.
+
+    Args:
+        outlet_name: The outlet's display name, when known.
+        outlet_domain: The outlet's domain, when known.
+
+    Returns:
+        The set of non-empty comparison keys (empty when neither is known).
+
+    Example:
+        >>> sorted(outlet_comparison_keys("Channel Africa", None))
+        ['channelafrica']
+    """
+    keys = {comparison_key(outlet_name or "")}
+    if outlet_domain:
+        keys |= _domain_keys(outlet_domain)
     return {key for key in keys if key}
 
 
@@ -109,10 +137,8 @@ def headline_rejection_reason(
     if not stripped:
         return "empty"
 
-    title_key = _comparison_key(stripped)
-    outlet_keys = {_comparison_key(outlet_name or "")}
-    if outlet_domain:
-        outlet_keys |= _domain_keys(outlet_domain)
+    title_key = comparison_key(stripped)
+    outlet_keys = outlet_comparison_keys(outlet_name, outlet_domain)
     if title_key and title_key in outlet_keys:
         return "title_equals_outlet"
 
