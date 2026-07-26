@@ -99,6 +99,10 @@ from agents.pipeline.produce_caps import (  # noqa: E402
 from agents.pipeline.llm_clients import LLMClient  # noqa: E402
 from agents.pipeline.persist_helpers import load_outlets_lookup  # noqa: E402
 from agents.pipeline.poster_gate import poster_generation_disabled  # noqa: E402
+from agents.pipeline.run_flags import (  # noqa: E402
+    semantic_relevance_key_enabled,
+    shortlist_only_enabled,
+)
 from agents.pipeline.shortlist import build_shortlist_artifact  # noqa: E402
 from agents.shared.logger import get_logger  # noqa: E402
 from agents.voice.gemini_tts import GeminiTTSClient  # noqa: E402
@@ -382,7 +386,9 @@ async def _run() -> int:
     # halting at story selection and dumping the would-produce shortlist for
     # founder review. Producing a real batch now requires the explicit opt-out
     # SHORTLIST_ONLY=0 — reels are made only after the founder approves a list.
-    shortlist_only = os.environ.get("SHORTLIST_ONLY", "1") == "1"
+    # Read through the shared module the worker route reads (issue #66) so the two
+    # production entry points cannot drift on the default.
+    shortlist_only = shortlist_only_enabled()
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
     produce_cap_headroom = float(os.environ.get("PRODUCE_CAP_HEADROOM", "2.0"))
     lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
@@ -568,7 +574,7 @@ async def _run() -> int:
             # similarity clears the threshold (closes the zoning/'data center' RC3 case the
             # lexical key alone admits). Paid gemini-embedding-001 (one batched call/run,
             # N+M embeddings). Set ENABLE_SEMANTIC_RELEVANCE_KEY=0 for lexical-only admission.
-            enable_semantic_relevance_key=os.environ.get("ENABLE_SEMANTIC_RELEVANCE_KEY", "1") == "1",
+            enable_semantic_relevance_key=semantic_relevance_key_enabled(),
         )
         stories = result.canonical_stories
         tags = result.story_interest_tags

@@ -26,7 +26,7 @@ import hmac
 import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import (
     APIRouter,
@@ -41,6 +41,9 @@ from pydantic import BaseModel, Field
 
 from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
+
+if TYPE_CHECKING:  # pragma: no cover — typing only, keeps the cold-start graph small
+    from agents.pipeline.shortlist import ShortlistArtifact
 
 logger = get_logger("worker.pipeline")
 
@@ -355,6 +358,18 @@ async def _run_daily(
     ``fix_suggestion`` (Rule 12 — a background failure must surface, never be silently
     swallowed) and re-raised so the task runner records it.
 
+    Two env flags decide what a run costs, both read from
+    :mod:`agents.pipeline.run_flags` so this path and the local script share one
+    default (change either on Railway, no deploy needed):
+
+    * ``SHORTLIST_ONLY`` (default 1 — HALT) — stop at story selection and log the
+      would-produce list for founder review; zero script/TTS/poster spend. Set to
+      ``0`` to produce (issue #66).
+    * ``ENABLE_SEMANTIC_RELEVANCE_KEY`` (default 1 — ARMED) — run the semantic half
+      of the two-key relevance lock during ingestion; costs one batched
+      ``gemini-embedding-001`` call per run. Set to ``0`` for lexical-only
+      admission (issue #65).
+
     Args:
         target_date: The ``daily_feeds.feed_date`` to produce (from the request body).
         max_total_productions: Overall production ceiling (``<=0`` → uncapped).
@@ -383,7 +398,18 @@ async def _run_daily(
         from agents.pipeline.llm_clients import LLMClient
         from agents.pipeline.persist_helpers import load_outlets_lookup
         from agents.pipeline.poster_gate import poster_generation_disabled
+        from agents.pipeline.run_flags import (
+            semantic_relevance_key_enabled,
+            shortlist_only_enabled,
+        )
+        from agents.pipeline.shortlist import build_shortlist_artifact
         from agents.voice.gemini_tts import GeminiTTSClient
+
+        # Reason (issue #66): the founder's shortlist-first rule is read from the
+        # SAME shared module scripts/run_live_batch.py reads, so the deployed worker
+        # and the local script cannot drift. Default = halt: a Railway cron fire
+        # spends zero production credits until SHORTLIST_ONLY=0 is set explicitly.
+        shortlist_only = shortlist_only_enabled()
 
         supabase = _build_service_role_supabase()
 
@@ -445,6 +471,12 @@ async def _run_daily(
         resolver = build_story_id_resolver(supabase)
         since_utc = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
+        # Reason: built BEFORE ingest_fn — the semantic relevance key reuses this
+        # exact client for its embeddings (one Gemini client per run), and building
+        # it up front mirrors scripts/run_live_batch.py rather than relying on the
+        # closure's late binding.
+        llm_client = LLMClient()
+
         async def ingest_fn():  # type: ignore[no-untyped-def]
             result = await ingest_active_interests(
                 followed_interest_ids=followed_ids,
@@ -452,6 +484,16 @@ async def _run_daily(
                 adapter=niche_adapter,
                 since_utc=since_utc,
                 resolve_existing_story_ids=resolver,
+                llm_client=llm_client,
+                # Reason (issue #65): the SEMANTIC half of the two-key relevance lock
+                # was dead on this path — neither argument was passed, and the key is
+                # guarded on `llm_client is not None` as well as the flag, so the
+                # worker admitted stories on the lexical key alone every run (the RC3
+                # zoning/'data center' false positives reached real feeds). Defaults
+                # ON, same env var and same default as run_live_batch.py, so it is
+                # flippable from the Railway dashboard without a deploy. Cost: one
+                # batched gemini-embedding-001 call per worker run (N+M embeddings).
+                enable_semantic_relevance_key=semantic_relevance_key_enabled(),
                 # Reason: per-anchor GDELT DOC scalpel (issue #16) — a single
                 # SEQUENTIAL, throttled DOC loop that fills the long-tail WHO anchors
                 # the batched BigQuery workhorse missed, tagged to their interest node.
@@ -461,9 +503,16 @@ async def _run_daily(
                 # the BigQuery niche pool untouched (BigQuery-only night).
                 doc_scalpel_adapter=census_adapter,
             )
-            return result.canonical_stories, result.story_interest_tags
+            # Issue #67: the run stamp rides along as the optional third element so
+            # the pipeline result records WHICH relevance mode this run actually ran
+            # (semantic / disabled / degraded) — an embedding outage is then visible
+            # as positive evidence, not inferred from an absent error.
+            return (
+                result.canonical_stories,
+                result.story_interest_tags,
+                result.semantic_relevance,
+            )
 
-        llm_client = LLMClient()
         tts_client = GeminiTTSClient()
         # Reason (issue #32 kill switch): DISABLE_POSTER_GEN=1 must make image-model
         # spend impossible — skip constructing the image client entirely. Source
@@ -502,14 +551,22 @@ async def _run_daily(
             # reels → honest ladder x slots). Off by default, same gate as the
             # run_live_batch entry point — one flag, both entry points.
             enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
+            shortlist_only=shortlist_only,
         )
         logger.info(
             "pipeline_daily_run_completed",
             run_id=run_id,
             target_date=target_date.isoformat(),
+            shortlist_only=shortlist_only,
+            # Reason: the run mode is logged POSITIVELY (docs/solutions:
+            # proving-run-mode-needs-positive-evidence-not-absent-errors) — a clean
+            # grep for semantic_relevance_embed_failed proves nothing on its own.
+            semantic_relevance_mode=result.semantic_relevance.semantic_relevance_mode,
             produced_story_count=result.produced_story_count,
             feeds_written=result.feeds.feeds_written if result.feeds else 0,
         )
+        if shortlist_only:
+            _log_shortlist_for_review(build_shortlist_artifact(result), run_id=run_id)
     except Exception as exc:  # noqa: BLE001 — log loudly, then re-raise.
         # Reason: a background failure must be surfaced, not swallowed (Rule 12).
         logger.error(
@@ -523,6 +580,44 @@ async def _run_daily(
             ),
         )
         raise
+
+
+def _log_shortlist_for_review(artifact: "ShortlistArtifact", run_id: str) -> None:
+    """Emit a halted run's would-produce shortlist as structured logs (issue #66).
+
+    DECISION (issue #66, artifact destination): log-only. ``scripts/run_live_batch.py``
+    writes the artifact to ``.agents/shortlists/<date>-shortlist.json``, but the
+    deployed worker has no repo checkout to write into and a Supabase table would
+    need a new migration for a review list that is read once. The run header plus one
+    line per story is enough for the founder to review a halted cron run from the
+    Railway log, and a table can replace this later without touching the halt itself
+    (filed as a follow-up in ``docs/residual-review-findings/issue-66-65.md``).
+
+    One line PER ENTRY rather than one blob: a 30-story list inside a single log
+    record is the first thing a log viewer truncates, and a truncated review list is
+    worse than none.
+
+    Args:
+        artifact: The ``ShortlistArtifact`` built from the halted pipeline result.
+        run_id: The opaque run id, for log correlation with the run's other events.
+    """
+    header = artifact.shortlist_run
+    logger.info(
+        "pipeline_daily_shortlist_run",
+        run_id=run_id,
+        **header.model_dump(),
+        fix_suggestion=(
+            "This run HALTED before production (SHORTLIST_ONLY defaults to 1). "
+            "Review the pipeline_daily_shortlist_entry lines below, then set "
+            "SHORTLIST_ONLY=0 on the worker and re-trigger to produce."
+        ),
+    )
+    for entry in artifact.shortlist_entries:
+        logger.info(
+            "pipeline_daily_shortlist_entry",
+            run_id=run_id,
+            **entry.model_dump(),
+        )
 
 
 def _build_interest_segment_lookup(rows: list[dict]) -> dict[str, str]:
