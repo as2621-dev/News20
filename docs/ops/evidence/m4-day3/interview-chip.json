@@ -1,0 +1,119 @@
+{
+  "persona": "chip",
+  "completed_interview": true,
+  "terminal_interest_labels": [
+    "TSMC, Nvidia & Chip Export Controls",
+    "Semiconductor Industry",
+    "Chip Tech & Hardware"
+  ],
+  "taps": 27,
+  "turns": 13,
+  "wall_seconds": 80.6,
+  "budget_total": "30 / 30",
+  "built_my_30": true,
+  "final_url": "http://127.0.0.1:3100/",
+  "final_body_excerpt": "7:18\nbl\nı\np\nSUN · JUL 26\n01 / 30\nTSMC — 8\nChinese AI Champion DeepSeek Develops Custom Inference Chip\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n02 / 30\nTSMC — 8\nSamsung Stock Drop Pressures Chip Shares, Signals Higher AI Demands\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n03 / 30\nTSMC — 8\nIndia's Chip Manufacturing Faces Execution Issues, Imports Over 90% Equipment\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n04 / 30\nNothing new in TSMC today — here's Semiconductors\nTSMC — 8\nChinese Chip Simulates Brain 478 Times Faster Than Nvidia A100\nAsk anything about this story…\nbl\nı",
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "transcript": [
+    {
+      "step": "splash",
+      "tapped": "Get started"
+    },
+    {
+      "turn": 1,
+      "question": "What kind of news do you want in your feed? Tap all that pull you in.",
+      "chips_tapped": [
+        "Geopolitics",
+        "Business",
+        "Tech"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 2,
+      "question": "Which areas of geopolitics do you want to follow closely?",
+      "typed": "TSMC chip foundry, Nvidia AI chips, and chip export controls",
+      "chips_tapped": []
+    },
+    {
+      "turn": 3,
+      "question": "What areas of business and finance are you most interested in?",
+      "chips_tapped": [
+        "Semiconductor Industry"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 4,
+      "question": "Since you're following chips and semiconductors, what areas of tech news should we add?",
+      "chips_tapped": [
+        "Chip Tech & Hardware"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 5,
+      "question": "TSMC chip foundry, Nvidia AI chips, and chip export controls — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 6,
+      "question": "Semiconductor Industry — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 7,
+      "question": "Chip Tech & Hardware — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 8,
+      "question": "How do you prefer to follow the geopolitics of chips?",
+      "chips_tapped": [
+        "Tech industry insider views"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 9,
+      "question": "Within the geopolitics of chips, what are you totally sick of and want muted from your feed?",
+      "chips_tapped": [
+        "Consumer tech reviews"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 10,
+      "question": "How do you prefer to read about the Semiconductor Industry?",
+      "typed_fallback": true
+    },
+    {
+      "turn": 11,
+      "question": "What topics in the semiconductor industry are you completely sick of and want to mute?",
+      "typed_fallback": true
+    },
+    {
+      "turn": 12,
+      "question": "How do you prefer to read about Chip Tech & Hardware?",
+      "chips_tapped": [
+        "Deep technical analysis"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 13,
+      "question": "Within Chip Tech & Hardware, what are you totally sick of and want muted from your feed?",
+      "typed_fallback": true
+    },
+    {
+      "step": "youtube-picker",
+      "confirmed": true
+    },
+    {
+      "step": "x-cluster-picker",
+      "confirmed": true
+    }
+  ]
+}

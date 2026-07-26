@@ -1,0 +1,126 @@
+{
+  "persona": "founder",
+  "completed_interview": true,
+  "terminal_interest_labels": [
+    "Generative AI & LLMs",
+    "Foundation Models",
+    "Venture Capital & Startup Funding",
+    "Developer Tools",
+    "Tech Startups & IPOs",
+    "Database Tech"
+  ],
+  "taps": 28,
+  "turns": 14,
+  "wall_seconds": 88.6,
+  "budget_total": "30 / 30",
+  "built_my_30": true,
+  "final_url": "http://127.0.0.1:3100/",
+  "final_body_excerpt": "7:18\nbl\nı\np\nSUN · JUL 26\n01 / 30\nFOUNDATION MODELS — 7\nLanguage Magazine\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n02 / 30\nFOUNDATION MODELS — 7\nGoogle DeepMind Releases Gemma 4 Report on Multimodal Open Models\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n03 / 30\nFOUNDATION MODELS — 7\nIndia Prioritizes Indonesia's Sabang Port After Other Project Setbacks\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n04 / 30\nFOUNDATION MODELS — 7\nUndead Labs Confirms State of Decay 3 Still in Development After Xbox Split\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n05 / 30\nFOUNDATION M",
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "transcript": [
+    {
+      "step": "splash",
+      "tapped": "Get started"
+    },
+    {
+      "turn": 1,
+      "question": "What kind of news do you want in your feed? Tap all that pull you in.",
+      "chips_tapped": [
+        "AI",
+        "Business",
+        "Tech"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 2,
+      "question": "What areas of AI are you most interested in following?",
+      "typed": "foundation models, venture capital and startup funding, developer tools",
+      "chips_tapped": [
+        "Generative AI & LLMs"
+      ]
+    },
+    {
+      "turn": 3,
+      "question": "Within business and startup funding, what specific areas do you want to track?",
+      "chips_tapped": [
+        "Tech Startups & IPOs"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 4,
+      "question": "Which developer tools or tech infrastructure areas do you want to follow?",
+      "chips_tapped": [
+        "Database Tech"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 5,
+      "question": "Generative AI & LLMs — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 6,
+      "question": "foundation models, venture capital and startup funding, developer tools — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 7,
+      "question": "Tech Startups & IPOs — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 8,
+      "question": "Database Tech — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 9,
+      "question": "When you're reading about AI, what's your preferred angle?",
+      "chips_tapped": [
+        "Deep technical analysis"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 10,
+      "question": "What are you absolutely sick of seeing in AI news and want completely muted from your feed?",
+      "chips_tapped": [
+        "AI doom & safety debates"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 11,
+      "question": "When you're tracking Tech Startups & IPOs, what's your preferred angle?",
+      "typed_fallback": true
+    },
+    {
+      "turn": 12,
+      "question": "What are you sick of seeing in Tech Startups & IPOs news and want completely muted?",
+      "typed_fallback": true
+    },
+    {
+      "turn": 13,
+      "question": "When you're reading about Database Tech, what's your preferred angle?",
+      "typed_fallback": true
+    },
+    {
+      "turn": 14,
+      "question": "What are you absolutely sick of seeing in Database Tech and developer tools news that we should mute?",
+      "typed_fallback": true
+    },
+    {
+      "step": "youtube-picker",
+      "confirmed": true
+    },
+    {
+      "step": "x-cluster-picker",
+      "confirmed": true
+    }
+  ]
+}

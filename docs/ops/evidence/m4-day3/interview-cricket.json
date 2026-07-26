@@ -1,0 +1,72 @@
+{
+  "persona": "cricket",
+  "completed_interview": true,
+  "terminal_interest_labels": [
+    "IPL Indian Premier League",
+    "India Cricket Team",
+    "Cricket World Cup"
+  ],
+  "taps": 15,
+  "turns": 6,
+  "wall_seconds": 52.9,
+  "budget_total": "30 / 30",
+  "built_my_30": true,
+  "final_url": "http://127.0.0.1:3100/",
+  "final_body_excerpt": "7:18\nbl\nı\np\nSUN · JUL 26\n01 / 30\nIPL — 3\nIndonesia to Adopt India's Electronic Voting System\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n02 / 30\nIPL — 3\nStrand Life Sciences Patents Liquid Biopsy Platform for Early Cancer Detection\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n03 / 30\nIPL — 3\nEverton, Crystal Palace Pursue Pape Guèye After World Cup\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n04 / 30\nTEAM INDIA CRICKET — 7\nAfghan Agriculture Minister Omari Arrives in India for Official Visit\nAsk anything about this story…\nbl\nı\np\nSUN · JUL 26\n05 / 30\nTEAM INDIA CRICKET — 7\nIn",
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "transcript": [
+    {
+      "step": "splash",
+      "tapped": "Get started"
+    },
+    {
+      "turn": 1,
+      "question": "What kind of news do you want in your feed? Tap all that pull you in.",
+      "chips_tapped": [
+        "Sport"
+      ],
+      "submitted": true
+    },
+    {
+      "turn": 2,
+      "question": "Which sports do you follow the most?",
+      "typed": "IPL Indian Premier League, the India cricket team, and the Cricket World Cup",
+      "chips_tapped": [
+        "Cricket"
+      ]
+    },
+    {
+      "turn": 3,
+      "question": "Cricket — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 4,
+      "question": "IPL Indian Premier League, the India cricket team, and the Cricket World Cup — a specific series, team, org, or person you follow? Name one, or skip.",
+      "typed_fallback": true
+    },
+    {
+      "turn": 5,
+      "question": "How do you prefer to follow Cricket? What's your favorite angle?",
+      "typed_fallback": true
+    },
+    {
+      "turn": 6,
+      "question": "What cricket topics or content are you totally sick of and want kept out of your feed?",
+      "chips_tapped": [
+        "Fantasy cricket & betting"
+      ],
+      "submitted": true
+    },
+    {
+      "step": "youtube-picker",
+      "confirmed": true
+    },
+    {
+      "step": "x-cluster-picker",
+      "confirmed": true
+    }
+  ]
+}

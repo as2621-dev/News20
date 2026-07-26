@@ -1,0 +1,144 @@
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/auth/v1/admin/users?page=1&per_page=200 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/auth/v1/admin/users?page=2&per_page=200 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/user_interest_profile?select=profile_interest_id%2Cprofile_display_label&profile_user_id=eq.5287026e-0b4b-4511-8a50-b6eea9d43da2 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/interests?select=interest_id%2Cinterest_slug%2Cinterest_label&interest_id=in.%280c149ee2-9fec-4181-b1a6-fb01812ba73f%2C9bef60f0-3dc1-4e5f-aa71-f78a09aea5c3%2Cfc698060-8fa0-41f4-a42a-35b537afccd8%2C3f69ab85-64ae-48a9-bf2c-af6789d4bec6%2Ccc70a2b3-6c4e-4322-9fd6-c71dac19ac58%2Caf7c40dd-0016-449e-8584-62e346d90f8e%29 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/user_interest_profile?select=profile_interest_id%2Cprofile_display_label&profile_user_id=eq.5044e496-adb2-411b-90a0-1669683ea4cc \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/interests?select=interest_id%2Cinterest_slug%2Cinterest_label&interest_id=in.%2875b7757e-b5fb-4ad4-92fe-5c881c2ed2de%2Cf28ac0c6-4a0a-438b-85ab-bb1976b57669%2Cbd90b072-2733-4605-b6fc-eb91d07e5356%29 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/user_interest_profile?select=profile_interest_id%2Cprofile_display_label&profile_user_id=eq.4856bcd0-5da3-48fe-b9d7-c133eb203d81 \"HTTP/2 200 OK\""}
+{"event": "HTTP Request: GET https://cerfennlcgureyifraqy.supabase.co/rest/v1/interests?select=interest_id%2Cinterest_slug%2Cinterest_label&interest_id=in.%28f7f66c86-204d-457b-9aaf-991cec13d8a7%2C774d0eda-6d7c-44e6-bfd7-00d5ea2028aa%2C2560636b-4020-482f-a148-bbdaec3d943f%29 \"HTTP/2 200 OK\""}
+{"feed_date": "2026-07-26", "persona_count": 3, "shortlist_entry_count": 21, "overall_hit_rate": 0.5833, "meets_target": false, "event": "selection_census_built", "level": "info", "logger": "pipeline.selection_census", "timestamp": "2026-07-26T16:52:28.809982Z", "func_name": "build_selection_census", "module": "selection_census"}
+{
+  "feed_date": "2026-07-26",
+  "hit_rate_target": 0.6,
+  "shortlist_entry_count": 21,
+  "has_selection_block": true,
+  "personas": [
+    {
+      "persona_key": "founder",
+      "persona_email": "persona.founder@news20.seed",
+      "interests": [
+        {
+          "interest_slug": "ai.generative-ai.llms",
+          "interest_label": "Generative AI & LLMs",
+          "pool_direct_story_count": 5,
+          "selected_direct_story_count": 5,
+          "is_dry": false
+        },
+        {
+          "interest_slug": "ai.foundation-models",
+          "interest_label": "Foundation Models",
+          "pool_direct_story_count": 0,
+          "selected_direct_story_count": 0,
+          "is_dry": true
+        },
+        {
+          "interest_slug": "business.venture-capital",
+          "interest_label": "Venture Capital & Startup Funding",
+          "pool_direct_story_count": 0,
+          "selected_direct_story_count": 0,
+          "is_dry": true
+        },
+        {
+          "interest_slug": "tech.developer-tools",
+          "interest_label": "Developer Tools",
+          "pool_direct_story_count": 0,
+          "selected_direct_story_count": 0,
+          "is_dry": true
+        },
+        {
+          "interest_slug": "business.startups-ipos",
+          "interest_label": "Tech Startups & IPOs",
+          "pool_direct_story_count": 3,
+          "selected_direct_story_count": 2,
+          "is_dry": false
+        },
+        {
+          "interest_slug": "tech.database-tech",
+          "interest_label": "Database Tech",
+          "pool_direct_story_count": 1,
+          "selected_direct_story_count": 1,
+          "is_dry": false
+        }
+      ],
+      "hit_interest_count": 3,
+      "total_interest_count": 6,
+      "hit_rate": 0.5,
+      "meets_target": false,
+      "selected_story_count": 17,
+      "selected_direct_leaf_count": 8,
+      "selected_direct_leaf_rate": 0.4706
+    },
+    {
+      "persona_key": "cricket",
+      "persona_email": "persona.cricket@news20.seed",
+      "interests": [
+        {
+          "interest_slug": "sport.cricket.ipl",
+          "interest_label": "IPL Indian Premier League",
+          "pool_direct_story_count": 2,
+          "selected_direct_story_count": 2,
+          "is_dry": false
+        },
+        {
+          "interest_slug": "sport.cricket.india-national-team",
+          "interest_label": "India Cricket Team",
+          "pool_direct_story_count": 4,
+          "selected_direct_story_count": 4,
+          "is_dry": false
+        },
+        {
+          "interest_slug": "sport.cricket.world-cup",
+          "interest_label": "Cricket World Cup",
+          "pool_direct_story_count": 0,
+          "selected_direct_story_count": 0,
+          "is_dry": true
+        }
+      ],
+      "hit_interest_count": 2,
+      "total_interest_count": 3,
+      "hit_rate": 0.6667,
+      "meets_target": true,
+      "selected_story_count": 17,
+      "selected_direct_leaf_count": 5,
+      "selected_direct_leaf_rate": 0.2941
+    },
+    {
+      "persona_key": "chip",
+      "persona_email": "persona.chip@news20.seed",
+      "interests": [
+        {
+          "interest_slug": "geopolitics.semiconductors.export-controls",
+          "interest_label": "TSMC, Nvidia & Chip Export Controls",
+          "pool_direct_story_count": 7,
+          "selected_direct_story_count": 4,
+          "is_dry": false
+        },
+        {
+          "interest_slug": "business.semiconductors",
+          "interest_label": "Semiconductor Industry",
+          "pool_direct_story_count": 7,
+          "selected_direct_story_count": 4,
+          "is_dry": false
+        },
+        {
+          "interest_slug": "tech.hardware.chips",
+          "interest_label": "Chip Tech & Hardware",
+          "pool_direct_story_count": 0,
+          "selected_direct_story_count": 0,
+          "is_dry": true
+        }
+      ],
+      "hit_interest_count": 2,
+      "total_interest_count": 3,
+      "hit_rate": 0.6667,
+      "meets_target": true,
+      "selected_story_count": 17,
+      "selected_direct_leaf_count": 4,
+      "selected_direct_leaf_rate": 0.2353
+    }
+  ],
+  "overall_hit_interest_count": 7,
+  "overall_total_interest_count": 12,
+  "overall_hit_rate": 0.5833,
+  "overall_meets_target": false
+}
