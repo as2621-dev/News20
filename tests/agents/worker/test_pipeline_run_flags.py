@@ -1,6 +1,10 @@
 """Tests for the worker daily-run's spend-safety + relevance wiring (#66, #65).
 
 WHY (Rule 9 — encode the contract, not the call shape):
+  • #68: the halt LADDER (shortlist -> scripts -> armed reels, founder decision
+    2026-07-25) must resolve identically on the worker. The load-bearing assertion
+    is that SHORTLIST_ONLY=0 alone lands on SCRIPTS, never on reels: a cron fire
+    may not record media without the explicit per-run PRODUCE_REELS arm.
   • #66: the founder's shortlist-first rule (2026-07-19) was enforced ONLY in
     ``scripts/run_live_batch.py``. The deployed worker called
     ``run_daily_pipeline`` with no ``shortlist_only``, so the library default
@@ -40,6 +44,7 @@ from agents.ingestion.models import (
     SemanticRelevanceRunStamp,
 )
 from agents.pipeline import daily_batch, llm_clients, persist_helpers, poster_gate
+from agents.pipeline.scripts_artifact import ScriptEntry
 from agents.pipeline.shortlist import ShortlistEntry
 from agents.voice import gemini_tts
 from agents.worker import pipeline_routes
@@ -90,16 +95,31 @@ def _stamp(mode: str) -> SemanticRelevanceRunStamp:
 
 
 def _pipeline_result(
-    *, shortlist: list[ShortlistEntry], stamp: SemanticRelevanceRunStamp
+    *,
+    shortlist: list[ShortlistEntry],
+    scripts: list[ScriptEntry],
+    stamp: SemanticRelevanceRunStamp,
 ) -> SimpleNamespace:
     """The subset of ``DailyPipelineResult`` the worker body reads back."""
+    halted = bool(shortlist or scripts)
     return SimpleNamespace(
         feed_date=_TARGET_DATE.isoformat(),
-        produced_story_count=0 if shortlist else 4,
-        feeds=None if shortlist else SimpleNamespace(feeds_written=30),
+        produced_story_count=0 if halted else 4,
+        feeds=None if halted else SimpleNamespace(feeds_written=30),
         shortlist=shortlist,
+        scripts=scripts,
+        script_dedup_drops=[],
+        script_dedup_enabled=True,
         semantic_relevance=stamp,
     )
+
+
+@pytest.fixture(autouse=True)
+def _unarmed_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reason: the reel arm is an OPT-IN flag — a value inherited from the host shell
+    would let these tests pass while the deployed default silently spends."""
+    monkeypatch.delenv("PRODUCE_REELS", raising=False)
+    monkeypatch.delenv("SCRIPTS_ONLY", raising=False)
 
 
 @pytest.fixture
@@ -129,6 +149,17 @@ def wiring(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         )
     ]
 
+    recorded["scripts"] = [
+        ScriptEntry(
+            script_story_id="s1",
+            script_headline="A headline the founder reviews",
+            script_segment_slug="ai",
+            script_resolved_category="ai",
+            script_text="ALEX: Here is the thing.\nJORDAN: And here is why.",
+            script_word_count=9,
+        )
+    ]
+
     async def fake_ingest(**kwargs: Any) -> IngestionResult:
         recorded["ingest_kwargs"] = kwargs
         return IngestionResult(
@@ -146,7 +177,8 @@ def wiring(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         # surface here as the 'disabled' default, not as the mode it really ran.
         stamp = ingested[2] if len(ingested) > 2 else SemanticRelevanceRunStamp()
         shortlist = recorded["shortlist"] if kwargs.get("shortlist_only") else []
-        return _pipeline_result(shortlist=shortlist, stamp=stamp)
+        scripts = recorded["scripts"] if kwargs.get("scripts_only") else []
+        return _pipeline_result(shortlist=shortlist, scripts=scripts, stamp=stamp)
 
     class _SpyLogger:
         def info(self, event: str, **fields: Any) -> None:
@@ -213,19 +245,37 @@ async def test_worker_halts_at_the_shortlist_by_default(
 
 
 @pytest.mark.asyncio
-async def test_worker_produces_only_on_the_explicit_opt_out(
+async def test_worker_shortlist_opt_out_buys_scripts_not_reels(
     wiring: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Edge (#66 AC): SHORTLIST_ONLY=0 must produce exactly as the worker does
-    today — the flag is the ONLY difference, every other pipeline argument is
-    unchanged (asserted field by field, so a silent regression on the approved
-    path fails here)."""
+    """#68 ladder: approving the shortlist (SHORTLIST_ONLY=0) advances the worker
+    exactly ONE rung — to scripts. A cron fire must not start recording reels just
+    because the story list was approved; the media stage has its own arm."""
     monkeypatch.setenv("SHORTLIST_ONLY", "0")
 
     await _run(monkeypatch)
 
     kwargs = wiring["pipeline_kwargs"]
     assert kwargs["shortlist_only"] is False
+    assert kwargs["scripts_only"] is True
+
+
+@pytest.mark.asyncio
+async def test_worker_produces_only_when_the_reel_stage_is_armed(
+    wiring: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Edge (#66 + #68 AC): with BOTH halts opted out the worker produces exactly as
+    it does today — the flags are the ONLY difference, every other pipeline argument
+    is unchanged (asserted field by field, so a silent regression on the approved
+    path fails here)."""
+    monkeypatch.setenv("SHORTLIST_ONLY", "0")
+    monkeypatch.setenv("PRODUCE_REELS", "1")
+
+    await _run(monkeypatch)
+
+    kwargs = wiring["pipeline_kwargs"]
+    assert kwargs["shortlist_only"] is False
+    assert kwargs["scripts_only"] is False
     assert kwargs["target_date"] == _TARGET_DATE
     assert kwargs["max_total_productions"] == 8
     assert kwargs["enable_detail_enrichment"] is True
@@ -235,6 +285,27 @@ async def test_worker_produces_only_on_the_explicit_opt_out(
     assert kwargs["poster_genai_client"] is None
     assert kwargs["llm_client"].kind == "llm"
     assert kwargs["tts_client"].kind == "tts"
+
+
+@pytest.mark.asyncio
+async def test_script_halted_worker_run_emits_the_scripts_for_review(
+    wiring: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#68 artifact decision: the worker has no repo ``.agents/`` to write to, so the
+    scripts are emitted as structured logs. A script halt that surfaced nothing would
+    be a silent no-op run — the founder must be able to read the scripts (and what the
+    similarity gate dropped) out of the Railway log before arming the reels."""
+    monkeypatch.setenv("SHORTLIST_ONLY", "0")
+
+    await _run(monkeypatch)
+
+    events = {event for event, _ in wiring["logs"]}
+    assert "pipeline_daily_scripts_run" in events
+    assert "pipeline_daily_scripts_entry" in events
+    assert "pipeline_daily_shortlist_entry" not in events
+    header = next(f for e, f in wiring["logs"] if e == "pipeline_daily_scripts_run")
+    assert header["run_written_script_count"] == 1
+    assert header["run_script_dedup_enabled"] is True
 
 
 @pytest.mark.asyncio

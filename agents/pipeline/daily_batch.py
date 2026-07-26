@@ -59,7 +59,12 @@ from agents.pipeline.produce_caps import (
     enforce_overall_ceiling,
 )
 from agents.pipeline.notability_gate import apply_notability_gate
-from agents.pipeline.produce_dedup import dedupe_produce_shortlist
+from agents.pipeline.produce_dedup import (
+    DedupDecision,
+    dedupe_produce_shortlist,
+    dedupe_written_scripts,
+)
+from agents.pipeline.scripts_artifact import ScriptEntry, build_script_entries
 from agents.pipeline.shortlist import (
     ShortlistEntry,
     build_produce_shortlist,
@@ -152,6 +157,13 @@ class DailyPipelineResult(BaseModel):
         semantic_relevance: Which relevance mode Stage B actually ran (issue #67) —
             the provenance stamped onto the on-disk shortlist artifact so an audit
             can tell a semantic run from an embedding-outage one.
+        scripts: The written reel scripts up for founder review (issue #68).
+            Populated ONLY when the run halts with ``scripts_only=True``; empty on
+            an armed (full-produce) run and on a shortlist halt.
+        script_dedup_drops: Near-duplicate scripts the similarity gate dropped
+            before the reel stage, each with the twin it was dropped in favour of.
+        script_dedup_enabled: Whether that gate ran at all — zero drops means
+            something different when the gate was off.
 
     Example:
         >>> # See tests/agents/pipeline/test_daily_batch.py for the staged asserts.
@@ -175,6 +187,17 @@ class DailyPipelineResult(BaseModel):
     semantic_relevance: SemanticRelevanceRunStamp = Field(
         default_factory=SemanticRelevanceRunStamp,
         description="Stage B relevance mode + counts (issue #67 artifact provenance)",
+    )
+    scripts: list[ScriptEntry] = Field(
+        default_factory=list,
+        description="Written scripts for review (set only when scripts_only halts)",
+    )
+    script_dedup_drops: list[DedupDecision] = Field(
+        default_factory=list,
+        description="Near-duplicate scripts the similarity gate dropped (#68)",
+    )
+    script_dedup_enabled: bool = Field(
+        default=False, description="Whether the script similarity gate ran"
     )
 
 
@@ -679,45 +702,46 @@ def load_active_user_inputs(
     return inputs
 
 
-async def _produce_story_pool(
+async def _write_script_pool(
     stories_to_produce: list[CanonicalStory],
     story_interest_tags: list[StoryInterestTag],
     llm_client: Any,
-    tts_client: GeminiTTSClient,
-    supabase_client: Any,
-    poster_genai_client: Any | None,
     max_concurrent: int,
-    enable_detail_enrichment: bool = False,
     enable_editorial_rewrite: bool = False,
     enable_batch_review: bool = False,
     interest_segment_lookup: dict[str, str] | None = None,
-    outlets_lookup: dict[str, str] | None = None,
-    gdelt_adapter: Any | None = None,
     pinned_segment_by_story: dict[str, str] | None = None,
-) -> list[CanonicalStory]:
-    """Produce each gated story into a digest, in two bounded waves (stage C).
+) -> list[WritePhaseResult]:
+    """Run the WRITE wave — script → verify → editorial rewrite (stage C, first half).
 
-    Split into a WRITE wave (script → verify → editorial rewrite, all in memory)
-    and a RENDER wave (TTS → caption → poster → enrich → persist), with an optional
-    pool-level BATCH REVIEW barrier between them. The barrier lets one showrunner
-    read every reel side by side and diversify repetitive cross-reel scaffolding
+    Everything here is in-memory text on ``gemini-3.5-flash``: pennies per story, and
+    NOTHING in this function touches TTS, posters, storage, or ``daily_feeds``. That
+    is what makes the issue #68 script halt possible — the founder can review real
+    scripts before the expensive tail is armed (see :func:`_render_story_pool`).
+
+    The optional pool-level BATCH REVIEW barrier closes this wave: one showrunner
+    reads every reel side by side and diversifies repetitive cross-reel scaffolding
     BEFORE any expensive TTS — something no per-reel pass can do, because each reel
-    is otherwise written in isolation. Both waves share one ``max_concurrent``
-    semaphore; the barrier fully drains the write wave before any render starts.
+    is otherwise written in isolation.
 
     Each reel carries its production-pool index into the write wave so scripting can
     rotate the opener archetype + handoff style (cross-reel diversity, Layer 2).
 
-    Returns the subset of stories that published (a verification halt at write, or a
-    render error, skips that story but never aborts the batch — the feed still
-    builds from whatever produced). Order is preserved.
+    Args:
+        stories_to_produce: The gated produce pool, in order.
+        story_interest_tags: The batch's SP1 tags (indexed per story here).
+        llm_client: Gemini text client (scripting + verification + review).
+        max_concurrent: Bounded fan-out width.
+        enable_editorial_rewrite: Per-reel editorial headline/body rewrite.
+        enable_batch_review: Run the cross-reel diversity barrier (fail-open).
+        interest_segment_lookup: ``{interest_id: segment_slug}`` — the WRITE phase
+            resolves the segment ONCE onto ``WritePhaseResult.segment_slug``; render
+            consumes that rather than re-resolving (issue #61).
+        pinned_segment_by_story: The batch's resolve-once category verdicts (#70).
 
-    The Phase 2c detail-enrichment lookups (``enable_detail_enrichment`` +
-    ``outlets_lookup`` / ``gdelt_adapter``) are passed straight through to the render
-    phase — injected so the batch is enrichment-capable without this module reading
-    the DB itself. ``interest_segment_lookup`` goes to the WRITE phase only, which
-    resolves the segment ONCE onto ``WritePhaseResult.segment_slug``; render consumes
-    that rather than re-resolving (issue #61).
+    Returns:
+        The written reels, in pool order. A story whose script/verify failed is
+        absent (logged, never fatal) — the run continues for the rest.
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     tags_by_story: dict[str, list[StoryInterestTag]] = {}
@@ -788,6 +812,47 @@ async def _produce_story_pool(
     if enable_batch_review and survivors:
         survivors = await review_reel_pool(survivors, llm_client)
 
+    return survivors
+
+
+async def _render_story_pool(
+    write_results: list[WritePhaseResult],
+    tts_client: GeminiTTSClient,
+    supabase_client: Any,
+    llm_client: Any,
+    poster_genai_client: Any | None,
+    max_concurrent: int,
+    enable_detail_enrichment: bool = False,
+    outlets_lookup: dict[str, str] | None = None,
+    gdelt_adapter: Any | None = None,
+) -> list[CanonicalStory]:
+    """Run the RENDER wave — TTS → caption → poster → enrich → persist (stage C, 2nd half).
+
+    THIS is the expensive tail (issue #68): every call below bills TTS audio and/or
+    Nano-Banana poster generation and writes a real digest. Callers must therefore
+    reach it only on an ARMED run — ``run_daily_pipeline`` gates it behind the
+    script halt, and the entry points behind ``run_flags.resolve_run_stage``.
+
+    Args:
+        write_results: The written reels (WRITE wave output, post similarity gate).
+        tts_client: Gemini multi-speaker TTS client.
+        supabase_client: Service-role client (persist).
+        llm_client: Gemini text client (caption/enrichment helpers).
+        poster_genai_client: Optional poster client (``None`` skips posters).
+        max_concurrent: Bounded fan-out width. A fresh semaphore is correct here:
+            the barrier fully drains the write wave before any render starts, so the
+            two waves never overlap and never share concurrency.
+        enable_detail_enrichment: Phase 2c grounded detail + coverage census.
+        outlets_lookup: ``{outlet_domain: bias_lean}`` for the census.
+        gdelt_adapter: The SHARED throttled GDELT adapter for the census.
+
+    Returns:
+        The ORIGINAL stories (in pool order) whose render published — a render error
+        skips that story but never aborts the batch.
+    """
+    semaphore = asyncio.Semaphore(max_concurrent)
+    survivors = write_results
+
     # ── RENDER wave — TTS + caption + poster + enrich + persist (bounded) ──
     async def _render_one(write_result: WritePhaseResult) -> str | None:
         async with semaphore:
@@ -835,6 +900,57 @@ async def _produce_story_pool(
     ]
 
 
+async def _produce_story_pool(
+    stories_to_produce: list[CanonicalStory],
+    story_interest_tags: list[StoryInterestTag],
+    llm_client: Any,
+    tts_client: GeminiTTSClient,
+    supabase_client: Any,
+    poster_genai_client: Any | None,
+    max_concurrent: int,
+    enable_detail_enrichment: bool = False,
+    enable_editorial_rewrite: bool = False,
+    enable_batch_review: bool = False,
+    interest_segment_lookup: dict[str, str] | None = None,
+    outlets_lookup: dict[str, str] | None = None,
+    gdelt_adapter: Any | None = None,
+    pinned_segment_by_story: dict[str, str] | None = None,
+) -> list[CanonicalStory]:
+    """Produce each gated story into a digest, in two bounded waves (stage C).
+
+    The unsplit stage: WRITE wave (:func:`_write_script_pool`) then RENDER wave
+    (:func:`_render_story_pool`), exactly as before issue #68 split them so a run
+    could stop between the two. ``run_daily_pipeline`` drives the halves directly
+    (it needs the written scripts at the seam); this composition remains the single
+    call for any caller that just wants a fully produced pool.
+
+    Returns the subset of stories that published (a verification halt at write, or a
+    render error, skips that story but never aborts the batch — the feed still
+    builds from whatever produced). Order is preserved.
+    """
+    write_results = await _write_script_pool(
+        stories_to_produce=stories_to_produce,
+        story_interest_tags=story_interest_tags,
+        llm_client=llm_client,
+        max_concurrent=max_concurrent,
+        enable_editorial_rewrite=enable_editorial_rewrite,
+        enable_batch_review=enable_batch_review,
+        interest_segment_lookup=interest_segment_lookup,
+        pinned_segment_by_story=pinned_segment_by_story,
+    )
+    return await _render_story_pool(
+        write_results=write_results,
+        tts_client=tts_client,
+        supabase_client=supabase_client,
+        llm_client=llm_client,
+        poster_genai_client=poster_genai_client,
+        max_concurrent=max_concurrent,
+        enable_detail_enrichment=enable_detail_enrichment,
+        outlets_lookup=outlets_lookup,
+        gdelt_adapter=gdelt_adapter,
+    )
+
+
 async def run_daily_pipeline(
     target_date: date,
     supabase_client: Any,
@@ -862,6 +978,8 @@ async def run_daily_pipeline(
     enable_x_theme_reels: bool = False,
     tweet_screenshot_renderer: TweetScreenshotRenderer | None = None,
     shortlist_only: bool = False,
+    scripts_only: bool = False,
+    enable_script_dedup: bool = False,
 ) -> DailyPipelineResult:
     """Run the full daily personalized-feed batch end-to-end (stages A–E).
 
@@ -969,6 +1087,20 @@ async def run_daily_pipeline(
             ``result.shortlist`` — the paid write/render phases and the feed
             assembly never run, so zero production credits are spent and no
             ``daily_feeds`` rows are written. Defaults False (producing run).
+        scripts_only: Founder decision 2026-07-25 (staged production, issue #68) —
+            the SECOND rung of the halt ladder, below ``shortlist_only``. When True
+            the run writes the scripts (cheap text), runs the script similarity gate
+            if enabled, returns them on ``result.scripts``, and HALTS before the
+            render wave: no TTS, no poster, no persist, no ``daily_feeds``. Ignored
+            when ``shortlist_only`` is True (that halt is higher and returns first).
+            Defaults False — the library's neutral value; the PRODUCT policy (an
+            un-armed run stops here) lives in ``run_flags.resolve_run_stage``.
+        enable_script_dedup: When True, an LLM judge reads the FINAL scripts side by
+            side and drops near-duplicate reels before the render wave
+            (``produce_dedup.dedupe_written_scripts`` — the same judge/parse/keep
+            machinery as the story-level dedup, one extra cheap call). Fail-open.
+            Defaults False so the legacy produce path is byte-for-byte unchanged
+            until a caller opts in; the live entry points default it ON.
 
     Returns:
         A :class:`DailyPipelineResult` summarizing every stage.
@@ -1292,21 +1424,74 @@ async def run_daily_pipeline(
             semantic_relevance=semantic_relevance,
         )
 
-    produced_stories = await _produce_story_pool(
+    # ── WRITE wave — scripts only, no media (stage C, first half) ─────────────
+    write_results = await _write_script_pool(
         stories_to_produce=to_produce,
         story_interest_tags=story_interest_tags,
         llm_client=llm_client,
-        tts_client=tts_client,
-        supabase_client=supabase_client,
-        poster_genai_client=poster_genai_client,
         max_concurrent=max_concurrent_productions,
-        enable_detail_enrichment=enable_detail_enrichment,
         enable_editorial_rewrite=enable_editorial_rewrite,
         enable_batch_review=enable_batch_review,
         interest_segment_lookup=interest_segment_lookup,
+        pinned_segment_by_story=category_override_by_story,
+    )
+
+    # ── SCRIPT SIMILARITY GATE (issue #68) ────────────────────────────────────
+    # Reason: the story-level judge ran on headlines + leads, before anything was
+    # written; two reels can clear it and still play as the same reel twice. This
+    # second pass reads the FINAL scripts and drops the redundant twin BEFORE the
+    # paid render wave — so a duplicate costs one cheap judge call, not a TTS run
+    # plus a poster. Fail-open (a judge error keeps every script, never blocks).
+    script_dedup_drops: list[DedupDecision] = []
+    if enable_script_dedup:
+        write_results, script_dedup_drops = await dedupe_written_scripts(
+            write_results, llm_client
+        )
+
+    # ── SCRIPTS-ONLY halt (founder decision 2026-07-25, staged production) ────
+    # Reason: TTS + posters are the expensive tail (the 2026-07-19 $24 burn was 58
+    # reels' media); the scripts above are gemini-3.5-flash pennies. Halting HERE
+    # gives the founder the REAL scripts to approve while nothing downstream has
+    # billed. This sits immediately above _render_story_pool — the first line of
+    # the run that spends media credits — and nothing may slip between them.
+    if scripts_only:
+        script_entries = build_script_entries(write_results)
+        logger.info(
+            "scripts_only_halt",
+            feed_date=target_date.isoformat(),
+            candidate_story_count=len(stories),
+            to_produce_count=len(to_produce),
+            written_script_count=len(script_entries),
+            script_dedup_enabled=enable_script_dedup,
+            script_dedup_dropped_count=len(script_dedup_drops),
+            semantic_relevance_mode=semantic_relevance.semantic_relevance_mode,
+        )
+        return DailyPipelineResult(
+            feed_date=target_date.isoformat(),
+            profile_update=profile_update,
+            candidate_story_count=len(stories),
+            produced_story_count=0,
+            skipped_by_gate_count=len(stories) - gated_count,
+            capped_count=capped_count,
+            feeds=None,
+            pool_target=pool_target_cells,
+            semantic_relevance=semantic_relevance,
+            scripts=script_entries,
+            script_dedup_drops=script_dedup_drops,
+            script_dedup_enabled=enable_script_dedup,
+        )
+
+    # ── RENDER wave — the ARMED, paid half (TTS → poster → persist) ───────────
+    produced_stories = await _render_story_pool(
+        write_results=write_results,
+        tts_client=tts_client,
+        supabase_client=supabase_client,
+        llm_client=llm_client,
+        poster_genai_client=poster_genai_client,
+        max_concurrent=max_concurrent_productions,
+        enable_detail_enrichment=enable_detail_enrichment,
         outlets_lookup=outlets_lookup,
         gdelt_adapter=gdelt_adapter,
-        pinned_segment_by_story=category_override_by_story,
     )
 
     # ── Stages D+E — score per user + allocate ~30-slot daily_feeds ───────────

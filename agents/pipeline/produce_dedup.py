@@ -44,6 +44,7 @@ from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory
 from agents.pipeline.json_utils import extract_json_from_llm_response
+from agents.pipeline.models import WritePhaseResult
 from agents.shared.logger import get_logger
 
 logger = get_logger("pipeline.produce_dedup")
@@ -290,3 +291,163 @@ async def dedupe_produce_shortlist(
         kept_count=len(kept_stories),
     )
     return kept_stories, decisions
+
+
+# ── SCRIPT-LEVEL similarity gate (issue #68) ─────────────────────────────────
+# The story-level judge above runs on HEADLINES + leads, before anything is
+# written. Two stories can clear it and still yield reels that SOUND like the same
+# reel — the redundancy only becomes visible in the finished scripts. The founder's
+# staged flow (2026-07-25) puts a second pass over the FINAL scripts, right before
+# the paid reel stage, reusing this module's judge/parse/representative machinery
+# rather than introducing a second, differently-behaved judge.
+
+SCRIPT_DEDUP_JUDGE_SYSTEM = (
+    "You are a showrunner reviewing today's finished 55-second news reel scripts "
+    "before the studio spends money recording them. Group together any scripts that "
+    "would play as THE SAME REEL TOLD TWICE: they narrate the same underlying event, "
+    "or make the same core point about the same subject, such that a listener hearing "
+    "both back to back would feel they had heard it already. Do NOT group scripts that "
+    "merely share a topic, company, or person but report DIFFERENT events, figures, or "
+    "angles. When unsure, keep them SEPARATE. Return ONLY a JSON array of duplicate "
+    'groups; each group is a JSON array of the integer "n" values of the scripts that '
+    "duplicate one another. Include only groups with 2+ members; omit singletons. "
+    "Example: [[1,4],[7,9,10]]."
+)
+
+# Reason: the spoken text handed to the judge per script. A 55-second reel is ~150
+# words, so this holds a whole script while bounding a 30-reel prompt.
+_SCRIPT_SNIPPET_CHARS = 900
+
+
+def script_spoken_text(write_result: WritePhaseResult) -> str:
+    """Flatten a written reel's dialogue turns into one speakable transcript.
+
+    The single definition of "the script text" — the judge prompt, the review
+    artifact, and any future reader all read the SAME string, so what the founder
+    approves is what the gate judged.
+
+    Args:
+        write_result: A written reel (WRITE phase output).
+
+    Returns:
+        ``"SPEAKER: text"`` lines joined by newlines.
+
+    Example:
+        >>> script_spoken_text(write_result).splitlines()[0]  # doctest: +SKIP
+        'ALEX: Wait, so they just announced it?'
+    """
+    return "\n".join(
+        f"{turn.speaker}: {turn.text}" for turn in write_result.script.turns
+    )
+
+
+def _build_script_judge_prompt(write_results: list[WritePhaseResult]) -> str:
+    """Render the numbered script catalog handed to the script-similarity judge.
+
+    Args:
+        write_results: The written reel pool, in order. Each script's 1-based ``n``
+            is its position in this list (the id the judge returns groups over).
+
+    Returns:
+        The user prompt: one numbered block per script (headline + transcript).
+    """
+    lines: list[str] = ["Today's finished reel scripts (n. HEADLINE / transcript):", ""]
+    for index, write_result in enumerate(write_results, start=1):
+        transcript = script_spoken_text(write_result).replace("\n", " / ")
+        if len(transcript) > _SCRIPT_SNIPPET_CHARS:
+            transcript = transcript[:_SCRIPT_SNIPPET_CHARS].rstrip() + "…"
+        headline = write_result.editorial_story.canonical_title
+        lines.append(f"{index}. {headline}\n   {transcript}")
+    return "\n".join(lines)
+
+
+async def dedupe_written_scripts(
+    write_results: list[WritePhaseResult],
+    llm_client: object,
+    *,
+    model: str = DEDUP_JUDGE_MODEL,
+    temperature: float = DEDUP_JUDGE_TEMPERATURE,
+) -> tuple[list[WritePhaseResult], list[DedupDecision]]:
+    """Drop near-duplicate FINAL scripts before the paid reel stage (issue #68).
+
+    One Gemini call clusters the written pool into "same reel twice" groups; for
+    each group the code deterministically keeps the highest-coverage representative
+    (:func:`_representative_index`, the same rule the story-level dedup uses) and
+    drops the rest, so TTS + posters are never paid for a reel the founder would
+    have deleted. Order of the kept scripts is preserved.
+
+    Fail-open, exactly like :func:`dedupe_produce_shortlist`: an empty/singleton
+    pool returns immediately (no call); any LLM or parse error is logged loudly and
+    the ORIGINAL pool is returned unchanged — a dedup miss must never block a run.
+
+    Args:
+        write_results: The written reel pool (WRITE wave output), in order.
+        llm_client: A client exposing ``async call_gemini(prompt, system, model,
+            temperature) -> str`` (injected; mocked in tests).
+        model: Gemini text model for the judge.
+        temperature: Sampling temperature (low — clustering, not creativity).
+
+    Returns:
+        ``(kept_write_results, decisions)`` — the de-duplicated pool (original
+        order) and one :class:`DedupDecision` per dropped script.
+
+    Example:
+        >>> kept, drops = await dedupe_written_scripts(pool, client)  # doctest: +SKIP
+        >>> len(kept) <= len(pool)
+        True
+    """
+    if len(write_results) < 2:
+        return list(write_results), []
+
+    stories = [write_result.original_story for write_result in write_results]
+    try:
+        raw_response = await llm_client.call_gemini(  # type: ignore[attr-defined]
+            _build_script_judge_prompt(write_results),
+            system=SCRIPT_DEDUP_JUDGE_SYSTEM,
+            model=model,
+            temperature=temperature,
+        )
+        groups = _parse_groups(raw_response, story_count=len(write_results))
+    except Exception as exc:  # noqa: BLE001 — fail-open: never block the daily run
+        logger.error(
+            "script_dedup_failed_open",
+            error_type=type(exc).__name__,
+            error_message=str(exc)[:200],
+            script_count=len(write_results),
+            fix_suggestion="Script-similarity judge errored; keeping every written "
+            "script. Verify the Gemini key/quota and that the prompt yields a JSON "
+            "array of groups.",
+        )
+        return list(write_results), []
+
+    drop_indices: set[int] = set()
+    decisions: list[DedupDecision] = []
+    for group in groups:
+        keep_index = _representative_index(group, stories)
+        kept_id = stories[keep_index].canonical_story_id
+        cluster_ids = [stories[idx].canonical_story_id for idx in group]
+        for idx in group:
+            if idx == keep_index:
+                continue
+            drop_indices.add(idx)
+            decisions.append(
+                DedupDecision(
+                    dropped_story_id=stories[idx].canonical_story_id,
+                    kept_story_id=kept_id,
+                    cluster_story_ids=cluster_ids,
+                )
+            )
+
+    kept = [
+        write_result
+        for index, write_result in enumerate(write_results)
+        if index not in drop_indices
+    ]
+    logger.info(
+        "script_dedup_completed",
+        script_count=len(write_results),
+        duplicate_group_count=len(groups),
+        dropped_count=len(decisions),
+        kept_count=len(kept),
+    )
+    return kept, decisions

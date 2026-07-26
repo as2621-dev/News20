@@ -100,9 +100,12 @@ from agents.pipeline.llm_clients import LLMClient  # noqa: E402
 from agents.pipeline.persist_helpers import load_outlets_lookup  # noqa: E402
 from agents.pipeline.poster_gate import poster_generation_disabled  # noqa: E402
 from agents.pipeline.run_flags import (  # noqa: E402
+    RUN_STAGE_SCRIPTS,
+    RUN_STAGE_SHORTLIST,
+    resolve_run_stage,
     semantic_relevance_key_enabled,
-    shortlist_only_enabled,
 )
+from agents.pipeline.scripts_artifact import build_scripts_artifact  # noqa: E402
 from agents.pipeline.shortlist import build_shortlist_artifact  # noqa: E402
 from agents.shared.logger import get_logger  # noqa: E402
 from agents.voice.gemini_tts import GeminiTTSClient  # noqa: E402
@@ -381,14 +384,15 @@ async def _run() -> int:
     load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 
     paid = os.environ.get("RUN_LIVE_BATCH") == "1"
-    # Reason (founder rule 2026-07-19, shortlist-first): reel production is the
-    # expensive tail (script LLM → TTS → poster), so the live entry DEFAULTS to
-    # halting at story selection and dumping the would-produce shortlist for
-    # founder review. Producing a real batch now requires the explicit opt-out
-    # SHORTLIST_ONLY=0 — reels are made only after the founder approves a list.
-    # Read through the shared module the worker route reads (issue #66) so the two
-    # production entry points cannot drift on the default.
-    shortlist_only = shortlist_only_enabled()
+    # Reason (founder rules 2026-07-19 shortlist-first + 2026-07-25 staged
+    # production): reels are the expensive tail (TTS → poster), so this entry point
+    # climbs the ladder one EXPLICIT rung at a time — shortlist (default) →
+    # SHORTLIST_ONLY=0 buys the scripts → PRODUCE_REELS=1 arms the reels. The stage
+    # is resolved by the shared module the worker route reads (issues #66, #68) so
+    # the two production entry points cannot drift on what "approved" means.
+    run_stage = resolve_run_stage()
+    shortlist_only = run_stage == RUN_STAGE_SHORTLIST
+    scripts_only = run_stage == RUN_STAGE_SCRIPTS
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
     produce_cap_headroom = float(os.environ.get("PRODUCE_CAP_HEADROOM", "2.0"))
     lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
@@ -606,7 +610,12 @@ async def _run() -> int:
     if shortlist_only:
         print(
             "\n--- SHORTLIST-ONLY RUN (ingest → gates → selection; ZERO production"
-            " credits — set SHORTLIST_ONLY=0 to produce after founder approval) ---"
+            " credits — set SHORTLIST_ONLY=0 to write scripts after founder approval) ---"
+        )
+    elif scripts_only:
+        print(
+            "\n--- SCRIPTS-ONLY RUN (ingest → gates → scripts + similarity gate;"
+            " ZERO TTS/poster credits — set PRODUCE_REELS=1 to arm reels) ---"
         )
     else:
         print("\n--- PAID RUN (live GDELT ingest → produce + enrich → allocate) ---")
@@ -643,6 +652,13 @@ async def _run() -> int:
         # default (mirrors RUN_SOURCES): the interest-only batch is unchanged.
         enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
         shortlist_only=shortlist_only,
+        scripts_only=scripts_only,
+        # Reason (issue #68): the script similarity gate runs on BOTH the scripts
+        # halt and the armed run — one cheap judge call over the final scripts is
+        # what stops a near-duplicate reel from being recorded, and the armed run
+        # re-writes its scripts, so gating only the halted run would let the twin
+        # back in at the exact moment money is being spent.
+        enable_script_dedup=True,
     )
 
     print(
@@ -689,7 +705,45 @@ async def _run() -> int:
             f"{artifact.shortlist_run.run_semantic_relevance_mode}"
             f" (stories_checked={artifact.shortlist_run.run_semantic_stories_checked})"
         )
-        print("APPROVE the list, then re-run with SHORTLIST_ONLY=0 to produce reels.")
+        print(
+            "APPROVE the list, then re-run with SHORTLIST_ONLY=0 to write the scripts."
+        )
+        return 0
+
+    # ── SCRIPTS REVIEW DUMP (issue #68) — print + persist, then exit before the
+    # DoD readback (no reel was rendered and no daily_feeds row was written). ──
+    if scripts_only:
+        artifact = build_scripts_artifact(result)
+        print(f"\n--- SCRIPTS FOR REVIEW ({len(artifact.script_entries)} reels) ---")
+        for entry in artifact.script_entries:
+            print(f"\n[{entry.script_resolved_category or entry.script_segment_slug}] "
+                  f"{entry.script_headline[:90]}")
+            print(f"  {entry.script_text}")
+        if artifact.script_dedup_drops:
+            print(
+                f"\n--- SIMILARITY GATE dropped {len(artifact.script_dedup_drops)}"
+                " near-duplicate script(s) ---"
+            )
+            for drop in artifact.script_dedup_drops:
+                print(
+                    f"  dropped {drop.dropped_story_id} (kept {drop.kept_story_id}) "
+                    f"— {drop.reason}"
+                )
+        scripts_dir = os.path.join(_REPO_ROOT, ".agents", "scripts")
+        os.makedirs(scripts_dir, exist_ok=True)
+        scripts_path = os.path.join(scripts_dir, f"{result.feed_date}-scripts.json")
+        with open(scripts_path, "w", encoding="utf-8") as scripts_file:
+            json.dump(
+                artifact.model_dump(),
+                scripts_file,
+                indent=2,
+                ensure_ascii=False,
+            )
+        print(f"\nscripts saved: {scripts_path}")
+        print(
+            "APPROVE the scripts, then re-run with SHORTLIST_ONLY=0 PRODUCE_REELS=1 "
+            "to record the reels (TTS + posters)."
+        )
         return 0
 
     # ── DoD READBACK ──────────────────────────────────────────────────────────

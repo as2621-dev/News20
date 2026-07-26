@@ -43,6 +43,7 @@ from agents.shared.logger import get_logger
 from agents.shared.settings import Settings
 
 if TYPE_CHECKING:  # pragma: no cover — typing only, keeps the cold-start graph small
+    from agents.pipeline.scripts_artifact import ScriptsArtifact
     from agents.pipeline.shortlist import ShortlistArtifact
 
 logger = get_logger("worker.pipeline")
@@ -399,17 +400,23 @@ async def _run_daily(
         from agents.pipeline.persist_helpers import load_outlets_lookup
         from agents.pipeline.poster_gate import poster_generation_disabled
         from agents.pipeline.run_flags import (
+            RUN_STAGE_SCRIPTS,
+            RUN_STAGE_SHORTLIST,
+            resolve_run_stage,
             semantic_relevance_key_enabled,
-            shortlist_only_enabled,
         )
+        from agents.pipeline.scripts_artifact import build_scripts_artifact
         from agents.pipeline.shortlist import build_shortlist_artifact
         from agents.voice.gemini_tts import GeminiTTSClient
 
-        # Reason (issue #66): the founder's shortlist-first rule is read from the
-        # SAME shared module scripts/run_live_batch.py reads, so the deployed worker
-        # and the local script cannot drift. Default = halt: a Railway cron fire
-        # spends zero production credits until SHORTLIST_ONLY=0 is set explicitly.
-        shortlist_only = shortlist_only_enabled()
+        # Reason (issues #66, #68): the halt LADDER is resolved by the SAME shared
+        # module scripts/run_live_batch.py reads, so the deployed worker and the
+        # local script cannot drift. Default = halt at the shortlist; SHORTLIST_ONLY=0
+        # buys scripts only; a cron fire cannot record a single reel until
+        # PRODUCE_REELS=1 is set explicitly on the worker for that run.
+        run_stage = resolve_run_stage()
+        shortlist_only = run_stage == RUN_STAGE_SHORTLIST
+        scripts_only = run_stage == RUN_STAGE_SCRIPTS
 
         supabase = _build_service_role_supabase()
 
@@ -552,12 +559,23 @@ async def _run_daily(
             # run_live_batch entry point — one flag, both entry points.
             enable_x_theme_reels=os.environ.get("RUN_X_THEMES") == "1",
             shortlist_only=shortlist_only,
+            scripts_only=scripts_only,
+            # Reason (issue #68): one cheap judge call over the FINAL scripts drops
+            # a near-duplicate reel before TTS + poster are billed for it. On for
+            # the halted review run AND the armed run — the armed run re-writes its
+            # scripts, so gating only the halt would let the twin back in exactly
+            # when money is being spent.
+            enable_script_dedup=True,
         )
         logger.info(
             "pipeline_daily_run_completed",
             run_id=run_id,
             target_date=target_date.isoformat(),
+            # Reason: the run stage is logged POSITIVELY — "which rung did this
+            # cron fire actually stop at" must be answerable from the log alone.
+            run_stage=run_stage,
             shortlist_only=shortlist_only,
+            scripts_only=scripts_only,
             # Reason: the run mode is logged POSITIVELY (docs/solutions:
             # proving-run-mode-needs-positive-evidence-not-absent-errors) — a clean
             # grep for semantic_relevance_embed_failed proves nothing on its own.
@@ -567,6 +585,8 @@ async def _run_daily(
         )
         if shortlist_only:
             _log_shortlist_for_review(build_shortlist_artifact(result), run_id=run_id)
+        elif scripts_only:
+            _log_scripts_for_review(build_scripts_artifact(result), run_id=run_id)
     except Exception as exc:  # noqa: BLE001 — log loudly, then re-raise.
         # Reason: a background failure must be surfaced, not swallowed (Rule 12).
         logger.error(
@@ -617,6 +637,44 @@ def _log_shortlist_for_review(artifact: "ShortlistArtifact", run_id: str) -> Non
             "pipeline_daily_shortlist_entry",
             run_id=run_id,
             **entry.model_dump(),
+        )
+
+
+def _log_scripts_for_review(artifact: "ScriptsArtifact", run_id: str) -> None:
+    """Emit a script-halted run's written scripts as structured logs (issue #68).
+
+    Same destination decision as :func:`_log_shortlist_for_review`: log-only,
+    because the deployed worker has no repo ``.agents/`` to write into (the local
+    script writes ``.agents/scripts/<date>-scripts.json``). One line per script plus
+    one per similarity-gate drop — a 30-script blob in a single record is the first
+    thing a log viewer truncates, and a truncated review is worse than none.
+
+    Args:
+        artifact: The ``ScriptsArtifact`` built from the script-halted result.
+        run_id: The opaque run id, for log correlation with the run's other events.
+    """
+    logger.info(
+        "pipeline_daily_scripts_run",
+        run_id=run_id,
+        **artifact.scripts_run.model_dump(),
+        fix_suggestion=(
+            "This run wrote scripts and HALTED before any TTS/poster (the reel "
+            "stage is unarmed by default). Review the pipeline_daily_scripts_entry "
+            "lines below, then set PRODUCE_REELS=1 (with SHORTLIST_ONLY=0) on the "
+            "worker and re-trigger to record the reels."
+        ),
+    )
+    for entry in artifact.script_entries:
+        logger.info(
+            "pipeline_daily_scripts_entry",
+            run_id=run_id,
+            **entry.model_dump(),
+        )
+    for drop in artifact.script_dedup_drops:
+        logger.info(
+            "pipeline_daily_scripts_dedup_drop",
+            run_id=run_id,
+            **drop.model_dump(),
         )
 
 

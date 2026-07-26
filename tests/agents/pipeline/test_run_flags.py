@@ -13,6 +13,10 @@ from __future__ import annotations
 import pytest
 
 from agents.pipeline.run_flags import (
+    RUN_STAGE_REELS,
+    RUN_STAGE_SCRIPTS,
+    RUN_STAGE_SHORTLIST,
+    resolve_run_stage,
     semantic_relevance_key_enabled,
     shortlist_only_enabled,
 )
@@ -75,3 +79,83 @@ class TestSemanticRelevanceKeyEnabled:
         monkeypatch.setenv("ENABLE_SEMANTIC_RELEVANCE_KEY", "")
 
         assert semantic_relevance_key_enabled() is True
+
+
+class TestResolveRunStage:
+    """The three-stage production ladder (#68) — where a run is allowed to stop.
+
+    WHY (Rule 9): the founder's 2026-07-25 decision made reels a per-run ARMED
+    action. These tests encode the LADDER, not the parsing: with nothing set a run
+    halts at the shortlist; opting out of that lands on SCRIPTS, never on reels;
+    only an explicit arm reaches the paid media stage. A test asserting
+    ``PRODUCE_REELS=1 -> reels`` alone would still pass if the unset default drifted
+    to reels — which is the exact failure that costs money.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clear_stage_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for env_var_name in ("SHORTLIST_ONLY", "SCRIPTS_ONLY", "PRODUCE_REELS"):
+            monkeypatch.delenv(env_var_name, raising=False)
+
+    def test_nothing_set_halts_at_the_shortlist(self) -> None:
+        """Rung 1 — the untouched default spends nothing at all."""
+        assert resolve_run_stage() == RUN_STAGE_SHORTLIST
+
+    def test_shortlist_opt_out_alone_halts_at_scripts_not_reels(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Rung 2 — the load-bearing one. Approving the shortlist buys SCRIPTS
+        (pennies), never reels ($): the media stage needs its own arm."""
+        monkeypatch.setenv("SHORTLIST_ONLY", "0")
+
+        assert resolve_run_stage() == RUN_STAGE_SCRIPTS
+
+    def test_arming_reels_after_the_shortlist_opt_out_reaches_reels(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Rung 3 — the founder's explicit go for THIS run: both opt-outs present."""
+        monkeypatch.setenv("SHORTLIST_ONLY", "0")
+        monkeypatch.setenv("PRODUCE_REELS", "1")
+
+        assert resolve_run_stage() == RUN_STAGE_REELS
+
+    def test_arming_reels_alone_still_halts_at_the_shortlist(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Precedence: SHORTLIST_ONLY outranks the arm. A stale PRODUCE_REELS=1 left
+        on a Railway dashboard must not silently re-enable spend once the shortlist
+        halt is back on."""
+        monkeypatch.setenv("PRODUCE_REELS", "1")
+
+        assert resolve_run_stage() == RUN_STAGE_SHORTLIST
+
+    def test_scripts_only_beats_the_arm(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An explicit SCRIPTS_ONLY=1 is a halt request; it outranks the arm so the
+        two flags set together can never resolve to spend."""
+        monkeypatch.setenv("SHORTLIST_ONLY", "0")
+        monkeypatch.setenv("SCRIPTS_ONLY", "1")
+        monkeypatch.setenv("PRODUCE_REELS", "1")
+
+        assert resolve_run_stage() == RUN_STAGE_SCRIPTS
+
+    @pytest.mark.parametrize("garbage_value", ["yes-please", "", "0", "false"])
+    def test_only_an_explicit_truthy_arm_authorizes_spend(
+        self, monkeypatch: pytest.MonkeyPatch, garbage_value: str
+    ) -> None:
+        """Failure case: the arm is OPT-IN, so anything but a recognized truthy
+        spelling leaves the run at scripts. Unlike the opt-out flags, an unparsed
+        value here must NOT authorize money."""
+        monkeypatch.setenv("SHORTLIST_ONLY", "0")
+        monkeypatch.setenv("PRODUCE_REELS", garbage_value)
+
+        assert resolve_run_stage() == RUN_STAGE_SCRIPTS
+
+    @pytest.mark.parametrize("truthy_value", ["1", "true", "TRUE", "yes", "on", " 1 "])
+    def test_recognized_truthy_spellings_arm_the_reel_stage(
+        self, monkeypatch: pytest.MonkeyPatch, truthy_value: str
+    ) -> None:
+        """Edge: an operator typing ``true`` on Railway means the same as ``1``."""
+        monkeypatch.setenv("SHORTLIST_ONLY", "0")
+        monkeypatch.setenv("PRODUCE_REELS", truthy_value)
+
+        assert resolve_run_stage() == RUN_STAGE_REELS
