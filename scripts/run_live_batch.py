@@ -107,6 +107,11 @@ from agents.pipeline.run_flags import (  # noqa: E402
 )
 from agents.pipeline.scripts_artifact import build_scripts_artifact  # noqa: E402
 from agents.pipeline.shortlist import build_shortlist_artifact  # noqa: E402
+from agents.pipeline.user_scope import (  # noqa: E402
+    exclude_seed_profile_rows,
+    seed_account_user_ids,
+    seed_exclusion_enabled,
+)
 from agents.shared.logger import get_logger  # noqa: E402
 from agents.voice.gemini_tts import GeminiTTSClient  # noqa: E402
 
@@ -447,6 +452,18 @@ async def _run() -> int:
     # written. The 2-user DoD checks at the end report FAIL by design when only
     # one user is scoped — verify the scoped feeds directly.
     only_user_email = os.environ.get("ONLY_USER_EMAIL", "").strip()
+    # Reason: founder directive 2026-07-26 — seed/test accounts (M4 personas, demo
+    # users) must never shape the batch's shared pool. ONE contract everywhere
+    # (here AND inside daily_batch's own user loaders): excluded unless
+    # INCLUDE_SEED_USERS=1. A #10 persona validation run therefore sets BOTH
+    # ONLY_USER_EMAIL=<personas> and INCLUDE_SEED_USERS=1.
+    if seed_exclusion_enabled():
+        seed_uids = seed_account_user_ids(supabase)
+        if seed_uids:
+            profile_rows = exclude_seed_profile_rows(profile_rows, seed_uids)
+            active_user_ids = sorted(
+                {str(r["profile_user_id"]) for r in profile_rows}
+            )
     if only_user_email:
         scoped_emails = [
             email.strip() for email in only_user_email.split(",") if email.strip()

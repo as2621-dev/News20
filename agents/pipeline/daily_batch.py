@@ -78,6 +78,11 @@ from agents.pipeline.stages.ranking import (
     UserProfileInterest,
     compute_category_verdicts,
 )
+from agents.pipeline.user_scope import (
+    exclude_seed_profile_rows,
+    seed_account_user_ids,
+    seed_exclusion_enabled,
+)
 from agents.pipeline.x_theme_ladder import XThemeReelCandidate
 from agents.pipeline.x_theme_production import (
     XThemeGatherResult,
@@ -373,6 +378,11 @@ def _load_active_user_ids(supabase_client: Any) -> list[str]:
         )
         or []
     )
+    # Reason: founder directive 2026-07-26 — seed/test accounts (M4 personas, demo
+    # users) never count as active: their allocations must not inflate the produce
+    # caps. Excluded unless INCLUDE_SEED_USERS=1 (agents/pipeline/user_scope.py).
+    if seed_exclusion_enabled():
+        rows = exclude_seed_profile_rows(rows, seed_account_user_ids(supabase_client))
     return sorted({str(row["profile_user_id"]) for row in rows})
 
 
@@ -656,6 +666,13 @@ def load_active_user_inputs(
         )
         or []
     )
+    # Reason: founder directive 2026-07-26 — no daily_feeds are built for seed/test
+    # accounts (M4 personas, demo users) unless INCLUDE_SEED_USERS=1. Same single
+    # contract as _load_active_user_ids (agents/pipeline/user_scope.py).
+    if seed_exclusion_enabled():
+        profile_rows = exclude_seed_profile_rows(
+            profile_rows, seed_account_user_ids(supabase_client)
+        )
     interests_by_user: dict[str, list[UserProfileInterest]] = {}
     for row in profile_rows:
         interests_by_user.setdefault(str(row["profile_user_id"]), []).append(

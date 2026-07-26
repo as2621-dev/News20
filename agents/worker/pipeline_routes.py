@@ -407,6 +407,11 @@ async def _run_daily(
         )
         from agents.pipeline.scripts_artifact import build_scripts_artifact
         from agents.pipeline.shortlist import build_shortlist_artifact
+        from agents.pipeline.user_scope import (
+            exclude_seed_profile_rows,
+            seed_account_user_ids,
+            seed_exclusion_enabled,
+        )
         from agents.voice.gemini_tts import GeminiTTSClient
 
         # Reason (issues #66, #68): the halt LADDER is resolved by the SAME shared
@@ -447,6 +452,14 @@ async def _run_daily(
             .data
             or []
         )
+        # Reason: founder directive 2026-07-26 — seed/test accounts (M4 personas,
+        # demo users) must never shape the worker batch's shared pool. Excluded
+        # unless INCLUDE_SEED_USERS=1 (the same single contract daily_batch's own
+        # user loaders enforce).
+        if seed_exclusion_enabled():
+            seed_uids = seed_account_user_ids(supabase)
+            if seed_uids:
+                profile_rows = exclude_seed_profile_rows(profile_rows, seed_uids)
         followed_ids = sorted({str(r["profile_interest_id"]) for r in profile_rows})
 
         outlets_lookup = load_outlets_lookup(supabase)
