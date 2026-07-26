@@ -160,15 +160,23 @@ awaiting founder go. Only these five persona-owned rows were touched.
 Batch: 50 term predicates (was 38), 319 candidates (was 26), 33 shortlist entries
 (was 21), mode `semantic`, `feeds_written=0`.
 
-| persona | direct-niche hits | rate | before |
-|---|---|---|---|
-| founder | llms 3, foundation-models 5, venture-capital 2, developer-tools 7, startups-ipos 3, database-tech 1 | **6/6 (100%)** | 50.0% |
-| cricket | ipl 2, india-national-team 5, world-cup 3 | **3/3 (100%)** | 66.7% |
-| chip | export-controls 6, semiconductors 6, hardware.chips 6 | **3/3 (100%)** | 66.7% |
-| **overall** | 12 of 12 | **100.0% vs 60% → PASS** | 58.3% |
+Counts below are **produced** direct matches. The shortlist carries candidates *plus*
+standbys (#74), and a standby is never produced — so it never earns a
+`story_interests` row and must not score a hit, or this census would disagree with
+the stored-tag instrument precisely at the cells nearest the bar.
 
-**Before → after: 58.3% → 100.0% (+41.7 pts).** Every dry niche now draws direct
-hits; none regressed. Machine JSON:
+| persona | produced direct-niche hits | rate | before |
+|---|---|---|---|
+| founder | llms 3, foundation-models 5, developer-tools 7, startups-ipos 3, database-tech 1; **dry:** venture-capital (2 matches, both standby) | **5/6 (83.3%)** | 50.0% |
+| cricket | ipl 2, india-national-team 5, world-cup 3 | **3/3 (100%)** | 66.7% |
+| chip | export-controls 5, semiconductors 5, hardware.chips 5 | **3/3 (100%)** | 66.7% |
+| **overall** | 11 of 12 | **91.7% vs 60% → PASS** | 58.3% |
+
+**Before → after: 58.3% → 91.7% (+33.4 pts).** Four of the five tuned niches went
+from dry to producing direct hits; none regressed. `business.venture-capital` moved
+from *no supply at all* to *two matched stories that ranked below the cap line* —
+progress, but it still scores a miss under the produced-only rule, and it is the one
+remaining dry cell. Machine JSON:
 `docs/ops/evidence/m4-day3/census-selection-{before,after}.json`.
 
 ### Slot-fill composition — the separate, lower number (never blended)
@@ -241,13 +249,13 @@ follow-on slice; not fixed here** (out of day-3 scope).
 |---|---|---|---|
 | 1 | 2026-07-03 | 55.6% (MISS) | stored tags, 9 seeded interests |
 | 2 | 2026-07-07 | 100.0% (PASS) | stored tags, 9 seeded interests |
-| 3 | 2026-07-26 | 58.3% → **100.0%** (PASS after tuning) | selection artifact, 12 interview-minted interests |
+| 3 | 2026-07-26 | 58.3% → **91.7%** (PASS after tuning) | selection artifact, 12 interview-minted interests |
 
 Two of three days clear the bar outright, and the third clears it after a tuning pass
 whose cause is now understood and cheap to fix. **The PRD's coarser-niche pivot is
 NOT triggered** — nothing here says fine niches are structurally unservable. Both
 sub-60% readings had the same single cause (anchor terms written as generic phrases
-instead of named entities), and correcting five rows moved the rate to 100%.
+instead of named entities), and correcting five rows moved the rate to 91.7%.
 
 Conditions attached to the GO — none of them optional:
 
@@ -273,6 +281,43 @@ Conditions attached to the GO — none of them optional:
   with no fallback label).
 - **Interview tap budget**: 28 taps vs the 18 hard cap for a three-root persona.
 - **Apply migration 0030** before any user can skip an interview question.
+
+## Review-panel outcomes
+
+Two HIGH correctness findings were caught **after** the first commit and fixed in a
+follow-up, because both changed what the reported number means:
+
+1. **Standbys were scoring hits.** The first pass counted any shortlist match,
+   including standbys ranked below the cap line, which are never produced and so
+   never earn a `story_interests` row. The post-tuning figure was first reported as
+   100% (12/12); the corrected produced-only rule reads **91.7% (11/12)**. The
+   figures throughout this document are the corrected ones. Locked by
+   `test_a_standby_only_match_is_a_miss_not_a_hit`.
+2. **A 0/0 census rendered as "0.0% MISS"** — an unmeasured run displayed as a
+   decisive no-go. Directly reachable: running the census in the window where the
+   seed-exclusion directive had deleted every persona profile would have
+   manufactured a no-go out of missing data. Now reports `NOT COMPUTABLE`.
+
+Also fixed: the committed evidence JSON was unparseable (structured log lines share
+stdout with the report), so the CLI gained `--out`; and a round-trip test now pins
+the census to the real `ShortlistEntry` field names, so a rename cannot silently
+turn every niche dry.
+
+Data-integrity lens verified independently and found **zero scope leakage**: the 5
+tuned nodes have exactly one follower each (all personas, no real users); no
+`daily_feeds` rows exist for 2026-07-26 for anyone; 0 stories and 0 `story_interests`
+rows were created today; profile rows created today across all 16 users are exactly
+the personas' 12; `ash@gmail.com`'s onboarding stamp is untouched; `user_scope.py` is
+unmodified. Two findings accepted and **not** fixed here:
+
+- **The 5 tuned rows are shared catalog nodes, not persona-private ones.** Zero blast
+  radius is a snapshot property, not a structural one — the first real user to follow
+  `ai.foundation-models` inherits a query hand-tuned around three personas. Folding
+  these into #69's catalog-wide review is the right home for them.
+- **No rollback snapshot was written** for the 5-row UPDATE, unlike
+  `backfill_anchor_queries`, which enforces "no snapshot, no mutation". The before
+  values are recorded in the tuning table above and are restorable from it, so this
+  is a process-consistency gap rather than data loss.
 
 ## The single armed production run (day 4 — NOT run today)
 

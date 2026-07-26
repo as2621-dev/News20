@@ -137,6 +137,12 @@ def main() -> int:
         help="Shortlist artifact feed date (YYYY-MM-DD). Defaults to today UTC.",
     )
     parser.add_argument("--json", action="store_true", help="Emit machine JSON.")
+    parser.add_argument(
+        "--out",
+        help="Write the machine JSON to this path. Use this rather than shell "
+        "redirection: the structured logger and the Supabase HTTP client both "
+        "write to stdout, so a redirected --json capture is NOT parseable JSON.",
+    )
     args = parser.parse_args()
 
     artifact, path = _load_artifact(args.feed_date)
@@ -155,16 +161,28 @@ def main() -> int:
         os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     )
 
+    has_selection_block = artifact.get("shortlist_selection") is not None
+    production_story_ids = (
+        set(selection.get("selection_production_story_ids") or [])
+        if has_selection_block
+        else None
+    )
+
     report = build_selection_census(
         personas=_fetch_persona_inputs(supabase, selection_by_user_id),
         shortlist_entries=entries,
         feed_date=(artifact.get("shortlist_run") or {}).get(
             "run_feed_date", args.feed_date
         ),
-        has_selection_block=bool(selection_by_user_id),
+        has_selection_block=has_selection_block,
+        production_story_ids=production_story_ids,
     )
 
-    if args.json:
+    if args.out:
+        with open(args.out, "w") as handle:
+            handle.write(report.model_dump_json(indent=2))
+        print(f"wrote {args.out}")
+    elif args.json:
         print(report.model_dump_json(indent=2))
     else:
         print(f"artifact: {path}\n")

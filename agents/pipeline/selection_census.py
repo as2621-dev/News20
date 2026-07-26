@@ -74,17 +74,21 @@ class InterestSelectionCoverage(BaseModel):
         interest_slug: The niche scored.
         interest_label: Its display label.
         pool_direct_story_count: Shortlist entries carrying this slug as a direct
-            (depth-0) match.
-        selected_direct_story_count: How many of those are in the persona's own
-            selected cut.
-        is_dry: True when the niche drew no direct match at all (a miss cell).
+            (depth-0) match. Includes STANDBYS, which are never produced — context
+            only, never the hit signal.
+        produced_direct_story_count: Of those, the ones the run would actually
+            produce. This is what decides the hit, because a ``story_interests``
+            row (the older instrument's signal) is only written per PRODUCED story.
+        selected_direct_story_count: How many are in the persona's own selected cut.
+        is_dry: True when the niche drew no PRODUCED direct match (a miss cell).
     """
 
     interest_slug: str = Field(..., description="Dotted taxonomy slug")
     interest_label: str = Field(default="", description="Display label")
     pool_direct_story_count: int = Field(default=0, ge=0)
+    produced_direct_story_count: int = Field(default=0, ge=0)
     selected_direct_story_count: int = Field(default=0, ge=0)
-    is_dry: bool = Field(default=True, description="No direct match anywhere")
+    is_dry: bool = Field(default=True, description="No produced direct match")
 
 
 class PersonaSelectionCoverage(BaseModel):
@@ -97,6 +101,10 @@ class PersonaSelectionCoverage(BaseModel):
     total_interest_count: int = Field(default=0, ge=0)
     hit_rate: float = Field(default=0.0, description="hit/total interests, 0..1")
     meets_target: bool = Field(default=False, description="hit_rate ≥ target")
+    is_computable: bool = Field(
+        default=False,
+        description="False when the persona follows nothing — 0/0 is NOT a MISS",
+    )
     selected_story_count: int = Field(default=0, ge=0)
     selected_direct_leaf_count: int = Field(
         default=0, ge=0, description="Selected stories with ≥1 followed direct match"
@@ -120,6 +128,11 @@ class SelectionCensusReport(BaseModel):
     overall_total_interest_count: int = Field(default=0, ge=0)
     overall_hit_rate: float = Field(default=0.0)
     overall_meets_target: bool = Field(default=False)
+    is_computable: bool = Field(
+        default=False,
+        description="False when no persona followed anything — the run measured "
+        "NOTHING, which must never render as a 0% no-go verdict",
+    )
 
 
 def build_selection_census(
@@ -127,6 +140,7 @@ def build_selection_census(
     shortlist_entries: list[dict],
     feed_date: str,
     has_selection_block: bool = False,
+    production_story_ids: set[str] | None = None,
     hit_rate_target: float = HIT_RATE_TARGET,
 ) -> SelectionCensusReport:
     """Score each persona's niches against one shortlist run's direct matches.
@@ -138,10 +152,18 @@ def build_selection_census(
             their selected cut.
         shortlist_entries: Raw ``shortlist_entries`` dicts from the artifact; only
             ``shortlist_story_id`` and ``shortlist_matched_interest_slugs`` are read.
+            Since #74 this list is candidates PLUS standbys.
         feed_date: The artifact's ``run_feed_date``, stamped onto the report.
         has_selection_block: Whether the artifact carried ``shortlist_selection``.
             When False the direct-leaf slot share is structurally unavailable and is
             reported as 0 alongside this flag rather than as a real measurement.
+        production_story_ids: ``selection_production_story_ids`` — the stories the
+            run would actually produce. A niche only scores a HIT off these,
+            because ``story_interests`` (the stored-tag instrument this one stands
+            in for) is written per PRODUCED story: a niche whose only match is a
+            standby would read as a hit here and a miss there. ``None`` (a pre-#74
+            artifact with no selection block) falls back to the whole pool and the
+            report says so via ``has_selection_block``.
         hit_rate_target: The ≥ bar (default the shared 60% constant).
 
     Returns:
@@ -179,17 +201,23 @@ def build_selection_census(
 
         for interest in persona.followed_interests:
             pool_stories = stories_by_slug.get(interest.interest_slug, set())
+            produced_stories = (
+                pool_stories & production_story_ids
+                if production_story_ids is not None
+                else pool_stories
+            )
             selected_hits = pool_stories & selected_ids
             directly_matched_selected |= selected_hits
-            if pool_stories:
+            if produced_stories:
                 hits += 1
             interest_coverages.append(
                 InterestSelectionCoverage(
                     interest_slug=interest.interest_slug,
                     interest_label=interest.interest_label,
                     pool_direct_story_count=len(pool_stories),
+                    produced_direct_story_count=len(produced_stories),
                     selected_direct_story_count=len(selected_hits),
-                    is_dry=not pool_stories,
+                    is_dry=not produced_stories,
                 )
             )
 
@@ -204,7 +232,8 @@ def build_selection_census(
                 hit_interest_count=hits,
                 total_interest_count=total,
                 hit_rate=round(rate, 4),
-                meets_target=rate >= hit_rate_target,
+                meets_target=total > 0 and rate >= hit_rate_target,
+                is_computable=total > 0,
                 selected_story_count=selected_count,
                 selected_direct_leaf_count=len(directly_matched_selected),
                 selected_direct_leaf_rate=round(
@@ -235,7 +264,8 @@ def build_selection_census(
         overall_hit_interest_count=overall_hits,
         overall_total_interest_count=overall_total,
         overall_hit_rate=round(overall_rate, 4),
-        overall_meets_target=overall_rate >= hit_rate_target,
+        overall_meets_target=overall_total > 0 and overall_rate >= hit_rate_target,
+        is_computable=overall_total > 0,
     )
 
 
@@ -249,16 +279,20 @@ def render_selection_census_text(report: SelectionCensusReport) -> str:
         "",
     ]
     for persona in report.personas:
-        lines.append(
-            f"{persona.persona_key} ({persona.persona_email}) — "
-            f"hit rate {persona.hit_rate * 100:5.1f}% "
-            f"[{persona.hit_interest_count}/{persona.total_interest_count}] "
-            f"{'PASS' if persona.meets_target else 'MISS'} vs {target_pct}"
-        )
+        if persona.is_computable:
+            verdict = (
+                f"hit rate {persona.hit_rate * 100:5.1f}% "
+                f"[{persona.hit_interest_count}/{persona.total_interest_count}] "
+                f"{'PASS' if persona.meets_target else 'MISS'} vs {target_pct}"
+            )
+        else:
+            verdict = "NOT COMPUTABLE — persona follows no interests (0/0)"
+        lines.append(f"{persona.persona_key} ({persona.persona_email}) — {verdict}")
         for interest in persona.interests:
             mark = "DRY " if interest.is_dry else "hit "
             lines.append(
                 f"    {mark}{interest.interest_slug:45s} "
+                f"produced={interest.produced_direct_story_count:3d} "
                 f"pool={interest.pool_direct_story_count:3d} "
                 f"selected={interest.selected_direct_story_count:3d}"
             )
@@ -268,9 +302,16 @@ def render_selection_census_text(report: SelectionCensusReport) -> str:
             f"= {persona.selected_direct_leaf_rate * 100:.1f}%"
         )
         lines.append("")
-    lines.append(
-        f"OVERALL hit rate {report.overall_hit_rate * 100:5.1f}% "
-        f"[{report.overall_hit_interest_count}/{report.overall_total_interest_count}] "
-        f"{'PASS' if report.overall_meets_target else 'MISS'} vs {target_pct}"
-    )
+    if report.is_computable:
+        lines.append(
+            f"OVERALL hit rate {report.overall_hit_rate * 100:5.1f}% "
+            f"[{report.overall_hit_interest_count}/"
+            f"{report.overall_total_interest_count}] "
+            f"{'PASS' if report.overall_meets_target else 'MISS'} vs {target_pct}"
+        )
+    else:
+        lines.append(
+            "OVERALL NOT COMPUTABLE — no persona followed any interest (0/0). "
+            "This is an unmeasured run, NOT a no-go."
+        )
     return "\n".join(lines)

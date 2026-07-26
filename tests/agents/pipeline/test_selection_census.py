@@ -54,6 +54,7 @@ def test_persona_with_every_niche_directly_matched_passes_the_target() -> None:
         ],
         feed_date="2026-07-26",
         has_selection_block=True,
+        production_story_ids={"s1", "s2", "s3", "s-direct", "s-other"},
     )
     assert report.overall_hit_rate == 1.0
     assert report.overall_meets_target is True
@@ -82,6 +83,7 @@ def test_niches_with_no_direct_match_are_dry_and_drag_the_rate_below_target() ->
         ],
         feed_date="2026-07-26",
         has_selection_block=True,
+        production_story_ids={"s1", "s2", "s3", "s-direct", "s-other"},
     )
     persona = report.personas[0]
     assert persona.hit_interest_count == 1
@@ -107,6 +109,7 @@ def test_pool_match_outside_the_selected_cut_still_counts_as_a_hit() -> None:
         ],
         feed_date="2026-07-26",
         has_selection_block=True,
+        production_story_ids={"s1", "s2", "s3", "s-direct", "s-other"},
     )
     persona = report.personas[0]
     assert persona.hit_rate == 1.0
@@ -126,6 +129,7 @@ def test_persona_with_no_followed_interests_contributes_no_cells() -> None:
         shortlist_entries=[_entry("s1", ["tech.chips"])],
         feed_date="2026-07-26",
         has_selection_block=True,
+        production_story_ids={"s1", "s2", "s3", "s-direct", "s-other"},
     )
     assert report.overall_total_interest_count == 1
     assert report.overall_hit_rate == 1.0
@@ -155,8 +159,129 @@ def test_rendered_text_names_dry_niches_and_the_overall_verdict() -> None:
         shortlist_entries=[_entry("s1", ["sport.cricket.ipl"])],
         feed_date="2026-07-26",
         has_selection_block=True,
+        production_story_ids={"s1", "s2", "s3", "s-direct", "s-other"},
     )
     text = render_selection_census_text(report)
     assert "DRY sport.cricket.wc" in text
     assert "OVERALL hit rate  50.0%" in text
     assert "MISS" in text
+
+
+def test_a_standby_only_match_is_a_miss_not_a_hit() -> None:
+    """The #74 shortlist carries STANDBYS, which are never produced.
+
+    ``story_interests`` — the stored-tag instrument this census stands in for — is
+    written per PRODUCED story, so a niche whose only match sits below the cap line
+    must read DRY. Counting it would make this census disagree with the older one on
+    exactly the cells nearest the 60% bar.
+    """
+    report = build_selection_census(
+        personas=[
+            _persona("founder", ["business.venture-capital", "ai.llms"], ["s-prod"])
+        ],
+        shortlist_entries=[
+            _entry("s-standby", ["business.venture-capital"]),
+            _entry("s-prod", ["ai.llms"]),
+        ],
+        feed_date="2026-07-26",
+        has_selection_block=True,
+        production_story_ids={"s-prod"},
+    )
+    persona = report.personas[0]
+    vc = next(
+        i for i in persona.interests if i.interest_slug == "business.venture-capital"
+    )
+    assert vc.pool_direct_story_count == 1
+    assert vc.produced_direct_story_count == 0
+    assert vc.is_dry is True
+    assert persona.hit_rate == 0.5
+
+
+def test_zero_followed_interests_is_not_computable_rather_than_a_zero_percent_no_go() -> (
+    None
+):
+    """A run that measured NOTHING must never render as a 0% no-go verdict.
+
+    Directly reachable: the 2026-07-26 seed-exclusion directive deleted every
+    persona profile row, and a census run in that window has an empty denominator.
+    Reporting it as "0.0% MISS" would manufacture a no-go out of missing data.
+    """
+    report = build_selection_census(
+        personas=[_persona("founder", []), _persona("chip", [])],
+        shortlist_entries=[_entry("s1", ["tech.chips"])],
+        feed_date="2026-07-26",
+        has_selection_block=True,
+        production_story_ids={"s1"},
+    )
+    assert report.is_computable is False
+    assert report.overall_meets_target is False
+    text = render_selection_census_text(report)
+    assert "NOT COMPUTABLE" in text
+    assert "NOT a no-go" in text
+
+
+def test_census_reads_the_real_shortlist_artifact_field_names() -> None:
+    """Round-trip against the ACTUAL writer, so a field rename cannot pass silently.
+
+    Every other test hand-builds entry dicts. If ``ShortlistEntry`` renamed a field,
+    those would all still pass while the real reader saw None, every niche read DRY,
+    and the census reported a plausible-looking structural no-go.
+    """
+    from agents.pipeline.production_selection import (
+        ProductionSelectionPlan,
+        UserSelection,
+    )
+    from agents.pipeline.shortlist import (
+        ShortlistArtifact,
+        ShortlistEntry,
+        ShortlistRunHeader,
+    )
+
+    artifact = ShortlistArtifact(
+        shortlist_run=ShortlistRunHeader(
+            run_feed_date="2026-07-26",
+            run_semantic_relevance_mode="semantic",
+            run_fell_back_to_lexical=False,
+        ),
+        shortlist_entries=[
+            ShortlistEntry(
+                shortlist_story_id="story-1",
+                shortlist_headline="TSMC lifts capex",
+                shortlist_category="business",
+                shortlist_matched_interest_slugs=["tech.semiconductors.tsmc"],
+            )
+        ],
+        shortlist_selection=ProductionSelectionPlan(
+            selection_production_story_ids=["story-1"],
+            selection_by_user=[
+                UserSelection(
+                    selection_user_id="uid-chip", selection_story_ids=["story-1"]
+                )
+            ],
+        ),
+    )
+    dumped = artifact.model_dump()
+    selection = dumped["shortlist_selection"]
+
+    report = build_selection_census(
+        personas=[
+            CensusPersonaInput(
+                persona_key="chip",
+                persona_email="persona.chip@news20.seed",
+                persona_user_id="uid-chip",
+                followed_interests=[
+                    CensusFollowedInterest(interest_slug="tech.semiconductors.tsmc")
+                ],
+                selected_story_ids=selection["selection_by_user"][0][
+                    "selection_story_ids"
+                ],
+            )
+        ],
+        shortlist_entries=dumped["shortlist_entries"],
+        feed_date=dumped["shortlist_run"]["run_feed_date"],
+        has_selection_block=True,
+        production_story_ids=set(selection["selection_production_story_ids"]),
+    )
+    assert report.overall_hit_rate == 1.0
+    assert report.personas[0].interests[0].produced_direct_story_count == 1
+    assert report.personas[0].selected_direct_leaf_rate == 1.0
