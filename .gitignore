@@ -5,6 +5,10 @@
 # Google service-account / cloud credential JSON keys (NEVER commit).
 # Matches the GCP keyfile format <project>-<num>-<12-hex-keyid>.json.
 *-????????????.json
+# Dated shortlist review artifacts (e.g. 2026-07-26-shortlist.json) collide
+# with the keyfile pattern above by accident ("26-shortlist" is 12 chars);
+# they are founder-review artifacts, never credentials — re-admit them.
+!.agents/shortlists/*-shortlist.json
 service-account*.json
 gcp-*.json
 

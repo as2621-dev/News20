@@ -1,0 +1,1324 @@
+{
+  "shortlist_run": {
+    "run_feed_date": "2026-07-26",
+    "run_semantic_relevance_mode": "semantic",
+    "run_fell_back_to_lexical": false,
+    "run_semantic_stories_checked": 876,
+    "run_semantic_interests_checked": 24,
+    "run_shortlist_story_count": 109
+  },
+  "shortlist_entries": [
+    {
+      "shortlist_story_id": "cand-cfcb43f5b6d3",
+      "shortlist_headline": "Jan Neta Opening Weekend Hindi Box Office: Thalapathy Vijay & Bobby Deol starrer surprises with Rs 9 crore in 4 days",
+      "shortlist_primary_outlet": "pinkvilla.com",
+      "shortlist_outlet_count": 7,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-37d44f0e0c5a",
+      "shortlist_headline": "\"The Odyssey\" tops North American box office for 2nd weekend in a row-Xinhua",
+      "shortlist_primary_outlet": "english.news.cn",
+      "shortlist_outlet_count": 19,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office",
+        "entertainment"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-b9420a12b903",
+      "shortlist_headline": "Toy Story 5 Becomes the 3rd Movie This Year to Hit Major Box Office Milestone",
+      "shortlist_primary_outlet": "comicbook.com",
+      "shortlist_outlet_count": 5,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-f6c29e62514b",
+      "shortlist_headline": "Spider-Man: Brand New Day China Box Office: Gearing Up To Record 3rd Biggest Hollywood Debut Post-COVID",
+      "shortlist_primary_outlet": "koimoi.com",
+      "shortlist_outlet_count": 4,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-a8b9b17d672f",
+      "shortlist_headline": "Ecowas greenlights $25bn Nigeria-Morocco mega gas pipeline",
+      "shortlist_primary_outlet": "aol.co.uk",
+      "shortlist_outlet_count": 4,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.natural-gas-pipelines"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-a1f926ef13de",
+      "shortlist_headline": "Iraq Advances Gas Field Deal With ConocoPhillips, Moves Forward With Mediterranean Pipeline To Bypass Hor",
+      "shortlist_primary_outlet": "benzinga.com",
+      "shortlist_outlet_count": 5,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.natural-gas-pipelines",
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-d026af069787",
+      "shortlist_headline": "'Freeze the conflict': Drones slow Kazakh oil flow amid Russia-Ukraine war",
+      "shortlist_primary_outlet": "grenadachronicle.com",
+      "shortlist_outlet_count": 4,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.natural-gas-pipelines"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-5f8559c759ee",
+      "shortlist_headline": "Bank set to hold interest rates despite intensifying Middle East war",
+      "shortlist_primary_outlet": "lbc.co.uk",
+      "shortlist_outlet_count": 24,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.interest-rates-fed"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-06ce16517240",
+      "shortlist_headline": "US Federal Reserve expected to hold rates steady as inflation swirls",
+      "shortlist_primary_outlet": "freemalaysiatoday.com",
+      "shortlist_outlet_count": 7,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.inflation",
+        "business.interest-rates-fed"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-a645b3675110",
+      "shortlist_headline": "Here are the 3 big things we're watching in the stock market in the week ahead",
+      "shortlist_primary_outlet": "cnbc.com",
+      "shortlist_outlet_count": 8,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.interest-rates-fed",
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-cc71939c4e59",
+      "shortlist_headline": "Oil drops as Middle East tensions ease, ASX set to rise",
+      "shortlist_primary_outlet": "theage.com.au",
+      "shortlist_outlet_count": 11,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.interest-rates-fed",
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-34fe56a9b321",
+      "shortlist_headline": "Rate watchers eye inflation data and RBA chief's speech",
+      "shortlist_primary_outlet": "nynganobserver.com.au",
+      "shortlist_outlet_count": 29,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.inflation"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-1ef36c139485",
+      "shortlist_headline": "Premier League champions Arsenal eye Real Madrid forward Vinicius Jr",
+      "shortlist_primary_outlet": "timesofoman.com",
+      "shortlist_outlet_count": 5,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport",
+        "sport.soccer"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-c41997d5c581",
+      "shortlist_headline": "Sooryavanshi stars as India wrap up T20 clean sweep",
+      "shortlist_primary_outlet": "easternriverinachronicle.com.au",
+      "shortlist_outlet_count": 7,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.cricket"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-9c3e46273811",
+      "shortlist_headline": "ELEKTROS Accelerates Strategic Vision for U.S. Lithium Refining and Next-Generation EV Charging Network",
+      "shortlist_primary_outlet": "newjerseytelegraph.com",
+      "shortlist_outlet_count": 6,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.critical-minerals"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-4baa1b66b860",
+      "shortlist_headline": "Oil prices are climbing again. Here's why this time could be different",
+      "shortlist_primary_outlet": "redriverradio.org",
+      "shortlist_outlet_count": 9,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-2d05576ea82c",
+      "shortlist_headline": "PM Modi Lauds PV Sindhu's Japan Open Title, Women's Cricket Win",
+      "shortlist_primary_outlet": "newkerala.com",
+      "shortlist_outlet_count": 6,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-77abab9e0fb4",
+      "shortlist_headline": "Pakistan bowl out West Indies for 311 on Day 2 of first Test",
+      "shortlist_primary_outlet": "geo.tv",
+      "shortlist_outlet_count": 6,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.cricket"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-01022172ed3f",
+      "shortlist_headline": "SpaceX launches Starship in first test since record IPO",
+      "shortlist_primary_outlet": "americanbazaaronline.com",
+      "shortlist_outlet_count": 25,
+      "shortlist_category": "tech",
+      "shortlist_matched_interest_slugs": [
+        "tech.launches-missions"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-889fbd982033",
+      "shortlist_headline": "Aadhaar architect, ex-ISRO chairman: Meet the 6 experts tasked with NTA exam reforms",
+      "shortlist_primary_outlet": "livemint.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "tech",
+      "shortlist_matched_interest_slugs": [
+        "tech.launches-missions"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-0ebc8119305b",
+      "shortlist_headline": "NASA astronaut home safe with Russian crew after 8 months on space station",
+      "shortlist_primary_outlet": "orlandosentinel.com",
+      "shortlist_outlet_count": 12,
+      "shortlist_category": "tech",
+      "shortlist_matched_interest_slugs": [
+        "tech.launches-missions"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-983e4e8219c8",
+      "shortlist_headline": "A day in the life of a Nasa behavioral health scientist",
+      "shortlist_primary_outlet": "theguardian.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "tech",
+      "shortlist_matched_interest_slugs": [
+        "tech.launches-missions"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-b4cf1f28339e",
+      "shortlist_headline": "Why Are Data Centers Moving Into Rural Areas?",
+      "shortlist_primary_outlet": "bgr.com",
+      "shortlist_outlet_count": 4,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-7774dbe0deb2",
+      "shortlist_headline": "Data Center Pledge Targets Rural Electricity Cost Concerns",
+      "shortlist_primary_outlet": "rfdtv.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-7d7d3e2846bd",
+      "shortlist_headline": "Best Technology Stocks To Watch Now – July 25th",
+      "shortlist_primary_outlet": "themarketsdaily.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-6cd40d83a93e",
+      "shortlist_headline": "For some, so-called 'Skynet Day' came too close to sci-fi after a rogue agent hacked into a startup",
+      "shortlist_primary_outlet": "brandonsun.com",
+      "shortlist_outlet_count": 31,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.alignment-research"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-092387f296f1",
+      "shortlist_headline": "Hyundai outlines South Korea physical AI expansion",
+      "shortlist_primary_outlet": "upi.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.alignment-research"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-4e494895098e",
+      "shortlist_headline": "'I'm obsessed with him' - Shakira reveals why she chose Burna Boy for World Cup song",
+      "shortlist_primary_outlet": "dailypost.ng",
+      "shortlist_outlet_count": 6,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-85dd5da018c8",
+      "shortlist_headline": "Infantino's letter congratulating Argentina on finishing second at the World Cup is leaked",
+      "shortlist_primary_outlet": "pmnewsnigeria.com",
+      "shortlist_outlet_count": 5,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa",
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-309ca4000906",
+      "shortlist_headline": "Trump's bitcoin push faces investor doubts as crypto ownership falls and bitcoin prices crash",
+      "shortlist_primary_outlet": "hindustantimes.com",
+      "shortlist_outlet_count": 6,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "crypto"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-0c7395baa223",
+      "shortlist_headline": "CBDT issues guidance note on crypto tax to be paid in India",
+      "shortlist_primary_outlet": "prokerala.com",
+      "shortlist_outlet_count": 7,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "crypto"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-db694d59f32d",
+      "shortlist_headline": "Why CoreWeave Stock Fell 30% in Just 1 Month",
+      "shortlist_primary_outlet": "yahoo.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.data-center-buildout"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-cf33be64e19b",
+      "shortlist_headline": "MEA Advises Indians to Assess Risks Before Taking Maritime Jobs in Conflict Zones",
+      "shortlist_primary_outlet": "kashmirlife.net",
+      "shortlist_outlet_count": 4,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.jobs"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-a5437a566d06",
+      "shortlist_headline": "Why employers hiring workers with disability boosts economy",
+      "shortlist_primary_outlet": "canberratimes.com.au",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.jobs"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-6eda422c6e2b",
+      "shortlist_headline": "Intel Layoffs, Musk's Micron Moment, $200 Billion Samsung-Broadcom Pact and More: This Week in Tech - Bro",
+      "shortlist_primary_outlet": "benzinga.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand",
+        "arts.ai-workforce",
+        "business.jobs"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-725b08fb616d",
+      "shortlist_headline": "German industry bleeding jobs business lobby",
+      "shortlist_primary_outlet": "europesun.com",
+      "shortlist_outlet_count": 4,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.jobs"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-2a92b162365c",
+      "shortlist_headline": "Incredible £340m M&S warehouse to create 1,000 new jobs in UK county",
+      "shortlist_primary_outlet": "express.co.uk",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.jobs"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-e64e91d20ec2",
+      "shortlist_headline": "Govt has empowered youth through jobs, skills and policymaking to realise Viksit Bharat vision: FM Sitharaman",
+      "shortlist_primary_outlet": "ianslive.in",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.jobs"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-3799b0d0ccb5",
+      "shortlist_headline": "RBC reports $3.9B profit, says ramping up job cuts ahead of economic slowdown",
+      "shortlist_primary_outlet": "investmentexecutive.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.recession-risk"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-5ea169d78e5a",
+      "shortlist_headline": "Jason Statham's #1 Box Office Hit Officially Finds a New Streaming Home",
+      "shortlist_primary_outlet": "collider.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-889f51377e31",
+      "shortlist_headline": "The India Story Opens To Just Rs. 16 Lakh As Kajal Aggarwal And Shreyas Talpade Film Struggles At The Box Office",
+      "shortlist_primary_outlet": "glamsham.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-e3d08804f8a7",
+      "shortlist_headline": "Dhamaal 4 Stays Strong At The Box Office As Rs. 150 Crore Milestone Comes Into Sight",
+      "shortlist_primary_outlet": "glamsham.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-5bc04db7f668",
+      "shortlist_headline": "Box Office: Half the Target Reached in Just 2 Days!",
+      "shortlist_primary_outlet": "gulte.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.box-office"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-35d98e3c70b8",
+      "shortlist_headline": "OMERS ADMINISTRATION Corp Boosts Stake in Cheniere Energy, Inc. $LNG",
+      "shortlist_primary_outlet": "tickerreport.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.natural-gas-pipelines"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-9e09daf03c06",
+      "shortlist_headline": "Kuwait signs $16 bln pipeline deal with Blackstone, KKR, Brookfield",
+      "shortlist_primary_outlet": "hurriyetdailynews.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.natural-gas-pipelines"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-cac75b0959c7",
+      "shortlist_headline": "GOLDSTEIN: Why natural gas is crucial to Canada's economic growth",
+      "shortlist_primary_outlet": "calgarysun.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth",
+        "geopolitics.natural-gas-pipelines"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-171ab4d952a0",
+      "shortlist_headline": "Houthi Strike Burns Jizan Aramco Refinery; Yanbu Attack Seals Saudi Arabia's Oil Trap",
+      "shortlist_primary_outlet": "techtimes.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-3f6ab824bf79",
+      "shortlist_headline": "Fed Chair Kevin Warsh's Blunt 2-Word Statement on Inflation That Could Determine Interest Rates in 2026",
+      "shortlist_primary_outlet": "yahoo.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.inflation",
+        "business.interest-rates-fed"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-6e9d237187b9",
+      "shortlist_headline": "Week ahead for traders: FOMC, BoE, BoJ, US PCE and GDP create major cross-asset risk",
+      "shortlist_primary_outlet": "investinglive.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth",
+        "business.inflation",
+        "business.interest-rates-fed"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-f578adfd4662",
+      "shortlist_headline": "Bond traders see rising odds of Fed rate hike amid oil, inflation fears (BND:NASDAQ)",
+      "shortlist_primary_outlet": "seekingalpha.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.inflation",
+        "business.interest-rates-fed"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-da865faf13b1",
+      "shortlist_headline": "'I Love the Inflation': Trump's Bizarre Inflation Boast Backfires as Fed Blames AI Boom",
+      "shortlist_primary_outlet": "ibtimes.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.inflation",
+        "business.interest-rates-fed"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-6c2eb23bb489",
+      "shortlist_headline": "ECB chief economist says inflation will return to 2% target",
+      "shortlist_primary_outlet": "hellenicshippingnews.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.inflation"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-1753fa7bf91b",
+      "shortlist_headline": "Brazil Inflation, Fed, Mexico GDP: Week Ahead Jul 27–31",
+      "shortlist_primary_outlet": "riotimesonline.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth",
+        "business.inflation"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-a4ca42a8f9a7",
+      "shortlist_headline": "Jennifer Garner's Paparazzi Ordeal: Kids' Soccer Class Banned",
+      "shortlist_primary_outlet": "newkerala.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.soccer"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-472a1756a6ac",
+      "shortlist_headline": "How the death of Jayden Adams shook a community: 'Being on the pitch was his happy place'",
+      "shortlist_primary_outlet": "aol.co.uk",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.soccer"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-767de04e4752",
+      "shortlist_headline": "Arsenal star hailed 'second best in the world' behind Ballon d'Or winner",
+      "shortlist_primary_outlet": "aol.co.uk",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup",
+        "sport.soccer"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-65830529cac7",
+      "shortlist_headline": "As Zimbabwe's raw lithium ban pays off, ambitions grow",
+      "shortlist_primary_outlet": "yahoo.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.critical-minerals"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-e2299688eb6d",
+      "shortlist_headline": "Japan Confirms Rare Earths in Deep-Sea Mud",
+      "shortlist_primary_outlet": "newsonjapan.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.critical-minerals"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-a084658265ca",
+      "shortlist_headline": "FG, AfDB back African mineral value addition, strategic financing",
+      "shortlist_primary_outlet": "tribuneonlineng.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.critical-minerals"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-5f2a38e10fa3",
+      "shortlist_headline": "Petroleum Minister: Egypt's crude oil production reaches highest level in two years",
+      "shortlist_primary_outlet": "egyptindependent.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-dbe8899cd3a9",
+      "shortlist_headline": "Crude Oil Trading Isn't Trading Higher Despite Iran and Ukraine Wars",
+      "shortlist_primary_outlet": "benzinga.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-9a5a78b33ed2",
+      "shortlist_headline": "New Tariffs Arrive as Oil Prices Soar",
+      "shortlist_primary_outlet": "politicalwire.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "geopolitics",
+      "shortlist_matched_interest_slugs": [
+        "geopolitics.oil-opec"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-217a5f214780",
+      "shortlist_headline": "Dehradun T20 League set for inaugural edition from September 2",
+      "shortlist_primary_outlet": "bignewsnetwork.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.cricket"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-060942a3d5ff",
+      "shortlist_headline": "Shafique replaces injured Fazal as Pakistan make two changes for WI, England Tests",
+      "shortlist_primary_outlet": "ianslive.in",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.cricket"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-c394ea4e73ea",
+      "shortlist_headline": "East Texas data center project pulled after facing community backlash",
+      "shortlist_primary_outlet": "abc13.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-f71f09094539",
+      "shortlist_headline": "Allison Schrager: Expect more data center moratoriums — and slower growth",
+      "shortlist_primary_outlet": "standardspeaker.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-b472e17c60b5",
+      "shortlist_headline": "Residents protest Meta AI data center, voice neighborhood concerns",
+      "shortlist_primary_outlet": "kfoxtv.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-8c87c16e073c",
+      "shortlist_headline": "Chris Kelly Opinion: Paige against the AI Machine",
+      "shortlist_primary_outlet": "thetimes-tribune.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.compute-energy-demand",
+        "ai.data-center-buildout"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-cd3fccb0fdd0",
+      "shortlist_headline": "SuperCupNI: Football's rising talent parade in Coleraine",
+      "shortlist_primary_outlet": "bbc.co.uk",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-a80cd95519c2",
+      "shortlist_headline": "WAFU B U-20 Championship: Maikaba demands strong start against Ghana",
+      "shortlist_primary_outlet": "dailypost.ng",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-c5ec2b7e8fed",
+      "shortlist_headline": "Bethesda Says The Elder Scrolls 6 Will Not Be Delayed by Microsoft Layoffs",
+      "shortlist_primary_outlet": "eteknix.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.ai-workforce"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-d33f70e7d8e0",
+      "shortlist_headline": "AI layoffs mount amid software sector bloodbath",
+      "shortlist_primary_outlet": "jpost.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.ai-workforce"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-475fd8409314",
+      "shortlist_headline": "Nothing denies reports of market exits but hints at fresh layoffs as part of restructuring",
+      "shortlist_primary_outlet": "indianexpress.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.ai-workforce"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-5b6f7ad2a2ff",
+      "shortlist_headline": "Where Is Coolie No. 1 Actress Kanchan Now? She Worked With Salman Khan, Shah Rukh Khan And Akshay Kumar Before Quitting Films",
+      "shortlist_primary_outlet": "newsx.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.bollywood"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-9978c9c15ee8",
+      "shortlist_headline": "Bollywood reacts as Dharmendra Pradhan resigns after protests",
+      "shortlist_primary_outlet": "gulfnews.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.bollywood"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-beda64b003bd",
+      "shortlist_headline": "Abhishek-Aishwarya Spotted in New York: Bollywood Royalty",
+      "shortlist_primary_outlet": "newkerala.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "arts.bollywood"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-b5307bb8902b",
+      "shortlist_headline": "Messi under fire over conduct of Argentina players during World Cup final defeat",
+      "shortlist_primary_outlet": "dailypost.ng",
+      "shortlist_outlet_count": 4,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-25c751aa1300",
+      "shortlist_headline": "'He's lying' - Dani Olmo blasts Roberto Ayala's apology after World Cup final punch",
+      "shortlist_primary_outlet": "barcablaugranes.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa",
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-e432cf7159b5",
+      "shortlist_headline": "WAFCON 2026 Preview: Super Falcons eye historic 11th crown, World Cup ticket",
+      "shortlist_primary_outlet": "premiumtimesng.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa",
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-e4aa5f37a873",
+      "shortlist_headline": "A female World Cup ref on how to navigate male-dominant fields: 'Take up space'",
+      "shortlist_primary_outlet": "theoaklandpress.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-f799b35b287a",
+      "shortlist_headline": "World Cup domestic abuse reports in Wiltshire rise by a third",
+      "shortlist_primary_outlet": "wiltshiretimes.co.uk",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-ab37fbaa0634",
+      "shortlist_headline": "'We were so happy' to dance with Shakira at the World Cup",
+      "shortlist_primary_outlet": "bbc.co.uk",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-d1c118902149",
+      "shortlist_headline": "Cape Verde's World Cup sensation Vozinha to join Chile club Colo Colo",
+      "shortlist_primary_outlet": "asiaone.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-434cae8765ce",
+      "shortlist_headline": "Aussie women snare bronze at water polo World Cup",
+      "shortlist_primary_outlet": "juneesoutherncross.com.au",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa-world-cup"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-207f57601862",
+      "shortlist_headline": "TOESCOIN Announces Engagement with Crypto-Focused Investment Firm",
+      "shortlist_primary_outlet": "itnewsonline.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "crypto"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-f90ff2d673ae",
+      "shortlist_headline": "Nebius (NASDAQ: NBIS) Revenue Surges 684% As Strategy (NASDAQ: MSTR) Struggles With Bitcoin Decline",
+      "shortlist_primary_outlet": "foreignpolicyjournal.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "crypto"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-3d2958e12b1d",
+      "shortlist_headline": "Promising Blockchain Stocks To Watch Today – July 26th",
+      "shortlist_primary_outlet": "tickerreport.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "crypto"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-37cc35ce6b21",
+      "shortlist_headline": "Crypto.com, Robinhood Reportedly in Prediction Market Talks",
+      "shortlist_primary_outlet": "casino.org",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "crypto"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-dd968a20a54e",
+      "shortlist_headline": "KuCoin Marks Ninth Anniversary at Tomorrowland Belgium, Honoring Nine Years of Industry Progress Beyond the Signal",
+      "shortlist_primary_outlet": "prnewswire.com",
+      "shortlist_outlet_count": 3,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "crypto"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-1b31376186a1",
+      "shortlist_headline": "Meghan Markle wants to be the next Gordon Ramsay – but it's backfiring",
+      "shortlist_primary_outlet": "express.co.uk",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "entertainment"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-97291deb3aaf",
+      "shortlist_headline": "'We tried celebrity perfumes – the worst one is disgusting'",
+      "shortlist_primary_outlet": "express.co.uk",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "entertainment"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-ec90a6f79729",
+      "shortlist_headline": "Kalshi Sends Netflix Cease-and-Desist Letter, Calls 'Prediction Games' Trailer 'Defamatory' - Netflix (NA",
+      "shortlist_primary_outlet": "benzinga.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "entertainment"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-eff96e3f94c5",
+      "shortlist_headline": "ITV Emmerdale Joe Tate star's life including famous actor ex he met in Hollywood",
+      "shortlist_primary_outlet": "aol.co.uk",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "entertainment"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-72a0ba2cd7de",
+      "shortlist_headline": "What's Coming To Netflix In August 2026: Full List Of TV Shows & Movies",
+      "shortlist_primary_outlet": "screenrant.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "entertainment"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-6382c1ffbaa7",
+      "shortlist_headline": "'Ebenezer' Trailer Marks Johnny Depp's Big Hollywood Return",
+      "shortlist_primary_outlet": "kdat.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "arts",
+      "shortlist_matched_interest_slugs": [
+        "entertainment"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-930073911420",
+      "shortlist_headline": "Why Morocco Appears Well-Positioned Ahead of CAS AFCON 2025 Hearing",
+      "shortlist_primary_outlet": "moroccoworldnews.com",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-1a1f2f1a425e",
+      "shortlist_headline": "Russian sponsor, federal rules and curriculum: this is why Pirlo can lose Italy",
+      "shortlist_primary_outlet": "irishdentist.ie",
+      "shortlist_outlet_count": 2,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.fifa"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-13e5abfb2fdb",
+      "shortlist_headline": "What more expensive corporate debt could mean for the AI buildout",
+      "shortlist_primary_outlet": "cnbc.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.data-center-buildout"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-7f284792b127",
+      "shortlist_headline": "Saudi banking sector underpinning sustainable economic growth",
+      "shortlist_primary_outlet": "arabnews.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-b947b0b5939e",
+      "shortlist_headline": "Better corrosion protection could lift India's GDP by up to 1.5%, report says",
+      "shortlist_primary_outlet": "indiatimes.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-54b060a24aba",
+      "shortlist_headline": "McDonald's Portugal generated an impact of €777 million on the national GDP in 2025",
+      "shortlist_primary_outlet": "theportugalnews.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-29c7a9b41553",
+      "shortlist_headline": "China This Week | Poll shows favourable view of China over US, new GDP data, and Rubio-Wang meeting",
+      "shortlist_primary_outlet": "indianexpress.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-4fc3d7a1eb37",
+      "shortlist_headline": "China Economy Slows: Domestic Demand Decline Hits GDP",
+      "shortlist_primary_outlet": "newkerala.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-022d93c56304",
+      "shortlist_headline": "Illegal Trade in Argentina Tops US$32 Billion, ~5% of GDP",
+      "shortlist_primary_outlet": "riotimesonline.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "business",
+      "shortlist_matched_interest_slugs": [
+        "business.gdp-growth"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-aef8d7317eba",
+      "shortlist_headline": "BCCI Invites Bids for Title Sponsorship Rights, Opens Tender Process",
+      "shortlist_primary_outlet": "heraldgoa.in",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "sport",
+      "shortlist_matched_interest_slugs": [
+        "sport.cricket.india"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-3fc9cf4a12ae",
+      "shortlist_headline": "Crackdown coming on Chinese connected-car hardware | Money news",
+      "shortlist_primary_outlet": "wbkb11.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.business.startups.new-tech"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-dfcb1c023083",
+      "shortlist_headline": "Third Form of Magnetism Earns Europe's Top Physics Prize: Could Reshape AI Hardware",
+      "shortlist_primary_outlet": "techtimes.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.business.startups.new-tech"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-f9f7e98abb9f",
+      "shortlist_headline": "Top AI Hardware Stock Picks From an Elite Fund Manager",
+      "shortlist_primary_outlet": "businessinsider.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.business.startups.new-tech"
+      ]
+    },
+    {
+      "shortlist_story_id": "cand-2f5b68c88e34",
+      "shortlist_headline": "Between IP and AI: Generative AI continues to grow",
+      "shortlist_primary_outlet": "jpost.com",
+      "shortlist_outlet_count": 1,
+      "shortlist_category": "ai",
+      "shortlist_matched_interest_slugs": [
+        "ai.business.startups.new-tech"
+      ]
+    }
+  ],
+  "shortlist_selection": {
+    "selection_production_story_ids": [
+      "cand-cfcb43f5b6d3",
+      "cand-37d44f0e0c5a",
+      "cand-b9420a12b903",
+      "cand-f6c29e62514b",
+      "cand-a8b9b17d672f",
+      "cand-a1f926ef13de",
+      "cand-d026af069787",
+      "cand-5f8559c759ee",
+      "cand-06ce16517240",
+      "cand-a645b3675110",
+      "cand-cc71939c4e59",
+      "cand-34fe56a9b321",
+      "cand-1ef36c139485",
+      "cand-c41997d5c581",
+      "cand-9c3e46273811",
+      "cand-4baa1b66b860",
+      "cand-2d05576ea82c",
+      "cand-77abab9e0fb4",
+      "cand-01022172ed3f",
+      "cand-0ebc8119305b",
+      "cand-b4cf1f28339e",
+      "cand-7774dbe0deb2",
+      "cand-7d7d3e2846bd",
+      "cand-6cd40d83a93e",
+      "cand-092387f296f1",
+      "cand-4e494895098e",
+      "cand-85dd5da018c8",
+      "cand-309ca4000906",
+      "cand-0c7395baa223",
+      "cand-db694d59f32d"
+    ],
+    "selection_by_user": [
+      {
+        "selection_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+        "selection_story_ids": [
+          "cand-092387f296f1",
+          "cand-b4cf1f28339e",
+          "cand-6cd40d83a93e",
+          "cand-7774dbe0deb2",
+          "cand-7d7d3e2846bd",
+          "cand-db694d59f32d",
+          "cand-01022172ed3f",
+          "cand-0ebc8119305b",
+          "cand-cc71939c4e59",
+          "cand-a645b3675110",
+          "cand-0c7395baa223",
+          "cand-309ca4000906",
+          "cand-5f8559c759ee",
+          "cand-06ce16517240",
+          "cand-34fe56a9b321",
+          "cand-a1f926ef13de",
+          "cand-9c3e46273811",
+          "cand-a8b9b17d672f",
+          "cand-d026af069787",
+          "cand-4baa1b66b860",
+          "cand-77abab9e0fb4",
+          "cand-c41997d5c581",
+          "cand-85dd5da018c8",
+          "cand-1ef36c139485",
+          "cand-4e494895098e",
+          "cand-2d05576ea82c",
+          "cand-37d44f0e0c5a",
+          "cand-cfcb43f5b6d3",
+          "cand-b9420a12b903",
+          "cand-f6c29e62514b"
+        ]
+      },
+      {
+        "selection_user_id": "270abfd6-cdb6-4b14-9e17-60ca5d71e233",
+        "selection_story_ids": [
+          "cand-cc71939c4e59",
+          "cand-a645b3675110",
+          "cand-5f8559c759ee",
+          "cand-34fe56a9b321",
+          "cand-06ce16517240",
+          "cand-37d44f0e0c5a",
+          "cand-cfcb43f5b6d3",
+          "cand-b9420a12b903",
+          "cand-f6c29e62514b"
+        ]
+      },
+      {
+        "selection_user_id": "e3c311e2-c9f5-4fda-b22d-4b2eddf06fdf",
+        "selection_story_ids": []
+      },
+      {
+        "selection_user_id": "b57882f4-947b-463f-afcf-2d6ed063db66",
+        "selection_story_ids": [
+          "cand-a1f926ef13de",
+          "cand-9c3e46273811",
+          "cand-a8b9b17d672f",
+          "cand-d026af069787",
+          "cand-4baa1b66b860",
+          "cand-cc71939c4e59",
+          "cand-a645b3675110",
+          "cand-5f8559c759ee",
+          "cand-34fe56a9b321",
+          "cand-06ce16517240"
+        ]
+      },
+      {
+        "selection_user_id": "7b793317-d2eb-42cc-a803-00aa9dc0b8a5",
+        "selection_story_ids": []
+      }
+    ],
+    "selection_standby_story_ids_by_category": {
+      "ai": [
+        "cand-f71f09094539",
+        "cand-b472e17c60b5",
+        "cand-c394ea4e73ea",
+        "cand-3fc9cf4a12ae",
+        "cand-dfcb1c023083",
+        "cand-13e5abfb2fdb",
+        "cand-f9f7e98abb9f",
+        "cand-2f5b68c88e34",
+        "cand-8c87c16e073c"
+      ],
+      "arts": [
+        "cand-9978c9c15ee8",
+        "cand-1b31376186a1",
+        "cand-72a0ba2cd7de",
+        "cand-eff96e3f94c5",
+        "cand-5ea169d78e5a",
+        "cand-6382c1ffbaa7",
+        "cand-5b6f7ad2a2ff",
+        "cand-889f51377e31",
+        "cand-e3d08804f8a7",
+        "cand-5bc04db7f668",
+        "cand-d33f70e7d8e0",
+        "cand-97291deb3aaf",
+        "cand-ec90a6f79729",
+        "cand-beda64b003bd",
+        "cand-c5ec2b7e8fed",
+        "cand-475fd8409314"
+      ],
+      "business": [
+        "cand-cf33be64e19b",
+        "cand-725b08fb616d",
+        "cand-f578adfd4662",
+        "cand-f90ff2d673ae",
+        "cand-3d2958e12b1d",
+        "cand-3f6ab824bf79",
+        "cand-e64e91d20ec2",
+        "cand-dd968a20a54e",
+        "cand-37cc35ce6b21",
+        "cand-207f57601862",
+        "cand-a5437a566d06",
+        "cand-6c2eb23bb489",
+        "cand-2a92b162365c",
+        "cand-da865faf13b1",
+        "cand-6e9d237187b9",
+        "cand-7f284792b127",
+        "cand-b947b0b5939e",
+        "cand-6eda422c6e2b",
+        "cand-3799b0d0ccb5",
+        "cand-54b060a24aba",
+        "cand-29c7a9b41553",
+        "cand-4fc3d7a1eb37",
+        "cand-022d93c56304",
+        "cand-1753fa7bf91b",
+        "cand-cac75b0959c7"
+      ],
+      "geopolitics": [
+        "cand-a084658265ca",
+        "cand-65830529cac7",
+        "cand-171ab4d952a0",
+        "cand-35d98e3c70b8",
+        "cand-5f2a38e10fa3",
+        "cand-9e09daf03c06",
+        "cand-e2299688eb6d",
+        "cand-9a5a78b33ed2",
+        "cand-dbe8899cd3a9"
+      ],
+      "sport": [
+        "cand-b5307bb8902b",
+        "cand-217a5f214780",
+        "cand-f799b35b287a",
+        "cand-e4aa5f37a873",
+        "cand-060942a3d5ff",
+        "cand-e432cf7159b5",
+        "cand-767de04e4752",
+        "cand-930073911420",
+        "cand-1a1f2f1a425e",
+        "cand-a80cd95519c2",
+        "cand-25c751aa1300",
+        "cand-a4ca42a8f9a7",
+        "cand-d1c118902149",
+        "cand-472a1756a6ac",
+        "cand-434cae8765ce",
+        "cand-cd3fccb0fdd0",
+        "cand-aef8d7317eba",
+        "cand-ab37fbaa0634"
+      ],
+      "tech": [
+        "cand-889fbd982033",
+        "cand-983e4e8219c8"
+      ]
+    },
+    "selection_candidate_pool_size": 32
+  }
+}

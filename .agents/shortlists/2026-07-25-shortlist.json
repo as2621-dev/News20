@@ -1,0 +1,664 @@
+[
+  {
+    "shortlist_story_id": "cand-e76836a466c1",
+    "shortlist_headline": "Amazon cuts jobs within artificial intelligence team",
+    "shortlist_primary_outlet": "dailyrecordnews.com",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "ai.catastrophic-risk",
+      "business.jobs"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-79a306f97f96",
+    "shortlist_headline": "Trump expands a voluntary pledge to protect consumers from high utility bills from AI data centers | News, Sports, Jobs",
+    "shortlist_primary_outlet": "vindy.com",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand",
+      "business.jobs"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-ed6a8ad996b6",
+    "shortlist_headline": "The Odyssey Full Movie Collection: 'The Odyssey' box office collection day 9: Christopher Nolan's epic drama nears the Rs 135 crore threshold&#xFEFF; |",
+    "shortlist_primary_outlet": "indiatimes.com",
+    "shortlist_outlet_count": 13,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "arts.box-office"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-d01614d426c9",
+    "shortlist_headline": "'Jana Nayagan' box office collections day 3: Thalapathy Vijay film jumps 34.8%; crosses Rs 92.35 Cr India Net",
+    "shortlist_primary_outlet": "indiatimes.com",
+    "shortlist_outlet_count": 10,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "arts.box-office"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-fabc87c60193",
+    "shortlist_headline": "EU mi&#x1EC5;n tr&#x1EEB; LNG c&#x1EE7;a Nga xu&#x1EA5;t sang H&#xE0;n Qu&#x1ED1;c",
+    "shortlist_primary_outlet": "baotintuc.vn",
+    "shortlist_outlet_count": 9,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.natural-gas-pipelines"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-e4f9a989d2b5",
+    "shortlist_headline": "&#x7B2C;&#x4E8C;&#x8258;&#x56FD;&#x4EA7; 18 &#x4E07;&#x65B9;&#x8D85;&#x5927;&#x578B; LNG &#x8239;&#x4EA4;&#x4ED8;&#xFF0C;&#x53EF;&#x8FD0;&#x8F93;&#x96F6;&#x4E0B; 163&#x2103; &#x4F4E;&#x6E29;&#x6DB2;&#x5316;&#x5929;&#x7136;&#x6C14;",
+    "shortlist_primary_outlet": "sina.com.cn",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.natural-gas-pipelines"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-19ff22222f29",
+    "shortlist_headline": "Kuwait Signs $16 Billion Pipeline Deal With Blackstone, KKR, Brookfield Despite Rising Regional Tensions",
+    "shortlist_primary_outlet": "benzinga.com",
+    "shortlist_outlet_count": 11,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.natural-gas-pipelines",
+      "geopolitics.oil-opec"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-9a50f2ae9691",
+    "shortlist_headline": "Short Interest in Amplify Samsung U.S. Natural Gas Infrastructure ETF (NYSEARCA:USNG) Rises By 409.9%",
+    "shortlist_primary_outlet": "tickerreport.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.inflation",
+      "geopolitics.natural-gas-pipelines"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-750f8a5d1081",
+    "shortlist_headline": "Meta Exits Renewable Energy Initiative as Natural Gas Data Centers Reshape Its Clean Energy Strategy",
+    "shortlist_primary_outlet": "itechpost.com",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand",
+      "geopolitics.natural-gas-pipelines"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-bb6cd81cd232",
+    "shortlist_headline": "ONGC Kicks Off Landmark Deepwater Drilling in Mahanadi Basin",
+    "shortlist_primary_outlet": "deccanchronicle.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.natural-gas-pipelines"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-e84f5bdcbb1d",
+    "shortlist_headline": "Prediction: Kevin Warsh and the Federal Open Market Committee (FOMC) Will Not Raise Interest Rates in 2026",
+    "shortlist_primary_outlet": "fool.com",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.inflation",
+      "business.interest-rates-fed"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-9ac7f42a2a66",
+    "shortlist_headline": "Every Time President Trump Talks About Iran, Oil Prices Move. Here's the Pattern Investors Should Watch.",
+    "shortlist_primary_outlet": "fool.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.interest-rates-fed",
+      "geopolitics.oil-opec"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-8df9905a3d1a",
+    "shortlist_headline": "CNN Fact Check Reviews Trump's Claims at White House Correspondents' Dinner",
+    "shortlist_primary_outlet": "nbcpalmsprings.com",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.interest-rates-fed"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-4ad4bb15b498",
+    "shortlist_headline": "&#xBE44;&#xD2B8;&#xCF54;&#xC778; ETF &#xC774;&#xD2C0; &#xC5F0;&#xC18D; &#xC720;&#xCD9C;, &#xBE14;&#xB799;&#xB85D; IBIT&#xC11C;&#xB9CC; 4&#xC5B5;&#xB2EC;&#xB7EC; &#xB118;&#xAC8C; &#xBE60;&#xC84C;&#xB2E4;",
+    "shortlist_primary_outlet": "wikitree.co.kr",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.inflation",
+      "business.interest-rates-fed",
+      "crypto"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-c8e314f26c5b",
+    "shortlist_headline": "Iran war, tariffs raise new risks for a resilient U.S. economy",
+    "shortlist_primary_outlet": "adn.com",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.interest-rates-fed",
+      "geopolitics.oil-opec"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-ae94a9ef5918",
+    "shortlist_headline": "Average rate on a 30-year mortgage hits the highest level in months",
+    "shortlist_primary_outlet": "salinapost.com",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.interest-rates-fed"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-e5cd36246518",
+    "shortlist_headline": "The 'rockets and feathers' effect: Inflation eases but grocery bills do not &#x2013; Daily News",
+    "shortlist_primary_outlet": "dailynews.com",
+    "shortlist_outlet_count": 6,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.inflation"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-0f8016d2ca45",
+    "shortlist_headline": "Inflation, economy cited as shoplifting rises, survey says",
+    "shortlist_primary_outlet": "fox13now.com",
+    "shortlist_outlet_count": 26,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.inflation"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-a08e40c228ec",
+    "shortlist_headline": "Los diez hechos que marcan el comienzo de la Liga BetPlay 2026-II: todo lo que est&#xE1; en juego en el segundo semestre",
+    "shortlist_primary_outlet": "eltiempo.com",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.soccer"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-93ca14c19c06",
+    "shortlist_headline": "Premier League champions Arsenal eye Real Madrid forward Vinicius Jr",
+    "shortlist_primary_outlet": "caribbeanherald.com",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.soccer"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-f8861c8d529d",
+    "shortlist_headline": "Japan identifies large share of rare earths in deep-sea mud off remote island",
+    "shortlist_primary_outlet": "chinatechnews.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.critical-minerals"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-e5a22f28e007",
+    "shortlist_headline": "Lynas says Malaysia heavy rare earth project has gone over budget",
+    "shortlist_primary_outlet": "digitimes.com",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.critical-minerals"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-8af2a9feacd0",
+    "shortlist_headline": "European Lithium Aktie: 34 Prozent Crash in 30 Tagen",
+    "shortlist_primary_outlet": "stock-world.de",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.critical-minerals"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-664cff3a2685",
+    "shortlist_headline": "UN debate puts spotlight on critical minerals governance &#x2013; Channel Africa",
+    "shortlist_primary_outlet": "channelafrica.co.za",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.critical-minerals"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-dcffcdb55a54",
+    "shortlist_headline": "THE CLOSING BELL: Stocks waver on Wall Street while crude oil prices fall for the first time in a week",
+    "shortlist_primary_outlet": "wptf.com",
+    "shortlist_outlet_count": 8,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.oil-opec"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-dbe8899cd3a9",
+    "shortlist_headline": "Crude Oil Trading Isn't Trading Higher Despite Iran and Ukraine Wars",
+    "shortlist_primary_outlet": "benzinga.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.oil-opec"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-9b498d7c2277",
+    "shortlist_headline": "Oil Prices Dip Below $100 as Middle East Risk Weighs",
+    "shortlist_primary_outlet": "zalebs.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.oil-opec"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-a39903b72324",
+    "shortlist_headline": "Krieg in Nahost | DIW: &#xD6;lversorgung in Europa gesichert &#x2013; Kerosin nicht",
+    "shortlist_primary_outlet": "t-online.de",
+    "shortlist_outlet_count": 23,
+    "shortlist_category": "geopolitics",
+    "shortlist_matched_interest_slugs": [
+      "geopolitics.oil-opec"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-c9456ca52463",
+    "shortlist_headline": "Sri Lanka Women Level ODI Series Against Pakistan in Historic Fashion as Vishmi and Harshitha Shine",
+    "shortlist_primary_outlet": "lankanewspapers.com",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.cricket"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-f37d8cbc8864",
+    "shortlist_headline": "Ishan Kishan sets up 90-run win over Zimbabwe as India clinches T20 series",
+    "shortlist_primary_outlet": "wral.com",
+    "shortlist_outlet_count": 8,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.cricket.india"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-bd6cffdf4df5",
+    "shortlist_headline": "Rain interrupts opening Test after Pak strike early against WI",
+    "shortlist_primary_outlet": "kashmirreader.com",
+    "shortlist_outlet_count": 7,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.cricket"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-4977846fbb54",
+    "shortlist_headline": "Pakistan opener Abdullah Fazal ruled out of West Indies Test series with back injury",
+    "shortlist_primary_outlet": "timesofoman.com",
+    "shortlist_outlet_count": 11,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.cricket"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-cf6f827174a5",
+    "shortlist_headline": "NASA Watchdogs Warn Starship Faces Major Hurdles as SpaceX Pushes Toward Moon and Mars - FINCHANNELNASA Watchdogs Raise New Concerns Over SpaceX Starship as Elon Musk Pursues Moon and Mars",
+    "shortlist_primary_outlet": "finchannel.com",
+    "shortlist_outlet_count": 1,
+    "shortlist_category": "tech",
+    "shortlist_matched_interest_slugs": [
+      "tech.launches-missions"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-183c533aa7e1",
+    "shortlist_headline": "Musk celebra il volo di prova di Starship mentre la Nasa valuta la Luna",
+    "shortlist_primary_outlet": "laregione.ch",
+    "shortlist_outlet_count": 70,
+    "shortlist_category": "tech",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand",
+      "tech.launches-missions"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-cd3c92af2d0b",
+    "shortlist_headline": "NASA Artemis III Advances Lunar Exploration with SpaceX and Blue Origin Moon Lander Tests",
+    "shortlist_primary_outlet": "itechpost.com",
+    "shortlist_outlet_count": 1,
+    "shortlist_category": "tech",
+    "shortlist_matched_interest_slugs": [
+      "tech.launches-missions"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-9aa248e16fa7",
+    "shortlist_headline": "The newest bipartisan issue: not wanting an AI data center next door",
+    "shortlist_primary_outlet": "boingboing.net",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-2825ef6f2f15",
+    "shortlist_headline": "Come cambia un piccolo comune se ci metti tre data center",
+    "shortlist_primary_outlet": "ilpost.it",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-339e8ef42beb",
+    "shortlist_headline": "Lefty non-profit backed protest group targeting new Pennsylvania data center from $4B company",
+    "shortlist_primary_outlet": "nypost.com",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-943c94559f7e",
+    "shortlist_headline": "My Visit to the Data Center",
+    "shortlist_primary_outlet": "hotair.com",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-8796eb28702a",
+    "shortlist_headline": "Via le torri della centrale, a Trino arriva il data center da oltre 2 mila posti di lavoro",
+    "shortlist_primary_outlet": "lastampa.it",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.compute-energy-demand"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-876b38e37901",
+    "shortlist_headline": "\"Every tournament a fresh challenge\": Boxer Preeti gears up to chase CWG2026 glory",
+    "shortlist_primary_outlet": "parisguardian.com",
+    "shortlist_outlet_count": 6,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-8af760c180c0",
+    "shortlist_headline": "Srikkanth wants Siraj to be picked up for 2027WC; highlights tournament's importance for skipper Gill",
+    "shortlist_primary_outlet": "bignewsnetwork.com",
+    "shortlist_outlet_count": 13,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.cricket.india"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-cd171e07c278",
+    "shortlist_headline": "Abhishek Bachchan and Aishwarya Rai&#xA0;spotted clicking pictures with fan during getaway in NYC, fans call them 'Bollywood royalty'",
+    "shortlist_primary_outlet": "moneycontrol.com",
+    "shortlist_outlet_count": 6,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "arts.bollywood"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-d39a7fff924f",
+    "shortlist_headline": "Bollywood Celebrates Dharmendra Pradhan's Resignation Amid NEET Protest Victory",
+    "shortlist_primary_outlet": "filmfare.com",
+    "shortlist_outlet_count": 6,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "arts.bollywood"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-b7970450bd4b",
+    "shortlist_headline": "Salman Khan drops cryptic message with gym photos days after backing NEET protest: \"Joe darr gaya vo mar gaya\" : Bollywood News",
+    "shortlist_primary_outlet": "bollywoodhungama.com",
+    "shortlist_outlet_count": 6,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "arts.bollywood"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-974d1defc0d0",
+    "shortlist_headline": "Amid Silence On CJP Protest, Shah Rukh Khan Enjoys Family Vacation In London",
+    "shortlist_primary_outlet": "sangbadpratidin.in",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "arts.bollywood"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-ec9dc3fd6858",
+    "shortlist_headline": "OpenAI eyeing ChatGPT integrations for smart glasses, wearables: Greg Brockman",
+    "shortlist_primary_outlet": "indianexpress.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.alignment-research"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-7c79ee877fe4",
+    "shortlist_headline": "OpenAI quietly signs letter from Nvidia, Microsoft, and Meta warning about dangers of 'premature restrictions' on open-weight AI models &#x2014; as the White House accuses China of stealing from Anthropic",
+    "shortlist_primary_outlet": "techradar.com",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.alignment-research"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-ad3be1fdd697",
+    "shortlist_headline": "&#x4E2D;&#x56FD;&#x5927;&#x6A21;&#x578B;\"&#x6495;&#x88C2;\"&#x7845;&#x8C37;&#xFF01;&#x8D70;&#x8BBF;Kimi&#x7684;&#x7F8E;&#x56FD;&#x7814;&#x7A76;&#x5458;&#xFF1A;&#x4E2D;&#x7F8E;AI&#x5DEE;&#x8DDD;&#x5DF2;&#x7F29;&#x81F3;3&#xFF5E;5&#x4E2A;&#x6708;&#xFF0C;&#x64BC;&#x52A8;OpenAI&#x3001;Anthropic&#x957F;&#x671F;&#x4F30;&#x503C;&#x903B;&#x8F91; _ &#x4E1C;&#x65B9;&#x8D22;&#x5BCC;&#x7F51;",
+    "shortlist_primary_outlet": "eastmoney.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.alignment-research"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-8cf443aa67f8",
+    "shortlist_headline": "OpenAI's AI Escaped Its Lab and Hacked Another Company",
+    "shortlist_primary_outlet": "memeburn.com",
+    "shortlist_outlet_count": 17,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.alignment-research"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-8a0481ec4cf2",
+    "shortlist_headline": "Anthropic 57&#x5929;&#x5BC6;&#x96C6;&#x66F4;&#x65B0;&#xFF01;Opus 5&#x6027;&#x80FD;&#x6BD4;&#x80A9;Fable 5&#xFF0C;&#x4EF7;&#x683C;&#x51CF;&#x534A;&#x8FD8;&#x66F4;&#x9AD8;&#x6548;-&#x4EBA;&#x5DE5;&#x667A;&#x80FD;-ITBear&#x79D1;&#x6280;&#x8D44;&#x8BAF;",
+    "shortlist_primary_outlet": "itbear.com.cn",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.alignment-research"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-d34d58daff66",
+    "shortlist_headline": "US lawmakers propose AI 'kill switch' after OpenAI test",
+    "shortlist_primary_outlet": "mexicostar.com",
+    "shortlist_outlet_count": 31,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.alignment-research"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-491941a2f084",
+    "shortlist_headline": "Cabo Verde goalie Vozinha headed to Chile post FIFA World Cup 2026 stardom",
+    "shortlist_primary_outlet": "bignewsnetwork.com",
+    "shortlist_outlet_count": 7,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.fifa",
+      "sport.fifa-world-cup"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-234f561685d8",
+    "shortlist_headline": "'He won the World Cup!' Dubliner Pico Lopes welcomed home to local club",
+    "shortlist_primary_outlet": "irvinetimes.com",
+    "shortlist_outlet_count": 36,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.fifa-world-cup"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-89350c2092fd",
+    "shortlist_headline": "Bitcoin nation: Trump bets America's future on crypto",
+    "shortlist_primary_outlet": "niagarafallsreview.ca",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "crypto"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-f77c8310a918",
+    "shortlist_headline": "Strategy Debuts Net Bitcoin Per Share for Common Investors",
+    "shortlist_primary_outlet": "yahoo.com",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "crypto"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-c72681fabe92",
+    "shortlist_headline": "New to The Street to Broadcast Nationwide on Bloomberg Television Tonight at 6:30 PM ET Featuring RHINO Bitcoin, Marina Decisions, Medicus Pharma and Virtuix Holdings",
+    "shortlist_primary_outlet": "newjerseytelegraph.com",
+    "shortlist_outlet_count": 6,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "crypto"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-57f783e49a5f",
+    "shortlist_headline": "Maya Jama 'set to sign on for third series of hit Netflix show' after impressing TV bosses",
+    "shortlist_primary_outlet": "aol.co.uk",
+    "shortlist_outlet_count": 3,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "entertainment"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-528176f847c8",
+    "shortlist_headline": "Weekend Watchlist: What's new in theaters, on streaming",
+    "shortlist_primary_outlet": "whdg.com",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "arts",
+    "shortlist_matched_interest_slugs": [
+      "entertainment"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-b4ef27246e90",
+    "shortlist_headline": "2026 World Cup: IOC speaks on investigating FIFA president, Infantino",
+    "shortlist_primary_outlet": "dailypost.ng",
+    "shortlist_outlet_count": 7,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.fifa"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-5ff8d22dc3a3",
+    "shortlist_headline": "Se transparent&#xF3; uso del Castillo de Chapultepec para la cena de la FIFA: presidenta",
+    "shortlist_primary_outlet": "globalmedia.mx",
+    "shortlist_outlet_count": 7,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.fifa"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-c37be31e6178",
+    "shortlist_headline": "FIFA publica ranking de rendimiento de los jugadores en el Mundial: ning&#xFA;n colombiano aparece entre los primeros 30",
+    "shortlist_primary_outlet": "ntn24.com",
+    "shortlist_outlet_count": 5,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.fifa"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-f938124d0d27",
+    "shortlist_headline": "Spanduk Kepulauan Malvinas dalam Perayaan Argentina di Semifinal Piala Dunia 2026 Picu Penyelidikan FIFA",
+    "shortlist_primary_outlet": "jawapos.com",
+    "shortlist_outlet_count": 4,
+    "shortlist_category": "sport",
+    "shortlist_matched_interest_slugs": [
+      "sport.fifa"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-da63ffda1980",
+    "shortlist_headline": "CoreWeave Stock Fell 11.4% on Friday. The Sell-Off Is About What It's Spending, Not What It's Selling.",
+    "shortlist_primary_outlet": "yahoo.com",
+    "shortlist_outlet_count": 2,
+    "shortlist_category": "ai",
+    "shortlist_matched_interest_slugs": [
+      "ai.data-center-buildout"
+    ]
+  },
+  {
+    "shortlist_story_id": "cand-b7194f50aff4",
+    "shortlist_headline": "&#x6CB3;&#x5357;GDP&#x9886;&#x8DD1;&#x5168;&#x56FD;5%&#x589E;&#x901F; &#x9AD8;&#x6280;&#x672F;&#x5236;&#x9020;&#x4E1A;&#x8FCE;&#x91CD;&#x5927;&#x6295;&#x8D44;&#x673A;&#x9047;- CFi.CN &#x4E2D;&#x8D22;&#x7F51;",
+    "shortlist_primary_outlet": "cfi.net.cn",
+    "shortlist_outlet_count": 6,
+    "shortlist_category": "business",
+    "shortlist_matched_interest_slugs": [
+      "business.gdp-growth"
+    ]
+  }
+]

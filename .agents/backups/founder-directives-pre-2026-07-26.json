@@ -1,0 +1,134 @@
+{
+ "ash_allocation_before": [
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "ai",
+   "allocation_slot_count": 5
+  },
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "tech",
+   "allocation_slot_count": 2
+  },
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "business",
+   "allocation_slot_count": 6
+  },
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "geopolitics",
+   "allocation_slot_count": 4
+  },
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "sport",
+   "allocation_slot_count": 5
+  },
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "arts",
+   "allocation_slot_count": 4
+  },
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "youtube",
+   "allocation_slot_count": 3
+  },
+  {
+   "follow_user_id": "b316800d-d67c-4e38-898b-ba67ca3a171d",
+   "allocation_category": "x",
+   "allocation_slot_count": 1
+  }
+ ],
+ "seed_profile_rows_before": [
+  {
+   "profile_user_id": "86904077-3f30-49d5-a479-ee5699ad8267",
+   "profile_interest_id": "32d9131f-35c5-4a97-802b-4fab1f1e27fe",
+   "profile_weight": "1.0",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "demo-business-equities-semis@news20.demo"
+  },
+  {
+   "profile_user_id": "17470e6c-4c54-479d-b549-feb2f7e3571e",
+   "profile_interest_id": "f32842d3-4266-4902-a11e-80e3fdb030a7",
+   "profile_weight": "1.0",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "demo-sport-cricket-india@news20.demo"
+  },
+  {
+   "profile_user_id": "4856bcd0-5da3-48fe-b9d7-c133eb203d81",
+   "profile_interest_id": "5d5bf2dd-0a99-47b9-a714-209cc77c30df",
+   "profile_weight": "1.092651009442592",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.chip@news20.seed"
+  },
+  {
+   "profile_user_id": "5287026e-0b4b-4511-8a50-b6eea9d43da2",
+   "profile_interest_id": "9bef60f0-3dc1-4e5f-aa71-f78a09aea5c3",
+   "profile_weight": "1.092651009442592",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.founder@news20.seed"
+  },
+  {
+   "profile_user_id": "5287026e-0b4b-4511-8a50-b6eea9d43da2",
+   "profile_interest_id": "fc698060-8fa0-41f4-a42a-35b537afccd8",
+   "profile_weight": "1.092651009442592",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.founder@news20.seed"
+  },
+  {
+   "profile_user_id": "5287026e-0b4b-4511-8a50-b6eea9d43da2",
+   "profile_interest_id": "3f69ab85-64ae-48a9-bf2c-af6789d4bec6",
+   "profile_weight": "1.092651009442592",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.founder@news20.seed"
+  },
+  {
+   "profile_user_id": "5044e496-adb2-411b-90a0-1669683ea4cc",
+   "profile_interest_id": "75b7757e-b5fb-4ad4-92fe-5c881c2ed2de",
+   "profile_weight": "1.185302018885184",
+   "profile_source": "typed",
+   "profile_is_strict": true,
+   "email": "persona.cricket@news20.seed"
+  },
+  {
+   "profile_user_id": "5044e496-adb2-411b-90a0-1669683ea4cc",
+   "profile_interest_id": "f36a3ef8-ffee-4269-b4f4-c61718374da4",
+   "profile_weight": "1.185302018885184",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.cricket@news20.seed"
+  },
+  {
+   "profile_user_id": "5044e496-adb2-411b-90a0-1669683ea4cc",
+   "profile_interest_id": "bd90b072-2733-4605-b6fc-eb91d07e5356",
+   "profile_weight": "1.185302018885184",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.cricket@news20.seed"
+  },
+  {
+   "profile_user_id": "4856bcd0-5da3-48fe-b9d7-c133eb203d81",
+   "profile_interest_id": "0c51af79-4a99-41ba-bf84-f35c571c9a34",
+   "profile_weight": "1.185302018885184",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.chip@news20.seed"
+  },
+  {
+   "profile_user_id": "4856bcd0-5da3-48fe-b9d7-c133eb203d81",
+   "profile_interest_id": "0f780952-bc7f-468c-a2af-f95f10182101",
+   "profile_weight": "1.185302018885184",
+   "profile_source": "typed",
+   "profile_is_strict": false,
+   "email": "persona.chip@news20.seed"
+  }
+ ]
+}
