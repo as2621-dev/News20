@@ -12,10 +12,16 @@ never re-derive).
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.ingestion.models import (
+    SEMANTIC_RELEVANCE_MODE_DEGRADED,
+    CanonicalStory,
+    InterestNode,
+    StoryInterestTag,
+)
 from agents.pipeline.categories import FeedCategory
 from agents.pipeline.stages.ranking import _index_tags_by_story, assign_category
 from agents.pipeline.theme_category import theme_categories_for_stories
@@ -54,6 +60,78 @@ class ShortlistEntry(BaseModel):
     shortlist_matched_interest_slugs: list[str] = Field(
         default_factory=list,
         description="Leaf-matched interest slugs (empty when untagged)",
+    )
+
+
+class ShortlistRunHeader(BaseModel):
+    """The run-provenance header stamped onto the on-disk shortlist artifact (#67).
+
+    Attributes:
+        run_feed_date: ISO feed date the shortlist was selected for.
+        run_semantic_relevance_mode: Which relevance mode produced this list —
+            ``semantic`` / ``disabled`` / ``degraded`` (see the mode constants in
+            :mod:`agents.ingestion.models`).
+        run_fell_back_to_lexical: Convenience predicate — True IFF the mode is
+            ``degraded``. Derived, never independently set, so it cannot drift.
+        run_semantic_stories_checked: Stories the semantic key looked at.
+        run_semantic_interests_checked: Distinct interests it embedded.
+        run_shortlist_story_count: Entries in this artifact.
+    """
+
+    run_feed_date: str = Field(..., description="ISO feed date")
+    run_semantic_relevance_mode: str = Field(
+        ..., description="semantic | disabled | degraded"
+    )
+    run_fell_back_to_lexical: bool = Field(
+        ..., description="True IFF mode == 'degraded' (embedding outage)"
+    )
+    run_semantic_stories_checked: int = Field(default=0, ge=0)
+    run_semantic_interests_checked: int = Field(default=0, ge=0)
+    run_shortlist_story_count: int = Field(default=0, ge=0)
+
+
+class ShortlistArtifact(BaseModel):
+    """The ``.agents/shortlists/<date>-shortlist.json`` on-disk CONTRACT (#67).
+
+    Envelope, not a bare list: an artifact that does not say which relevance mode
+    produced it makes every later audit of a bad tag unfalsifiable — a quality miss
+    and an embedding outage look identical. Artifacts written before 2026-07-25 are
+    bare JSON lists with no header; readers of historical files must handle both.
+    """
+
+    shortlist_run: ShortlistRunHeader = Field(..., description="Run provenance")
+    shortlist_entries: list[ShortlistEntry] = Field(
+        default_factory=list, description="The would-produce review list"
+    )
+
+
+def build_shortlist_artifact(result: Any) -> ShortlistArtifact:
+    """Wrap a pipeline result's shortlist in its run-provenance envelope.
+
+    Args:
+        result: A ``DailyPipelineResult`` (duck-typed to keep this module free of a
+            circular import — ``daily_batch`` imports this one).
+
+    Returns:
+        The :class:`ShortlistArtifact` to serialize with ``model_dump()``.
+
+    Example:
+        >>> artifact = build_shortlist_artifact(result)  # doctest: +SKIP
+        >>> artifact.shortlist_run.run_fell_back_to_lexical  # doctest: +SKIP
+        False
+    """
+    stamp = result.semantic_relevance
+    mode = stamp.semantic_relevance_mode
+    return ShortlistArtifact(
+        shortlist_run=ShortlistRunHeader(
+            run_feed_date=result.feed_date,
+            run_semantic_relevance_mode=mode,
+            run_fell_back_to_lexical=mode == SEMANTIC_RELEVANCE_MODE_DEGRADED,
+            run_semantic_stories_checked=stamp.semantic_relevance_stories_checked,
+            run_semantic_interests_checked=stamp.semantic_relevance_interests_checked,
+            run_shortlist_story_count=len(result.shortlist),
+        ),
+        shortlist_entries=list(result.shortlist),
     )
 
 

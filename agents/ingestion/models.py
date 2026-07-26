@@ -32,6 +32,44 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+# Reason (issue #67): the semantic-relevance RUN-MODE contract, shared by the
+# ingestion result, the batch result and the on-disk shortlist artifact. It lives
+# here (not in interest_semantic) because interest_semantic imports this module —
+# one home, no import cycle. Three states, never collapsed to two: DISABLED (flag
+# off / no llm_client — lexical-only BY CHOICE) and DEGRADED (semantic attempted,
+# embedding outage, fell back to strict lexical) both skip the paid gate, but only
+# DEGRADED means the run's admission set is not the one we intended. DEGRADED is
+# exactly ``SemanticRelevanceStats.fell_back_to_lexical`` observed at the seam.
+SEMANTIC_RELEVANCE_MODE_SEMANTIC: str = "semantic"
+SEMANTIC_RELEVANCE_MODE_DISABLED: str = "disabled"
+SEMANTIC_RELEVANCE_MODE_DEGRADED: str = "degraded"
+
+
+class SemanticRelevanceRunStamp(BaseModel):
+    """Which relevance mode actually ran this batch, threaded whole (issue #67).
+
+    Rides from ``ingest_active_interests`` → ``DailyPipelineResult`` → the on-disk
+    shortlist artifact so the FILE ALONE says what produced it. One object rather
+    than parallel scalars: the mode and the counts that justify it must not drift
+    apart across the three layers.
+
+    Attributes:
+        semantic_relevance_mode: One of the three ``SEMANTIC_RELEVANCE_MODE_*``
+            constants above.
+        semantic_relevance_stories_checked: Stories the semantic key looked at
+            (>= 1 matched interest); 0 when the mode is ``disabled``.
+        semantic_relevance_interests_checked: Distinct matched interests embedded.
+    """
+
+    semantic_relevance_mode: str = Field(
+        default=SEMANTIC_RELEVANCE_MODE_DISABLED,
+        description="semantic | disabled | degraded — defaults to 'disabled': a "
+        "stamp nobody set never ran the gate",
+    )
+    semantic_relevance_stories_checked: int = Field(default=0, ge=0)
+    semantic_relevance_interests_checked: int = Field(default=0, ge=0)
+
+
 class InterestNode(BaseModel):
     """A single taxonomy node — the subset of the `interests` row needed to walk ancestors.
 
@@ -418,4 +456,10 @@ class IngestionResult(BaseModel):
         ge=0,
         description="Followed interests skipped for a missing/empty "
         "interest_search_query — explicit 0 when none (issue #36 fail-loud)",
+    )
+    semantic_relevance: SemanticRelevanceRunStamp = Field(
+        default_factory=SemanticRelevanceRunStamp,
+        description="Which relevance mode actually ran (issue #67) — 'semantic' "
+        "(clean), 'disabled' (flag off / no llm_client), 'degraded' (embedding "
+        "outage → strict lexical). The shortlist artifact's provenance source.",
     )

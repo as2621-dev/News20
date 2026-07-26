@@ -99,6 +99,7 @@ from agents.pipeline.produce_caps import (  # noqa: E402
 from agents.pipeline.llm_clients import LLMClient  # noqa: E402
 from agents.pipeline.persist_helpers import load_outlets_lookup  # noqa: E402
 from agents.pipeline.poster_gate import poster_generation_disabled  # noqa: E402
+from agents.pipeline.shortlist import build_shortlist_artifact  # noqa: E402
 from agents.shared.logger import get_logger  # noqa: E402
 from agents.voice.gemini_tts import GeminiTTSClient  # noqa: E402
 
@@ -579,7 +580,9 @@ async def _run() -> int:
         # MAX_PRODUCE overall ceiling, both applied INSIDE run_daily_pipeline AFTER
         # the gate (category-balanced). The old front-slice here truncated an
         # interest-ordered pool and skewed every reel into one category — removed.
-        return stories, tags
+        # Issue #67: the run stamp rides along so the shortlist artifact records
+        # WHICH relevance mode produced it (semantic / disabled / degraded).
+        return stories, tags, result.semantic_relevance
 
     # ── Optional: phase-5d followed-source ingestion (YouTube/X) ──────────────
     # Reason: when RUN_SOURCES=1, poll each active user's followed YouTube channels
@@ -663,14 +666,23 @@ async def _run() -> int:
         shortlist_path = os.path.join(
             shortlist_dir, f"{result.feed_date}-shortlist.json"
         )
+        # Issue #67: the artifact is an ENVELOPE (run header + entries), not a bare
+        # list — the file alone must say which relevance mode produced it, or a later
+        # audit cannot tell a quality miss from an embedding outage.
+        artifact = build_shortlist_artifact(result)
         with open(shortlist_path, "w", encoding="utf-8") as shortlist_file:
             json.dump(
-                [entry.model_dump() for entry in result.shortlist],
+                artifact.model_dump(),
                 shortlist_file,
                 indent=2,
                 ensure_ascii=False,
             )
         print(f"\nshortlist saved: {shortlist_path}")
+        print(
+            "  relevance mode ................ "
+            f"{artifact.shortlist_run.run_semantic_relevance_mode}"
+            f" (stories_checked={artifact.shortlist_run.run_semantic_stories_checked})"
+        )
         print("APPROVE the list, then re-run with SHORTLIST_ONLY=0 to produce reels.")
         return 0
 

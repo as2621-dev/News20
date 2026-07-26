@@ -26,7 +26,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
+from agents.ingestion.models import (
+    CanonicalStory,
+    InterestNode,
+    SemanticRelevanceRunStamp,
+    StoryInterestTag,
+)
 from agents.ingestion.x_theme_reel import TweetScreenshotRenderer
 from agents.memory.session_processor import ProfileUpdateResult, run_profile_update_job
 from agents.pipeline.categories import (
@@ -90,8 +95,17 @@ DEFAULT_MAX_CONCURRENT_PRODUCTIONS = 4
 # safe fallback so a freshly-seeded DB without allocations still stays balanced).
 DEFAULT_PER_CATEGORY_CAP = 8
 
-# Type of the injected ingest stage: returns the deduped, ancestor-tagged pool.
-IngestFn = Callable[[], Awaitable[tuple[list[CanonicalStory], list[StoryInterestTag]]]]
+# Type of the injected ingest stage: returns the deduped, ancestor-tagged pool,
+# OPTIONALLY followed by the semantic-relevance run stamp (issue #67 — the live
+# path supplies it so the shortlist artifact carries its provenance; fixture
+# ingests return the two-element form and keep the default DISABLED stamp).
+IngestFn = Callable[
+    [],
+    Awaitable[
+        tuple[list[CanonicalStory], list[StoryInterestTag]]
+        | tuple[list[CanonicalStory], list[StoryInterestTag], SemanticRelevanceRunStamp]
+    ],
+]
 
 
 class PoolTargetCell(BaseModel):
@@ -135,6 +149,9 @@ class DailyPipelineResult(BaseModel):
         shortlist: The would-be-produced review list (founder rule 2026-07-19,
             shortlist-first). Populated ONLY when the run halts with
             ``shortlist_only=True``; empty on a producing run.
+        semantic_relevance: Which relevance mode Stage B actually ran (issue #67) —
+            the provenance stamped onto the on-disk shortlist artifact so an audit
+            can tell a semantic run from an embedding-outage one.
 
     Example:
         >>> # See tests/agents/pipeline/test_daily_batch.py for the staged asserts.
@@ -154,6 +171,10 @@ class DailyPipelineResult(BaseModel):
     shortlist: list[ShortlistEntry] = Field(
         default_factory=list,
         description="Would-produce review list (set only when shortlist_only halts)",
+    )
+    semantic_relevance: SemanticRelevanceRunStamp = Field(
+        default_factory=SemanticRelevanceRunStamp,
+        description="Stage B relevance mode + counts (issue #67 artifact provenance)",
     )
 
 
@@ -961,7 +982,15 @@ async def run_daily_pipeline(
     )
 
     # ── Stage B — ingest + dedup + ancestor-tag (injected) ────────────────────
-    stories, story_interest_tags = await ingest_fn()
+    # Issue #67: an ingest_fn MAY return a third element — the semantic-relevance
+    # run stamp — so the shortlist artifact can say which mode produced it. A
+    # two-element return (every fixture ingest) leaves the default DISABLED stamp,
+    # which is the truth for a fixture: no semantic key ran.
+    ingested = await ingest_fn()
+    stories, story_interest_tags = ingested[0], ingested[1]
+    semantic_relevance = (
+        ingested[2] if len(ingested) > 2 else SemanticRelevanceRunStamp()
+    )
 
     # ── Stage B.5 — semantic same-event reconciliation (FSR-M3, gated) ────────
     # Collapse candidates about the SAME real-world event that ingestion's
@@ -1246,6 +1275,7 @@ async def run_daily_pipeline(
             feed_date=target_date.isoformat(),
             candidate_story_count=len(stories),
             shortlist_count=len(shortlist_entries),
+            semantic_relevance_mode=semantic_relevance.semantic_relevance_mode,
             skipped_by_gate_count=len(stories) - gated_count,
             capped_count=capped_count,
         )
@@ -1259,6 +1289,7 @@ async def run_daily_pipeline(
             feeds=None,
             pool_target=pool_target_cells,
             shortlist=shortlist_entries,
+            semantic_relevance=semantic_relevance,
         )
 
     produced_stories = await _produce_story_pool(
@@ -1349,6 +1380,9 @@ async def run_daily_pipeline(
         dedup_dropped_count=dedup_dropped_count,
         capped_count=capped_count,
         feeds_written=feeds.feeds_written,
+        # Reason (issue #67): positive log evidence of the run mode on PRODUCING runs
+        # too — an absent error line is not proof the semantic gate ran.
+        semantic_relevance_mode=semantic_relevance.semantic_relevance_mode,
     )
     return DailyPipelineResult(
         feed_date=target_date.isoformat(),
@@ -1359,4 +1393,5 @@ async def run_daily_pipeline(
         capped_count=capped_count,
         feeds=feeds,
         pool_target=pool_target_cells,
+        semantic_relevance=semantic_relevance,
     )

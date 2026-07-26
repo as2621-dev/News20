@@ -32,12 +32,19 @@ from agents.ingestion.ancestor_tagging import merge_story_tags
 from agents.ingestion.anchor_scalpel import run_anchor_scalpel
 from agents.ingestion.authority_domains import domains_for_category
 from agents.ingestion.dedup import StoryClusterer, normalize_url
-from agents.ingestion.interest_semantic import apply_semantic_relevance_key
+from agents.ingestion.interest_semantic import (
+    SemanticRelevanceStats,
+    apply_semantic_relevance_key,
+)
 from agents.ingestion.models import (
+    SEMANTIC_RELEVANCE_MODE_DEGRADED,
+    SEMANTIC_RELEVANCE_MODE_DISABLED,
+    SEMANTIC_RELEVANCE_MODE_SEMANTIC,
     ActiveInterest,
     CanonicalStory,
     IngestionResult,
     InterestNode,
+    SemanticRelevanceRunStamp,
     StoryInterestTag,
 )
 from agents.pipeline.categories import TOPIC_CATEGORIES
@@ -59,6 +66,7 @@ _DEFAULT_LOOKBACK_DAYS = 1
 # (one bounded widen + fail-loud log) is the contract, not the constants.
 _DEFAULT_MIN_STORIES_PER_CATEGORY = 5
 _DEFAULT_GAP_FILL_WIDEN = timedelta(days=1)
+
 
 @dataclass
 class TrustedOutletResult:
@@ -386,10 +394,25 @@ async def ingest_active_interests(
     # inside BigQuery; this drops the ones that clear lexical but are off-topic (the
     # zoning/'data center' RC3 case). Filtering at the source drops the bogus leaf AND its
     # climbed category tags. Fails safe to strict lexical (ids intact) on embedding outage.
-    if enable_semantic_relevance_key and llm_client is not None and canonical_stories:
-        await apply_semantic_relevance_key(
+    # Issue #67: the returned stats are the ONLY record of which mode actually ran —
+    # a dropped return value made a semantic run and an outage run produce identical
+    # shortlist artifacts, so no later audit could tell a quality miss from an outage.
+    # The mode reports CONFIGURATION first (was the key active this run?) and then the
+    # outcome — so an empty pool with the key on stamps 'semantic' with zero counts,
+    # never 'disabled' (which would falsely read as "run deliberately lexical-only").
+    semantic_key_active = enable_semantic_relevance_key and llm_client is not None
+    semantic_relevance_mode = (
+        SEMANTIC_RELEVANCE_MODE_SEMANTIC
+        if semantic_key_active
+        else SEMANTIC_RELEVANCE_MODE_DISABLED
+    )
+    semantic_stats = SemanticRelevanceStats()
+    if semantic_key_active and canonical_stories:
+        semantic_stats = await apply_semantic_relevance_key(
             canonical_stories, interest_nodes, llm_client=llm_client
         )
+        if semantic_stats.fell_back_to_lexical:
+            semantic_relevance_mode = SEMANTIC_RELEVANCE_MODE_DEGRADED
     elif canonical_stories:
         # Reason: issue #70 review panel — with the theme override removed from
         # categorization, the semantic key is the ONLY guard against a lexical
@@ -443,6 +466,7 @@ async def ingest_active_interests(
         canonical_stories=len(canonical_stories),
         reused_existing_story_ids=len(already_persisted_ids),
         story_interest_tags=len(story_interest_tags),
+        semantic_relevance_mode=semantic_relevance_mode,
     )
     return IngestionResult(
         canonical_stories=canonical_stories,
@@ -450,6 +474,11 @@ async def ingest_active_interests(
         active_interests=active,
         total_candidates_fetched=total_candidates,
         skipped_queryless_interests=interest_set.skipped_queryless_count,
+        semantic_relevance=SemanticRelevanceRunStamp(
+            semantic_relevance_mode=semantic_relevance_mode,
+            semantic_relevance_stories_checked=semantic_stats.stories_checked,
+            semantic_relevance_interests_checked=semantic_stats.interests_checked,
+        ),
     )
 
 
