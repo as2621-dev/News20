@@ -32,7 +32,11 @@ logger = get_logger("pipeline.shortlist")
 
 
 class ShortlistEntry(BaseModel):
-    """One would-be-produced story, in founder-review form.
+    """One reviewable candidate story, in founder-review form.
+
+    Since issue #74 an entry is a candidate OR a standby, not necessarily a story
+    that will be produced — ``ShortlistArtifact.shortlist_selection`` is what says
+    which of these actually ship.
 
     Attributes:
         shortlist_story_id: The canonical story id (stable per cluster).
@@ -108,7 +112,9 @@ class ShortlistArtifact(BaseModel):
 
     shortlist_run: ShortlistRunHeader = Field(..., description="Run provenance")
     shortlist_entries: list[ShortlistEntry] = Field(
-        default_factory=list, description="The would-produce review list"
+        default_factory=list,
+        description="Reviewable candidates + standbys; shortlist_selection says "
+        "which of these would actually be produced (issue #74)",
     )
     shortlist_selection: ProductionSelectionPlan | None = Field(
         default=None,
@@ -208,8 +214,11 @@ def build_produce_shortlist(
     """Build the founder-review shortlist from the would-produce story pool.
 
     Args:
-        stories: The final ``to_produce`` pool (post notability gate, produce-once
-            gate, dedup and caps) — exactly what production would receive.
+        stories: The review pool — the candidates that survived the notability
+            gate, produce-once gate, dedup and caps, PLUS the standbys ranked
+            below the cap line (issue #74), so every id the selection block names
+            resolves to an entry. Which of them production receives is
+            ``ProductionSelectionPlan.selection_production_story_ids``.
         story_interest_tags: The batch's full SP1 tag list (indexed per story).
         interest_nodes: ``{interest_id: InterestNode}`` taxonomy lookup.
         category_override_by_story: The reconcile stage's cross-category pins,
@@ -229,7 +238,7 @@ def build_produce_shortlist(
     Returns:
         One :class:`ShortlistEntry` per story, in pool order. A story with no
         resolvable tag is still listed (empty slugs, default category) — the
-        review must see everything that would be produced, never a subset.
+        review must see everything in scope, never a subset.
 
     Example:
         >>> entries = build_produce_shortlist(to_produce, tags, nodes, None)

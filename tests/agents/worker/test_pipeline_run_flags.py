@@ -44,6 +44,7 @@ from agents.ingestion.models import (
     SemanticRelevanceRunStamp,
 )
 from agents.pipeline import daily_batch, llm_clients, persist_helpers, poster_gate
+from agents.pipeline.production_selection import ProductionSelectionPlan
 from agents.pipeline.scripts_artifact import ScriptEntry
 from agents.pipeline.shortlist import ShortlistEntry
 from agents.voice import gemini_tts
@@ -111,6 +112,12 @@ def _pipeline_result(
         script_dedup_drops=[],
         script_dedup_enabled=True,
         semantic_relevance=stamp,
+        # Issue #74: the worker's completion log reads the pre-production cut back,
+        # so the double must carry it — a run that produced 4 reels selected 4.
+        selection=ProductionSelectionPlan(
+            selection_production_story_ids=[] if halted else [f"s{i}" for i in range(4)]
+        ),
+        promoted_story_count=0,
     )
 
 

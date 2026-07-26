@@ -259,8 +259,10 @@ class DailyRunRequest(BaseModel):
 
     Attributes:
         target_date: The feed date the daily run should produce.
-        max_total_productions: Optional overall ceiling on productions for the run;
-            ``None`` uses the pipeline default.
+        max_total_productions: Optional overall ceiling for the run. Since issue #74
+            it bounds both the candidate pool (trimmed round-robin across
+            categories) and the reels the run may ship — selection plus any standby
+            promoted to replace a failure. ``None`` uses the pipeline default.
         lookback_days: Optional ingestion lookback window in days; ``None`` uses the
             pipeline default.
     """
@@ -271,7 +273,8 @@ class DailyRunRequest(BaseModel):
     max_total_productions: int | None = Field(
         default=None,
         ge=0,
-        description="Optional overall ceiling on productions for this run (None = pipeline default).",
+        description="Optional overall ceiling on reels shipped by this run, "
+        "including standby promotions (None = pipeline default).",
     )
     lookback_days: int | None = Field(
         default=None,
@@ -594,6 +597,15 @@ async def _run_daily(
             # grep for semantic_relevance_embed_failed proves nothing on its own.
             semantic_relevance_mode=result.semantic_relevance.semantic_relevance_mode,
             produced_story_count=result.produced_story_count,
+            # Reason (issue #74): a cron run must be able to answer "did the cut
+            # bind, and did anything have to be replaced?" from its completion line
+            # alone — the local script prints both, so the worker logs both.
+            selected_for_production=(
+                len(result.selection.selection_production_story_ids)
+                if result.selection
+                else 0
+            ),
+            promoted_story_count=result.promoted_story_count,
             feeds_written=result.feeds.feeds_written if result.feeds else 0,
         )
         if shortlist_only:

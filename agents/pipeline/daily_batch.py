@@ -1052,13 +1052,14 @@ async def run_daily_pipeline(
         max_concurrent_productions: Bounded fan-out width for stage C.
         max_total_productions: The overall ``MAX_PRODUCE`` ceiling. Under the issue
             #74 order it binds TWICE: it trims the candidate pool round-robin across
-            categories (balance preserved), and it caps total production ATTEMPTS —
-            the initial selection plus every standby promotion. Attempts, not
-            successes, because a failed reel has usually already billed its script;
-            the consequence is that a ceiling at or below the selection size leaves
-            no budget to replace a failure, so the feed ships short by design. Set
-            ``MAX_PRODUCE=0`` (per-category caps only) for a run that backfills every
-            failure. (``PRODUCE_CAP_HEADROOM`` is RETIRED — see ``produce_caps``.)
+            categories (balance preserved), and it caps the reels the run may SHIP —
+            the selection plus any standby promoted to replace a failure. The budget
+            counts successes, not attempts, so a run at the default ceiling can still
+            backfill a failed reel without ever shipping more than the ceiling;
+            runaway retries are bounded by
+            :data:`MAX_STANDBY_PROMOTION_ROUNDS` instead. ``None``/``<=0`` leaves the
+            per-category caps as the only bound.
+            (``PRODUCE_CAP_HEADROOM`` is RETIRED — see ``produce_caps``.)
         enable_detail_enrichment: Phase 2c gate — when True, each produced story
             also gets grounded detail enrichment + the GDELT coverage census.
             Defaults False (the M1 produce path) until the production wiring passes
@@ -1635,21 +1636,33 @@ async def run_daily_pipeline(
     }
     promoted_story_count = 0
     written_reel_count = len(to_produce)
+    unfilled_story_ids: list[str] = []
     for _promotion_round in range(MAX_STANDBY_PROMOTION_ROUNDS):
         if not failed_story_ids:
             break
+        # Reason: the ceiling bounds reels SHIPPED, not attempts. A promotion
+        # replaces a failure rather than adding to the feed, so budgeting on
+        # successes is what lets MAX_PRODUCE=8 still backfill a failed reel — on an
+        # attempts budget the default ceiling equals the selection size and the whole
+        # standby mechanism would be dead on every production run. Runaway spend is
+        # bounded instead by MAX_STANDBY_PROMOTION_ROUNDS.
         remaining_budget = (
-            max(0, max_total_productions - len(attempted_story_ids))
+            max(0, max_total_productions - len(produced_stories))
             if max_total_productions and max_total_productions > 0
             else None
         )
-        promoted_ids = promote_standbys(
+        promotion = promote_standbys(
             sorted(failed_story_ids),
             standby_by_category,
             category_override_by_story,
             exclude_story_ids=attempted_story_ids,
             max_promotions=remaining_budget,
         )
+        # Reason: a failure nothing could replace is a permanent hole. Carry it out
+        # of the loop — the next round only tracks the promotions, so a hole left
+        # here would otherwise vanish and the run would report a clean finish.
+        unfilled_story_ids.extend(promotion.promotion_unfilled_story_ids)
+        promoted_ids = promotion.promotion_story_ids
         promoted_stories = [
             standby_story_by_id[story_id]
             for story_id in promoted_ids
@@ -1696,14 +1709,15 @@ async def run_daily_pipeline(
             for story_id in promoted_ids
             if story_id not in promotion_produced_ids
         ]
-    if failed_story_ids:
+    unfilled_story_ids.extend(failed_story_ids)
+    if unfilled_story_ids:
         # Reason (Rule 12): the loop gave up with holes still open — say so with the
         # ids, or a short feed reads as "there was no news" instead of "production
         # failed and the standbys could not cover it".
         logger.error(
             "standby_promotion_incomplete_feed_may_run_short",
-            unfilled_story_ids=sorted(failed_story_ids),
-            unfilled_count=len(failed_story_ids),
+            unfilled_story_ids=sorted(unfilled_story_ids),
+            unfilled_count=len(unfilled_story_ids),
             promoted_story_count=promoted_story_count,
             max_promotion_rounds=MAX_STANDBY_PROMOTION_ROUNDS,
             fix_suggestion=(

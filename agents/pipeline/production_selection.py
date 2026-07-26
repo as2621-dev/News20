@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 
 from agents.ingestion.models import CanonicalStory, InterestNode, StoryInterestTag
 from agents.pipeline.categories import FeedCategory
+from agents.pipeline.feed_assembly import _compile_mute_matcher, _filter_muted_stories
 from agents.pipeline.orchestrator import ActiveUserFeedInputs, select_user_slots
 from agents.pipeline.x_theme_ladder import XThemeReelCandidate
 from agents.shared.logger import get_logger
@@ -76,12 +77,61 @@ class ProductionSelectionPlan(BaseModel):
     selection_candidate_pool_size: int = Field(default=0, ge=0)
 
 
+class StandbyPromotion(BaseModel):
+    """The outcome of one promotion round (issue #74).
+
+    Attributes:
+        promotion_story_ids: Stories drawn from the standby queues, in failure order.
+        promotion_unfilled_story_ids: Failed stories NO standby could replace — the
+            holes the honest fallback ladder will have to run short around. Carried
+            back so the run can name them once, loudly, at the end.
+    """
+
+    promotion_story_ids: list[str] = Field(default_factory=list)
+    promotion_unfilled_story_ids: list[str] = Field(default_factory=list)
+
+
+def placeable_story_ids(
+    stories: list[CanonicalStory],
+    active_user_inputs: list[ActiveUserFeedInputs],
+) -> set[str]:
+    """Story ids at least ONE active user could actually be shown.
+
+    A story every user has muted, or that every user has already been shown, is
+    unplaceable: producing it burns a script + TTS + poster on a reel the assembler
+    will hard-filter out of every feed. The pre-production cut already drops these
+    (they lose on their own merits), but the standby queue would otherwise happily
+    promote one into a hole and ship short anyway — paying twice for nothing.
+
+    Args:
+        stories: The candidate pool to test.
+        active_user_inputs: The loaded per-user feed inputs (mutes + prior feeds).
+
+    Returns:
+        The subset of ids some user can still be shown. With no active users the
+        result is empty — nothing is placeable, which is the truth.
+    """
+    placeable: set[str] = set()
+    for user_inputs in active_user_inputs:
+        already_seen = set(user_inputs.prior_feed_story_ids)
+        # Reason: reuse the assembler's OWN mute matcher rather than a second
+        # spelling of the rule — a promotion filtered by a different regex than the
+        # one that will hard-filter the feed is the drift this guard exists to stop.
+        visible = _filter_muted_stories(
+            [story for story in stories if story.canonical_story_id not in already_seen],
+            _compile_mute_matcher(user_inputs.mute_terms),
+        )
+        placeable.update(story.canonical_story_id for story in visible)
+    return placeable
+
+
 def build_standby_lists(
     standby_stories: list[CanonicalStory],
     selected_story_ids: set[str],
     category_by_story: dict[str, FeedCategory],
     score_by_story: dict[str, tuple[float, float]],
     eligible_categories: set[FeedCategory] | None = None,
+    placeable_ids: set[str] | None = None,
 ) -> dict[str, list[str]]:
     """Rank the unselected candidates into a per-category promotion queue.
 
@@ -97,6 +147,8 @@ def build_standby_lists(
             gate's decisions — the ranking key, highest first.
         eligible_categories: Only queue these categories (the ones with a produce
             cap, i.e. some user asked for them). ``None`` queues every category.
+        placeable_ids: Ids some user can still be shown (:func:`placeable_story_ids`).
+            ``None`` skips the check (pure callers with no user context).
 
     Returns:
         ``{category: [story_id, ...]}`` best-first, empty categories omitted.
@@ -109,6 +161,8 @@ def build_standby_lists(
     for story in standby_stories:
         story_id = story.canonical_story_id
         if story_id in selected_story_ids:
+            continue
+        if placeable_ids is not None and story_id not in placeable_ids:
             continue
         category = category_by_story.get(story_id)
         if category is None:
@@ -220,6 +274,7 @@ def select_stories_for_production(
         category_by_story=category_by_story,
         score_by_story=score_by_story,
         eligible_categories=eligible_categories,
+        placeable_ids=placeable_story_ids(standby_pool, active_user_inputs),
     )
 
     if selection_pool and not production_story_ids:
@@ -262,7 +317,7 @@ def promote_standbys(
     *,
     exclude_story_ids: set[str],
     max_promotions: int | None = None,
-) -> list[str]:
+) -> StandbyPromotion:
     """Draw one same-category replacement per story that failed production.
 
     CONSUMES ``standby_by_category``: every id returned is popped from its queue, so
@@ -280,18 +335,21 @@ def promote_standbys(
             unbounded.
 
     Returns:
-        The promoted story ids, in failure order. EMPTY when every relevant queue is
-        exhausted — the caller then lets the honest fallback ladder run short.
+        A :class:`StandbyPromotion` — what was promoted, and which failures nothing
+        could replace (an exhausted queue, an unmappable story, or a spent budget).
+        The caller must carry the unfilled ids forward: a hole that is dropped here
+        is a slot that goes missing with no run-level record of why.
 
     Example:
         >>> queues = {"business": ["b2"]}
-        >>> promote_standbys(["b1"], queues, {"b1": "business"}, exclude_story_ids=set())
-        ['b2']
-        >>> queues
-        {'business': []}
+        >>> result = promote_standbys(
+        ...     ["b1"], queues, {"b1": "business"}, exclude_story_ids=set())
+        >>> result.promotion_story_ids, queues
+        (['b2'], {'business': []})
     """
     promoted: list[str] = []
-    exhausted_categories: list[str] = []
+    unfilled: list[str] = []
+    exhausted_by_category: dict[str, int] = {}
     for failed_story_id in failed_story_ids:
         if max_promotions is not None and len(promoted) >= max_promotions:
             logger.warning(
@@ -305,9 +363,28 @@ def promote_standbys(
                     "ceiling) if the run should backfill every failure."
                 ),
             )
-            break
+            unfilled.append(failed_story_id)
+            continue
         category = category_by_story.get(failed_story_id)
-        queue = standby_by_category.get(str(category)) if category is not None else None
+        if category is None:
+            # Reason: followed-source and X-theme reels are merged into the pool
+            # AFTER the batch resolves its category verdicts, so they have none. They
+            # are also not replaceable in principle — a news story cannot stand in for
+            # the channel the user follows. Say that, rather than reporting a
+            # phantom "None" category as having run out of standbys.
+            logger.error(
+                "standby_promotion_not_applicable",
+                failed_story_id=failed_story_id,
+                fix_suggestion=(
+                    "A reel with no resolved topic category failed production "
+                    "(followed-source or X-theme reels are merged after the category "
+                    "verdicts and have no topic standby). That slot rolls to the news "
+                    "floor via the existing ladder. Check its produce_* error."
+                ),
+            )
+            unfilled.append(failed_story_id)
+            continue
+        queue = standby_by_category.get(str(category))
         replacement: str | None = None
         while queue:
             candidate = queue.pop(0)
@@ -316,7 +393,10 @@ def promote_standbys(
             replacement = candidate
             break
         if replacement is None:
-            exhausted_categories.append(str(category))
+            exhausted_by_category[str(category)] = (
+                exhausted_by_category.get(str(category), 0) + 1
+            )
+            unfilled.append(failed_story_id)
             continue
         promoted.append(replacement)
         logger.info(
@@ -332,15 +412,17 @@ def promote_standbys(
                 "promotions are frequent."
             ),
         )
-    for category in exhausted_categories:
+    for category, unreplaced_count in sorted(exhausted_by_category.items()):
         logger.error(
             "standby_exhausted_feed_will_be_short",
             category=category,
-            failed_count=len(exhausted_categories),
+            unreplaced_count=unreplaced_count,
             fix_suggestion=(
                 "A reel failed and this category has no standby left, so the feed "
                 "runs SHORT here via the honest fallback ladder. Widen ingestion for "
                 "this category (more candidates) or fix the production failure."
             ),
         )
-    return promoted
+    return StandbyPromotion(
+        promotion_story_ids=promoted, promotion_unfilled_story_ids=unfilled
+    )

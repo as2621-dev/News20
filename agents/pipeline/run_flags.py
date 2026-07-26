@@ -53,10 +53,17 @@ from __future__ import annotations
 
 import os
 
+from agents.shared.logger import get_logger
+
+logger = get_logger("pipeline.run_flags")
+
 SHORTLIST_ONLY_ENV_VAR: str = "SHORTLIST_ONLY"
 SEMANTIC_RELEVANCE_KEY_ENV_VAR: str = "ENABLE_SEMANTIC_RELEVANCE_KEY"
 SCRIPTS_ONLY_ENV_VAR: str = "SCRIPTS_ONLY"
 PRODUCE_REELS_ENV_VAR: str = "PRODUCE_REELS"
+
+# Retired by issue #74 (2026-07-26) — read ONLY to warn that it does nothing.
+RETIRED_PRODUCE_CAP_HEADROOM_ENV_VAR: str = "PRODUCE_CAP_HEADROOM"
 
 # The three rungs of the production ladder (issue #68). One of these is what
 # ``resolve_run_stage`` returns; entry points branch on it, never on raw env reads.
@@ -169,6 +176,33 @@ def reels_armed() -> bool:
         True
     """
     return _opt_in_flag_enabled(PRODUCE_REELS_ENV_VAR)
+
+
+def warn_retired_produce_cap_headroom() -> bool:
+    """Say plainly that ``PRODUCE_CAP_HEADROOM`` is retired, if it is still set.
+
+    Issue #74 removed the knob: it over-provisioned the render pool against
+    post-production attrition, which standby promotion now covers. A value left in a
+    Railway dashboard or a shell profile is silently ignored, and a silently ignored
+    knob is one an operator keeps trusting. This lives here, beside the halt ladder,
+    for the same reason that does — so the local script and the deployed worker
+    cannot disagree about which flags are real (issues #66, #68).
+
+    Returns:
+        True when the retired variable was set (and the warning fired).
+    """
+    if not os.environ.get(RETIRED_PRODUCE_CAP_HEADROOM_ENV_VAR, "").strip():
+        return False
+    logger.warning(
+        "produce_cap_headroom_retired_and_ignored",
+        env_var=RETIRED_PRODUCE_CAP_HEADROOM_ENV_VAR,
+        fix_suggestion=(
+            "PRODUCE_CAP_HEADROOM was retired by issue #74 and has NO effect. The "
+            "per-user cut now runs before production, so the caps are pure demand "
+            "and attrition is covered by standby promotion. Unset it."
+        ),
+    )
+    return True
 
 
 def resolve_run_stage() -> str:

@@ -231,14 +231,15 @@ def test_promotion_takes_the_next_standby_in_the_failed_story_category() -> None
     not a repaired one.
     """
     standby = {"business": ["business-1", "business-2"], "ai": ["ai-1"]}
-    promoted = promote_standbys(
+    promotion = promote_standbys(
         failed_story_ids=["business-0"],
         standby_by_category=standby,
         category_by_story={"business-0": "business"},
         exclude_story_ids=set(),
     )
 
-    assert promoted == ["business-1"]
+    assert promotion.promotion_story_ids == ["business-1"]
+    assert promotion.promotion_unfilled_story_ids == []
     # The queue is consumed, so a second failure promotes the NEXT one, never a repeat.
     assert standby["business"] == ["business-2"]
     assert promote_standbys(
@@ -246,7 +247,7 @@ def test_promotion_takes_the_next_standby_in_the_failed_story_category() -> None
         standby_by_category=standby,
         category_by_story={"business-0": "business"},
         exclude_story_ids=set(),
-    ) == ["business-2"]
+    ).promotion_story_ids == ["business-2"]
 
 
 def test_promotion_returns_nothing_when_the_category_standbys_are_exhausted() -> None:
@@ -256,14 +257,16 @@ def test_promotion_returns_nothing_when_the_category_standbys_are_exhausted() ->
     function must hand it a short pool rather than inventing a cross-category reel.
     """
     standby: dict[str, list[str]] = {"business": [], "ai": ["ai-1"]}
-    promoted = promote_standbys(
+    promotion = promote_standbys(
         failed_story_ids=["business-0"],
         standby_by_category=standby,
         category_by_story={"business-0": "business"},
         exclude_story_ids=set(),
     )
 
-    assert promoted == []
+    assert promotion.promotion_story_ids == []
+    # The hole is REPORTED, not dropped — the run must be able to name it at the end.
+    assert promotion.promotion_unfilled_story_ids == ["business-0"]
     assert standby["ai"] == ["ai-1"], "another category's standby is never raided"
 
 
@@ -274,14 +277,14 @@ def test_promotion_skips_already_attempted_stories() -> None:
     story forever — a failure loop that bills every round.
     """
     standby = {"business": ["business-1", "business-2"]}
-    promoted = promote_standbys(
+    promotion = promote_standbys(
         failed_story_ids=["business-0"],
         standby_by_category=standby,
         category_by_story={"business-0": "business"},
         exclude_story_ids={"business-1"},
     )
 
-    assert promoted == ["business-2"]
+    assert promotion.promotion_story_ids == ["business-2"]
 
 
 def test_promotion_respects_the_remaining_production_budget() -> None:
@@ -291,7 +294,7 @@ def test_promotion_respects_the_remaining_production_budget() -> None:
     with many failures would walk straight past it one promotion at a time.
     """
     standby = {"business": ["business-1", "business-2"], "ai": ["ai-1", "ai-2"]}
-    promoted = promote_standbys(
+    promotion = promote_standbys(
         failed_story_ids=["business-0", "ai-0"],
         standby_by_category=standby,
         category_by_story={"business-0": "business", "ai-0": "ai"},
@@ -299,7 +302,9 @@ def test_promotion_respects_the_remaining_production_budget() -> None:
         max_promotions=1,
     )
 
-    assert promoted == ["business-1"]
+    assert promotion.promotion_story_ids == ["business-1"]
+    # The budget-blocked failure is a hole, and must be reported as one.
+    assert promotion.promotion_unfilled_story_ids == ["ai-0"]
 
 
 # ── Batch level — run_daily_pipeline pays only for the selection (issue #74) ───
@@ -571,3 +576,67 @@ async def test_shortlist_halt_carries_the_selection_and_spends_nothing(
         "selection_standby_story_ids_by_category"
     ], "the standby order must survive serialization"
 
+
+
+@pytest.mark.asyncio
+async def test_max_produce_at_the_selection_size_still_backfills_a_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MAX_PRODUCE bounds reels SHIPPED, so a failure can still be replaced.
+
+    WHY (Rule 9): both production entry points default MAX_PRODUCE to 8, which is
+    exactly the size of the pool they trim to — so on an ATTEMPTS budget the
+    remaining allowance is always zero and the whole standby mechanism is dead on
+    every real run. Budgeting on successes is what keeps the feature reachable, and
+    the ceiling still holds: never more than MAX_PRODUCE reels ship.
+    """
+    stories, tags, _categories = _pool(13)
+    ceiling = 8
+    recorded = _batch_harness(monkeypatch, stories, tags, [_ash()])
+    first_pass = await _run_batch(recorded, max_total_productions=ceiling)
+    doomed = first_pass.selection.selection_production_story_ids[0]
+
+    recorded = _batch_harness(monkeypatch, stories, tags, [_ash()], {doomed})
+    result = await _run_batch(recorded, max_total_productions=ceiling)
+
+    assert result.promoted_story_count == 1, "the ceiling killed the replacement"
+    assert result.produced_story_count <= ceiling, "the ceiling must still hold"
+    assert doomed not in recorded["assembled"]
+
+
+def test_a_muted_story_is_never_queued_as_a_standby() -> None:
+    """A story no user can be shown is not a standby — promoting it pays for nothing.
+
+    WHY: mutes and the don't-repeat rule are applied at ASSEMBLY, so a muted story
+    sits happily in the candidate pool. Promote it into a hole and the run bills a
+    script + TTS + poster for a reel the assembler then hard-filters out — the feed
+    is still short AND the money is gone. That is the exact waste this slice removes,
+    reintroduced through the back door.
+    """
+    stories, tags, category_by_story = _pool(13)
+    muted_term = "business-9"
+    user = ActiveUserFeedInputs(
+        active_user_id="ash",
+        profile_interests=_ALL_TOPIC_PROFILE,
+        category_allocation=_ASH_ALLOCATION,
+        mute_terms=[muted_term],
+        prior_feed_story_ids=["business-10"],
+    )
+    plan = select_stories_for_production(
+        selection_pool=stories,
+        standby_pool=stories,
+        active_user_inputs=[user],
+        story_interest_tags=tags,
+        interest_nodes=_INTEREST_NODES,
+        category_by_story=category_by_story,
+        now_utc=_NOW,
+    )
+
+    standby_ids = {
+        story_id
+        for ids in plan.selection_standby_story_ids_by_category.values()
+        for story_id in ids
+    }
+    assert standby_ids, "the queue must still hold the placeable leftovers"
+    assert muted_term not in standby_ids, "a muted story is unplaceable"
+    assert "business-10" not in standby_ids, "an already-shown story is unplaceable"

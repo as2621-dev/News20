@@ -23,11 +23,10 @@ SAFETY (this run costs real paid Gemini calls):
     with the next ranked standby in its category. The candidate pool is no longer
     the render pool.
   * ``MAX_PRODUCE`` is an OPTIONAL overall ceiling (default 8). It trims the
-    candidate pool round-robin across categories AND caps total production ATTEMPTS
-    (selection + standby promotions), so a ceiling at or below the selection size
-    leaves no budget to replace a failed reel and the feed ships short by design.
-    Set ``MAX_PRODUCE=0`` to let the per-category caps be the only bound (full
-    scale, failures backfilled from standby).
+    candidate pool round-robin across categories AND caps the reels the run may
+    SHIP — the selection plus any standby promoted to replace a failure — so a
+    failure can still be backfilled without the run ever exceeding the ceiling. Set
+    ``MAX_PRODUCE=0`` to let the per-category caps be the only bound (full scale).
   * ``PRODUCE_CAP_HEADROOM`` is RETIRED (issue #74) and ignored — it existed only to
     over-provision the render pool against post-production attrition, which standby
     promotion now handles. The preflight warns if it is still set.
@@ -107,6 +106,7 @@ from agents.pipeline.run_flags import (  # noqa: E402
     RUN_STAGE_SHORTLIST,
     resolve_run_stage,
     semantic_relevance_key_enabled,
+    warn_retired_produce_cap_headroom,
 )
 from agents.pipeline.scripts_artifact import build_scripts_artifact  # noqa: E402
 from agents.pipeline.shortlist import build_shortlist_artifact  # noqa: E402
@@ -403,10 +403,10 @@ async def _run() -> int:
     scripts_only = run_stage == RUN_STAGE_SCRIPTS
     max_produce = int(os.environ.get("MAX_PRODUCE", "8"))
     lookback_days = int(os.environ.get("LOOKBACK_DAYS", "1"))
-    # Reason (issue #74): PRODUCE_CAP_HEADROOM is retired. A dashboard/shell that
-    # still sets it would otherwise look like it is doing something — say plainly
-    # that it is ignored rather than let an operator trust a dead knob.
-    if os.environ.get("PRODUCE_CAP_HEADROOM"):
+    # Reason (issue #74): PRODUCE_CAP_HEADROOM is retired. The check lives in the
+    # SHARED run_flags module so the deployed worker warns too — scripts/ is not in
+    # the Railway image, so a local-only check would never fire where the cron runs.
+    if warn_retired_produce_cap_headroom():
         print(
             "\n⚠ PRODUCE_CAP_HEADROOM is RETIRED (issue #74) and IGNORED. The "
             "per-user cut now happens before production, so the caps are pure "
