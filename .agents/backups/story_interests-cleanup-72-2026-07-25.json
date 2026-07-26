@@ -1,0 +1,1704 @@
+{
+  "cutover_utc": "2026-07-25T18:54:43+00:00",
+  "issue": 72,
+  "row_count": 212,
+  "rows": [
+    {
+      "story_interest_created_at": "2026-07-07T14:23:45.628375+00:00",
+      "story_interest_id": "009bc2e2-b203-465b-bf6e-763c621ab8f8",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3771b59751c3"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:58:46.046873+00:00",
+      "story_interest_id": "00e319b1-d784-4129-8aca-ed37e6dbe160",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-a1df18f9151f"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:40:12.892499+00:00",
+      "story_interest_id": "00fb0f16-9e1c-43c7-8b9d-4f8f4e900ea6",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c6a646cdc04c"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:16:46.088835+00:00",
+      "story_interest_id": "01eb454d-bdf3-4f8f-befc-282834e6d2df",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b232b8915ec8"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:12:23.640941+00:00",
+      "story_interest_id": "02daa639-7741-4acd-88ec-842e0d3cca9b",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d97026f8ef01"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:08:23.661045+00:00",
+      "story_interest_id": "02ed5147-afb8-421c-9f19-d7a023142de7",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3a3a07189bc6"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:25:45.914745+00:00",
+      "story_interest_id": "04e30f2a-fd5c-4357-84ff-94493aa86edc",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6cb2879927f7"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:39:15.067516+00:00",
+      "story_interest_id": "0510918b-9b8c-4a30-9d62-b8075db154c1",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7123a6062baa"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:47:44.640439+00:00",
+      "story_interest_id": "0535104b-658b-4e85-b2a9-2a376e54a895",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-446734d147b4"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:28:34.103104+00:00",
+      "story_interest_id": "06041802-f53b-4f07-a61f-fcd9e93e8887",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f78218a697be"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:35:55.578624+00:00",
+      "story_interest_id": "0813f57d-1736-4605-a28a-bd040906e496",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4b8976e22bb4"
+    },
+    {
+      "story_interest_created_at": "2026-07-03T23:53:45.355297+00:00",
+      "story_interest_id": "09b9bb5f-6a61-4a0b-9f24-a8256f650bb7",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-ba5d883cd428"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:58:02.196141+00:00",
+      "story_interest_id": "0a2ad521-1765-4fb8-9ca0-ae791c037c33",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e3134991e772"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:13:38.79168+00:00",
+      "story_interest_id": "0ba984e3-4ad5-4ca5-bcd5-f552f68206a8",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-9eae3832ede7"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:28:34.103104+00:00",
+      "story_interest_id": "0c9a0b10-444e-4b2c-85bf-461464770330",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f78218a697be"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:02:26.320877+00:00",
+      "story_interest_id": "0d673d87-1e88-43f2-b7f4-036ee72509df",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-63b4cbd3a273"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:40:12.892499+00:00",
+      "story_interest_id": "0f20d251-ca52-4e4a-a9a1-430dde8b4040",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c6a646cdc04c"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:57:16.465086+00:00",
+      "story_interest_id": "0f4827c1-f960-4230-8f2f-b3b7921ea694",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-72ce650a62b1"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:51:38.458109+00:00",
+      "story_interest_id": "1005cc7d-686b-4217-98b0-9994dea0ce6e",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-ea7fc57cfd4e"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:33:05.700513+00:00",
+      "story_interest_id": "11d8659a-7c3a-40c7-b3dc-eccd36b7f991",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-11241786ad29"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:53:50.962732+00:00",
+      "story_interest_id": "11f44838-83d9-4595-9033-d7f2089c65ba",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b7577e4a6d0b"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:28:34.103104+00:00",
+      "story_interest_id": "1313ffbe-00a5-4b34-b993-58007aaa1cc5",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f78218a697be"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:50:36.694859+00:00",
+      "story_interest_id": "13f0e4a3-fe97-4bba-b27c-9153af9bfa59",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e6a6f1cae3d9"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:40:26.307757+00:00",
+      "story_interest_id": "14ff2393-cec7-4ce4-8a6f-ee3b5d3c0c28",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6dcbcfe25c0a"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:13:20.49274+00:00",
+      "story_interest_id": "16b9b524-6df6-4b2d-89e1-ae92e6aa2f50",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7057e5624224"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:08:55.300202+00:00",
+      "story_interest_id": "1801a7b8-c864-47ff-a061-00a59b8c6731",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-991e81a137f3"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:46:16.412467+00:00",
+      "story_interest_id": "19994a18-e819-474f-91ce-e4704195a447",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-79c6fa65fb83"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:58:02.196141+00:00",
+      "story_interest_id": "1a2f38b8-2c7c-4c03-945b-586ecc96c11c",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e3134991e772"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:37:11.212805+00:00",
+      "story_interest_id": "1a338044-7956-4c70-80c1-7fe1f67da34b",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-98d438eef1ab"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:08:41.674611+00:00",
+      "story_interest_id": "1b5cb8f6-bd7b-4371-a29d-1a4539c0dd42",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-84956deab27e"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:35:55.578624+00:00",
+      "story_interest_id": "1d1a278c-40b1-443b-beec-cc37d41a2212",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4b8976e22bb4"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:14:56.807855+00:00",
+      "story_interest_id": "20f0eec4-85e2-4a34-8a0e-079805417bf6",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-fe1d64b137c4"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:43:17.19971+00:00",
+      "story_interest_id": "23827fbd-f165-4476-9ba9-48a1306898ad",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3e9bac769dc0"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:55:17.086685+00:00",
+      "story_interest_id": "24ebb8f4-86d6-46f4-aca4-0142408d47a0",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b5bd7a6bcbfe"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:17:03.255908+00:00",
+      "story_interest_id": "267b14f5-6b43-4dc6-92b9-46c6e36d7db3",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c6df27c6c9a7"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:57:06.329974+00:00",
+      "story_interest_id": "29f8d8d4-a19b-42b6-b196-8d0030e34ecd",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b5549425b737"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:54:35.697999+00:00",
+      "story_interest_id": "2a8a87e5-ea0a-49ef-98fd-5da627381c58",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-df3648bc29c8"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:54:10.053504+00:00",
+      "story_interest_id": "2e2219b2-efd3-4451-9752-a4471f161017",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-895b561f735b"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:15:41.728272+00:00",
+      "story_interest_id": "312dadd6-117d-4b4a-ae27-bfb244401be7",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-db87b2aaeb6c"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:00:47.487752+00:00",
+      "story_interest_id": "325535f0-04f1-4113-a7c9-22ede9fcd746",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1751e4a8b386"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:10:24.53099+00:00",
+      "story_interest_id": "37ffbfa0-7d3b-47a1-b8b9-b288d6d16663",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-19cb6440aa90"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:00:47.487752+00:00",
+      "story_interest_id": "3a86047f-9010-406b-9338-bcbe1f21681b",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1751e4a8b386"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:04:25.646335+00:00",
+      "story_interest_id": "3b382d37-13d9-49aa-8bd9-bd8378afe2c6",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-cc6dba55def9"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:57:39.849895+00:00",
+      "story_interest_id": "3d516689-fb8b-4cd0-a877-07d5713c339b",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c4375a84933e"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:19:28.305205+00:00",
+      "story_interest_id": "3de5e2b6-6f6c-40d1-9599-0790bd69ab8b",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-5266c5b75dc0"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:58:02.196141+00:00",
+      "story_interest_id": "3f36998b-b6ad-4dcc-8a6b-96c2d9074402",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e3134991e772"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:18:03.290445+00:00",
+      "story_interest_id": "3f533a01-aacd-4615-925c-17b89373cdc0",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-58da39bec6fe"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:47:44.640439+00:00",
+      "story_interest_id": "3f98e6ba-ff86-4320-a170-ae540f5403d3",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-446734d147b4"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:26:16.53338+00:00",
+      "story_interest_id": "4006d4e7-bae9-43a0-a6dd-1439009d156f",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3a13fc49902d"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:55:31.44318+00:00",
+      "story_interest_id": "423f4fce-1797-44cb-a41a-d12358860e2d",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-0b7ba7b71aa6"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:55:32.939552+00:00",
+      "story_interest_id": "436b6814-e160-4ae7-8387-4968e088fb4d",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f62d5bed1c13"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:15:01.468885+00:00",
+      "story_interest_id": "43be07e5-1f7d-4e4e-88ca-220d5b4741ba",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7ec7b5782c6c"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:37:04.418335+00:00",
+      "story_interest_id": "454d71d9-b075-49b1-9f49-bb2a2943b338",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d8f2f630bb93"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:53:50.962732+00:00",
+      "story_interest_id": "473c1539-22b6-4edb-93bf-217f4f1ba2d7",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b7577e4a6d0b"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:14:21.312695+00:00",
+      "story_interest_id": "475deaa8-a367-4712-8b85-d2af09e9feaf",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b661f3112b93"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:04:47.520682+00:00",
+      "story_interest_id": "47874bd3-7614-49de-9f40-46bf24ea36df",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1b763236dc0c"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T09:02:40.802616+00:00",
+      "story_interest_id": "47e32794-98da-4ee1-8b72-63c0a122fc07",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7ed80584ec33"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:21:14.352712+00:00",
+      "story_interest_id": "49a26001-8471-4ef1-8a6c-fb31e985444d",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-147af25fb739"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:49:09.689238+00:00",
+      "story_interest_id": "4c1e220a-9f61-48c1-b0ba-63922e87c1ef",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-077a658ce206"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:47:44.640439+00:00",
+      "story_interest_id": "4c465123-c698-4aea-b149-595d1f5ae718",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-446734d147b4"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:35:55.578624+00:00",
+      "story_interest_id": "4ed01659-8bb2-4349-b7d5-0758ed2a7041",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4b8976e22bb4"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:58:02.196141+00:00",
+      "story_interest_id": "4eda431b-d676-4597-a1b3-0a237dbb802e",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e3134991e772"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:37:11.212805+00:00",
+      "story_interest_id": "542a37e5-06f8-4bde-8bd5-8353c9655adf",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-98d438eef1ab"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:46:05.231737+00:00",
+      "story_interest_id": "557a88f8-f1ff-40d8-afc2-5da45596cb26",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-09cc1c42c885"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:58:39.826792+00:00",
+      "story_interest_id": "563fe0ad-e87f-4785-bcb6-98d0d4a2c7c1",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f1442f19e8b8"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:40:12.892499+00:00",
+      "story_interest_id": "56d2fdf1-5d03-4a21-b94a-7c469158ee67",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c6a646cdc04c"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:13:43.881306+00:00",
+      "story_interest_id": "5745e560-3343-4e11-a3e3-64e4d7da9661",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-85ef266445cb"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:09:22.528648+00:00",
+      "story_interest_id": "577bf71c-1182-4365-ad1d-4c49b0b0a847",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7473dcc2bb83"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T09:01:53.794866+00:00",
+      "story_interest_id": "58149744-e166-4000-b9c4-6a48270d7ade",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f4d0e284ff15"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:55:10.770491+00:00",
+      "story_interest_id": "58608faa-8f41-4eaa-a76b-a31efa304158",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-a986f9d8ed4d"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:18:29.915523+00:00",
+      "story_interest_id": "5a934b03-cc94-4f0a-985a-689dbb135560",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7f7bdbd4238d"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:54:21.77239+00:00",
+      "story_interest_id": "5b1f06b2-6e6b-43fb-a23c-bbf75770d306",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1f97f2eaf684"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:54:21.77239+00:00",
+      "story_interest_id": "5b4b9115-ce79-4385-9b59-ee337c0f2738",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1f97f2eaf684"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:07:58.168771+00:00",
+      "story_interest_id": "5b5bf086-afa9-4231-8abb-d699e5a0e967",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-ca6d0bc41913"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:00:00.439779+00:00",
+      "story_interest_id": "5c7523da-e34c-4e52-886f-976c6f35bf81",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b1b07774eb8c"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:06:37.472448+00:00",
+      "story_interest_id": "5df27a35-205f-4cc0-a925-4676ecb7ff5e",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-a857d5b3c91b"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:11:58.704011+00:00",
+      "story_interest_id": "5eb2eae0-6808-4998-bb02-80a6103e436a",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d2876ef32723"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:39:15.067516+00:00",
+      "story_interest_id": "61731ddd-8223-4614-9889-fb8cf7020538",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7123a6062baa"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:09:53.086616+00:00",
+      "story_interest_id": "6232e013-c80d-48cd-bac7-80446f43c6ab",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-ce6bb3157d3c"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:49:09.689238+00:00",
+      "story_interest_id": "6292082d-5a9f-4e0d-ba4c-79cd4af0ce46",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-077a658ce206"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:09:19.82687+00:00",
+      "story_interest_id": "63906da2-b438-43d4-b575-02e13a23f9df",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f1e535206416"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:47:40.732271+00:00",
+      "story_interest_id": "645076ae-6d55-440c-827c-cf5a9d201c79",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-aeaf168ecc8a"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:40:26.307757+00:00",
+      "story_interest_id": "64ea202d-c865-4ab9-b718-b6e240a3a1dc",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6dcbcfe25c0a"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:08:24.166887+00:00",
+      "story_interest_id": "657dea43-b358-48cf-abd1-016014c0df18",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f041d67c20a2"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:09:54.075684+00:00",
+      "story_interest_id": "663fd5a8-1dd9-41de-96bd-908c7bd848b5",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-fa681282276b"
+    },
+    {
+      "story_interest_created_at": "2026-07-03T23:58:12.665075+00:00",
+      "story_interest_id": "6666a461-3b46-4c8a-a735-581ae0ba9c94",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-42930f342658"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:05:04.717734+00:00",
+      "story_interest_id": "671654f6-913a-4c09-ad66-9cb500bf3a96",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e2912ca66ab6"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:41:12.342991+00:00",
+      "story_interest_id": "694bdaed-7567-4f42-9e23-d3967b9b7458",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-cb800663769f"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:47:44.640439+00:00",
+      "story_interest_id": "6a78dce8-d93b-4764-bc60-7fa29378a8e4",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-446734d147b4"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:07:54.577261+00:00",
+      "story_interest_id": "6ca3b3ea-b064-432c-8d4e-d66950033d0d",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b4e837675d15"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:54:20.748603+00:00",
+      "story_interest_id": "6d5dd34f-3480-453c-b2f1-cf8fdea40de9",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-0cc95e8134e4"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:47:44.640439+00:00",
+      "story_interest_id": "6def59b4-f0e9-424a-abbc-09624eb40030",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-446734d147b4"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T09:00:27.76791+00:00",
+      "story_interest_id": "6fdc235c-d1a0-4550-b047-8130931e7bfd",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c711488f8063"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:21:14.352712+00:00",
+      "story_interest_id": "70aefb07-a0c3-4e67-9ed4-c89659657819",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-147af25fb739"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:13:48.146847+00:00",
+      "story_interest_id": "729fddf5-e7c2-41c7-8acf-2226bd71fb57",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-060e72e7dffb"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:40:12.892499+00:00",
+      "story_interest_id": "732a9aaa-ad33-4999-93c4-c8f47b0bf1a1",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c6a646cdc04c"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:44:44.363998+00:00",
+      "story_interest_id": "7439c63a-6703-484a-be20-b58962fd7deb",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b7333ca9dca8"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:13:11.792828+00:00",
+      "story_interest_id": "74cb9a88-a5d5-4772-87a3-456f576efd44",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-42357a4b0296"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:44:44.363998+00:00",
+      "story_interest_id": "758f6e75-33d7-49cf-a172-98516e26ec42",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b7333ca9dca8"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:43:17.19971+00:00",
+      "story_interest_id": "75a90715-5c50-4390-8c4e-a90bf846bf44",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3e9bac769dc0"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:28:34.103104+00:00",
+      "story_interest_id": "76e23a01-3ad2-481e-947a-8c0a53cb8959",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f78218a697be"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:43:25.644114+00:00",
+      "story_interest_id": "773210f6-9eb1-4be3-ae23-dad1908421d1",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-246e4cdd1a0c"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:12:42.276837+00:00",
+      "story_interest_id": "79002ead-d7e8-4041-a4f5-86a961153a09",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-0a196f582d20"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:33:32.401286+00:00",
+      "story_interest_id": "795e477a-9aa6-4e0c-aa78-c910a32b1d2e",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-df4c8cfc56fa"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:57:55.949567+00:00",
+      "story_interest_id": "798e82a2-bf73-4c44-9f61-a51768d819b8",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-703888caf63e"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:58:15.683572+00:00",
+      "story_interest_id": "7a034a39-a933-49c9-a3af-ba98e1bb9818",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-72becbbf204b"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:12:23.640941+00:00",
+      "story_interest_id": "7b854db9-4abf-4033-bbf6-03268d82a219",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d97026f8ef01"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:35:55.578624+00:00",
+      "story_interest_id": "7c467e1f-9867-4ea7-a785-7dd57a36d723",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4b8976e22bb4"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:05:25.825581+00:00",
+      "story_interest_id": "7cd96d7c-f936-4abf-9732-cb3d81f335a3",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-92eb4f72f38c"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:03:18.712423+00:00",
+      "story_interest_id": "7d1680e6-dcf4-4cab-9bae-cf17726d161d",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-039e75c93ea7"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:17:57.141161+00:00",
+      "story_interest_id": "7e00353b-5daa-407e-b5b9-c430dab5b88e",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-99567b98c21a"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:58:59.251127+00:00",
+      "story_interest_id": "81462c16-026c-4b2a-a83b-cf35edd02f49",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-51d5d7340bba"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:12:35.100479+00:00",
+      "story_interest_id": "8206462b-bb05-42cf-85cd-a91e4a6684d0",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d965af973a55"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:55:35.505381+00:00",
+      "story_interest_id": "8358b416-574a-405e-861d-cf118ef32226",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d9326d20e8d9"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T09:02:24.172692+00:00",
+      "story_interest_id": "8365fc89-09e7-4203-84a7-6d302e628e94",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b03be4e5927b"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:54:21.77239+00:00",
+      "story_interest_id": "83fdfc8e-25c8-4477-a67f-19a9250810df",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1f97f2eaf684"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:25:55.481094+00:00",
+      "story_interest_id": "86934f7d-c5ed-4d1b-ab46-750a8ffb220c",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-5ac087e79022"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:18:20.519276+00:00",
+      "story_interest_id": "89d97a30-a5b7-4092-8fb6-4c14a5ea65aa",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-60e41173be56"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:51:54.915178+00:00",
+      "story_interest_id": "8c32a706-3981-40d1-b095-19d0314c4b25",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-21ae398fa922"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:54:20.748603+00:00",
+      "story_interest_id": "8c520e4a-50b4-41e4-a0f4-9b6e58a1650a",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-0cc95e8134e4"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:40:26.307757+00:00",
+      "story_interest_id": "8dd0ff04-3ddf-4fd8-a420-259bee10084e",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6dcbcfe25c0a"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:04:47.520682+00:00",
+      "story_interest_id": "8dfc2bed-b237-4d6b-8403-23288691b154",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1b763236dc0c"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:02:45.865309+00:00",
+      "story_interest_id": "8e4c51e4-32f2-49d2-9360-d0a896c17e4a",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-0d2956fb7b9d"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:14:53.040804+00:00",
+      "story_interest_id": "92f697b3-14c2-4723-babf-28cd424010a1",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d66c616d3822"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:05:15.924033+00:00",
+      "story_interest_id": "9395bf2b-fa22-4054-9bb7-9525d15d684e",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-a1894b260c59"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:34:28.144305+00:00",
+      "story_interest_id": "93ae0f75-bda9-4701-8d08-c85aa1adc5fe",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d1539e0d24c7"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:08:34.851596+00:00",
+      "story_interest_id": "97d5965e-43fa-4efc-a42b-00833aec61bd",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7266f58926ed"
+    },
+    {
+      "story_interest_created_at": "2026-07-04T00:12:43.786097+00:00",
+      "story_interest_id": "98e4498a-7f56-48d7-a406-bed0b003e3f5",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-541c37dcd9b2"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:05:39.154277+00:00",
+      "story_interest_id": "9c3da267-9a30-4c65-a67b-dbb8247b8311",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4cb8a4bd4d8d"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T06:31:00.158833+00:00",
+      "story_interest_id": "9c9dbdbf-3cc7-4b3d-976d-c7917cbef643",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-48214d1f7f0c"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:26:16.53338+00:00",
+      "story_interest_id": "9d2421c9-33e5-4637-92fe-c81eb5c32b4f",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3a13fc49902d"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:55:35.505381+00:00",
+      "story_interest_id": "9f51ce47-3d15-46c2-8640-373e1c4aa165",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d9326d20e8d9"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:11:44.818191+00:00",
+      "story_interest_id": "a0689b4d-2069-4f33-a951-08df03c7ec7f",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c33d60e119f6"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:54:32.088961+00:00",
+      "story_interest_id": "a0937db5-a35a-4b59-9284-3d1c2a49b4c2",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-5e5ae0b16127"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:58:02.196141+00:00",
+      "story_interest_id": "a2f72a6a-0c12-4c00-addf-a6106156b5bc",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e3134991e772"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:26:18.063772+00:00",
+      "story_interest_id": "a3b9490d-3bad-4f16-97db-f762a4de39e3",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f073b6dd4d1a"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:28:34.103104+00:00",
+      "story_interest_id": "a6743625-68ff-4e04-85a3-0c0b0ae085ca",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f78218a697be"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:21:14.352712+00:00",
+      "story_interest_id": "a6cf99f4-c150-499c-84a3-ad06276bbc35",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-147af25fb739"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:43:45.428451+00:00",
+      "story_interest_id": "a7652ba1-ac4e-48a0-9f72-736b6e55f9f3",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-11dc6def705f"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:07:53.689344+00:00",
+      "story_interest_id": "a9819924-3498-4bd5-89e0-f98ba487a4d6",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-2f27c24664a6"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:33:05.700513+00:00",
+      "story_interest_id": "a98bc5ee-8db1-4294-8d7a-662e9c6e6867",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-11241786ad29"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:37:20.007263+00:00",
+      "story_interest_id": "a9bea7ff-0333-425f-bedd-e88a7d02c826",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-140ad5fbf8f2"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:07:38.065724+00:00",
+      "story_interest_id": "a9faa026-dac2-49a0-b82e-04a448267acd",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6853fafa6881"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T06:31:00.158833+00:00",
+      "story_interest_id": "aaed34a1-1879-40e3-9e06-16dca37ba323",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-48214d1f7f0c"
+    },
+    {
+      "story_interest_created_at": "2026-07-03T23:56:29.704545+00:00",
+      "story_interest_id": "ab0e7362-5b46-45d7-8d74-c4e0ba6a576f",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-84d3e2c43c63"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:34:28.144305+00:00",
+      "story_interest_id": "ac75ee34-b472-42df-838d-55646446f14f",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d1539e0d24c7"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:09:54.075684+00:00",
+      "story_interest_id": "ac926447-8085-4c7f-83d3-d9567da3aa8b",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-fa681282276b"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:04:47.520682+00:00",
+      "story_interest_id": "acc21765-65fe-4246-becd-af1f06b8cca4",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1b763236dc0c"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:15:34.145327+00:00",
+      "story_interest_id": "adaf8031-10af-495e-a497-09937fb80759",
+      "story_interest_interest_id": "82ef345b-79bb-45ce-ba3e-4f50c5b96c04",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4dcaeabff2c8"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:05:39.154277+00:00",
+      "story_interest_id": "aef45d54-5429-479c-82e3-c11ac6ec8289",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4cb8a4bd4d8d"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:50:10.064908+00:00",
+      "story_interest_id": "af84af01-d0d7-4eea-a2b2-faad0578e640",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b2d2247a87ed"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:14:07.957408+00:00",
+      "story_interest_id": "b1fb9741-26b4-4ce9-8cb7-8fd8d83ba636",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7009898eaaa3"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:28:10.553331+00:00",
+      "story_interest_id": "b62a089a-bdc4-41b2-bf0b-6f48ab8679dc",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-678b5f17f226"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:15:08.675837+00:00",
+      "story_interest_id": "b68c3767-6e01-49d7-805c-015ff93a34cd",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4552d1c0a963"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:59:48.2514+00:00",
+      "story_interest_id": "b8a24912-b3fa-4222-994f-8f283b25ddf5",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-bf12f15ecf0a"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:34:30.94652+00:00",
+      "story_interest_id": "b96e27ec-1ac9-4d6e-8ec9-410699e9d9a9",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-9454405bf606"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:58:17.207523+00:00",
+      "story_interest_id": "bb94a491-782b-4b91-86bd-6f89f3a36ca5",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3c76e3e5d17c"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:32:48.91012+00:00",
+      "story_interest_id": "be151a6f-4ea3-451e-b066-fd26ed5ce91c",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-a13107f4992c"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:43:45.428451+00:00",
+      "story_interest_id": "bebb9bb8-5c5b-4fab-8bde-08a0e410411f",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-11dc6def705f"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:59:41.570227+00:00",
+      "story_interest_id": "c51ec3d6-b6b4-4702-87bd-0ed651083015",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f4078db38ae8"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:18:34.029035+00:00",
+      "story_interest_id": "c655e573-26c1-408f-9ea9-c77725fb909c",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-2bfbf671e5bf"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:33:52.416183+00:00",
+      "story_interest_id": "c6dc53a2-0d53-4744-8963-b467f7e36ff7",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-472be1f45215"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:14:53.040804+00:00",
+      "story_interest_id": "c7e4e92a-ba12-42e2-bac1-79f0c0938824",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d66c616d3822"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T06:31:00.158833+00:00",
+      "story_interest_id": "c845f311-b185-4ce2-926e-17983b52145d",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-48214d1f7f0c"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:19:39.763266+00:00",
+      "story_interest_id": "cba708b7-b7e2-40ca-9bca-46710f8bca0e",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-57387baac28b"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:37:25.62028+00:00",
+      "story_interest_id": "ccbe7bd2-6b09-4ddf-88f3-c80b5182d60c",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-bb1e3e6492b7"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:43:45.428451+00:00",
+      "story_interest_id": "ccc1c17d-fb8c-47e1-bc7b-611ec8a179c0",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-11dc6def705f"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:38:17.00073+00:00",
+      "story_interest_id": "ccc65bae-e58e-40d2-964f-88468809ac52",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-c78d2cd8dff5"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:37:53.472539+00:00",
+      "story_interest_id": "d3e84645-24d5-47aa-a83e-bce0106a72af",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d313d7c46cf8"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:16:59.945923+00:00",
+      "story_interest_id": "d53c34db-2087-4a04-9ea5-779569365bbd",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1711dc872935"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:12:07.864373+00:00",
+      "story_interest_id": "d632d9c9-3deb-4399-812b-966abff55758",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6eeda5625c5e"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:54:10.053504+00:00",
+      "story_interest_id": "d98154db-bff6-40c9-aeb5-9d19a0a45ca4",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-895b561f735b"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:37:04.418335+00:00",
+      "story_interest_id": "d9b26fbc-afdb-4a22-ba70-d4767a2d9f5d",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d8f2f630bb93"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:09:52.50943+00:00",
+      "story_interest_id": "da447ee5-cc9d-41b2-9834-e7a55642f167",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-735ce2384594"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:02:45.865309+00:00",
+      "story_interest_id": "db591058-7d52-4733-812a-f5fec314f9d8",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-0d2956fb7b9d"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:08:23.661045+00:00",
+      "story_interest_id": "dd98dc90-50dd-4b8c-9e04-85c0a9769511",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3a3a07189bc6"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:35:55.578624+00:00",
+      "story_interest_id": "def4636b-e77e-49a0-abe4-f4401d70a84b",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4b8976e22bb4"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:35:06.561394+00:00",
+      "story_interest_id": "e03a17e1-e5c4-40d1-9f50-91cc698ba465",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-589063383be7"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:55:35.505381+00:00",
+      "story_interest_id": "e0561b1b-b65c-4189-95c8-f217963ece38",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d9326d20e8d9"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:56:34.199365+00:00",
+      "story_interest_id": "e1e36197-0f38-4d59-9772-5d095ce08a05",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-5617f25f67e4"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:37:04.418335+00:00",
+      "story_interest_id": "e5d64a0e-1ef7-4e2c-bc17-04275a44352d",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d8f2f630bb93"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:19:59.135619+00:00",
+      "story_interest_id": "e71d6106-89e3-426f-a410-c21418af741f",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d30bfcd41cad"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:25:55.481094+00:00",
+      "story_interest_id": "e8e7ddb8-7bd4-45da-8aaa-99b5d54812d3",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-5ac087e79022"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:09:00.511105+00:00",
+      "story_interest_id": "e9306ef8-2a97-4870-9c87-14501ea2f5ae",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-8a0b899209f4"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:01:51.452686+00:00",
+      "story_interest_id": "e9b2658d-83ed-4035-b5b5-0159996a5701",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e32f1a3a4899"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:54:32.088961+00:00",
+      "story_interest_id": "ebc1eca1-6626-451a-a8ca-ad269d9580f5",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-5e5ae0b16127"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:01:51.452686+00:00",
+      "story_interest_id": "ee5554b9-214a-42e0-8c24-04369dcffe11",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e32f1a3a4899"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:08:23.661045+00:00",
+      "story_interest_id": "ee8945dd-c5da-41a7-8c61-d8a6b9fff66b",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-3a3a07189bc6"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:58:39.826792+00:00",
+      "story_interest_id": "ef37307f-d12b-4efe-a95e-558b29a61648",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f1442f19e8b8"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:05:15.924033+00:00",
+      "story_interest_id": "f35ff216-00e9-48cc-bdc7-611d30f0f8cc",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-a1894b260c59"
+    },
+    {
+      "story_interest_created_at": "2026-07-03T23:58:00.185171+00:00",
+      "story_interest_id": "f3b7ec30-75bc-4e38-bce6-c3e5a0bb611d",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-d3bf71e89f04"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:47:40.732271+00:00",
+      "story_interest_id": "f3ccaeac-5c33-4cb7-86e7-d643bb831ca7",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-aeaf168ecc8a"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:40:26.307757+00:00",
+      "story_interest_id": "f3ef5eb0-ea60-4439-a482-20a8de650bae",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6dcbcfe25c0a"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:19:11.280031+00:00",
+      "story_interest_id": "f413665d-fc55-472f-ac0a-04d4db1eeb9f",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-33491e24540b"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:09:43.011533+00:00",
+      "story_interest_id": "f456d16d-bbff-495d-94e6-fce65b6bafc0",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-ad15333119fe"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:05:03.589274+00:00",
+      "story_interest_id": "f557f549-167a-4dca-9eb6-620afafdf2d4",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-44c52018d174"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:39:34.924319+00:00",
+      "story_interest_id": "f5ae31ef-4c87-45ef-92ee-8276505667b7",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-6eed06cfd3cf"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:04:06.140746+00:00",
+      "story_interest_id": "f5dbaa00-ffb7-422f-af3b-6813f4ab5787",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e079e549c8e7"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:08:33.071741+00:00",
+      "story_interest_id": "f6e4a9a3-1603-4ad6-8166-556e9e6c0605",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-a83cd21daac0"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:47:40.732271+00:00",
+      "story_interest_id": "f82a491c-cb97-4b8a-92b0-485b203c2da4",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-aeaf168ecc8a"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:56:14.153367+00:00",
+      "story_interest_id": "f8544376-a749-47c0-8600-836f8e905ace",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-7b3844bf6f73"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:34:49.780491+00:00",
+      "story_interest_id": "f8a2c251-efa6-4c8d-ab41-2604a43dcf79",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-1959dd5e0756"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:46:16.412467+00:00",
+      "story_interest_id": "f8b397f5-9611-451b-b26e-d9e5f07948f0",
+      "story_interest_interest_id": "3237026b-023e-4cb2-8b82-e28ed358e356",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-79c6fa65fb83"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T08:03:37.366204+00:00",
+      "story_interest_id": "f99cb1f4-5836-4402-a865-df00315251f4",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-731af8349541"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T19:16:44.990253+00:00",
+      "story_interest_id": "facd6c97-6a1d-4eaf-aaaf-cf238ac4cb0a",
+      "story_interest_interest_id": "1494a076-ee9a-42ae-98c0-689d0619220f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-b0956ef4a950"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:55:12.943821+00:00",
+      "story_interest_id": "fbf59373-05e9-4a9a-a817-5f071940b368",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-ce4a9c30b3f9"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T14:01:51.452686+00:00",
+      "story_interest_id": "fbfcff3d-ccff-471c-901f-542b3ca13544",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-e32f1a3a4899"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:43:43.223179+00:00",
+      "story_interest_id": "fc0729bb-5d70-4f41-ad61-be80a211e254",
+      "story_interest_interest_id": "683d8c68-674b-42fc-a251-2475d7c402b8",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-f1ec30cdd04f"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:50:56.496917+00:00",
+      "story_interest_id": "fc2ec4db-7672-4b88-9ec2-eaa472c381a5",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-8e7e20cd2c3b"
+    },
+    {
+      "story_interest_created_at": "2026-07-06T07:15:34.145327+00:00",
+      "story_interest_id": "ff0d623d-ce39-49aa-b7c4-7e2f29e0cbe4",
+      "story_interest_interest_id": "f6827452-8a67-414e-af64-2004ab671401",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-4dcaeabff2c8"
+    },
+    {
+      "story_interest_created_at": "2026-07-07T13:54:32.088961+00:00",
+      "story_interest_id": "ff18932c-ee43-4a42-8779-6531557e6a41",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-5e5ae0b16127"
+    },
+    {
+      "story_interest_created_at": "2026-07-19T18:22:16.69576+00:00",
+      "story_interest_id": "ffb5dde5-2fbc-4905-9ea6-89604b888136",
+      "story_interest_interest_id": "2893b2f1-8b90-45bd-a193-3ef45387005f",
+      "story_interest_match_depth": 0,
+      "story_interest_relevance": null,
+      "story_interest_story_id": "cand-bb550eebe7ce"
+    }
+  ],
+  "window_start_utc": "2026-06-30T00:00:00+00:00"
+}
