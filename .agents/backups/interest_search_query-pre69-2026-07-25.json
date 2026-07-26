@@ -1,0 +1,546 @@
+{
+  "description": "interest_search_query values BEFORE the #69 comma-anchor backfill \u2014 restore with: update interests set interest_search_query = <old_query> where interest_slug = <interest_slug>",
+  "issue": 69,
+  "row_count": 77,
+  "rows": [
+    {
+      "interest_label": "Autonomous vehicles",
+      "interest_slug": "ai.autonomous-vehicles",
+      "old_query": "autonomous vehicles self-driving cars news",
+      "planned_new_query": "autonomous vehicles, self driving cars, autonomous driving",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "China",
+      "interest_slug": "ai.china",
+      "old_query": "China artificial intelligence technology news",
+      "planned_new_query": "China artificial intelligence, Chinese artificial intelligence, China technology",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Drones",
+      "interest_slug": "ai.drones",
+      "old_query": "military drones unmanned aircraft technology news",
+      "planned_new_query": "military drones, unmanned aircraft, drone strike, drones",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "EU AI Act",
+      "interest_slug": "ai.eu-ai-act",
+      "old_query": "European Union artificial intelligence act regulation news",
+      "planned_new_query": "artificial intelligence act, European artificial intelligence, artificial intelligence regulation",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Global governance",
+      "interest_slug": "ai.global-governance",
+      "old_query": "artificial intelligence global governance regulation news",
+      "planned_new_query": "artificial intelligence governance, global governance, artificial intelligence regulation",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Humanoid robots",
+      "interest_slug": "ai.humanoid-robots",
+      "old_query": "humanoid robots robotics news",
+      "planned_new_query": "humanoid robots, humanoid robot, robotics",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "US policy",
+      "interest_slug": "ai.us-policy",
+      "old_query": "United States artificial intelligence policy regulation news",
+      "planned_new_query": "artificial intelligence policy, artificial intelligence regulation, White House artificial intelligence",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Fiction",
+      "interest_slug": "arts.fiction",
+      "old_query": "fiction novels publishing news",
+      "planned_new_query": "fiction, novels, book publishing",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Nonfiction",
+      "interest_slug": "arts.nonfiction",
+      "old_query": "nonfiction books publishing news",
+      "planned_new_query": "nonfiction, book publishing, memoir",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Prizes & bestsellers",
+      "interest_slug": "arts.prizes-bestsellers",
+      "old_query": "book prizes bestsellers literary awards news",
+      "planned_new_query": "book prizes, bestsellers, literary awards, bestseller list",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Trends",
+      "interest_slug": "arts.trends",
+      "old_query": "arts culture trends news",
+      "planned_new_query": "arts trends, culture trends, cultural trends",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Business & Markets",
+      "interest_slug": "business",
+      "old_query": "business markets economy finance news",
+      "planned_new_query": "business, economy, corporate earnings",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Agricultural commodities",
+      "interest_slug": "business.agricultural-commodities",
+      "old_query": "agricultural commodities wheat corn soybean prices news",
+      "planned_new_query": "agricultural commodities, wheat prices, corn prices, soybean",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Bonds",
+      "interest_slug": "business.bonds",
+      "old_query": "government bonds treasury yields news",
+      "planned_new_query": "government bonds, treasury yields, bond yields",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Commodities",
+      "interest_slug": "business.commodities",
+      "old_query": "commodities prices futures market news",
+      "planned_new_query": "commodity prices, commodities, commodity futures",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Currencies",
+      "interest_slug": "business.currencies",
+      "old_query": "foreign exchange currencies forex news",
+      "planned_new_query": "foreign exchange, currencies, currency trading, forex",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Equities",
+      "interest_slug": "business.equities",
+      "old_query": "stock market equities shares news",
+      "planned_new_query": "equities, share prices, shares",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Semiconductors",
+      "interest_slug": "business.equities.semis",
+      "old_query": "semiconductor stocks NVIDIA TSMC news",
+      "planned_new_query": "semiconductor, semiconductors, chipmaker, NVIDIA, TSMC",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "IPOs",
+      "interest_slug": "business.ipos",
+      "old_query": "initial public offering stock listing news",
+      "planned_new_query": "initial public offering, IPO, public listing",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Leadership & executives",
+      "interest_slug": "business.leadership-executives",
+      "old_query": "corporate leadership chief executive news",
+      "planned_new_query": "corporate leadership, chief executive, executive appointment",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Major indices",
+      "interest_slug": "business.major-indices",
+      "old_query": "stock market indices Dow Jones Nasdaq news",
+      "planned_new_query": "Dow Jones, Nasdaq, major indices, benchmark index",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Mergers & acquisitions",
+      "interest_slug": "business.mergers-acquisitions",
+      "old_query": "mergers acquisitions corporate deals news",
+      "planned_new_query": "merger, acquisition, corporate deals, takeover",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Metals & mining",
+      "interest_slug": "business.metals-mining",
+      "old_query": "metals mining gold copper news",
+      "planned_new_query": "metals, mining, gold prices, copper prices",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Stablecoins",
+      "interest_slug": "business.stablecoins",
+      "old_query": "stablecoin cryptocurrency regulation news",
+      "planned_new_query": "stablecoin, stablecoins, stablecoin regulation",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Stocks & equities",
+      "interest_slug": "business.stocks-equities",
+      "old_query": "stock market shares equities news",
+      "planned_new_query": "equities, share prices, shares",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Climate & Environment",
+      "interest_slug": "climate",
+      "old_query": "climate change environment global warming news",
+      "planned_new_query": "climate change, global warming, environment",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Batteries & storage",
+      "interest_slug": "environment.batteries-storage",
+      "old_query": "battery energy storage technology news",
+      "planned_new_query": "battery storage, energy storage, grid storage, batteries",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Carbon markets",
+      "interest_slug": "environment.carbon-markets",
+      "old_query": "carbon markets emissions trading news",
+      "planned_new_query": "carbon credits, emissions trading, carbon pricing, carbon offset",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Climate science",
+      "interest_slug": "environment.climate-science",
+      "old_query": "climate science research warming news",
+      "planned_new_query": "climate science, climate research, global warming",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "COP summits",
+      "interest_slug": "environment.cop-summits",
+      "old_query": "climate summit United Nations COP news",
+      "planned_new_query": "climate summit, United Nations climate, climate conference",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Earthquakes",
+      "interest_slug": "environment.earthquakes",
+      "old_query": "earthquake seismic disaster news",
+      "planned_new_query": "earthquake, earthquakes, seismic activity",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Electric vehicles",
+      "interest_slug": "environment.electric-vehicles",
+      "old_query": "electric vehicle adoption sales news",
+      "planned_new_query": "electric vehicle, electric vehicles, electric car",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Emissions targets",
+      "interest_slug": "environment.emissions-targets",
+      "old_query": "carbon emissions reduction targets news",
+      "planned_new_query": "carbon emissions, emissions targets, emissions reduction, net zero",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Endangered species",
+      "interest_slug": "environment.endangered-species",
+      "old_query": "endangered species wildlife conservation news",
+      "planned_new_query": "endangered species, wildlife conservation, species extinction",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Floods",
+      "interest_slug": "environment.floods",
+      "old_query": "floods flooding disaster news",
+      "planned_new_query": "floods, flooding, flash flood, flood damage",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Forests & habitats",
+      "interest_slug": "environment.forests-habitats",
+      "old_query": "deforestation forests habitat conservation news",
+      "planned_new_query": "deforestation, forests, habitat conservation, rainforest",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Heatwaves & drought",
+      "interest_slug": "environment.heatwaves-drought",
+      "old_query": "heatwave drought extreme weather news",
+      "planned_new_query": "heatwave, drought, extreme heat, extreme weather",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Hurricanes",
+      "interest_slug": "environment.hurricanes",
+      "old_query": "hurricane tropical storm news",
+      "planned_new_query": "hurricane, tropical storm, hurricane season",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Hydrogen",
+      "interest_slug": "environment.hydrogen",
+      "old_query": "hydrogen energy fuel news",
+      "planned_new_query": "hydrogen, green hydrogen, hydrogen fuel",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Nuclear",
+      "interest_slug": "environment.nuclear",
+      "old_query": "nuclear power energy reactor news",
+      "planned_new_query": "nuclear power, nuclear reactor, nuclear energy, nuclear plant",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Oceans & coral",
+      "interest_slug": "environment.oceans-coral",
+      "old_query": "oceans coral reef marine news",
+      "planned_new_query": "coral reef, ocean warming, marine life, oceans",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Solar",
+      "interest_slug": "environment.solar",
+      "old_query": "solar power energy panels news",
+      "planned_new_query": "solar power, solar panels, solar energy, solar farm",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Wildfires",
+      "interest_slug": "environment.wildfires",
+      "old_query": "wildfire forest fire news",
+      "planned_new_query": "wildfire, wildfires, forest fire, fire season",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Wind",
+      "interest_slug": "environment.wind",
+      "old_query": "wind power energy turbines news",
+      "planned_new_query": "wind power, wind energy, wind turbines, offshore wind",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "China tariffs",
+      "interest_slug": "geopolitics.china-tariffs",
+      "old_query": "China tariffs trade war news",
+      "planned_new_query": "China tariffs, Chinese imports, trade war, tariff",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Export controls (chips)",
+      "interest_slug": "geopolitics.export-controls-chips",
+      "old_query": "semiconductor export controls China chips news",
+      "planned_new_query": "export controls, chip export controls, semiconductor export",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Russia sanctions",
+      "interest_slug": "geopolitics.russia-sanctions",
+      "old_query": "Russia sanctions economy news",
+      "planned_new_query": "Russia sanctions, Russian sanctions, Russian economy",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Health & Wellbeing",
+      "interest_slug": "health",
+      "old_query": "health medicine wellbeing news",
+      "planned_new_query": "public health, medicine, healthcare",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Lifestyle & Travel",
+      "interest_slug": "lifestyle",
+      "old_query": "lifestyle travel living news",
+      "planned_new_query": "lifestyle, travel, tourism",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Budget",
+      "interest_slug": "politics.budget",
+      "old_query": "government budget spending fiscal news",
+      "planned_new_query": "government budget, budget deficit, federal budget, fiscal policy",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Campaigns",
+      "interest_slug": "politics.campaigns",
+      "old_query": "political campaigns election news",
+      "planned_new_query": "political campaign, campaign trail, election campaign",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Education",
+      "interest_slug": "politics.education",
+      "old_query": "education policy schools news",
+      "planned_new_query": "education policy, public schools, school district, higher education",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Executive branch",
+      "interest_slug": "politics.executive-branch",
+      "old_query": "White House executive branch president news",
+      "planned_new_query": "White House, executive branch, presidential order",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Guns",
+      "interest_slug": "politics.guns",
+      "old_query": "gun control firearms policy news",
+      "planned_new_query": "gun control, gun violence, firearms policy, gun laws",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Healthcare",
+      "interest_slug": "politics.healthcare",
+      "old_query": "healthcare policy reform news",
+      "planned_new_query": "healthcare policy, healthcare reform, health care reform",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Immigration",
+      "interest_slug": "politics.immigration",
+      "old_query": "immigration policy border news",
+      "planned_new_query": "immigration policy, border security, deportation, immigration enforcement",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Legislation & bills",
+      "interest_slug": "politics.legislation-bills",
+      "old_query": "legislation bills Congress news",
+      "planned_new_query": "legislation, Congress bill, House bill, Senate bill",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Legislative races",
+      "interest_slug": "politics.legislative-races",
+      "old_query": "legislative races elections Congress news",
+      "planned_new_query": "legislative races, Senate race, House race, midterm elections",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Major rulings",
+      "interest_slug": "politics.major-rulings",
+      "old_query": "court rulings legal decisions news",
+      "planned_new_query": "court ruling, appeals court, legal ruling, judicial decision",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "National elections",
+      "interest_slug": "politics.national-elections",
+      "old_query": "national elections presidential vote news",
+      "planned_new_query": "national election, presidential election, general election, election results",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "State & local",
+      "interest_slug": "politics.state-local",
+      "old_query": "state local government politics news",
+      "planned_new_query": "state government, local government, state legislature, governor",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Supreme Court",
+      "interest_slug": "politics.supreme-court",
+      "old_query": "Supreme Court rulings justices news",
+      "planned_new_query": "Supreme Court, Supreme Court ruling, justices",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Taxes",
+      "interest_slug": "politics.taxes",
+      "old_query": "tax policy reform news",
+      "planned_new_query": "tax policy, tax reform, tax cuts, income tax",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Space & Hard Science",
+      "interest_slug": "science",
+      "old_query": "space science research discovery news",
+      "planned_new_query": "space science, scientific research, astronomy, physics",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "NBA",
+      "interest_slug": "sport.nba",
+      "old_query": "NBA",
+      "planned_new_query": "NBA, National Basketball Association, basketball",
+      "reason": "no_strong_anchor"
+    },
+    {
+      "interest_label": "NFL",
+      "interest_slug": "sport.nfl",
+      "old_query": "NFL",
+      "planned_new_query": "NFL, National Football League, American football",
+      "reason": "no_strong_anchor"
+    },
+    {
+      "interest_label": "Arsenal",
+      "interest_slug": "sport.soccer.arsenal",
+      "old_query": "Arsenal FC news Premier League",
+      "planned_new_query": "Arsenal, Arsenal football, Premier League",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Tech & Science",
+      "interest_slug": "tech",
+      "old_query": "technology gadgets software news",
+      "planned_new_query": "technology, software, gadgets",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "AI",
+      "interest_slug": "tech.ai",
+      "old_query": "artificial intelligence machine learning news",
+      "planned_new_query": "artificial intelligence, machine learning",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "LLMs",
+      "interest_slug": "tech.ai.llms",
+      "old_query": "large language models OpenAI Anthropic news",
+      "planned_new_query": "large language model, large language models, OpenAI, Anthropic",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Consoles",
+      "interest_slug": "tech.consoles",
+      "old_query": "video game consoles PlayStation Xbox Nintendo news",
+      "planned_new_query": "PlayStation, Xbox, Nintendo Switch, game console",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Data breaches",
+      "interest_slug": "tech.data-breaches",
+      "old_query": "data breach cybersecurity hack news",
+      "planned_new_query": "data breach, data breaches, cybersecurity breach, hacked",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Esports",
+      "interest_slug": "tech.esports",
+      "old_query": "esports competitive gaming tournaments news",
+      "planned_new_query": "esports, competitive gaming, esports tournament",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "PC gaming",
+      "interest_slug": "tech.pc-gaming",
+      "old_query": "personal computer gaming hardware news",
+      "planned_new_query": "gaming hardware, graphics card, gaming laptop, video games",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Ransomware",
+      "interest_slug": "tech.ransomware",
+      "old_query": "ransomware cyberattack malware news",
+      "planned_new_query": "ransomware, ransomware attack, malware, cyberattack",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Vulnerabilities",
+      "interest_slug": "tech.vulnerabilities",
+      "old_query": "software security vulnerabilities exploits news",
+      "planned_new_query": "security vulnerability, software vulnerability, zero day, exploit",
+      "reason": "soup_query"
+    },
+    {
+      "interest_label": "Geopolitics",
+      "interest_slug": "world",
+      "old_query": "world international politics news",
+      "planned_new_query": "geopolitics, diplomacy, foreign policy",
+      "reason": "soup_query"
+    }
+  ]
+}

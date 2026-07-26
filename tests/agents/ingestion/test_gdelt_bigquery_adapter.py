@@ -647,6 +647,84 @@ class TestLexicalKeyWiring:
         assert "fix_suggestion" in gaps[0]
 
     @pytest.mark.asyncio
+    async def test_soup_query_enqueues_but_logs_hygiene_gap(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """WHY (issue #69): a comma-less keyword-soup query derives ONE mega-anchor that
+        demands the whole sentence contiguously — the interest ingests NOTHING while
+        looking perfectly healthy (it has a strong spec, so the banned/short gaps stay
+        silent). That is how the 2026-07-25 run returned zero rows for all 26 followed
+        interests with no warning at all. It must warn on the same channel, tagged with
+        its own ``hygiene_gap_kind`` so a reader can tell the three modes apart."""
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://x.com/a", "T", "x.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="soup",
+                interest_slug="ai.humanoid-robots",
+                interest_search_query="humanoid robots robotics news",
+            )
+        ]
+
+        with capture_logs() as logs:
+            await adapter.search_active_interests(active, _SINCE)
+
+        # still enqueued — the guard diagnoses, it does not drop the interest
+        assert client.query.call_count == 1
+        gaps = [log for log in logs if log["event"] == "interest_term_hygiene_gap"]
+        assert len(gaps) == 1
+        assert gaps[0]["log_level"] == "warning"
+        assert gaps[0]["interest_slug"] == "ai.humanoid-robots"
+        assert gaps[0]["hygiene_gap_kind"] == "uncommaed_soup_query"
+        assert "comma" in gaps[0]["fix_suggestion"]
+
+    @pytest.mark.asyncio
+    async def test_hygiene_gap_kinds_are_distinguishable_on_the_shared_channel(
+        self, make_fake_bq_client, make_bq_row
+    ) -> None:
+        """WHY: three different failures share the ``interest_term_hygiene_gap`` event.
+        Without an explicit discriminator a reader cannot tell "unmatchable soup" from
+        "all anchors banned" from "title-only anchors" — the shared-channel trap that
+        cost issue #70 a whole batch. Every emission carries ``hygiene_gap_kind``."""
+        client = make_fake_bq_client(
+            rows=[make_bq_row("https://x.com/a", "T", "x.com")]
+        )
+        adapter = GdeltBigQueryAdapter(client=client)
+        active = [
+            ActiveInterest(
+                interest_id="banned",
+                interest_slug="ai.foundation",
+                interest_search_query="foundation, trust",
+            ),
+            ActiveInterest(
+                interest_id="short",
+                interest_slug="markets.oil",
+                interest_search_query="oil, gas",
+            ),
+            ActiveInterest(
+                interest_id="soup",
+                interest_slug="ai.humanoid-robots",
+                interest_search_query="humanoid robots robotics news",
+            ),
+        ]
+
+        with capture_logs() as logs:
+            await adapter.search_active_interests(active, _SINCE)
+
+        kinds = {
+            log["interest_slug"]: log["hygiene_gap_kind"]
+            for log in logs
+            if log["event"] == "interest_term_hygiene_gap"
+        }
+        assert kinds == {
+            "ai.foundation": "all_anchors_banned",
+            "markets.oil": "no_strong_anchor",
+            "ai.humanoid-robots": "uncommaed_soup_query",
+        }
+
+    @pytest.mark.asyncio
     async def test_healthy_interest_logs_no_hygiene_gap(
         self, make_fake_bq_client, make_bq_row
     ) -> None:

@@ -102,6 +102,14 @@ _BANNED_STANDALONE_ANCHORS: frozenset[str] = frozenset(
 # entirely upstream (the tokenizer floor), so in practice this gates 3-char anchors.
 _SHORT_ANCHOR_MAX_LEN = 3
 
+# Reason (issue #69): a query with NO comma but this many words is keyword *soup*, not
+# an anchor phrase — the 2026-07-04 catalog seed wrote space-joined lists ("humanoid
+# robots robotics news") where the contract wants "humanoid robots, robotics". Soup
+# derives ONE anchor demanding the whole sentence contiguously, so the interest matches
+# nothing while looking healthy (it has a spec, and a strong one). 4 is the floor that
+# spares a genuine 3-word phrase ("Supreme Court ruling") — see the boundary test.
+_SOUP_QUERY_MIN_WORDS = 4
+
 
 @dataclass(frozen=True)
 class AnchorSpec:
@@ -131,10 +139,14 @@ class AnchorDerivation:
         banned_anchors: Single-word anchors dropped because they are banned
             standalone generics — surfaced so the term-hygiene gap is visible
             (never a silent "this interest cannot match" — Rule 12).
+        source_query: The verbatim ``interest_search_query`` these anchors came from,
+            kept so the derivation can diagnose the *shape* of the query itself (see
+            :attr:`has_uncommaed_soup_query`) and not just its anchors.
     """
 
     specs: list[AnchorSpec] = field(default_factory=list)
     banned_anchors: list[str] = field(default_factory=list)
+    source_query: str = ""
 
     @property
     def has_hygiene_gap(self) -> bool:
@@ -151,6 +163,24 @@ class AnchorDerivation:
         any_anchor = bool(self.specs) or bool(self.banned_anchors)
         strong_exists = any(not spec.requires_title for spec in self.specs)
         return any_anchor and not strong_exists
+
+    @property
+    def has_uncommaed_soup_query(self) -> bool:
+        """True when the query is keyword SOUP: zero commas and >= 4 words.
+
+        The contract is a comma-joined list of anchor phrases, so a comma-less query
+        of four or more words is almost certainly a keyword list the author forgot to
+        comma-separate — and it derives ONE anchor requiring all of those words to
+        appear contiguously, which effectively never happens. This is invisible to
+        :attr:`has_hygiene_gap` (the mega-anchor is multi-word, hence "strong"), which
+        is exactly why the 2026-07-25 run returned zero rows for every interest without
+        a single warning. Words are counted RAW (fillers included): a filler like
+        "news" is dropped from the anchor but is still evidence the author was listing
+        keywords, and dropping it first would hide 'hurricane tropical storm news'.
+        """
+        if "," in self.source_query:
+            return False
+        return len(re.findall(r"[a-z0-9]+", self.source_query.lower())) >= _SOUP_QUERY_MIN_WORDS
 
 
 def _phrase_tokens(raw_phrase: str) -> list[str]:
@@ -235,7 +265,9 @@ def derive_anchor_specs(search_query: str) -> AnchorDerivation:
             )
         )
 
-    return AnchorDerivation(specs=specs, banned_anchors=banned_anchors)
+    return AnchorDerivation(
+        specs=specs, banned_anchors=banned_anchors, source_query=search_query
+    )
 
 
 def evaluate_anchor_match(

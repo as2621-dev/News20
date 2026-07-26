@@ -168,6 +168,74 @@ class TestCriterion5TermHygieneGapSurfaced:
         assert derivation.has_hygiene_gap is False
 
 
+class TestUncommaedSoupQueryGuard:
+    """A comma-less multi-word query is a soup query — one unmatchable mega-anchor.
+
+    WHY (issue #69): the 2026-07-04 catalog seed wrote space-joined keyword soup
+    ('humanoid robots robotics news') where the contract wants comma-joined anchor
+    phrases. Such a query derives exactly ONE anchor demanding the whole sentence
+    CONTIGUOUSLY, so the interest matches nothing and ingests nothing — silently,
+    because it has a spec and a *strong* one, so ``has_hygiene_gap`` stays False.
+    On 2026-07-25 that shape returned ``rows_returned: 0`` across all 26 of the
+    founder's followed interests. This predicate is what makes it loud (Rule 12).
+    """
+
+    def test_soup_query_is_flagged(self) -> None:
+        """WHY: the exact live shape — no commas, four+ words — must be detected."""
+        derivation = derive_anchor_specs("humanoid robots robotics news")
+        assert derivation.has_uncommaed_soup_query is True
+        # ...and it is invisible to the pre-existing gap check, which is the trap:
+        assert derivation.has_hygiene_gap is False
+        assert [s.anchor_phrase for s in derivation.specs] == ["humanoid robots robotics"]
+
+    def test_commaed_query_is_never_soup(self) -> None:
+        """WHY: a comma means the author used the anchor-list contract — never warn."""
+        soup_length_but_commaed = "data center buildout, hyperscale data center, Stargate"
+        assert derive_anchor_specs(soup_length_but_commaed).has_uncommaed_soup_query is False
+
+    def test_short_comma_less_phrase_is_not_soup(self) -> None:
+        """WHY (boundary): a genuine 3-token phrase ('Supreme Court ruling') is a
+        legitimate single anchor — flagging it would train the reader to ignore the
+        warning. The threshold is >= 4 tokens, and 3 must stay silent."""
+        assert derive_anchor_specs("Supreme Court ruling").has_uncommaed_soup_query is False
+        assert derive_anchor_specs("large language models news").has_uncommaed_soup_query is True
+
+    def test_filler_words_still_count_toward_the_soup_threshold(self) -> None:
+        """WHY: fillers are dropped from the anchor but NOT from the diagnosis —
+        'hurricane tropical storm news' derives the unmatchable 3-token phrase
+        'hurricane tropical storm', and it is soup precisely because the author was
+        listing keywords. Counting raw words is what catches it."""
+        assert derive_anchor_specs("hurricane tropical storm news").has_uncommaed_soup_query is True
+
+    def test_empty_query_is_not_soup(self) -> None:
+        """WHY: an empty/queryless interest is the separate 'no usable terms' skip."""
+        assert derive_anchor_specs("").has_uncommaed_soup_query is False
+
+
+class TestAcronymOnlyInterestsSurvive:
+    """Acronym-only interests derive a title-gated anchor — they are never dropped.
+
+    WHY (issue #69 edge case): 'GDP' / 'CPI' are the whole interest for the founder's
+    macro slices. A backfill that dropped them (or a tokenizer floor that ate them)
+    would silently delete those interests; the contract is that they survive as
+    ``requires_title`` anchors — matchable, just only when the story is ABOUT them.
+    """
+
+    @pytest.mark.parametrize("acronym", ["GDP", "CPI", "NBA", "NFL"])
+    def test_acronym_derives_one_title_gated_spec(self, acronym: str) -> None:
+        derivation = derive_anchor_specs(acronym)
+        assert [s.anchor_phrase for s in derivation.specs] == [acronym.lower()]
+        assert derivation.specs[0].requires_title is True
+        assert derivation.banned_anchors == []
+
+    def test_acronym_paired_with_a_strong_anchor_clears_the_gap(self) -> None:
+        """WHY: the backfill's fix for an acronym-only interest is to ADD a strong
+        companion anchor, not to remove the acronym — both must survive."""
+        derivation = derive_anchor_specs("GDP, gross domestic product")
+        assert [s.requires_title for s in derivation.specs] == [True, False]
+        assert derivation.has_hygiene_gap is False
+
+
 class TestRc3KnownFalsePositives:
     """The four named RC3 false positives — three the lexical key closes, one #51's."""
 

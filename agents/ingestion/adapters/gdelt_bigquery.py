@@ -469,6 +469,7 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                     # silent unmatchable interest (Rule 12).
                     logger.warning(
                         "interest_term_hygiene_gap",
+                        hygiene_gap_kind="all_anchors_banned",
                         interest_slug=interest.interest_slug,
                         banned_anchors=derivation.banned_anchors,
                         usable_anchors=0,
@@ -483,12 +484,31 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                         fix_suggestion="interest_search_query had no usable terms; skipped this run",
                     )
                 continue
+            if derivation.has_uncommaed_soup_query:
+                # Term-hygiene gap (issue #69): the query is a comma-less keyword list, so
+                # its single anchor demands the whole sentence CONTIGUOUSLY and matches
+                # nothing — invisible to has_hygiene_gap (the mega-anchor looks strong),
+                # which is how the 2026-07-25 run returned 0 rows in silence. Surface it;
+                # the anchors are still enqueued (the guard diagnoses, never drops).
+                logger.warning(
+                    "interest_term_hygiene_gap",
+                    hygiene_gap_kind="uncommaed_soup_query",
+                    interest_slug=interest.interest_slug,
+                    usable_anchors=len(specs),
+                    anchor_phrases=[spec.anchor_phrase for spec in specs],
+                    fix_suggestion="interest_search_query is comma-less keyword soup — "
+                    "its one anchor must match every word contiguously, so it ingests "
+                    "nothing. Rewrite it as comma-separated anchor phrases "
+                    "('humanoid robots, robotics') — see scripts/seed_catalog/"
+                    "backfill_anchor_queries.py",
+                )
             if derivation.has_hygiene_gap:
                 # Term-hygiene gap (criterion 5): the interest still has anchors but every
                 # usable one is short/ambiguous (title-only), so it can match nothing on
                 # the story body/entities — surface it while still enqueuing the anchors.
                 logger.warning(
                     "interest_term_hygiene_gap",
+                    hygiene_gap_kind="no_strong_anchor",
                     interest_slug=interest.interest_slug,
                     banned_anchors=derivation.banned_anchors,
                     usable_anchors=len(specs),
