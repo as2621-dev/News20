@@ -263,6 +263,24 @@ class TestOutletSuffixStripping:
         title = "Moldova signs the grid deal - Newsroom staff report the details"
         assert clean_candidate_title(title, outlet_domain="news.yam.md") == title
 
+    def test_short_outlet_key_matches_exactly_but_never_as_a_prefix(self) -> None:
+        """A 3-letter outlet name may END a title but must not swallow prose.
+
+        WHY: "art.com" would otherwise turn "… - Art of the deal, explained" into a
+        prefix hit and eat the clause. Exact matches at that length are still the right
+        call — "… - CNN" is a masthead, not a sentence — so only the PREFIX rule is
+        length-gated.
+        """
+        prose = "Ohio fab breaks ground - Art of the deal, explained"
+        assert clean_candidate_title(prose, outlet_domain="art.com") == prose
+        assert (
+            clean_candidate_title(
+                "Fed holds rates steady as inflation cools - CNN",
+                outlet_domain="cnn.com",
+            )
+            == "Fed holds rates steady as inflation cools"
+        )
+
     def test_missing_outlet_metadata_still_decodes(self) -> None:
         """With no domain to match, entity decoding must still happen."""
         assert (

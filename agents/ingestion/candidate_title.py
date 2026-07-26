@@ -74,6 +74,13 @@ _GENERIC_DOMAIN_LABELS: frozenset[str] = frozenset(
 )
 _MIN_OUTLET_KEY_LENGTH = 3
 
+# Reason: a tail that merely BEGINS with the outlet key is the weaker signal (it is what
+# catches the fused double-headline), so it needs a longer key than an exact match does.
+# At three characters it would fire on ordinary prose — "Art of the deal…" on art.com,
+# "One in five…" on one.com — while exact-match outlets that short (cnn.com, bbc.co.uk,
+# npr.org) still work, because "… - CNN" matches the key outright.
+_MIN_PREFIX_MATCH_KEY_LENGTH = 4
+
 # Reason: outlets whose masthead the DOMAIN does not spell out ("Bollywood News" on
 # bollywoodhungama.com, "Ipswich Town News" on twtd.co.uk) need a shape rule instead.
 # It is deliberately narrow — a SHORT, fully capitalized tail whose last word is a site
@@ -137,7 +144,11 @@ def _looks_like_site_label(suffix_text: str) -> bool:
 def _is_outlet_suffix(suffix_text: str, outlet_keys: set[str]) -> bool:
     """True when the tail is the outlet talking, not part of the headline."""
     suffix_key = comparison_key(suffix_text)
-    if suffix_key and any(suffix_key.startswith(key) for key in outlet_keys):
+    if suffix_key and any(
+        suffix_key == key
+        or (len(key) >= _MIN_PREFIX_MATCH_KEY_LENGTH and suffix_key.startswith(key))
+        for key in outlet_keys
+    ):
         return True
     return _looks_like_site_label(suffix_text)
 
