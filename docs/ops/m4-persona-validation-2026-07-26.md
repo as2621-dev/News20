@@ -345,3 +345,135 @@ POSTER_MODE=batch \
   poster cost.
 - After it lands: browser-verify the three rendered feeds (niche sections, a fallback
   label, beyond-bubble) and attach screenshots — the demoable acceptance criterion.
+
+---
+
+# Day 4 — the armed production run (2026-07-26, same UTC day)
+
+The single founder-approved paid run. Executed 17:13–18:05 UTC, finishing well
+before UTC midnight, so no pull-day straddle.
+
+```
+RUN_LIVE_BATCH=1 ONLY_USER_EMAIL=<3 personas> INCLUDE_SEED_USERS=1 \
+MAX_PRODUCE=0 SHORTLIST_ONLY=0 PRODUCE_REELS=1 POSTER_MODE=batch
+```
+
+## What it produced — actual spend
+
+| metric | value |
+|---|---|
+| candidates | 210 |
+| **reels produced** (script + TTS + persist) | **26** |
+| standby promotions (#74 recovery) | **0** (no produced reel failed) |
+| skipped by gate | 174 |
+| **posters generated** (Nano Banana Pro, Batch API ~50% off) | **23** |
+| posterless slots | **0** (56 feed slots, all with a poster) |
+| users receiving feeds | 6 |
+
+Poster fill is the documented second pass (`POSTER_MODE=batch` produces reels with
+no inline poster, then `scripts/fill_batch_posters.py`). It takes ONE email, so it
+ran three times: founder needed 21, cricket 2 (15 already shared), chip 0 (all 18
+shared). `prep-failed: 0`, `still posterless: 0` on every pass.
+
+All five run DoD checks passed (≥1 story produced, feeds for ≥2 users, ≥2 distinct
+feeds, `story_analytics` and `detail_key_points` non-empty).
+
+## Census cross-check — the stored-tag instrument agrees exactly
+
+With stories now produced, `story_interests` rows exist and the ORIGINAL instrument
+(`scripts/coverage_census.py`) works again. It reads:
+
+**91.7% (11/12) — identical to the day-3 selection-level census, with the same single
+dry cell (`business.venture-capital`).**
+
+This is a strong independent validation of `agents/pipeline/selection_census.py`, and
+it retroactively confirms the review-panel HIGH: the *uncorrected* version reported
+100%, which would have disagreed with this stored-tag read by exactly the standby cell.
+
+## Feed composition — and the criterion that FAILS
+
+| persona | slots | sections written |
+|---|---|---|
+| founder | 21 | Foundation models 4, Venture capital 5, Dev tools 5, Beyond your bubble 7 |
+| cricket | 17 | IPL 6, Beyond your bubble 11 |
+| chip | 18 | **Beyond your bubble 18 — no niche sections at all** |
+
+**Root cause — the interview does not create niche sections (NEW, and it is the
+blocker).** `user_feed_allocation`'s niche rows are matched to sections by
+`allocation_interest_id`. Checking each persona's niche allocation rows against the
+interests they actually follow:
+
+- founder: 3/3 **MATCH**
+- cricket: 2/3 match, `Team India cricket` → `sport.cricket.india-team` **STALE**
+- chip: **0/3 match** — `TSMC`, `Nvidia chips`, `Chip export controls` all point at
+  `tech.semiconductors.*` / `geopolitics.chip-export-controls`, which chip no longer
+  follows after re-onboarding.
+
+Every niche section row in the database is a **leftover from day 1's standalone
+`scripts/allocate_niche_sections.py`**. The real onboarding flow's terminal persist
+calls `saveUserFeedAllocation`, which writes only COARSE category rows — it creates
+**zero** niche section rows. This is the #12 gap, now demonstrated end-to-end: day 1
+avoided completing onboarding in-app precisely because its persister clobbers niche
+allocation, and day 3 completed it for real, so the seam finally failed in the open.
+
+Founder's sections rendered only because its interview happened to re-mint the same
+three slugs day 1 had seeded. **A genuinely new user would get zero niche sections** —
+coarse categories plus Beyond-your-bubble, which is the pre-niche product.
+
+Consequences visible in the rows: chip, a chip-industry persona, has a feed whose
+Beyond-your-bubble slots include *"Shaheen Afridi reportedly nearly quit Lanka
+Premier League"* and *"India Reclaims Top Spot in Men's T20I Rankings"*.
+
+## A false positive introduced by day 3's own tuning (Rule 12)
+
+Cricket's `IPL` section, positions 2–6, is filled by a level-1 climb that includes
+*"UK declined to support Karim Khan before ICC removal"* — the International Criminal
+Court, not the International Cricket Council. **This is a direct consequence of the
+day-3 tuning**, which added the bare token `ICC` to `sport.cricket.world-cup`. The
+entity-over-phrase rewrite raises recall and, on ambiguous acronyms, costs precision.
+Fix: narrow to unambiguous forms (`ICC Cricket`, `T20 World Cup`, `ODI World Cup`) and
+drop the bare `ICC`. **Not applied here** — the run is spent and a query change now
+would invalidate the measured before/after. Recorded as a follow-on.
+
+Founder's `Venture capital` section shows the same shape more mildly: its level-1
+climb pulled *"Graphics card prices in China surge"* and *"Modder adds cheap Nvidia
+Tesla V100 to gaming PC"* under a VC header.
+
+## Browser verification — partial, and honestly labelled
+
+Real browser (puppeteer + system Chrome, 430×932), real persona sessions, real prod
+data, no stubs. Verified and screenshotted (`docs/ops/evidence/m4-day4/`):
+
+- **founder slot 1**: the `FOUNDATION MODELS — 4` section chip, the real generated
+  poster, headline, and the audio/karaoke start affordance all render
+  (`founder-feed-slot01.png`).
+- **Honest fallback label in the wild**: `"Nothing new in Foundation models today —
+  here's AI"` (`[data-testid="section-fallback"]`).
+- **Beyond-your-bubble in the wild**: `Beyond your bubble — 18` on chip slot 1
+  (`chip-feed-slot01.png`) — which is itself the defect above.
+- **Posters load**: every sampled slot decoded an image; 0/56 slots are posterless
+  in the database.
+
+**NOT verified in-browser (Rule 12):** the multi-slot walkthrough. The reel is a
+controlled scroll-snap component (`BlipReel.tsx:360`) that resets programmatic
+`scrollTop`, so the harness could not advance past slot 1; three approaches were
+tried (wheel events, incremental `scrollTop`, absolute `scrollTo`). Section
+composition beyond slot 1 is therefore cited from the persisted `daily_feeds` rows,
+not from screenshots. A real finger-swipe would work; the automation does not. Worth
+a proper `browser-use` walkthrough before any demo.
+
+## Day-4 acceptance-criteria scoreboard
+
+| criterion | state |
+|---|---|
+| 3 personas: interview → batch → feed with **niche sections** rendering | **FAIL** — chip has 0 niche sections, cricket 1 of 3. Root cause above. Not patched (no DB surgery) |
+| Hit rate vs ≥60% over ≥3 days | **PASS** — 55.6% / 100% / 91.7%; day 4 stored-tag census confirms 91.7% |
+| Tuning pass documented, before/after | **PASS** — and its precision cost is now recorded too |
+| Honest fallback + beyond-bubble in the wild | **PASS** — both screenshotted |
+| Watch-items baselined | **PASS** |
+| Silently-skipped steps named | **PASS** — the browser walk limit and the ICC regression are both named here |
+| Go/no-go recorded with evidence | **PASS** — GO (conditional), day 3 |
+
+**#10 stays OPEN / `status:in-progress`.** The niche-section criterion genuinely
+fails through the real user path, and the honest fix is a code slice, not a hand-written
+allocation row.

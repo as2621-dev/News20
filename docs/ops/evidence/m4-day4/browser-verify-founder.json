@@ -1,0 +1,1977 @@
+{
+  "persona": "founder",
+  "slots_walked": 21,
+  "section_chips": [
+    "Foundation models — 4"
+  ],
+  "fallback_labels": [
+    "Nothing new in Foundation models today — here's AI"
+  ],
+  "beyond_bubble_seen": false,
+  "slots_with_loaded_image": 21,
+  "headlines": [
+    "Nvidia and Microsoft urge Congress to support open-source AI",
+    "Nvidia and Microsoft urge Congress to support open-source AI",
+    "Nvidia and Microsoft urge Congress to support open-source AI",
+    "Nvidia and Microsoft urge Congress to support open-source AI",
+    "Nvidia and Microsoft urge Congress to support open-source AI",
+    "Nvidia and Microsoft urge Congress to support open-source AI",
+    "Nvidia and Microsoft urge Congress to support open-source AI",
+    "Nvidia and Microsoft urge Congress to support open-source AI"
+  ],
+  "slots": [
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    },
+    {
+      "counter": null,
+      "section_chip": "Foundation models — 4",
+      "fallback_label": "Nothing new in Foundation models today — here's AI",
+      "headline": "Nvidia and Microsoft urge Congress to support open-source AI",
+      "poster_images": [
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6f037f74a56/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-46b7d28b1e11/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-2b7e93b14564/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-b3bd734f573f/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-e5e7678da85b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-50fe620f989b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-a6802e369300/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-9366175a4b09/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-331a071519e5/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-0c97ba024348/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-8a0dc96a3ac9/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-84690da5a2d8/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-1cecd04e5fb0/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-44bf6e90328b/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-f8e287d10c3c/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-4b24eb77daf6/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-7dc2ebdb96fe/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-945b6e86d703/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-560ba08f3934/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-11568e510bfd/poster.webp",
+          "loaded": true
+        },
+        {
+          "src": "https://cerfennlcgureyifraqy.supabase.co/storage/v1/object/public/story-posters/cand-20706ec30df2/poster.webp",
+          "loaded": true
+        }
+      ],
+      "any_image_loaded": true
+    }
+  ]
+}
