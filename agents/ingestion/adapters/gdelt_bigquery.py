@@ -35,6 +35,15 @@ which over-excludes e.g. "Israel Gaza ceasefire" articles lacking the word
 "ceasefire".) No interest→entity link exists in the schema, so matching is
 query-driven; the entity registry stays a ranking-time concern.
 
+**Language (English-only admission).** blip is an English-language product, so every
+candidate must clear ``candidate_language.evaluate_language_admission`` — a
+deterministic, zero-cost gate (no LLM, no language-ID API). Its authoritative half
+(GDELT's ``TranslationInfo`` source-language stamp) is pushed into ``_BATCH_SQL``'s
+``raw`` CTE so a translated foreign-language document never consumes a per-interest
+top-K slot; its title-side backstop runs over the returned rows in
+``_rows_to_candidates``. Both fail OPEN — a row with no language evidence is admitted
+and counted in the ``gdelt_language_admission_blind`` warning, never dropped silently.
+
 Body extraction is source-agnostic (fetch the URL + ``trafilatura``), so it is
 delegated to a composed ``GdeltDocAdapter`` rather than duplicated.
 
@@ -56,6 +65,11 @@ from typing import Any
 
 from agents.ingestion.adapters.base import BaseNewsAdapter
 from agents.ingestion.adapters.gdelt_doc import GdeltDocAdapter
+from agents.ingestion.candidate_language import (
+    LANGUAGE_EVIDENCE_NONE,
+    build_language_filter_sql,
+    evaluate_language_admission,
+)
 from agents.ingestion.models import ActiveInterest, CandidateStory
 from agents.shared.exceptions import AdapterFetchError
 from agents.shared.logger import get_logger
@@ -201,6 +215,14 @@ def _parse_v2_themes(v2_themes: Any) -> list[str]:
     return codes
 
 
+# Reason: the English-only predicate (slice #63) — GDELT's own ``TranslationInfo``
+# source-language stamp, evaluated in the ``raw`` CTE so a machine-translated
+# foreign-language document never even consumes a per-interest top-K slot. Built by
+# the pure ``candidate_language`` module so the SQL and its Python twin
+# (``evaluate_language_admission``, which additionally applies the title-side backstop
+# over the returned rows) cannot disagree on the authoritative rule.
+_LANGUAGE_FILTER_SQL = build_language_filter_sql()
+
 # Reason: one parameterized query — interest terms arrive as a STRUCT array
 # (@interest_terms, one row per (interest, anchor)), so the SQL is fixed and
 # injection-safe regardless of interest count. Each anchor is a PHRASE regex
@@ -214,7 +236,7 @@ def _parse_v2_themes(v2_themes: Any) -> list[str]:
 # first (title_match_count) — an anchor in the headline means the story is *about*
 # the interest, vs an incidental body/entity-tag mention (which made multi-country
 # roundups outrank focused stories) — then total match_count, then recency.
-_BATCH_SQL = r"""
+_BATCH_SQL = rf"""
 WITH raw AS (
   SELECT
     DocumentIdentifier AS url,
@@ -222,16 +244,18 @@ WITH raw AS (
     DATE AS gkg_date,
     NULLIF(SharingImage, '') AS sharing_image,
     REGEXP_EXTRACT(Extras, r'<PAGE_TITLE>(.*?)</PAGE_TITLE>') AS title,
-    V2Persons, V2Organizations, V2Locations, V2Themes
+    V2Persons, V2Organizations, V2Locations, V2Themes, TranslationInfo
   FROM `gdelt-bq.gdeltv2.gkg_partitioned`
   WHERE _PARTITIONTIME >= @since_partition
     AND DATE >= @since_date
     AND DocumentIdentifier IS NOT NULL AND DocumentIdentifier != ''
     AND SourceCommonName IS NOT NULL AND SourceCommonName != ''
+    {_LANGUAGE_FILTER_SQL}
 ),
 base AS (
   SELECT
     url, outlet, gkg_date, sharing_image, title, V2Themes AS v2_themes,
+    TranslationInfo AS translation_info,
     LOWER(IFNULL(title, '')) AS title_hay,
     LOWER(CONCAT(
       IFNULL(title, ''), ' ', IFNULL(V2Persons, ''), ' ',
@@ -242,6 +266,7 @@ base AS (
 matched AS (
   SELECT
     b.url, b.outlet, b.gkg_date, b.sharing_image, b.title, b.v2_themes,
+    b.translation_info,
     t.interest_id, t.interest_slug,
     COUNT(DISTINCT t.term) AS match_count,
     COUNT(DISTINCT IF(REGEXP_CONTAINS(b.title_hay, t.term), t.term, NULL)) AS title_match_count
@@ -250,7 +275,7 @@ matched AS (
     ON REGEXP_CONTAINS(b.hay, t.term)
    AND (NOT t.requires_title OR REGEXP_CONTAINS(b.title_hay, t.term))
   GROUP BY b.url, b.outlet, b.gkg_date, b.sharing_image, b.title, b.v2_themes,
-           t.interest_id, t.interest_slug
+           b.translation_info, t.interest_id, t.interest_slug
 ),
 ranked AS (
   SELECT *, ROW_NUMBER() OVER (
@@ -259,7 +284,7 @@ ranked AS (
   ) AS rn
   FROM matched
 )
-SELECT url, outlet, gkg_date, sharing_image, title, v2_themes,
+SELECT url, outlet, gkg_date, sharing_image, title, v2_themes, translation_info,
        interest_id, interest_slug, match_count, title_match_count
 FROM ranked
 WHERE rn <= @per_interest_limit
@@ -636,14 +661,34 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
     def _rows_to_candidates(
         self, rows: list[dict[str, Any]], stamp_interest: bool
     ) -> list[CandidateStory]:
-        """Map GKG rows → CandidateStory list (one per row; rows are per-interest)."""
+        """Map GKG rows → CandidateStory list (one per row; rows are per-interest).
+
+        Also the English-only gate's Python half (#63): every row is put through
+        ``evaluate_language_admission``, which re-checks GDELT's source-language stamp
+        (the ``_BATCH_SQL`` half) AND adds the title-side backstop the SQL cannot do —
+        so a foreign-language page that GDELT filed in its English feed is still
+        rejected. Rejections and blind (no-evidence) admissions are logged in
+        AGGREGATE, once per call: per-row logging of a 5000-row batch would bury the
+        signal, but a silent filter would violate Rule 12.
+        """
         candidates: list[CandidateStory] = []
+        rejected_by_reason: dict[str, int] = {}
+        blind_admissions = 0
         for row in rows:
             url = (row.get("url") or "").strip()
             title = (row.get("title") or "").strip()
             domain = (row.get("outlet") or "").strip().lower()
             if not url or not title or not domain:
                 continue
+            language_verdict = evaluate_language_admission(
+                title, row.get("translation_info")
+            )
+            if not language_verdict.is_admitted:
+                reason = language_verdict.rejection_reason or "unknown"
+                rejected_by_reason[reason] = rejected_by_reason.get(reason, 0) + 1
+                continue
+            if language_verdict.language_evidence == LANGUAGE_EVIDENCE_NONE:
+                blind_admissions += 1
             published_utc = self._parse_gkg_date(row.get("gkg_date"))
             social_image = (row.get("sharing_image") or None) or None
             candidate_themes = _parse_v2_themes(row.get("v2_themes"))
@@ -666,11 +711,34 @@ class GdeltBigQueryAdapter(BaseNewsAdapter):
                     candidate_outlet_domain=domain,
                     candidate_outlet_name=domain,
                     candidate_published_utc=published_utc,
+                    candidate_language=language_verdict.source_language_code,
                     candidate_social_image_url=social_image,
                     candidate_matched_interest_id=matched_interest_id,
                     candidate_matched_interest_slug=matched_interest_slug,
                     candidate_themes=candidate_themes,
                 )
+            )
+        if rejected_by_reason:
+            logger.info(
+                "gdelt_non_english_candidates_rejected",
+                rows_in=len(rows),
+                rejected_total=sum(rejected_by_reason.values()),
+                rejected_by_reason=rejected_by_reason,
+                candidates_admitted=len(candidates),
+            )
+        if blind_admissions:
+            # Reason (Rule 12): these rows carried NO language evidence either way —
+            # no GDELT stamp and no English function words — so the gate failed OPEN
+            # and admitted them. That is deliberate (over-rejection silently starves
+            # the pool), but it must be countable, never invisible.
+            logger.warning(
+                "gdelt_language_admission_blind",
+                rows_in=len(rows),
+                blind_admissions=blind_admissions,
+                fix_suggestion="Admitted with no language evidence (no GDELT "
+                "TranslationInfo stamp, no English function words in the title) — "
+                "fail-open by design; if junk reaches the shortlist, widen "
+                "candidate_language._FOREIGN_FUNCTION_WORDS from the rejection log",
             )
         return candidates
 

@@ -29,6 +29,7 @@ from agents.ingestion.adapters.gdelt_bigquery import (
     match_terms,
     recall_terms,
 )
+from agents.ingestion.candidate_language import build_language_filter_sql
 from agents.ingestion.dedup import StoryClusterer
 from agents.ingestion.models import ActiveInterest
 from agents.shared.exceptions import AdapterFetchError
@@ -673,3 +674,134 @@ class TestLexicalKeyWiring:
         terms = {s.struct_values["term"] for s in structs}
         assert r"\bfoundation\s+models\b" in terms
         assert r"\bfoundation\b" not in terms
+
+
+class TestEnglishOnlyAdmissionWiring:
+    """The English-only gate (slice #63) wired into the adapter — the SQL⇄Python twin.
+
+    Behaviour lives in ``test_candidate_language.py`` (the pure module IS the
+    specification). These prove the WIRING: the authoritative srclc rule reaches the
+    SQL's ``raw`` CTE (so foreign rows never eat a per-interest top-K slot), the
+    returned rows carry the stamp back so the Python backstop can re-check it, and
+    both rejection and fail-open admission are logged — a silent filter would be
+    indistinguishable from a broken query.
+    """
+
+    def test_raw_cte_carries_the_language_predicate(self) -> None:
+        """WHY: this predicate is the cheap half. Dropped from the SQL, every
+        machine-translated foreign document re-enters the ranking window and the
+        top-K cap starts spending slots on stories no reader of blip can use."""
+        assert build_language_filter_sql() in _BATCH_SQL
+        assert "TranslationInfo" in _BATCH_SQL
+
+    def test_translation_info_reaches_the_final_projection(self) -> None:
+        """WHY: the Python backstop re-reads the stamp off the row. If the column is
+        dropped from the projection the gate degrades to title-only WITHOUT any error
+        — exactly the silent downgrade Rule 12 forbids."""
+        projection = _BATCH_SQL.rsplit("SELECT", 1)[1].split("FROM ranked", 1)[0]
+        assert "translation_info" in projection
+
+    def test_non_english_row_is_dropped_and_counted(self, make_bq_row) -> None:
+        """A German row from the 2026-07-20 shortlist never becomes a candidate, and
+        the drop is reported with its reason (aggregate, not per-row)."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [
+            make_bq_row(
+                "https://gamezone.de/a",
+                "Valve warnt: PC-Hardware k&#xF6;nnte noch teurer werden",
+                "gamezone.de",
+            ),
+            make_bq_row(
+                "https://cnbc.com/b",
+                "TSMC is accelerating Arizona fab buildout to capitalize on AI demand",
+                "cnbc.com",
+            ),
+        ]
+
+        with capture_logs() as logs:
+            cands = adapter._rows_to_candidates(rows, stamp_interest=True)
+
+        assert [c.candidate_outlet_domain for c in cands] == ["cnbc.com"]
+        rejected = [
+            log for log in logs if log["event"] == "gdelt_non_english_candidates_rejected"
+        ]
+        assert len(rejected) == 1
+        assert rejected[0]["rejected_total"] == 1
+        assert rejected[0]["rejected_by_reason"] == {"foreign_function_words": 1}
+
+    def test_gdelt_stamp_on_the_row_rejects_a_fluent_english_title(
+        self, make_bq_row
+    ) -> None:
+        """WHY: the albeu.com case — an Albanian story whose title arrived translated.
+        Only the stamp can catch it, and the adapter must actually read the column."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [
+            make_bq_row(
+                "https://albeu.com/a",
+                "The canvasser pokes his nose into the private lives of Albanians",
+                "albeu.com",
+                translation_info="srclc:sqi;eng:Moses 2.1.1",
+            )
+        ]
+        assert adapter._rows_to_candidates(rows, stamp_interest=True) == []
+
+    def test_english_stamped_row_carries_its_language_code(self, make_bq_row) -> None:
+        """An admitted row records the source language GDELT reported (None when the
+        stamp was blank) — so the decision is inspectable downstream, not inferred."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [
+            make_bq_row(
+                "https://cnbc.com/a",
+                "TSMC accelerates its Arizona fab buildout",
+                "cnbc.com",
+                translation_info="srclc:eng;eng:passthru",
+            ),
+            make_bq_row("https://cnbc.com/b", "Fed holds rates steady", "cnbc.com"),
+        ]
+        cands = adapter._rows_to_candidates(rows, stamp_interest=True)
+        assert [c.candidate_language for c in cands] == ["eng", None]
+
+    def test_blind_admission_is_admitted_and_warned(self, make_bq_row) -> None:
+        """The boundary criterion: a row with NO language metadata and no English
+        function words is ADMITTED (fail-open — over-rejection silently starves the
+        pool) and the blind admission is counted in a structured warning."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [
+            make_bq_row(
+                "https://ibtimes.co.uk/a",
+                "PlayStation 6 Release Date Leak: Sony Patent Reveals Cooling Upgrade",
+                "ibtimes.co.uk",
+            )
+        ]
+
+        with capture_logs() as logs:
+            cands = adapter._rows_to_candidates(rows, stamp_interest=True)
+
+        assert len(cands) == 1
+        blind = [log for log in logs if log["event"] == "gdelt_language_admission_blind"]
+        assert len(blind) == 1
+        assert blind[0]["blind_admissions"] == 1
+        assert blind[0]["log_level"] == "warning"
+        assert "fix_suggestion" in blind[0]
+
+    def test_all_english_rows_log_nothing(self, make_bq_row) -> None:
+        """WHY: the gate must be quiet on a clean batch — a warning that fires every
+        run is a warning nobody reads (and the fail-open count would be meaningless)."""
+        adapter = GdeltBigQueryAdapter()
+        rows = [
+            make_bq_row(
+                "https://cnbc.com/a",
+                "TSMC is accelerating its Arizona fab buildout to meet AI demand",
+                "cnbc.com",
+            )
+        ]
+
+        with capture_logs() as logs:
+            adapter._rows_to_candidates(rows, stamp_interest=True)
+
+        assert not [
+            log
+            for log in logs
+            if log["event"]
+            in {"gdelt_non_english_candidates_rejected", "gdelt_language_admission_blind"}
+        ]

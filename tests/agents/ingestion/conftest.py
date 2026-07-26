@@ -189,6 +189,7 @@ def make_bq_row():
         match_count: int = 1,
         title_match_count: int = 1,
         v2_themes: str | None = None,
+        translation_info: str | None = None,
     ) -> dict:
         return {
             "url": url,
@@ -197,6 +198,9 @@ def make_bq_row():
             "sharing_image": sharing_image,
             "title": title,
             "v2_themes": v2_themes,
+            # Reason: GDELT leaves TranslationInfo blank for documents already in
+            # English, so None is the realistic default for the rows tests build.
+            "translation_info": translation_info,
             "interest_id": interest_id,
             "interest_slug": interest_slug,
             "match_count": match_count,
